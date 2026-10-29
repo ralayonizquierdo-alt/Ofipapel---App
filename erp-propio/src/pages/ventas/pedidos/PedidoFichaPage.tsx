@@ -257,12 +257,12 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [preciosNivel, setPreciosNivel] = useState<{ nivel: number; pvp: number }[]>([])
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
-  // «Ver Presup.» / «Ver Pedido» (Ctrl+F5): buscar por nº, cliente o vendedor.
+  // «Ver Presup.» / «Ver Pedido» (F5): buscar por nº, cliente o vendedor.
   const [verTexto, setVerTexto] = useState('')
   const [verAbierto, setVerAbierto] = useState(false)
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 'F5') {
+      if (e.key === 'F5') {
         e.preventDefault()
         e.stopPropagation()
         setVerAbierto(true)
@@ -872,7 +872,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
               onChange={(e) => patch({ web_pedido_id: e.target.value === '' ? null : Number(e.target.value.replace(/\D/g, '')) })}
             />
           </Campo>
-          <Campo label={presupuestos ? 'Ver Presup. (Ctrl+F5)' : 'Ver Pedido (Ctrl+F5)'} title="Busca por nº, cliente o vendedor y pulsa Intro">
+          <Campo label={presupuestos ? 'Ver Presup.' : 'Ver Pedido'} title="Ver F5">
             <div className="flex">
               <GwInput
                 value={verTexto}
@@ -1138,6 +1138,28 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           clienteCodigo={cab.cliente_codigo}
           clienteNombre={cab.nombre_cliente}
           total={tot.total}
+          datosPdf={() => ({
+            tienda: cab.tienda_terminal_codigo,
+            numero: cab.numero as number,
+            fecha: cab.fecha,
+            validoHasta: cab.fecha_fin,
+            clienteCodigo: cab.cliente_codigo,
+            clienteNombre: cab.nombre_cliente,
+            nif: cab.nif_cliente,
+            vendedor: cab.responsable_codigo,
+            observaciones: cab.observaciones,
+            lineas: lineas.map((l, i) => ({
+              codigo: l.codigo_venta || l.articulo_codigo,
+              descripcion: l.descripcion,
+              cantidad: l.cantidad,
+              precio: l.precio,
+              descuento_pct: l.descuento_pct,
+              importe: tot.porLinea[i]?.sub ?? 0,
+            })),
+            base: tot.subtotal2 + tot.canon,
+            igic: tot.igic,
+            total: tot.total,
+          })}
         />
       )}
 

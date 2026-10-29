@@ -10,6 +10,8 @@ import { supabase } from '../../../lib/supabase'
 import { valorParametro } from '../../../lib/parametros'
 import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { SeguimientoFormulario } from './SeguimientoFormulario'
+import { enviarPresupuesto, type Medio } from './enviarPresupuesto'
+import type { DatosPdf } from './presupuestoPdf'
 import { ESTADOS_PRESUPUESTO, MOTIVOS_PERDIDA, type EstadoPresupuesto } from './estadosPresupuesto'
 
 export { ESTADOS_PRESUPUESTO, MOTIVOS_PERDIDA, type EstadoPresupuesto } from './estadosPresupuesto'
@@ -42,6 +44,7 @@ export function SeguimientoPresupuesto({
   clienteCodigo,
   clienteNombre,
   total,
+  datosPdf,
 }: {
   d: DatosSeguimiento
   editando: boolean
@@ -53,6 +56,8 @@ export function SeguimientoPresupuesto({
   clienteCodigo?: string | null
   clienteNombre?: string | null
   total?: number | null
+  /** Datos para el PDF del presupuesto (cabecera, líneas y totales de la ficha). */
+  datosPdf?: () => DatosPdf
 }) {
   const navigate = useNavigate()
   const [empleados, setEmpleados] = useState<{ codigo: string; nombre: string; numero_operario: string | null }[]>([])
@@ -60,6 +65,8 @@ export function SeguimientoPresupuesto({
   const [error, setError] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const [formulario, setFormulario] = useState(false)
+  const [enviando, setEnviando] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   useEffect(() => {
     supabase
       .from('empleado')
@@ -84,6 +91,34 @@ export function SeguimientoPresupuesto({
     if (e === 'aceptado' || e === 'perdido') p.proximo_contacto = null
     if (e !== 'perdido') p.motivo_perdida = null
     onChange(p)
+  }
+
+  async function enviar(medio: Medio) {
+    if (!datosPdf) return
+    setError(null)
+    setAviso(null)
+    setEnviando(medio)
+    try {
+      const r = await enviarPresupuesto(medio, datosPdf(), estado)
+      setAviso(r.texto)
+      if (r.enviado && estado === 'borrador') {
+        const dias = Number(valorParametro('pre.dias_seguimiento') ?? 3) || 3
+        onChange({ presupuesto_estado: 'enviado', enviado_en: new Date().toISOString(), proximo_contacto: d.proximo_contacto ?? masDias(hoy(), dias) })
+      }
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setEnviando(null)
+    }
+  }
+
+  async function renovar() {
+    if (!tienda || numero == null) return
+    const nueva = masDias(hoy(), 30)
+    const { error: e } = await supabase.from('pedido_cliente').update({ fecha_fin: nueva }).eq('tienda_terminal_codigo', tienda).eq('numero', numero)
+    if (e) return setError(e.message)
+    onChange({ fecha_fin: nueva })
+    setAviso(`Validez renovada hasta el ${nueva.split('-').reverse().join('/')}.`)
   }
 
   async function pasarAPedido() {
@@ -161,6 +196,35 @@ export function SeguimientoPresupuesto({
           </button>
         )
       )}
+      {caducado && (
+        <span className="flex flex-col gap-1 border border-[#c42b1c] bg-[#fdeaea] px-2 py-1">
+          <b className="text-[12px] text-[#c42b1c]">Caducado: ¿renovar o dar por perdido?</b>
+          <span className="flex gap-1">
+            <button type="button" className="gw-btn !h-[22px]" disabled={numero == null} onClick={renovar}>
+              Renovar 30 días
+            </button>
+            <button type="button" className="gw-btn !h-[22px]" disabled={numero == null} onClick={() => setFormulario(true)}>
+              Dar por perdido
+            </button>
+          </span>
+        </span>
+      )}
+      {datosPdf && (
+        <span className="flex flex-col gap-1">
+          <span className="flex gap-1">
+            <button type="button" className="gw-btn !h-[24px]" disabled={numero == null || !!enviando} onClick={() => enviar('descargar')} title="Descargar el presupuesto en PDF">
+              📄 PDF
+            </button>
+            <button type="button" className="gw-btn !h-[24px]" disabled={numero == null || !!enviando} onClick={() => enviar('email')} title="Enviar el PDF por correo">
+              {enviando === 'email' ? 'Preparando…' : '✉ Enviar por correo'}
+            </button>
+            <button type="button" className="gw-btn !h-[24px]" disabled={numero == null || !!enviando} onClick={() => enviar('whatsapp')} title="Enviar el PDF por WhatsApp">
+              {enviando === 'whatsapp' ? 'Preparando…' : '💬 WhatsApp'}
+            </button>
+          </span>
+          {aviso && <span className="max-w-[420px] text-[12px] text-[#185a18]">{aviso}</span>}
+        </span>
+      )}
       <button
         type="button"
         className="gw-boton-barra h-[52px] w-[190px] text-[17px] font-bold tracking-wide text-[#1d3a8a]"
@@ -195,7 +259,7 @@ export function SeguimientoPresupuesto({
               {
                 titulo: 'Seguimiento de un presupuesto',
                 pasos: [
-                  'Al mandarlo al cliente: Modificar → Estado «Enviado» → Aceptar. Se pone sola la fecha de volver a llamar (a los 3 días).',
+                  'Mandarlo al cliente: ✉ Enviar por correo o 💬 WhatsApp (va el PDF). Pasa solo a «Enviado» y se pone la fecha de volver a llamar (a los 3 días). 📄 PDF solo lo descarga.',
                   'Cuando llames o escribas: botón 📞 SEGUIMIENTO → rellena el 1.º (luego el 2.º y el 3.º): día, con quién hablaste, qué contesta y cuándo volver a contactar → 💾 Guardar.',
                   'Por correo: marca «E-mail» y pulsa ✉ Enviar correo: se abre tu correo con el texto hecho y queda apuntado.',
                   'Si lo acepta: Estado «Aceptado» y luego «➜ Pasar a pedido».',
@@ -207,7 +271,7 @@ export function SeguimientoPresupuesto({
                 notas: [
                   'Un presupuesto abierto siempre tiene fecha de próximo contacto: nunca se queda en el limbo.',
                   'Los que toca llamar hoy (y los vencidos, en rojo) salen en el Panel de Control → tarjeta Presupuestos.',
-                  'Caducado = ya pasó la fecha final del «Periodo de Validez».',
+                  'Caducado = ya pasó la fecha final del «Periodo de Validez»: «Renovar 30 días» o «Dar por perdido».',
                   'Responsable: el empleado que hace el seguimiento (por defecto, quien lo crea).',
                 ],
               },

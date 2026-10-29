@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { GwDate, GwInput, GwSelect, GwWindow } from '../../../components/gw'
 import { supabase } from '../../../lib/supabase'
 import { MOTIVOS_PERDIDA } from './estadosPresupuesto'
+import { valorParametro } from '../../../lib/parametros'
 
 interface Contacto {
   id?: number
@@ -93,7 +94,21 @@ export function SeguimientoFormulario({
   }, [cargar, clienteCodigo])
 
   const num = (c: string | null | undefined) => (c ? (numeros[c] ?? c) : '')
-  const set = (o: number, p: Partial<Contacto>) => setContactos((l) => l.map((x) => (x.orden === o ? { ...x, ...p } : x)))
+  // Al escribir la nota, se propone el próximo contacto (fecha del contacto + días del parámetro).
+  const set = (o: number, p: Partial<Contacto>) =>
+    setContactos((l) =>
+      l.map((x) => {
+        if (x.orden !== o) return x
+        const n = { ...x, ...p }
+        if (!n.id && !n.proximo_contacto && (p.respuesta || p.contacto_con)) {
+          const dias = Number(valorParametro('pre.dias_seguimiento') ?? 3) || 3
+          const f = new Date(`${n.fecha || hoy()}T12:00:00Z`)
+          f.setUTCDate(f.getUTCDate() + dias)
+          n.proximo_contacto = f.toISOString().slice(0, 10)
+        }
+        return n
+      }),
+    )
 
   async function guardar(c: Contacto) {
     setMensaje(null)
