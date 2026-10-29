@@ -1098,3 +1098,22 @@ test('la etiqueta del bloque ignora el nº pegado («Pedido 13_ B2F» no es de �
   assert.equal(CP.duenoDeBloque('Pedido 13_B2F', [L('A', 1)], [p13]), null);
   assert.equal(CP.duenoDeBloque('Pedido 13_ Gift + Xmas', [L('B', 1)], [p13, { id: 'o', numero: '1', lineas: [], factura: { lineas: [L('C', 1, 'Pedido 1_ Gift')] } }]), p13);
 });
+
+test('Sadipal: «1.000» leído como 1 — se corrige la cantidad, nunca el precio', () => {
+  const r = CP.lineasDeDocumento({ lineas: [
+    { referencia: 'S321A403', descripcion: 'FABRIANO', cantidad: 1, precio: 0.07, descuentos: '30+5', importe: 46.55 },
+    { referencia: 'S322A403', descripcion: 'FABRIANO', cantidad: 400, precio: 0.09, descuentos: '30+5', importe: 23.94 },
+  ] });
+  assert.deepEqual(r.lineas.map((l) => [l.cant, l.precio]), [[1000, 0.07], [400, 0.09]]);
+  // Aunque llegue mal leída a la comparación, no se toma por «cajas de 1.000» ni se divide el precio.
+  const filas = CP.compararPedido([{ ref: 'S321A403', cant: 1000, precio: 0.047, udsCaja: 4 }],
+    [{ ref: 'S321A403', cant: 1, precio: 0.07, dtos: [30, 5], importe: 46.55 }], { neto: true });
+  assert.equal(filas[0].precioPropuesta, 0.07);
+  assert.ok(!filas[0].porCaja);
+});
+
+test('Géminis: el descuento equivalente nunca sale negativo ni ≥ 100 %', () => {
+  const eq = CP.descuentoEquivalente(0.07, 1, [30, 5], { subtotalObjetivo: 46.55 });
+  assert.equal(eq.descuento, 33.5);
+  assert.ok(eq.residuo !== 0);
+});
