@@ -181,6 +181,7 @@ export function GwDateTime({ value, onChange, disabled, readOnly, className = ''
     }
     if (ro || disabled) return
     if (e.ctrlKey || e.metaKey) return
+    if (e.altKey && e.key === 'Backspace') return // Alt+Retroceso = Cancelar la ficha (teclasFicha)
     const el = e.currentTarget
     const ini = el.selectionStart ?? 0
     const fin = el.selectionEnd ?? ini

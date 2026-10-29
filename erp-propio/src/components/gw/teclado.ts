@@ -17,9 +17,54 @@ function modalSuperior(): Element | null {
 }
 
 const fotos = new WeakMap<Event, { modal: Element | null }>()
+
+/** Primer control del diálogo que puede tener el foco (o el propio diálogo). */
+function focoDentro(modal: Element): HTMLElement {
+  const c = Array.from(modal.querySelectorAll<HTMLElement>('[autofocus], input, select, textarea, button')).find(
+    (x) => !(x as HTMLInputElement).disabled && x.tabIndex >= 0 && x.getClientRects().length > 0 && (x as HTMLInputElement).type !== 'hidden',
+  )
+  if (c) return c
+  const m = modal as HTMLElement
+  if (m.tabIndex < 0) m.tabIndex = -1
+  return m
+}
+
 if (typeof window !== 'undefined') {
   // Captura en window: se ejecuta antes que cualquier manejador de React o de las pantallas.
-  window.addEventListener('keydown', (e) => fotos.set(e, { modal: modalSuperior() }), true)
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      const modal = modalSuperior()
+      fotos.set(e, { modal })
+      // Diálogo modal abierto y el foco fuera de él (p. ej. se abrió con F12 o Ctrl+F11 desde la
+      // ventana): como en Windows, el teclado es del diálogo. Se pasa el foco dentro y se le
+      // entrega la tecla, para que su Esc (Cancelar) e Intro (Aceptar) funcionen.
+      if (!modal || !e.isTrusted || ['Shift', 'Control', 'Alt', 'Meta', 'AltGraph', 'CapsLock'].includes(e.key)) return
+      const act = document.activeElement
+      if (act && (modal.contains(act) || act.closest('[data-gw-edicion], [data-nexa]'))) return
+      const destino = focoDentro(modal)
+      destino.focus()
+      if (e.key === 'Tab') return e.preventDefault()
+      // Una letra o cifra: con el foco ya dentro, el navegador la escribe en el campo del diálogo.
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      destino.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: e.key,
+          code: e.code,
+          ctrlKey: e.ctrlKey,
+          altKey: e.altKey,
+          shiftKey: e.shiftKey,
+          metaKey: e.metaKey,
+          repeat: e.repeat,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+    },
+    true,
+  )
 }
 
 /** Diálogo modal abierto en el momento en que se pulsó la tecla (null si no había). */

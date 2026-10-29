@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
 import {
   ArrowDownAZ,
   Binoculars,
@@ -663,6 +664,26 @@ export function VentaDocumento({
     return () => window.removeEventListener('keydown', h, true)
   }, [])
 
+  // Teclas comunes de la barra de las fichas (teclasFicha): AvPág/RePág, Ctrl+Inicio/Fin, F5 buscar,
+  // F3 agregar, Esc salir (consulta) o cancelar con confirmación (alta/edición). F1, F2 (aquí
+  // Imprimir, como en GeminisWin), Alt+Retroceso, F11 y F12 los recoge antes el manejador de arriba.
+  const barraRef = useRef<HTMLDivElement>(null)
+  useTeclasFicha({
+    mode: modo,
+    saving: guardando,
+    raiz: barraRef,
+    acciones: {
+      primero: () => void navegar('primero'),
+      anterior: () => void navegar('anterior'),
+      siguiente: () => void navegar('siguiente'),
+      ultimo: () => void navegar('ultimo'),
+      buscar: dialogo || pidiendoEmpleado ? undefined : () => setDialogo({ tipo: 'buscarVenta' }),
+      nuevo: dialogo || pidiendoEmpleado ? undefined : () => empezarAlta(tienda),
+      cancelar: dialogo || pidiendoEmpleado ? undefined : cancelar,
+      salir: dialogo || pidiendoEmpleado ? undefined : () => navigate('/'),
+    },
+  })
+
   async function recuperarAplazada(numero: number) {
     setDialogo(null)
     await abrirVenta(tienda, numero)
@@ -967,11 +988,11 @@ export function VentaDocumento({
       )}
 
       {/* ---------- Barra inferior ---------- */}
-      <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
-        <BarBtn label="Primero" icon={<ChevronFirst size={15} strokeWidth={3} />} onClick={() => navegar('primero')} disabled={!consulta} />
-        <BarBtn label="Anterior" icon={<Play size={11} className="rotate-180" fill="currentColor" />} onClick={() => navegar('anterior')} disabled={!consulta} />
-        <BarBtn label="Siguiente" icon={<Play size={11} fill="currentColor" />} onClick={() => navegar('siguiente')} disabled={!consulta} />
-        <BarBtn label="Último" icon={<ChevronLast size={15} strokeWidth={3} />} onClick={() => navegar('ultimo')} disabled={!consulta} />
+      <div ref={barraRef} className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
+        <BarBtn label="Primero" title={conTecla('Primero', 'primero')} icon={<ChevronFirst size={15} strokeWidth={3} />} onClick={() => navegar('primero')} disabled={!consulta} />
+        <BarBtn label="Anterior" title={conTecla('Anterior', 'anterior')} icon={<Play size={11} className="rotate-180" fill="currentColor" />} onClick={() => navegar('anterior')} disabled={!consulta} />
+        <BarBtn label="Siguiente" title={conTecla('Siguiente', 'siguiente')} icon={<Play size={11} fill="currentColor" />} onClick={() => navegar('siguiente')} disabled={!consulta} />
+        <BarBtn label="Último" title={conTecla('Último', 'ultimo')} icon={<ChevronLast size={15} strokeWidth={3} />} onClick={() => navegar('ultimo')} disabled={!consulta} />
         <BarBtn
           label="Ordenar"
           icon={<ArrowDownAZ size={15} />}
@@ -979,12 +1000,12 @@ export function VentaDocumento({
           disabled={!consulta}
           title={`Orden actual: por ${orden === 'numero' ? 'número' : 'fecha'}`}
         />
-        <BarBtn label="Buscar" icon={<Binoculars size={15} />} onClick={() => setDialogo({ tipo: 'buscarVenta' })} disabled={!consulta} />
+        <BarBtn label="Buscar" title={conTecla('Buscar', 'buscar')} icon={<Binoculars size={15} />} onClick={() => setDialogo({ tipo: 'buscarVenta' })} disabled={!consulta} />
         <BarBtn label="Listados" icon={<ScrollText size={15} className="text-[#7a6a1c]" />} disabled title="Listados de ventas: aún no disponibles en el ERP propio" />
-        <BarBtn label="Imprimir" icon={<Printer size={15} />} onClick={() => window.print()} />
+        <BarBtn label="Imprimir" title="Imprimir (F2)" icon={<Printer size={15} />} onClick={() => window.print()} />
         {consulta ? (
           <>
-            <BarBtn label="Agregar" icon={<FilePlus2 size={15} />} onClick={() => empezarAlta(tienda)} />
+            <BarBtn label="Agregar" title={conTecla('Agregar', 'nuevo')} icon={<FilePlus2 size={15} />} onClick={() => empezarAlta(tienda)} />
             <BarBtn
               label="Editar"
               icon={<FilePen size={15} />}
@@ -1015,13 +1036,13 @@ export function VentaDocumento({
           </>
         ) : (
           <>
-            <BarBtn label="Guardar" icon={<Save size={15} />} onClick={() => prepararGuardado(false)} disabled={guardando} />
-            <BarBtn label="Cancelar" icon={<X size={15} />} onClick={cancelar} disabled={guardando} />
+            <BarBtn label="Guardar" title="Guardar (F1)" icon={<Save size={15} />} onClick={() => prepararGuardado(false)} disabled={guardando} />
+            <BarBtn label="Cancelar" title="Cancelar (Alt+Retroceso / Esc)" icon={<X size={15} />} onClick={cancelar} disabled={guardando} />
             <BarBtn label="Deshacer" icon={<Undo2 size={15} />} onClick={deshacer} disabled={guardando} />
           </>
         )}
         <BarBtn label="Cajón" icon={<Inbox size={15} />} onClick={abrirCajon} disabled={guardando} title="Abrir el cajón (CTRL+F12): queda apuntado en el listado de aperturas de cajón" />
-        <BarBtn label="Cerrar" icon={<DoorOpen size={15} />} onClick={() => navigate('/')} />
+        <BarBtn label="Cerrar" title={conTecla('Cerrar', 'salir')} icon={<DoorOpen size={15} />} onClick={() => navigate('/')} />
       </div>
       <div className="truncate text-[11px] text-[#333]">
         {editable
@@ -1252,6 +1273,7 @@ function BarBtn({ label, icon, onClick, disabled, title }: { label: string; icon
       onClick={onClick}
       disabled={disabled}
       title={title ?? label}
+      data-gw-estado={title ?? label}
       className="flex h-[58px] flex-1 flex-col items-center justify-center gap-2 border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent [&>span]:text-[14px] [&>span]:text-[#222] disabled:[&>span]:text-[#a8a8a8]"
     >
       {icon}
