@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, PackageSearch, Tag, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
@@ -300,16 +300,21 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
     return (data?.nombre as string | undefined) ?? ''
   }, [])
 
-  const cargarEnlaces = useCallback(async (c: Cabecera) => {
+  // Cada carga de enlaces lleva un número: si llega tarde (se pasó a otro pedido o a un alta
+  // mientras tanto), no pisa la venta/factura del documento que se está viendo.
+  const enlacesId = useRef(0)
+  const cargarEnlaces = useCallback(async (c: Cabecera | null) => {
+    const id = ++enlacesId.current
     setVenta(null)
     setFactura(null)
-    if (!c.venta_numero || !c.venta_tienda_codigo) return
+    if (!c?.venta_numero || !c.venta_tienda_codigo) return
     const { data: v } = await supabase
       .from('venta')
       .select('fecha, hora, tipo_credito, factura_tienda_codigo, factura_numero, reparto_tienda_codigo, reparto_numero')
       .eq('tienda_terminal_codigo', c.venta_tienda_codigo)
       .eq('numero', c.venta_numero)
       .maybeSingle()
+    if (id !== enlacesId.current) return
     setVenta((v as VentaInfo | null) ?? null)
     if (v?.factura_numero && v.factura_tienda_codigo) {
       const { data: f } = await supabase
@@ -318,6 +323,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         .eq('tienda_terminal_codigo', v.factura_tienda_codigo)
         .eq('numero', v.factura_numero)
         .maybeSingle()
+      if (id !== enlacesId.current) return
       setFactura((f as FacturaInfo | null) ?? null)
     }
   }, [])
@@ -337,8 +343,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         setOrig(null)
         setLineas([])
         setCliente(null)
-        setVenta(null)
-        setFactura(null)
+        cargarEnlaces(null)
         setNombres({ empleado: await cargarNombre('empleado', empleadoActual), vendedor: '' })
         setMode('alta')
         setCargando(false)
