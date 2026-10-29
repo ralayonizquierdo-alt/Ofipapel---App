@@ -109,6 +109,14 @@ if (typeof window !== 'undefined') {
       if (!(t instanceof Element) || t instanceof HTMLButtonElement || esTextarea(t) || t.closest('form')) return
       if (t instanceof HTMLInputElement && ['checkbox', 'radio', 'file'].includes(t.type)) return
     }
+    // El diálogo (o un contenedor suyo) ya lleva sus propias teclas: son suyas, aunque no hagan
+    // preventDefault (p. ej. `onKeyDown={(e) => e.key === 'Escape' && onClose()}`).
+    if (t instanceof Element) {
+      for (let el = t.parentElement; el; el = el.parentElement) {
+        if (tieneTeclaPropia(el)) return
+        if (el === modal) break
+      }
+    }
     const tipo = e.key === 'Enter' ? 'aceptar' : 'cancelar'
     window.setTimeout(() => {
       if (!modal.isConnected || modalSuperior() !== modal) return
