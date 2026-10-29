@@ -17,7 +17,9 @@ import { useNavigate } from 'react-router-dom'
 import { GwInput, GwNumber, GwSelect, GwTabs } from '../../../components/gw'
 import { supabase } from '../../../lib/supabase'
 import { cargarParametros } from '../../../lib/parametros'
-import { SECCIONES_PARAMETROS, type DefParametro, type SeccionParametros } from '../../../lib/catalogoParametros'
+import { COLORES_DEFECTO, SECCIONES_PARAMETROS, type DefParametro, type SeccionParametros } from '../../../lib/catalogoParametros'
+import type { MapaColores } from '../../../lib/coloresPantallas'
+import { ColoresVista } from './ColoresVista'
 import { Mensaje } from '../../utilidades/comun'
 import { useEsAdministrador } from '../comun'
 import { AreaAccesos } from './AreaAccesos'
@@ -324,6 +326,13 @@ function AreaParametros({
         <div className="min-h-[360px] overflow-y-auto p-2">
           {pestana.especial === 'contadores' && <ContadoresVista tiendas={tiendas} />}
           {pestana.especial === 'impuestos' && <ImpuestosVista admin={admin} />}
+          {pestana.especial === 'colores' && (
+            <ColoresVista
+              valor={(bGen['apariencia.colores'] as MapaColores | undefined) ?? COLORES_DEFECTO}
+              editable={admin}
+              onChange={(m) => setBGen((x) => ({ ...x, 'apariencia.colores': m }))}
+            />
+          )}
           {pestana.especial === 'carpetas' && (
             <div className="max-w-[640px] text-[14px] leading-[20px]">
               En GeminisWin aquí se elegían las carpetas del periodo y de cada equipo (\\SERVER-OFIPAPEL\GEMINISW…). Avatar no usa carpetas: los

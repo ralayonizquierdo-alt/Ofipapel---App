@@ -10,7 +10,9 @@
 // `usa`: dónde lo aplica ya el programa. Sin `usa`, el valor se guarda pero todavía no lo usa
 // ninguna pantalla (la pantalla lo marca con un punto gris).
 
-export type TipoParametro = 'bool' | 'num' | 'texto' | 'opcion' | 'tienda' | 'almacen'
+import { coloresPorDefecto } from './coloresPantallas'
+
+export type TipoParametro = 'bool' | 'num' | 'texto' | 'opcion' | 'tienda' | 'almacen' | 'colores'
 
 export interface DefParametro {
   clave: string
@@ -35,7 +37,7 @@ export interface PestanaParametros {
   titulo: string
   parametros: DefParametro[]
   /** Pestaña que no es una lista de parámetros sino una pantalla propia. */
-  especial?: 'contadores' | 'impuestos' | 'carpetas'
+  especial?: 'contadores' | 'impuestos' | 'carpetas' | 'colores'
 }
 
 export interface SeccionParametros {
@@ -55,6 +57,9 @@ const PANTALLAS_INICIO = [
   { valor: '/pedidos-proveedor', texto: 'Pedidos a proveedores' },
   { valor: '/caja', texto: 'Caja' },
 ]
+
+/** Colores de partida de las pantallas (los de las secciones de siempre). */
+export const COLORES_DEFECTO = coloresPorDefecto()
 
 export const SECCIONES_PARAMETROS: SeccionParametros[] = [
   {
@@ -142,6 +147,27 @@ export const SECCIONES_PARAMETROS: SeccionParametros[] = [
         parametros: [
           { clave: 'local.pantalla_inicio', etiqueta: 'Pantalla que se abre al entrar', tipo: 'opcion', defecto: '/', opciones: PANTALLAS_INICIO, porEmpleado: true, usa: 'Al iniciar sesión' },
           { clave: 'local.copia_al_salir', etiqueta: 'Proponer una copia de seguridad al salir', tipo: 'bool', defecto: false, porEmpleado: true },
+        ],
+      },
+    ],
+  },
+  {
+    clave: 'colores',
+    titulo: 'Colores de pantallas',
+    icono: '🎨',
+    pestanas: [
+      {
+        clave: 'colores',
+        titulo: 'Colores de pantallas',
+        especial: 'colores',
+        parametros: [
+          {
+            clave: 'apariencia.colores',
+            etiqueta: 'Color de cada menú y opción',
+            tipo: 'colores',
+            defecto: COLORES_DEFECTO,
+            usa: 'Fondo y barra de título de las ventanas',
+          },
         ],
       },
     ],

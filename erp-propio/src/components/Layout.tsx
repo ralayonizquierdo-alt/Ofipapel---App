@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase'
 import { GwAppIcon, GwWindow } from './gw'
 import { MenuBar } from './shell/MenuBar'
 import { QuickBar, useLadoBarra } from './shell/QuickBar'
-import { seccionDe } from './shell/secciones'
+import { COLORES_DEFECTO } from '../lib/catalogoParametros'
+import { colorDePantalla, type MapaColores } from '../lib/coloresPantallas'
 import { useParametro, valorParametro } from '../lib/parametros'
 import { dentroDeHorario, useMiAcceso } from '../lib/accesoEmpleado'
 import { AvisoVersion } from './shell/AvisoVersion'
@@ -36,6 +37,7 @@ export function Layout() {
   const [acercaDe, setAcercaDe] = useState(false)
   const sesion = useSesionTrabajo()
   const coloresSeccion = useParametro<boolean>('local.colores_seccion') !== false
+  const mapaColores = useParametro<MapaColores | null>('apariencia.colores') ?? COLORES_DEFECTO
   const tamano = Number(useParametro<string>('local.tamano_letra') ?? '100') || 100
   const pantallaInicio = useParametro<string>('local.pantalla_inicio') ?? '/'
   const acceso = useMiAcceso()
@@ -281,7 +283,7 @@ export function Layout() {
             <GwWindow
               title={title}
               movible={false}
-              seccion={coloresSeccion ? seccionDe(pathname) : null}
+              color={coloresSeccion ? colorDePantalla(pathname, mapaColores) : null}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >

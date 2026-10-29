@@ -1,4 +1,4 @@
-import { useRef, useState, type InputHTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useRef, useState, type CSSProperties, type InputHTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { Minus, Square, X } from 'lucide-react'
 import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from './seleccionEntrada'
 
@@ -40,6 +40,7 @@ export function GwWindow({
   className = '',
   movible = true,
   seccion,
+  color,
 }: {
   title: string
   onClose?: () => void
@@ -49,13 +50,16 @@ export function GwWindow({
   movible?: boolean
   /** Sección de la aplicación (clientes, compras…): tiñe la ventana con su color (index.css). */
   seccion?: string | null
+  /** Color de la pantalla (Parámetros → Colores de pantallas): fondo y barra de título. */
+  color?: { fondo: string; t1: string; t2: string } | null
 }) {
   const { estilo, barra } = useArrastre(movible)
+  const tinte = color ? ({ '--gw-face': color.fondo, '--sec-t1': color.t1, '--sec-t2': color.t2 } as CSSProperties) : undefined
   return (
     <div
       className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}
-      style={estilo}
-      data-seccion={seccion ?? undefined}
+      style={tinte || estilo ? { ...tinte, ...estilo } : undefined}
+      data-seccion={color ? 'color' : (seccion ?? undefined)}
     >
       <div
         className={`gw-titulo flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px] ${movible ? 'cursor-move' : ''}`}
