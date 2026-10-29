@@ -10,12 +10,12 @@ export const COLOR_SECCION: Record<Seccion, string> = {
   clientes: '#c49a0a',
   pedidos: '#2e8b4f',
   pagos: '#7e57c2',
-  caja: '#2f7fc1',
+  caja: '#5d6d7e',
   ventas: '#1a8a88',
   facturacion: '#d0503a',
-  compras: '#9a6235',
-  articulos: '#e07b1a',
-  traspasos: '#4656b8',
+  compras: '#2b5ea8',
+  articulos: '#6a9a1f',
+  traspasos: '#e07b1a',
 }
 
 const RUTAS: [Seccion, string[]][] = [
