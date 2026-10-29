@@ -222,7 +222,10 @@
       // cajas de 25: viene de más). Vale la que mejor cuadra con el precio por caja.
       if (a && b && b.cant > 0 && a.cant > b.cant) {
         const pa = neto ? a.neto : a.precio;
-        const pb = neto ? b.neto : b.precio;
+        // El neto del proveedor sale de SU precio y descuentos, no del importe:
+        // con una cantidad mal leída («1.000» como 1) el importe entre la cantidad
+        // da un precio mil veces mayor y parecía que vendía por cajas de 1.000.
+        const pb = neto ? (b.precio != null ? precioNeto({ precio: b.precio, dtos: b.dtos }) : b.neto) : b.precio;
         const cands = [Number.isInteger(a.cant / b.cant) ? a.cant / b.cant : null, parseNum(a.udsCaja) > 1 ? parseNum(a.udsCaja) : null];
         const desvio = (c) => Math.abs(Math.log(pb / pa / c));
         const k = pa && pb ? cands.filter((c) => c && pb / pa >= c * 0.6 && pb / pa <= c * 1.6).sort((x, y) => desvio(x) - desvio(y))[0] : null;
@@ -936,7 +939,12 @@
     }
     const objetivo = red2(opciones && opciones.subtotalObjetivo != null ? opciones.subtotalObjetivo : bruto * mult);
     const f = Math.pow(10, dec);
-    const descuento = Math.round((1 - objetivo / bruto) * 100 * f) / f;
+    let descuento = Math.round((1 - objetivo / bruto) * 100 * f) / f;
+    // El precio base no se toca nunca, y un descuento negativo o del 100 % no
+    // existe: si el importe a cuadrar no sale de este precio y esta cantidad
+    // (una cantidad mal leída), se deja el descuento del proveedor y se avisa
+    // con el residuo en vez de inventar un -66.400 %.
+    if (descuento < 0 || descuento >= 100) descuento = Math.round((1 - mult) * 100 * f) / f;
     const subtotal = red2(bruto * (1 - descuento / 100));
     return { descuento, subtotal, objetivo, residuo: red2(subtotal - objetivo) };
   }
@@ -1309,6 +1317,13 @@
     })).filter((l) => l.ref || l.desc).map(marcarAlta);
 
     for (const l of lineas) {
+      // «1.000» leído como 1 (el punto de miles): si el importe sale con la
+      // cantidad por mil y no con la leída, la cantidad es esa. El precio no se toca.
+      if (l.importe != null && l.precio && l.cant && Number.isInteger(l.cant) && l.cant < 1000) {
+        const mult = l.dtos.reduce((x, d) => x * (1 - d / 100), 1);
+        const cuadraCon = (c) => Math.abs(red2(l.precio * c * mult) - l.importe) <= 0.02 + 0.00001 * c;
+        if (!cuadraCon(l.cant) && cuadraCon(l.cant * 1000)) { l.cantLeida = l.cant; l.cant *= 1000; }
+      }
       const avisos = [];
       if (!l.ref) avisos.push('sin referencia');
       if (!l.cant) avisos.push('sin cantidad');
