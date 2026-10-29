@@ -60,7 +60,9 @@ export function TabEnlaces({ proveedor, editing, onChange }: ProveedorTabProps) 
       <div className="flex flex-col">
         <span className="gw-label">Cuentas Contables</span>
         <GwGroup className="grid grid-cols-[minmax(0,1fr)_150px] items-center gap-x-2 gap-y-1">
-          {cuenta('Cuenta del Proveedor(400):', 'cuenta_contable_400', 'PROVEED400')}
+          {proveedor.tipo === 'acreedor'
+            ? cuenta('Cuenta del Acreedor(410):', 'cuenta_contable_400', 'PROVEED400')
+            : cuenta('Cuenta del Proveedor(400):', 'cuenta_contable_400', 'PROVEED400')}
           {cuenta('Cuenta de compras (600):', 'cuenta_contable_600', 'PROVEED600')}
           {cuenta('Efectos a Pagar (401):', 'cuenta_contable_401', 'PROVEED401')}
           <span className="h-[22px]" />

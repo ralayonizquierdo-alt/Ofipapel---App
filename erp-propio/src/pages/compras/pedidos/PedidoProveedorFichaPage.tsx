@@ -1221,6 +1221,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         <GwLookupDialog
           title="Proveedores"
           table="proveedor"
+          eq={{ tipo: 'proveedor' }}
           columns={LOOKUP_PROVEEDOR}
           searchColumns={['codigo', 'nombre', 'nif']}
           orderBy="codigo"

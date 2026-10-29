@@ -22,6 +22,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   keyColumn,
   onPick,
   onClose,
+  eq,
 }: {
   title: string
   table: string
@@ -31,8 +32,11 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   keyColumn: string
   onPick: (row: T) => void
   onClose: () => void
+  /** Restricciones fijas (columna = valor), p. ej. { tipo: 'proveedor' } para no ofrecer acreedores. */
+  eq?: Record<string, string>
 }) {
   const [filtro, setFiltro] = useState('')
+  const eqClave = JSON.stringify(eq ?? {})
   const [rows, setRows] = useState<T[]>([])
   const [sel, setSel] = useState(0)
 
@@ -41,12 +45,13 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
       let q = supabase.from(table).select(columns.map((c) => c.key).join(', ')).order(orderBy).limit(200)
       const f = filtro.trim().replace(/[,%()]/g, ' ')
       if (f) q = q.or(searchColumns.map((c) => `${c}.ilike.%${f}%`).join(','))
+      for (const [c, v] of Object.entries(JSON.parse(eqClave) as Record<string, string>)) q = q.eq(c, v)
       const { data } = await q
       setRows((data ?? []) as unknown as T[])
       setSel(0)
     }, 200)
     return () => clearTimeout(t)
-  }, [filtro, table, orderBy, columns, searchColumns])
+  }, [filtro, table, orderBy, columns, searchColumns, eqClave])
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
