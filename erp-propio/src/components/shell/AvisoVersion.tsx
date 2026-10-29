@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useParametro } from '../../lib/parametros'
 
 const CADA_MS = 60_000
 
@@ -10,6 +11,7 @@ const CADA_MS = 60_000
  */
 export function AvisoVersion() {
   const [hayNueva, setHayNueva] = useState(false)
+  const avisar = useParametro<boolean>('local.aviso_version') !== false
 
   useEffect(() => {
     if (import.meta.env.DEV) return
@@ -34,7 +36,7 @@ export function AvisoVersion() {
     }
   }, [])
 
-  if (!hayNueva) return null
+  if (!hayNueva || !avisar) return null
   return (
     <div className="flex items-center justify-center gap-3 border-b border-[#d4b106] bg-[#fff6bf] px-2 py-0.5 text-[12px]">
       <span>Hay una versión nueva del ERP.</span>

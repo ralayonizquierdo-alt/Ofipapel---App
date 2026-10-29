@@ -7,6 +7,7 @@
 
 import { useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
+import { PARAMETROS_POR_CLAVE } from './catalogoParametros'
 
 export interface Parametros {
   /** IGIC por defecto (%) de las líneas nuevas de venta y de los artículos nuevos. */
@@ -54,14 +55,54 @@ function publicar(p: Parametros) {
   oyentes.forEach((f) => f())
 }
 
-/** Lee la tabla `parametro` y actualiza los valores en uso. */
+// Todos los valores (catálogo en catalogoParametros.ts): los generales y los del empleado
+// conectado, que mandan. Se guardan también en el navegador para que al entrar ya estén.
+const K_VALORES = 'erp.parametros.valores'
+let valores: { generales: Record<string, unknown>; mios: Record<string, unknown> } = leerValores()
+
+function leerValores() {
+  try {
+    const v = JSON.parse(localStorage.getItem(K_VALORES) ?? 'null') as typeof valores | null
+    if (v && typeof v === 'object' && v.generales && v.mios) return v
+  } catch {
+    /* sin caché */
+  }
+  return { generales: {}, mios: {} }
+}
+
+/** Lee la tabla `parametro` (y los del empleado conectado) y actualiza los valores en uso. */
 export async function cargarParametros(): Promise<Parametros> {
-  const { data, error } = await supabase.from('parametro').select('clave, valor')
-  if (error) return actual
+  const [g, yo] = await Promise.all([supabase.from('parametro').select('clave, valor'), supabase.rpc('fn_empleado_actual')])
+  if (g.error) return actual
   const crudo: Record<string, unknown> = {}
-  for (const r of (data ?? []) as { clave: string; valor: unknown }[]) crudo[r.clave] = r.valor
-  publicar(normalizar(crudo))
+  for (const r of (g.data ?? []) as { clave: string; valor: unknown }[]) crudo[r.clave] = r.valor
+  const mios: Record<string, unknown> = {}
+  const codigo = typeof yo.data === 'string' ? yo.data : null
+  if (codigo) {
+    const { data } = await supabase.from('parametro_empleado').select('clave, valor').eq('empleado_codigo', codigo)
+    for (const r of (data ?? []) as { clave: string; valor: unknown }[]) mios[r.clave] = r.valor
+  }
+  valores = { generales: crudo, mios }
+  try {
+    localStorage.setItem(K_VALORES, JSON.stringify(valores))
+  } catch {
+    /* sin almacenamiento */
+  }
+  publicar(normalizar({ ...crudo, ...mios }))
   return actual
+}
+
+/** Valor en uso de un parámetro del catálogo: el del empleado, el general o el de por defecto. */
+export function valorParametro<T = unknown>(clave: string): T {
+  if (clave in valores.mios) return valores.mios[clave] as T
+  if (clave in valores.generales) return valores.generales[clave] as T
+  return PARAMETROS_POR_CLAVE[clave]?.defecto as T
+}
+
+/** Lo mismo dentro de un componente: se repinta al cambiar los parámetros. */
+export function useParametro<T = unknown>(clave: string): T {
+  useParametros()
+  return valorParametro<T>(clave)
 }
 
 export const parametros = (): Parametros => actual

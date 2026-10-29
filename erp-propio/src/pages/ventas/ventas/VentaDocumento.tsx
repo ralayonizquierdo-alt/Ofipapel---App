@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMiAcceso } from '../../../lib/accesoEmpleado'
 import { useNavigate } from 'react-router-dom'
 import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
 import { FileMinus2, Hand, Inbox, Save, ScrollText, Tag, Triangle, Undo2, X } from 'lucide-react'
@@ -1246,8 +1247,10 @@ function FilaLinea({
 }) {
   const td = 'border border-[#e6e6e6] px-1 h-[24px] overflow-hidden whitespace-nowrap'
   const inp = 'h-[22px] w-full bg-transparent px-0.5 text-[17px] outline-none focus:bg-[#fffbe0]'
+  // Cambiar el precio y el descuento máximo dependen del empleado (Parámetros → Control de Accesos).
+  const acceso = useMiAcceso()
   const num = (campo: 'cantidad' | 'precio' | 'descuento_pct' | 'igic_pct', dec: number) =>
-    editable ? (
+    editable && (campo !== 'precio' || acceso.puede_modificar_precio) ? (
       <NumCelda value={l[campo]} dec={dec} onChange={(v) => onChange({ [campo]: v } as Partial<LineaVenta>)} />
     ) : (
       formatGw(l[campo], dec)

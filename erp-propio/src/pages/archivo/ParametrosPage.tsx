@@ -1,5 +1,5 @@
-// Archivo → Parámetros. SIN CAPTURA de GeminisWin: reúne en una ventana con pestañas los ajustes
-// generales del programa que hoy estaban repartidos:
+// Archivo → Parámetros → Configuración. Reúne en una ventana con pestañas los ajustes que viven
+// en otras tablas (los parámetros generales están ahora en ParametrosAvatarPage):
 //   · Generales: tabla `parametro` (IGIC por defecto, decimales de precio, moneda de la empresa).
 //     Se usan de verdad: IGIC de las líneas nuevas de venta y de la creación rápida de
 //     artículos; decimales de precio en las líneas de pedidos, ventas y el ticket; moneda base de
@@ -40,7 +40,6 @@ const CLAVES_TIENDA = ['almacen_codigo', 'cliente_contado_codigo', 'igic_defecto
 
 const TABS = [
   [
-    { key: 'generales', label: 'Generales' },
     { key: 'tiendas', label: 'Tiendas / Terminales' },
     { key: 'empresa', label: 'Empresa' },
     { key: 'verifactu', label: 'VeriFactu' },
@@ -77,10 +76,11 @@ function Consulta({ datos, campos }: { datos: Registro | null; campos: [string, 
   )
 }
 
-export function ParametrosPage() {
+/** Configuración por tienda, empresa, VeriFactu y web (pestaña «Configuración» de Parámetros). */
+export function ConfiguracionTiendas() {
   const navigate = useNavigate()
   const admin = useEsAdministrador()
-  const [tab, setTab] = useState('generales')
+  const [tab, setTab] = useState('tiendas')
   const [modo, setModo] = useState<'consulta' | 'edicion'>('consulta')
   const [params, setParams] = useState<Record<string, ParamFila>>({})
   const [borrador, setBorrador] = useState<Record<string, unknown>>({})

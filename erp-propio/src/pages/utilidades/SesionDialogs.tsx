@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { GwDate, GwField } from '../../components/gw'
 import { GwDateTime } from '../../components/gw/GwDateTime'
 import { supabase } from '../../lib/supabase'
+import { tiendaPermitida } from '../../lib/accesoEmpleado'
 import {
   ahoraTrabajo,
   entrarPeriodoCerrado,
@@ -43,7 +44,8 @@ export function CambioTiendaDialog({ onClose }: { onClose: () => void }) {
       .order('codigo')
       .then(({ data, error: e }) => {
         if (e) setError(e.message)
-        const lista = (data ?? []) as Tienda[]
+        // Solo las tiendas donde el empleado puede trabajar (Parámetros → Control de Accesos).
+        const lista = ((data ?? []) as Tienda[]).filter((t) => tiendaPermitida(t.codigo))
         setTiendas(lista)
         setSel(tiendaDeTrabajo(lista))
       })

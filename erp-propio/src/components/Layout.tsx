@@ -6,6 +6,8 @@ import { GwAppIcon, GwWindow } from './gw'
 import { MenuBar } from './shell/MenuBar'
 import { QuickBar, useLadoBarra } from './shell/QuickBar'
 import { seccionDe } from './shell/secciones'
+import { useParametro, valorParametro } from '../lib/parametros'
+import { dentroDeHorario, useMiAcceso } from '../lib/accesoEmpleado'
 import { AvisoVersion } from './shell/AvisoVersion'
 import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo, volverPeriodoEnCurso } from '../lib/sesionTrabajo'
@@ -33,6 +35,37 @@ export function Layout() {
   const { search } = useLocation()
   const [acercaDe, setAcercaDe] = useState(false)
   const sesion = useSesionTrabajo()
+  const coloresSeccion = useParametro<boolean>('local.colores_seccion') !== false
+  const tamano = Number(useParametro<string>('local.tamano_letra') ?? '100') || 100
+  const pantallaInicio = useParametro<string>('local.pantalla_inicio') ?? '/'
+  const acceso = useMiAcceso()
+  // Apariencia: tamaño de las pantallas (Parámetros Locales → Apariencia).
+  useEffect(() => {
+    document.body.style.zoom = tamano === 100 ? '' : String(tamano / 100)
+  }, [tamano])
+  // Inicio: la pantalla elegida, una vez por sesión del navegador.
+  useEffect(() => {
+    if (!pantallaInicio || pantallaInicio === '/' || pathname !== '/') return
+    try {
+      if (sessionStorage.getItem('erp.inicioHecho') === '1') return
+      sessionStorage.setItem('erp.inicioHecho', '1')
+    } catch {
+      /* sin almacenamiento: se abre igualmente */
+    }
+    navigate(pantallaInicio)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pantallaInicio])
+  // Horario de acceso del empleado (Control de Accesos): se vuelve a mirar cada minuto.
+  const [, setMinuto] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setMinuto((m) => m + 1), 60000)
+    return () => clearInterval(t)
+  }, [])
+  const fueraDeHorario = !dentroDeHorario(acceso)
+  const salir = () => {
+    if (valorParametro('local.confirmar_salir') !== false && !confirm('¿Salir del programa?')) return
+    signOut()
+  }
   // Consultando un periodo cerrado: los botones de alta, modificación y borrado se apagan (index.css).
   useEffect(() => {
     document.body.classList.toggle('gw-solo-consulta', sesion.consulta != null)
@@ -114,7 +147,7 @@ export function Layout() {
   function runMenu(i: MenuItem) {
     if (!permisosRef.current.puedeOpcion(i)) return
     if (i.to) navigate(i.to)
-    else if (i.action === 'signout') signOut()
+    else if (i.action === 'signout') salir()
     else if (i.action === 'close-window') cerrarVentana(false)
     else if (i.action === 'hide-window') cerrarVentana(true)
     else if (i.action === 'show-all') mostrarTodo()
@@ -236,7 +269,7 @@ export function Layout() {
           onHover={setHint}
           onRun={(q) => {
             if (q.to) navigate(q.to)
-            else if (q.action === 'signout') signOut()
+            else if (q.action === 'signout') salir()
             else if (q.action) runMenu({ label: q.label, action: q.action })
           }}
         />
@@ -248,7 +281,7 @@ export function Layout() {
             <GwWindow
               title={title}
               movible={false}
-              seccion={seccionDe(pathname)}
+              seccion={coloresSeccion ? seccionDe(pathname) : null}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"
             >
@@ -263,6 +296,20 @@ export function Layout() {
       </div>
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
       <EdicionHerramientas />
+      {fueraDeHorario && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50">
+          <div className="flex w-[460px] flex-col gap-3 border border-[#6f6f6f] bg-[var(--gw-face)] p-5 text-[15px] shadow-lg">
+            <b className="text-[17px] text-[#a00]">Fuera de tu horario de acceso</b>
+            <span>
+              Tu horario es {acceso.horario?.dias.map((d) => 'LMXJVSD'[d - 1]).join(' ')} de {acceso.horario?.desde} a {acceso.horario?.hasta}. Si necesitas entrar, pídeselo a
+              un administrador (Archivo → Parámetros → Control de Accesos).
+            </span>
+            <button type="button" className="gw-btn self-end" onClick={() => signOut()}>
+              Salir
+            </button>
+          </div>
+        </div>
+      )}
       <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} tienda={sesion.tienda} />
     </div>
   )

@@ -8,7 +8,8 @@ import { elegirTienda, fijarEjercicioActivo, sesionTrabajo } from '../../lib/ses
 import { CambioFechaDialog, CambioTiendaDialog, SeleccionarPeriodoDialog } from './SesionDialogs'
 import { EliminarTemporalesDialog, HacerCopiaDialog, TestearCopiaDialog } from './CopiaDialogs'
 import { ElegirImpresoraDialog, PrepararPaginaDialog } from './ImpresionDialogs'
-import { cargarParametros } from '../../lib/parametros'
+import { cargarParametros, valorParametro } from '../../lib/parametros'
+import { cargarMiAcceso, tiendaPermitida } from '../../lib/accesoEmpleado'
 import { abrirPresentacionPreliminar, cssPagina, usePrefsImpresion } from '../../lib/impresion'
 
 const EVENTO_UTILIDAD = 'gw:utilidad'
@@ -62,10 +63,15 @@ export function UtilidadesHost() {
       .from('tienda_terminal')
       .select('codigo')
       .order('codigo')
-      .then(({ data }) => {
-        const lista = (data ?? []) as { codigo: string }[]
+      .then(async ({ data }) => {
+        // Límites del empleado (tiendas permitidas) y su tienda por defecto (Parámetros Locales).
+        await Promise.all([cargarMiAcceso(), cargarParametros()])
+        const lista = ((data ?? []) as { codigo: string }[]).filter((x) => tiendaPermitida(x.codigo))
         const t = sesionTrabajo().tienda
-        if (lista.length && !lista.some((x) => x.codigo === t)) elegirTienda(lista[0].codigo)
+        if (lista.length && !lista.some((x) => x.codigo === t)) {
+          const porDefecto = valorParametro<string | null>('local.tienda_defecto')
+          elegirTienda(lista.some((x) => x.codigo === porDefecto) ? (porDefecto as string) : lista[0].codigo)
+        }
       })
   }, [])
 

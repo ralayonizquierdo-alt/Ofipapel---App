@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { ParametrosPage } from './ParametrosPage'
+import { ParametrosAvatarPage } from './parametros/ParametrosAvatarPage'
 import { ZonaServicioFichaPage } from './ZonaServicioFichaPage'
 import { CargaCotizacionPage } from './CargaCotizacionPage'
 import { ImportarPage } from './ImportarPage'
@@ -8,7 +8,7 @@ import { ImportarPage } from './ImportarPage'
 export function ArchivoRoutes() {
   return (
     <Routes>
-      <Route path="parametros" element={<ParametrosPage />} />
+      <Route path="parametros" element={<ParametrosAvatarPage />} />
       <Route path="zonas-servicio/*" element={<ZonaServicioFichaPage />} />
       <Route path="carga-cotizacion" element={<CargaCotizacionPage />} />
       <Route path="importar" element={<ImportarPage />} />
