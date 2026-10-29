@@ -88,16 +88,24 @@ export const GwBuscar = (p: P) => (
 
 export const GwImprimir = (p: P) => (
   <Svg {...p}>
-    {/* papel de entrada */}
-    <rect x="6" y="3" width="12" height="6" fill="#fff" />
-    <path d="M6.5 3.5h11v6h-11z" fill="none" stroke="#000" />
-    {/* cuerpo */}
-    <rect x="2" y="9" width="20" height="9" fill="#404040" />
-    <rect x="3" y="10" width="18" height="3" fill="#808080" />
-    <rect x="17" y="11" width="2" height="1" fill="#00e000" />
-    <rect x="2" y="18" width="20" height="2" fill="#202020" />
-    {/* bandeja de salida */}
-    <rect x="5" y="15" width="14" height="2" fill="#c0c0c0" />
+    {/* hoja por detrás, con renglones */}
+    <rect x="6" y="1" width="12" height="9" fill="#fff" />
+    <path d="M6.5 1.5h11v9h-11z" fill="none" stroke="#000" />
+    <rect x="8" y="4" width="8" height="1" fill="#808080" />
+    <rect x="8" y="6" width="6" height="1" fill="#808080" />
+    {/* cuerpo: tapa clara y frente gris con contorno */}
+    <rect x="2" y="10" width="20" height="9" fill="#c0c0c0" />
+    <rect x="3" y="11" width="18" height="2" fill="#e8e8e8" />
+    <path d="M1.5 9.5h21v10h-21z" fill="none" stroke="#000" />
+    <rect x="2" y="17" width="20" height="2" fill="#808080" />
+    {/* piloto verde */}
+    <rect x="19" y="14" width="2" height="2" fill="#00c000" />
+    {/* ranura y hoja impresa saliendo por delante */}
+    <rect x="5" y="15" width="14" height="1" fill="#000" />
+    <rect x="7" y="16" width="10" height="7" fill="#fff" />
+    <path d="M6.5 15.5h11v7h-11z" fill="none" stroke="#000" />
+    <rect x="8" y="18" width="8" height="1" fill="#808080" />
+    <rect x="8" y="20" width="5" height="1" fill="#808080" />
   </Svg>
 )
 
