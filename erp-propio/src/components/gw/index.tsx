@@ -13,22 +13,17 @@ export function GwWindow({
   onClose,
   children,
   className = '',
-  acreedor = false,
 }: {
   title: string
   onClose?: () => void
   children: ReactNode
   className?: string
-  /** Ficha de Acreedores: barra de título marrón para no confundirla con la de Proveedores. */
-  acreedor?: boolean
 }) {
   return (
-    <div className={`flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}>
-      <div
-        className={`flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b px-1.5 text-[12px] ${acreedor ? 'from-[#b5703d] to-[#97572b] font-bold text-white' : 'from-[#dbe6f4] to-[#c7d6ea]'}`}
-      >
+    <div className={`gw-ventana flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${className}`}>
+      <div className="gw-titulo flex h-[22px] select-none items-center gap-1.5 bg-gradient-to-b from-[#dbe6f4] to-[#c7d6ea] px-1.5 text-[12px]">
         <GwAppIcon size={14} />
-        <span className="flex-1 truncate">{title}</span>
+        <span className="gw-titulo-texto flex-1 truncate">{title}</span>
         <span className="flex gap-0.5">
           <span className="flex h-[16px] w-[22px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6]">
             <Minus size={10} />
