@@ -82,6 +82,8 @@ const {
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  prometeUnCompromiso,
+  compromisoInfo,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
   PRODUCTO_NO_VERIFICADO_INFO,
@@ -1444,6 +1446,23 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       await appendToHistory(message.from, text, enviado);
       return;
     }
+  }
+
+  // EL BOT NO COMPROMETE A LA TIENDA.
+  //
+  // Un comercial ofreció mandar film negro y el bot quedó en recibirlo y en
+  // decirle si lo vendíamos (29/10/2026, ver prometeUnCompromiso). Eso no lo
+  // decide él, y nadie va a ver ese material: lo único honesto es decir que de
+  // eso se encarga una persona y ofrecerla de verdad, con sus botones.
+  //
+  // Va antes que las demás redes a propósito: no importa si había catálogo ni
+  // si la respuesta traía precios. Una cita que no vamos a cumplir es un
+  // problema en sí misma.
+  if (prometeUnCompromiso(respuesta)) {
+    const prefijo = greeting + compromisoInfo(idioma);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
   }
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que
