@@ -819,6 +819,8 @@ function imprimirGuiaFacturacion(clave) {
   const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0;
   // Con la liquidación de Géminis subida, cada línea lleva nuestro código interno.
   const conCodigos = validados.some((p) => p.codigos && Object.keys(p.codigos).length);
+  // Sin la factura final no se sabe qué ha llegado: la guía saca todo lo validado.
+  const sinFactura = validados.filter((p) => !(p.factura && (p.factura.lineas || []).length));
   let totalCampana = 0;
   const bloques = validados.map((p) => {
     // Si ya está la factura final, solo se factura al cliente lo que ha venido.
@@ -852,6 +854,7 @@ function imprimirGuiaFacturacion(clave) {
   <h1>Guía de facturación · ${h(nombre)}</h1>
   <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s)${validados.some((p) => !p.factura) ? ' · <b>aún sin factura final del proveedor:</b> ' + validados.filter((p) => !p.factura).map((p) => 'nº ' + h(nPed(p.numero))).join(', ') : ''} · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
   ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
+  ${sinFactura.length ? `<p class="aviso"><b>Sin factura final (sale todo lo validado):</b> ${sinFactura.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
   ${bloques}
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
