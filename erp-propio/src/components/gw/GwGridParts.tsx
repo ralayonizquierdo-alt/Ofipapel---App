@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Binoculars, FilePen, FilePlus2, FileX2 } from 'lucide-react'
+import { GwBuscar, GwEliminar, GwModificar, GwNuevo } from './GwIconos'
 
 /** Mini barra de iconos bajo las rejillas de GeminisWin: nueva, modificar, borrar y buscar línea. */
 export function GridMiniBar({
@@ -28,16 +28,16 @@ export function GridMiniBar({
     <div className="flex items-center gap-3">
       <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
         <button type="button" className={b} title="Nueva línea" disabled={!nuevo} onClick={onNuevo}>
-          <FilePlus2 size={13} />
+          <GwNuevo />
         </button>
         <button type="button" className={b} title="Modificar línea" disabled={!modificar} onClick={onModificar}>
-          <FilePen size={13} />
+          <GwModificar />
         </button>
         <button type="button" className={b} title="Borrar línea" disabled={!borrar} onClick={onBorrar}>
-          <FileX2 size={13} />
+          <GwEliminar />
         </button>
         <button type="button" className={`${b} border-r-0`} title="Buscar" disabled={!buscar} onClick={onBuscar}>
-          <Binoculars size={13} />
+          <GwBuscar />
         </button>
       </div>
       {children}

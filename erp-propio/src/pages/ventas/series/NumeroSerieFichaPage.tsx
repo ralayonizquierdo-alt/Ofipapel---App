@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { navDir, navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
+import { GwAnterior, GwBuscar, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 // Ficha «Números de Series» (Ventas → Nº Serie) de GeminisWin: tabla articulo_numero_serie (N_SERIES).
 
@@ -446,11 +446,11 @@ export function NumeroSerieFichaPage() {
             </div>
             <div className="flex w-[530px] border border-[var(--gw-border)] bg-[var(--gw-face)]">
               {[
-                { t: 'Primero', i: <ChevronFirst size={14} />, f: () => setSelRep(0) },
-                { t: 'Anterior', i: <Play size={10} className="rotate-180" fill="currentColor" />, f: () => setSelRep((s) => Math.max(0, s - 1)) },
-                { t: 'Siguiente', i: <Play size={10} fill="currentColor" />, f: () => setSelRep((s) => Math.min(reparaciones.length - 1, s + 1)) },
-                { t: 'Último', i: <ChevronLast size={14} />, f: () => setSelRep(Math.max(0, reparaciones.length - 1)) },
-                { t: 'Abrir reparación', i: <Binoculars size={14} />, f: () => rep && navigate(`/reparaciones/${rep.tienda_terminal_codigo}/${rep.numero}`) },
+                { t: 'Primero', i: <GwPrimero />, f: () => setSelRep(0) },
+                { t: 'Anterior', i: <GwAnterior />, f: () => setSelRep((s) => Math.max(0, s - 1)) },
+                { t: 'Siguiente', i: <GwSiguiente />, f: () => setSelRep((s) => Math.min(reparaciones.length - 1, s + 1)) },
+                { t: 'Último', i: <GwUltimo />, f: () => setSelRep(Math.max(0, reparaciones.length - 1)) },
+                { t: 'Abrir reparación', i: <GwBuscar />, f: () => rep && navigate(`/reparaciones/${rep.tienda_terminal_codigo}/${rep.numero}`) },
               ].map((b) => (
                 <button
                   key={b.t}

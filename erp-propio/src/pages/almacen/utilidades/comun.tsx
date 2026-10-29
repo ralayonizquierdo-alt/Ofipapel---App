@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronFirst, ChevronLast, FileSpreadsheet, Play, Printer, X } from 'lucide-react'
+import { FileSpreadsheet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwInput, GwLookupButton, GwWindow, formatGw } from '../../../components/gw'
 import { useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
+import { GwAnterior, GwImprimir, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 // Piezas comunes de las pantallas del menú Almacén de este bloque (Listados de artículos,
 // Movimientos, Etiquetas, Creación rápida, Modificación en bloque, Plu's, Inventariar almacén,
@@ -111,19 +112,19 @@ export function Paginador({ desde, pagina, total, onIr }: { desde: number; pagin
   return (
     <div className="flex items-center gap-1 text-[14px]">
       <button type="button" className={b} disabled={desde === 0} onClick={() => onIr(0)} title="Primera página">
-        <ChevronFirst size={14} />
+        <GwPrimero />
       </button>
       <button type="button" className={b} disabled={desde === 0} onClick={() => onIr(Math.max(0, desde - pagina))} title="Página anterior">
-        <Play size={10} className="rotate-180" fill="currentColor" />
+        <GwAnterior />
       </button>
       <span className="min-w-[160px] text-center tabular-nums">
         {total ? `${(desde + 1).toLocaleString('es-ES')}-${hasta.toLocaleString('es-ES')} de ${total.toLocaleString('es-ES')}` : 'Sin registros'}
       </span>
       <button type="button" className={b} disabled={hasta >= total} onClick={() => onIr(desde + pagina)} title="Página siguiente">
-        <Play size={10} fill="currentColor" />
+        <GwSiguiente />
       </button>
       <button type="button" className={b} disabled={hasta >= total} onClick={() => onIr(Math.max(0, Math.floor((total - 1) / pagina) * pagina))} title="Última página">
-        <ChevronLast size={14} />
+        <GwUltimo />
       </button>
     </div>
   )
@@ -448,7 +449,7 @@ export function VisorInforme<T>({
               <FileSpreadsheet size={15} className="text-[#127a12]" /> CSV
             </button>
             <button type="button" className="gw-btn !h-[32px] !gap-1.5 !text-[15px]" onClick={aImpresora}>
-              <Printer size={15} /> Imprimir
+              <GwImprimir /> Imprimir
             </button>
             <button type="button" className="gw-btn !h-[32px] !gap-1.5 !text-[15px]" onClick={onCerrar}>
               <X size={15} strokeWidth={3} className="text-[#c42b1c]" /> Cerrar

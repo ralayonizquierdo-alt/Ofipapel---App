@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDownAZ, Binoculars, Check, ChevronFirst, ChevronLast, DoorOpen, Link2, PackageCheck, Play, Printer, RefreshCw, X } from 'lucide-react'
+import { Check, Link2, PackageCheck, RefreshCw, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw } from '../../../components/gw'
@@ -28,6 +28,7 @@ import {
   type Procesos,
 } from './comun'
 import { ordenar, Rejilla, type Col, type Orden } from './rejilla'
+import { GwAnterior, GwBuscar, GwImprimir, GwOrdenar, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 const CLAVE_OPCIONES = 'gw.gestorPedidos.opciones'
 
@@ -510,19 +511,19 @@ export function GestorPedidosPage() {
   const nav = (
     <>
       <BarButton title="Primero" className="w-[105px]" disabled={!grid.n} onClick={() => grid.set(0)}>
-        <ChevronFirst size={18} strokeWidth={3} />
+        <GwPrimero />
       </BarButton>
       <BarButton title="Anterior" className="w-[105px]" disabled={!grid.n} onClick={() => grid.set(Math.max(grid.sel - 1, 0))}>
-        <Play size={12} className="rotate-180" fill="currentColor" />
+        <GwAnterior />
       </BarButton>
       <BarButton title="Siguiente" className="w-[105px]" disabled={!grid.n} onClick={() => grid.set(Math.min(grid.sel + 1, grid.n - 1))}>
-        <Play size={12} fill="currentColor" />
+        <GwSiguiente />
       </BarButton>
       <BarButton title="Último" className="w-[105px]" disabled={!grid.n} onClick={() => grid.set(grid.n - 1)}>
-        <ChevronLast size={18} strokeWidth={3} />
+        <GwUltimo />
       </BarButton>
       <BarButton title="Buscar (Localizar registros)" className="w-[105px]" disabled={!grid.n} onClick={() => setLocalizar(true)}>
-        <Binoculars size={17} />
+        <GwBuscar />
       </BarButton>
       <BarButton
         title="Ordenar"
@@ -530,17 +531,17 @@ export function GestorPedidosPage() {
         disabled={!grid.n}
         onClick={() => grid.setOrd(grid.ord ? { ...grid.ord, asc: !grid.ord.asc } : { key: grid.first, asc: true })}
       >
-        <ArrowDownAZ size={17} />
+        <GwOrdenar />
       </BarButton>
       <BarButton title="Imprimir" className="w-[105px]" onClick={() => window.print()}>
-        <Printer size={17} />
+        <GwImprimir />
       </BarButton>
     </>
   )
 
   const salir = (
     <BarButton title="Salir" className="ml-auto w-[105px]" onClick={() => navigate('/')}>
-      <DoorOpen size={18} />
+      <GwSalir />
     </BarButton>
   )
 
@@ -685,7 +686,7 @@ export function GestorPedidosPage() {
                 <RefreshCw size={17} />
               </BarButton>
               <BarButton title="Salir" className="w-[105px]" onClick={() => navigate('/')}>
-                <DoorOpen size={18} />
+                <GwSalir />
               </BarButton>
             </div>
           </>

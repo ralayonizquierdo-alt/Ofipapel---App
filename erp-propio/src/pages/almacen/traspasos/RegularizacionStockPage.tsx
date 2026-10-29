@@ -1,21 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  ArrowDownAZ,
-  Binoculars,
-  ChevronFirst,
-  ChevronLast,
-  DoorOpen,
-  FilePen,
-  FilePlus2,
-  FileX2,
-  Play,
-  Printer,
-  Save,
-  ScanBarcode,
-  X,
-} from 'lucide-react'
+import { Save, ScanBarcode, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -26,6 +12,7 @@ import { navDir, navIndice, useNavRegistro, type NavDir, type NavFiltro } from '
 /** Las regularizaciones anuladas no se recorren con la barra. */
 const soloActivas: NavFiltro = (q) => q.neq('activo', false)
 import { EntradaRapida } from './TraspasoFichaPage'
+import { GwAnterior, GwBuscar, GwEliminar, GwImprimir, GwModificar, GwNuevo, GwOrdenar, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 // Regularización de stock (GeminisWin: un registro por artículo y almacén, documento USR_STK).
 // Abre en consulta; el número se asigna al guardar. Guardar genera el movimiento por la diferencia.
@@ -441,26 +428,26 @@ export function RegularizacionStockPage() {
       <div ref={barra} className="flex h-[66px] gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
         <div className="grid w-[150px] grid-cols-3 grid-rows-2">
           <BtnTexto title={conTecla('Primero', 'primero')} disabled={editable || idx < 0} onClick={() => navegar('primero')}>
-            <ChevronFirst size={16} strokeWidth={3} />
+            <GwPrimero />
           </BtnTexto>
           <BtnTexto title={conTecla('Siguiente', 'siguiente')} disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
-            <Play size={11} fill="currentColor" />
+            <GwSiguiente />
           </BtnTexto>
           <BtnTexto title={ordenDesc ? 'Orden: del más nuevo al más antiguo' : 'Orden: del más antiguo al más nuevo'} disabled={editable} onClick={() => setOrdenDesc((o) => !o)}>
-            <ArrowDownAZ size={16} />
+            <GwOrdenar />
           </BtnTexto>
           <BtnTexto title={conTecla('Anterior', 'anterior')} disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
-            <Play size={11} className="rotate-180" fill="currentColor" />
+            <GwAnterior />
           </BtnTexto>
           <BtnTexto title={conTecla('Último', 'ultimo')} disabled={editable || idx < 0} onClick={() => navegar('ultimo')}>
-            <ChevronLast size={16} strokeWidth={3} />
+            <GwUltimo />
           </BtnTexto>
           <BtnTexto title={conTecla('Buscar', 'buscar')} disabled={editable} onClick={() => setDialogo('buscar')}>
-            <Binoculars size={16} />
+            <GwBuscar />
           </BtnTexto>
         </div>
         <BtnTexto className="flex-1" label="Imprimir" disabled={sinDoc} onClick={() => window.print()}>
-          <Printer size={20} />
+          <GwImprimir size={20} />
         </BtnTexto>
         {editable ? (
           <>
@@ -474,18 +461,18 @@ export function RegularizacionStockPage() {
         ) : (
           <>
             <BtnTexto className="flex-1" label="Agregar" title={conTecla('Agregar', 'nuevo')} onClick={() => navigate('/regularizacion-stock/nuevo')}>
-              <FilePlus2 size={20} />
+              <GwNuevo size={20} />
             </BtnTexto>
             <BtnTexto className="flex-1" label="Editar" title={conTecla('Editar', 'modificar')} disabled={sinDoc} onClick={() => setModo('edicion')}>
-              <FilePen size={20} />
+              <GwModificar size={20} />
             </BtnTexto>
             <BtnTexto className="flex-1" label="Eliminar" disabled={sinDoc || guardando} onClick={eliminar}>
-              <FileX2 size={20} className="text-[#c42b1c]" />
+              <GwEliminar size={20} />
             </BtnTexto>
           </>
         )}
         <BtnTexto className="flex-1" label="Cerrar" title={conTecla('Cerrar', 'salir')} onClick={() => navigate('/')}>
-          <DoorOpen size={20} />
+          <GwSalir size={20} />
         </BtnTexto>
       </div>
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Binoculars, ChevronFirst, ChevronLast, Play } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwDate, GwGroup, GwRadio, GwSelect, formatGw } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import type { ProveedorTabProps } from '../types'
+import { GwAnterior, GwBuscar, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 interface Compra {
   tienda_terminal_codigo: string
@@ -278,16 +278,16 @@ function NavRejilla({ claves, sel, setSel }: { claves: string[]; sel: string | n
   return (
     <div className="flex w-fit border border-[var(--gw-border)] bg-[var(--gw-face)]">
       <button type="button" className={b} title="Primero" disabled={vacio} onClick={() => ir(0)}>
-        <ChevronFirst size={13} strokeWidth={3} />
+        <GwPrimero />
       </button>
       <button type="button" className={b} title="Anterior" disabled={vacio} onClick={() => ir(i - 1)}>
-        <Play size={9} className="rotate-180" fill="currentColor" />
+        <GwAnterior />
       </button>
       <button type="button" className={b} title="Siguiente" disabled={vacio} onClick={() => ir(i + 1)}>
-        <Play size={9} fill="currentColor" />
+        <GwSiguiente />
       </button>
       <button type="button" className={b} title="Último" disabled={vacio} onClick={() => ir(claves.length - 1)}>
-        <ChevronLast size={13} strokeWidth={3} />
+        <GwUltimo />
       </button>
       <button
         type="button"
@@ -300,7 +300,7 @@ function NavRejilla({ claves, sel, setSel }: { claves: string[]; sel: string | n
           if (k) setSel(k)
         }}
       >
-        <Binoculars size={13} />
+        <GwBuscar />
       </button>
     </div>
   )

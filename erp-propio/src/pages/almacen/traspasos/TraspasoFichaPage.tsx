@@ -1,21 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  ArrowDownAZ,
-  Binoculars,
-  ChevronFirst,
-  ChevronLast,
-  DoorOpen,
-  FilePen,
-  FilePlus2,
-  FileX2,
-  Play,
-  Printer,
-  Save,
-  Undo2,
-  X,
-  ScanBarcode,
-} from 'lucide-react'
+import { Save, Undo2, X, ScanBarcode } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwCheck, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
@@ -24,6 +9,7 @@ import { BIG_INPUT, BIG_LABEL, type ArticuloStock, empleadoActual, fechaHora, re
 import { GwDateTime } from '../../../components/gw/GwDateTime'
 import { navDir, navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
+import { GwAnterior, GwBuscar, GwEliminar, GwImprimir, GwModificar, GwNuevo, GwOrdenar, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 // Traspasos de artículos entre almacenes (Almacén → Traspasos en GeminisWin, TRASPCAB/TRASPLIN).
 // A diferencia de GeminisWin, la pantalla abre en consulta y el número se asigna al guardar.
@@ -672,16 +658,16 @@ export function TraspasoFichaPage() {
       <div className="grid grid-cols-[320px_minmax(0,1fr)_130px_150px] items-center gap-3">
         <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
           <MiniBtn title="Añadir línea" onClick={nuevaLinea} disabled={!editable}>
-            <FilePlus2 size={15} />
+            <GwNuevo />
           </MiniBtn>
           <MiniBtn title="Modificar línea" onClick={() => codRefs.current.get(sel)?.focus()} disabled={!editable || !lineaSel}>
-            <FilePen size={15} />
+            <GwModificar />
           </MiniBtn>
           <MiniBtn title="Borrar línea" onClick={borrarLinea} disabled={!editable || !lineaSel}>
-            <FileX2 size={15} className="text-[#c42b1c]" />
+            <GwEliminar />
           </MiniBtn>
           <MiniBtn title="Buscar artículo" onClick={() => setDialogo('articulo')} disabled={!editable}>
-            <Binoculars size={15} />
+            <GwBuscar />
           </MiniBtn>
         </div>
         <span className="text-[16px] text-[#1a4fd0]">Nº Lineas: {lineas.length}</span>
@@ -708,29 +694,29 @@ export function TraspasoFichaPage() {
 
       <div ref={barra} className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
         <BarBtn title={conTecla('Ir al primer registro', 'primero')} disabled={editable || idx < 0} onClick={() => navegar('primero')}>
-          <ChevronFirst size={17} strokeWidth={3} />
+          <GwPrimero />
         </BarBtn>
         <BarBtn title={conTecla('Ir al anterior registro', 'anterior')} disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
-          <Play size={12} className="rotate-180" fill="currentColor" />
+          <GwAnterior />
         </BarBtn>
         <BarBtn title={conTecla('Ir al siguiente registro', 'siguiente')} disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
-          <Play size={12} fill="currentColor" />
+          <GwSiguiente />
         </BarBtn>
         <BarBtn
           title={conTecla('Ir al último registro', 'ultimo')}
           disabled={editable || idx < 0}
           onClick={() => navegar('ultimo')}
         >
-          <ChevronLast size={17} strokeWidth={3} />
+          <GwUltimo />
         </BarBtn>
         <BarBtn title={ordenDesc ? 'Orden: del más nuevo al más antiguo' : 'Orden: del más antiguo al más nuevo'} disabled={editable} onClick={() => setOrdenDesc((o) => !o)}>
-          <ArrowDownAZ size={17} />
+          <GwOrdenar />
         </BarBtn>
         <BarBtn title={conTecla('Buscar (Localizar registros)', 'buscar')} disabled={editable} onClick={() => setDialogo('buscar')}>
-          <Binoculars size={17} />
+          <GwBuscar />
         </BarBtn>
         <BarBtn title="Imprimir" disabled={sinDoc} onClick={() => window.print()}>
-          <Printer size={17} />
+          <GwImprimir />
         </BarBtn>
         {editable ? (
           <>
@@ -747,18 +733,18 @@ export function TraspasoFichaPage() {
         ) : (
           <>
             <BarBtn title={conTecla('Nuevo', 'nuevo')} onClick={() => navigate('/traspasos/nuevo')}>
-              <FilePlus2 size={17} />
+              <GwNuevo />
             </BarBtn>
             <BarBtn title={conTecla('Modificar', 'modificar')} disabled={sinDoc} onClick={() => setModo('edicion')}>
-              <FilePen size={17} />
+              <GwModificar />
             </BarBtn>
             <BarBtn title="Los traspasos no se eliminan: modifícalo o desmarca «Reflejar traspaso en los almacenes»" disabled>
-              <FileX2 size={17} />
+              <GwEliminar />
             </BarBtn>
           </>
         )}
         <BarBtn title={conTecla('Cerrar', 'salir')} onClick={() => navigate('/')}>
-          <DoorOpen size={17} />
+          <GwSalir />
         </BarBtn>
       </div>
 
@@ -912,7 +898,7 @@ function MiniBtn({ title, onClick, disabled, children }: { title: string; onClic
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[30px] flex-1 items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent"
+      className="flex h-[30px] flex-1 items-center justify-center gw-boton-barra"
     >
       {children}
     </button>
@@ -927,7 +913,7 @@ function BarBtn({ title, onClick, disabled, children }: { title: string; onClick
       data-gw-estado={title}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[34px] flex-1 items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent"
+      className="flex h-[34px] flex-1 items-center justify-center gw-boton-barra"
     >
       {children}
     </button>

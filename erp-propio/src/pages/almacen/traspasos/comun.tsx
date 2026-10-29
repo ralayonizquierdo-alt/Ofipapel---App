@@ -96,7 +96,7 @@ export function BtnTexto({
       data-gw-estado={title ?? label}
       onClick={onClick}
       disabled={disabled}
-      className={`flex flex-col items-center justify-center gap-1 border border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent ${className}`}
+      className={`flex flex-col items-center justify-center gap-1 gw-boton-barra ${className}`}
     >
       {children}
       {label && <span className="text-[14px] leading-[15px] text-black [button:disabled_&]:text-[#a8a8a8]">{label}</span>}

@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from 'react'
 import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
-import { Check, ChevronFirst, ChevronLast, DoorOpen, FilePen, FilePlus2, FileX2, Play, Printer, ScrollText, X } from 'lucide-react'
+import { ScrollText } from 'lucide-react'
+import { GwAceptar, GwAnterior, GwCancelar, GwEliminar, GwImprimir, GwModificar, GwNuevo, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 /**
  * Barra inferior de la ventana «Pagos de Gastos…» de GeminisWin: bloque de navegación 2×2
@@ -61,16 +62,16 @@ export function PagosBar({
     <div ref={raiz} className="flex items-stretch gap-[2px] border-t border-[var(--gw-border)] bg-[var(--gw-face)] pt-1">
       <div className="grid w-[252px] grid-cols-2 grid-rows-2 border border-[var(--gw-border)]">
         <Nav title={conTecla('Primero', 'primero')} onClick={onFirst} disabled={!canNavigate}>
-          <ChevronFirst size={15} strokeWidth={2.5} />
+          <GwPrimero />
         </Nav>
         <Nav title={conTecla('Siguiente', 'siguiente')} onClick={onNext} disabled={!canNavigate}>
-          <Play size={10} fill="currentColor" />
+          <GwSiguiente />
         </Nav>
         <Nav title={conTecla('Anterior', 'anterior')} onClick={onPrev} disabled={!canNavigate}>
-          <Play size={10} className="rotate-180" fill="currentColor" />
+          <GwAnterior />
         </Nav>
         <Nav title={conTecla('Último', 'ultimo')} onClick={onLast} disabled={!canNavigate}>
-          <ChevronLast size={15} strokeWidth={2.5} />
+          <GwUltimo />
         </Nav>
       </div>
       <span className="w-[120px]" />
@@ -78,35 +79,35 @@ export function PagosBar({
         <ScrollText size={17} className="text-[#8a6d1d]" />
       </Btn>
       <Btn label="Imprimir" onClick={onPrint} disabled={!consulta}>
-        <Printer size={17} />
+        <GwImprimir />
       </Btn>
       {consulta ? (
         <>
           <Btn label="Agregar" title={conTecla('Agregar', 'nuevo')} onClick={onNew}>
-            <FilePlus2 size={17} />
+            <GwNuevo />
           </Btn>
           <Btn label="Editar" title={conTecla('Editar', 'modificar')} onClick={onEdit}>
-            <FilePen size={17} />
+            <GwModificar />
           </Btn>
           <Btn label="Eliminar" onClick={onDelete}>
-            <FileX2 size={17} />
+            <GwEliminar />
           </Btn>
         </>
       ) : (
         <>
           <Btn label="Guardar" title={conTecla('Guardar', 'guardar')} onClick={onSave} disabled={saving}>
-            <Check size={18} strokeWidth={3} className="text-[#127a12]" />
+            <GwAceptar />
           </Btn>
           <Btn label="Cancelar" title={conTecla('Cancelar', 'cancelar')} onClick={onCancel} disabled={saving}>
-            <X size={18} strokeWidth={3} className="text-[#c42b1c]" />
+            <GwCancelar />
           </Btn>
           <Btn label="Eliminar" disabled>
-            <FileX2 size={17} />
+            <GwEliminar />
           </Btn>
         </>
       )}
       <Btn label="Cerrar" title={conTecla('Cerrar', 'salir')} onClick={onExit}>
-        <DoorOpen size={17} />
+        <GwSalir />
       </Btn>
     </div>
   )
@@ -120,7 +121,7 @@ function Nav({ title, onClick, disabled, children }: { title: string; onClick?: 
       data-gw-estado={title}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[38px] items-center justify-center border border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent"
+      className="flex h-[38px] items-center justify-center gw-boton-barra"
     >
       {children}
     </button>
@@ -147,7 +148,7 @@ function Btn({
       data-gw-estado={title ?? label}
       onClick={onClick}
       disabled={disabled}
-      className="flex h-[78px] w-[124px] flex-col items-center justify-center gap-2 border border-[var(--gw-border)] text-[16px] text-black hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent [&>svg]:text-[#1d3a8a] disabled:[&>svg]:text-[#a8a8a8]"
+      className="flex h-[78px] w-[124px] flex-col items-center justify-center gap-2 gw-boton-barra text-[16px] text-black [&>svg]:text-[#1d3a8a] disabled:[&>svg]:text-[#a8a8a8]"
     >
       {children}
       <span>{label}</span>

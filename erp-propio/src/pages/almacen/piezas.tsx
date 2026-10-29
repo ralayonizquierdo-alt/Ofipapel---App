@@ -1,25 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { conTecla, useTeclasFicha, type AccionFicha } from '../../components/gw/teclasFicha'
 import { useNavigate } from 'react-router-dom'
-import {
-  ArrowDownAZ,
-  Binoculars,
-  Check,
-  ChevronFirst,
-  ChevronLast,
-  DoorOpen,
-  FilePen,
-  FilePlus2,
-  FolderOpen,
-  Play,
-  Printer,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { FolderOpen } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { GwInput, GwRadio, formatGw } from '../../components/gw'
 import { FilasVacias } from '../../components/gw/GwGridParts'
 import type { ModoFicha } from './useFichaMaestro'
+import { GwAceptar, GwAnterior, GwBuscar, GwCancelar, GwEliminar, GwImprimir, GwModificar, GwNuevo, GwOrdenar, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../components/gw/GwIconos'
 
 /**
  * Imagen con «Ver Imagen a … Tamaño real / Tamaño ajustado / Rellenar marco» y la ruta
@@ -161,7 +148,7 @@ export function BarraCompacta({
       data-gw-estado={accion ? t(label, accion) : label}
       onClick={onClick}
       disabled={disabled}
-      className="group flex h-[44px] w-[96px] flex-col items-center justify-center gap-0.5 border-l border-[var(--gw-border-light)] text-[12px] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+      className="group flex h-[44px] w-[96px] flex-col items-center justify-center gap-0.5 gw-boton-barra text-[12px]"
     >
       {children}
       <span className="text-[#000] group-disabled:text-[#9a9a9a]">{label}</span>
@@ -171,51 +158,51 @@ export function BarraCompacta({
     <div ref={raiz} className="mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
       <div className="grid w-[192px] grid-cols-3 border-t border-l border-[var(--gw-border-light)]">
         <button type="button" className={mini} title={t('Primero', 'primero')} data-gw-estado={t('Primero', 'primero')} disabled={!canNavigate} onClick={onFirst}>
-          <ChevronFirst size={13} strokeWidth={3} />
+          <GwPrimero />
         </button>
         <button type="button" className={mini} title={t('Siguiente', 'siguiente')} data-gw-estado={t('Siguiente', 'siguiente')} disabled={!canNavigate} onClick={onNext}>
-          <Play size={9} fill="currentColor" />
+          <GwSiguiente />
         </button>
         <button type="button" className={mini} title="Ordenar" disabled={!consulta} onClick={onSort}>
-          <ArrowDownAZ size={13} />
+          <GwOrdenar />
         </button>
         <button type="button" className={mini} title={t('Anterior', 'anterior')} data-gw-estado={t('Anterior', 'anterior')} disabled={!canNavigate} onClick={onPrev}>
-          <Play size={9} className="rotate-180" fill="currentColor" />
+          <GwAnterior />
         </button>
         <button type="button" className={mini} title={t('Último', 'ultimo')} data-gw-estado={t('Último', 'ultimo')} disabled={!canNavigate} onClick={onLast}>
-          <ChevronLast size={13} strokeWidth={3} />
+          <GwUltimo />
         </button>
         <button type="button" className={mini} title={t('Buscar', 'buscar')} data-gw-estado={t('Buscar', 'buscar')} disabled={!consulta} onClick={onSearch}>
-          <Binoculars size={13} />
+          <GwBuscar />
         </button>
       </div>
       <Grande label="Imprimir" onClick={onPrint} disabled={!consulta}>
-        <Printer size={15} />
+        <GwImprimir />
       </Grande>
       <Grande label="Agregar" accion="nuevo" onClick={onNew} disabled={!consulta}>
-        <FilePlus2 size={15} />
+        <GwNuevo />
       </Grande>
       {consulta ? (
         <>
           <Grande label="Editar" accion="modificar" onClick={onEdit}>
-            <FilePen size={15} />
+            <GwModificar />
           </Grande>
           <Grande label="Eliminar" onClick={onDelete}>
-            <Trash2 size={15} />
+            <GwEliminar />
           </Grande>
         </>
       ) : (
         <>
           <Grande label="Aceptar" accion="guardar" onClick={onSave} disabled={saving}>
-            <Check size={16} strokeWidth={3} className="text-[#127a12]" />
+            <GwAceptar />
           </Grande>
           <Grande label="Cancelar" accion="cancelar" onClick={onCancel} disabled={saving}>
-            <X size={16} strokeWidth={3} className="text-[#c42b1c]" />
+            <GwCancelar />
           </Grande>
         </>
       )}
       <Grande label="Cerrar" accion="salir" onClick={onExit}>
-        <DoorOpen size={15} />
+        <GwSalir />
       </Grande>
     </div>
   )

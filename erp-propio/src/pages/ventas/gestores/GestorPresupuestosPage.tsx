@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Binoculars, Check, ChevronFirst, ChevronLast, DoorOpen, Play, Printer } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw } from '../../../components/gw'
@@ -26,6 +26,7 @@ import {
   type Procesos,
 } from './comun'
 import { ordenar, Rejilla, type Col, type Orden } from './rejilla'
+import { GwAnterior, GwBuscar, GwImprimir, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 const CLAVE_OPCIONES = 'gw.gestorPresupuestos.opciones'
 
@@ -265,25 +266,25 @@ export function GestorPresupuestosPage() {
             />
             <div className="flex flex-none">
               <BarButton title="Primero" className="w-[106px]" disabled={!n} onClick={() => setSel(0)}>
-                <ChevronFirst size={18} strokeWidth={3} />
+                <GwPrimero />
               </BarButton>
               <BarButton title="Anterior" className="w-[106px]" disabled={!n} onClick={() => setSel(Math.max(sel - 1, 0))}>
-                <Play size={12} className="rotate-180" fill="currentColor" />
+                <GwAnterior />
               </BarButton>
               <BarButton title="Siguiente" className="w-[106px]" disabled={!n} onClick={() => setSel(Math.min(sel + 1, n - 1))}>
-                <Play size={12} fill="currentColor" />
+                <GwSiguiente />
               </BarButton>
               <BarButton title="Último" className="w-[106px]" disabled={!n} onClick={() => setSel(n - 1)}>
-                <ChevronLast size={18} strokeWidth={3} />
+                <GwUltimo />
               </BarButton>
               <BarButton title="Buscar (Localizar registros)" className="w-[106px]" disabled={!n} onClick={() => setLocalizar(true)}>
-                <Binoculars size={17} />
+                <GwBuscar />
               </BarButton>
               <BarButton title="Imprimir" className="w-[106px]" onClick={() => window.print()}>
-                <Printer size={17} />
+                <GwImprimir />
               </BarButton>
               <BarButton title="Salir" className="ml-auto w-[106px]" onClick={() => navigate('/')}>
-                <DoorOpen size={18} />
+                <GwSalir />
               </BarButton>
             </div>
           </>

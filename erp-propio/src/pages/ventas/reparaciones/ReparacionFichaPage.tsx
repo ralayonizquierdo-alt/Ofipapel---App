@@ -196,7 +196,7 @@ function MiniBtn({ title, onClick, disabled, children, ancho = 58 }: { title: st
       onClick={onClick}
       disabled={disabled}
       style={{ width: ancho }}
-      className="flex h-[26px] items-center justify-center gap-1 border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent"
+      className="flex h-[26px] items-center justify-center gap-1 gw-boton-barra"
     >
       {children}
     </button>

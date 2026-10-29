@@ -1,27 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
-import {
-  ArrowDownAZ,
-  Binoculars,
-  ChevronFirst,
-  ChevronLast,
-  DoorOpen,
-  FilePen,
-  FilePlus2,
-  FileMinus2,
-  FileX2,
-  Hand,
-  Inbox,
-  Play,
-  Printer,
-  Save,
-  ScrollText,
-  Tag,
-  Triangle,
-  Undo2,
-  X,
-} from 'lucide-react'
+import { FileMinus2, Hand, Inbox, Save, ScrollText, Tag, Triangle, Undo2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { elegirTienda, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { useAuth } from '../../../lib/AuthContext'
@@ -64,6 +44,7 @@ import {
 } from './VentaDialogs'
 import { VentaTicket, type EmpresaTicket } from './VentaTicket'
 import { decimalesPrecio } from '../../../lib/parametros'
+import { GwAnterior, GwBuscar, GwEliminar, GwImprimir, GwModificar, GwNuevo, GwOrdenar, GwPrimero, GwSalir, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 type Modo = 'consulta' | 'alta' | 'edicion'
 
@@ -953,17 +934,17 @@ export function VentaDocumento({
               onClick={() => setSel((s) => Math.min(lineas.length - 1, s + 1))}
               disabled={sel >= lineas.length - 1}
             />
-            <MiniBtn label="Agregar" icon={<FilePlus2 size={14} />} onClick={agregarLinea} disabled={consulta && bloqueada} />
+            <MiniBtn label="Agregar" icon={<GwNuevo />} onClick={agregarLinea} disabled={consulta && bloqueada} />
             <MiniBtn
               label="Editar"
-              icon={<FilePen size={14} />}
+              icon={<GwModificar />}
               onClick={() => (editable ? lineaSel && codRefs.current.get(lineaSel.key)?.focus() : entrarEdicion())}
               disabled={(consulta && bloqueada) || (cab.numero == null && consulta)}
             />
-            <MiniBtn label="Eliminar" icon={<FileX2 size={14} className="text-[#c42b1c]" />} onClick={eliminarLinea} disabled={!editable || !lineaSel} />
+            <MiniBtn label="Eliminar" icon={<GwEliminar />} onClick={eliminarLinea} disabled={!editable || !lineaSel} />
             <MiniBtn
               label="Buscar"
-              icon={<Binoculars size={14} />}
+              icon={<GwBuscar />}
               onClick={() => (editable ? setDialogo({ tipo: 'buscarArticulo' }) : setDialogo({ tipo: 'buscarVenta' }))}
             />
             <MiniBtn
@@ -1041,33 +1022,33 @@ export function VentaDocumento({
 
       {/* ---------- Barra inferior ---------- */}
       <div ref={barraRef} className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
-        <BarBtn label="Primero" title={conTecla('Primero', 'primero')} icon={<ChevronFirst size={15} strokeWidth={3} />} onClick={() => navegar('primero')} disabled={!consulta} />
-        <BarBtn label="Anterior" title={conTecla('Anterior', 'anterior')} icon={<Play size={11} className="rotate-180" fill="currentColor" />} onClick={() => navegar('anterior')} disabled={!consulta} />
-        <BarBtn label="Siguiente" title={conTecla('Siguiente', 'siguiente')} icon={<Play size={11} fill="currentColor" />} onClick={() => navegar('siguiente')} disabled={!consulta} />
-        <BarBtn label="Último" title={conTecla('Último', 'ultimo')} icon={<ChevronLast size={15} strokeWidth={3} />} onClick={() => navegar('ultimo')} disabled={!consulta} />
+        <BarBtn label="Primero" title={conTecla('Primero', 'primero')} icon={<GwPrimero />} onClick={() => navegar('primero')} disabled={!consulta} />
+        <BarBtn label="Anterior" title={conTecla('Anterior', 'anterior')} icon={<GwAnterior />} onClick={() => navegar('anterior')} disabled={!consulta} />
+        <BarBtn label="Siguiente" title={conTecla('Siguiente', 'siguiente')} icon={<GwSiguiente />} onClick={() => navegar('siguiente')} disabled={!consulta} />
+        <BarBtn label="Último" title={conTecla('Último', 'ultimo')} icon={<GwUltimo />} onClick={() => navegar('ultimo')} disabled={!consulta} />
         <BarBtn
           label="Ordenar"
-          icon={<ArrowDownAZ size={15} />}
+          icon={<GwOrdenar />}
           onClick={() => setOrden((o) => (o === 'numero' ? 'fecha' : 'numero'))}
           disabled={!consulta}
           title={`Orden actual: por ${orden === 'numero' ? 'número' : 'fecha'}`}
         />
-        <BarBtn label="Buscar" title={conTecla('Buscar', 'buscar')} icon={<Binoculars size={15} />} onClick={() => setDialogo({ tipo: 'buscarVenta' })} disabled={!consulta} />
+        <BarBtn label="Buscar" title={conTecla('Buscar', 'buscar')} icon={<GwBuscar />} onClick={() => setDialogo({ tipo: 'buscarVenta' })} disabled={!consulta} />
         <BarBtn label="Listados" icon={<ScrollText size={15} className="text-[#7a6a1c]" />} disabled title="Listados de ventas: aún no disponibles en el ERP propio" />
-        <BarBtn label="Imprimir" title="Imprimir (F2)" icon={<Printer size={15} />} onClick={() => window.print()} />
+        <BarBtn label="Imprimir" title="Imprimir (F2)" icon={<GwImprimir />} onClick={() => window.print()} />
         {consulta ? (
           <>
-            <BarBtn label="Agregar" title={conTecla('Agregar', 'nuevo')} icon={<FilePlus2 size={15} />} onClick={() => empezarAlta(tienda)} />
+            <BarBtn label="Agregar" title={conTecla('Agregar', 'nuevo')} icon={<GwNuevo />} onClick={() => empezarAlta(tienda)} />
             <BarBtn
               label="Editar"
-              icon={<FilePen size={15} />}
+              icon={<GwModificar />}
               onClick={() => entrarEdicion()}
               disabled={cab.numero == null || bloqueada}
               title={emitida ? 'Venta emitida (VeriFactu): no se modifica; usa «Rectificar»' : undefined}
             />
             <BarBtn
               label="Eliminar"
-              icon={<FileX2 size={15} />}
+              icon={<GwEliminar />}
               onClick={() => setDialogo({ tipo: 'anular' })}
               disabled={!emitida || anulada}
               title={
@@ -1094,7 +1075,7 @@ export function VentaDocumento({
           </>
         )}
         <BarBtn label="Cajón" icon={<Inbox size={15} />} onClick={abrirCajon} disabled={guardando} title="Abrir el cajón (CTRL+F12): queda apuntado en el listado de aperturas de cajón" />
-        <BarBtn label="Cerrar" title={conTecla('Cerrar', 'salir')} icon={<DoorOpen size={15} />} onClick={() => navigate('/')} />
+        <BarBtn label="Cerrar" title={conTecla('Cerrar', 'salir')} icon={<GwSalir />} onClick={() => navigate('/')} />
       </div>
       <div className="truncate text-[11px] text-[#333]">
         {editable
@@ -1327,7 +1308,7 @@ function MiniBtn({ label, icon, onClick, disabled, title }: { label: ReactNode; 
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="flex h-[52px] flex-1 flex-col items-center justify-end gap-1 border-r border-[var(--gw-border-light)] pb-0.5 text-[13px] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent [&>span]:text-[#222] disabled:[&>span]:text-[#9a9a9a]"
+      className="flex h-[52px] flex-1 flex-col items-center justify-end gap-1 pb-0.5 text-[13px] gw-boton-barra [&>span]:text-[#222] disabled:[&>span]:text-[#9a9a9a]"
     >
       {icon}
       <span>{label}</span>
@@ -1343,7 +1324,7 @@ function BarBtn({ label, icon, onClick, disabled, title }: { label: string; icon
       disabled={disabled}
       title={title ?? label}
       data-gw-estado={title ?? label}
-      className="flex h-[58px] flex-1 flex-col items-center justify-center gap-2 border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent [&>span]:text-[14px] [&>span]:text-[#222] disabled:[&>span]:text-[#a8a8a8]"
+      className="flex h-[58px] flex-1 flex-col items-center justify-center gap-2 gw-boton-barra [&>span]:text-[14px] [&>span]:text-[#222] disabled:[&>span]:text-[#a8a8a8]"
     >
       {icon}
       <span>{label}</span>
