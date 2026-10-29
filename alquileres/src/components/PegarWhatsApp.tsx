@@ -9,6 +9,7 @@ import { textoDePdf } from '../lib/leePdf'
 import { esImagen, textoDeImagen, ErrorImagen } from '../lib/leeImagen'
 import { subeJustificante, ErrorJustificante, tamanoLegible } from '../lib/justificantes'
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
+import { limpiezaDe, vaSinLimpieza } from '../lib/limpieza'
 import { formatDate } from '../lib/dateUtils'
 import type { Reservation } from '../types'
 import Modal from './ui/Modal'
@@ -97,18 +98,21 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   const propuestas = useMemo(() => lineas.map(l => {
     if (l.problema || !l.apartmentId || !l.checkIn || !l.checkOut) return { linea: l, total: 0, aviso: l.problema }
     const tarifa = buscaTarifa(prices, l.apartmentId, l.checkIn, l.nights, offerPrices)
+    // El Arenal va sin limpieza: la cobra Airbnb y se la queda la gestora.
+    const limpieza = limpiezaDe(l.apartmentId, tarifa ? Number(tarifa.entry.cleaningFee) || 40 : 40)
     const choca = reservations.find(r =>
       r.apartmentId === l.apartmentId && r.status !== 'cancelada' &&
       r.checkIn < l.checkOut! && l.checkIn! < r.checkOut)
     return {
       linea: l,
-      total: tarifa ? calcTotal(tarifa.base, Number(tarifa.entry.cleaningFee) || 40, 0) : 0,
-      limpieza: tarifa ? Number(tarifa.entry.cleaningFee) || 40 : 40,
+      total: tarifa ? calcTotal(tarifa.base, limpieza, 0) : 0,
+      limpieza,
       base: tarifa?.base ?? 0,
       aviso: [
         !tarifa ? 'No hay precios cargados para esas fechas: se creará sin importe' : '',
         choca ? `Ya hay una reserva del ${formatDate(choca.checkIn)} al ${formatDate(choca.checkOut)}` : '',
         l.nota ?? '',
+        vaSinLimpieza(l.apartmentId) ? 'El Arenal va sin limpieza: no se le suman los 40 €' : '',
         // Airbnb nunca manda el precio, así que conviene decir de dónde sale.
         l.origen === 'airbnb' && tarifa ? 'El aviso de Airbnb no trae importe: es el de la tarifa' : '',
       ].filter(Boolean).join('. '),
@@ -196,7 +200,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         apartmentId: l.apartmentId!, guestName: l.guestName ?? '', guests: l.guests, checkIn: l.checkIn!, checkOut: l.checkOut!,
         nights: l.nights, stayType: tramoPorNoches(l.nights),
         channel: l.origen === 'airbnb' ? 'airbnb' : 'inmobiliaria',
-        basePrice: p.base ?? 0, cleaningFee: p.limpieza ?? 40, discountPct: 0,
+        basePrice: p.base ?? 0, cleaningFee: p.limpieza ?? 0, discountPct: 0,
         total: p.total, status: 'confirmada',
         notes: `Alta desde ${l.origen === 'airbnb' ? 'el aviso de Airbnb' : 'el mensaje'}: ${l.texto}`,
       })
