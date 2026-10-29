@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { conTecla, useTeclasFicha, type AccionFicha } from '../../components/gw/teclasFicha'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowDownAZ,
@@ -129,12 +130,35 @@ export function BarraCompacta({
   onExit: () => void
 }) {
   const consulta = mode === 'consulta'
+  // Las mismas teclas que GwRecordBar (teclasFicha): F1 aceptar, Alt+Retroceso/Esc cancelar,
+  // RePág/AvPág, Ctrl+Inicio/Fin, F2 editar, F3 agregar, F5 buscar, Esc cerrar.
+  const raiz = useRef<HTMLDivElement>(null)
+  useTeclasFicha({
+    mode,
+    canNavigate,
+    saving,
+    raiz,
+    acciones: {
+      primero: onFirst,
+      anterior: onPrev,
+      siguiente: onNext,
+      ultimo: onLast,
+      buscar: onSearch,
+      nuevo: onNew,
+      modificar: onEdit,
+      guardar: onSave,
+      cancelar: onCancel,
+      salir: onExit,
+    },
+  })
+  const t = (titulo: string, a: AccionFicha) => conTecla(titulo, a)
   const mini =
     'flex h-[22px] items-center justify-center border-r border-b border-[var(--gw-border-light)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent'
-  const Grande = ({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) => (
+  const Grande = ({ label, accion, onClick, disabled, children }: { label: string; accion?: AccionFicha; onClick: () => void; disabled?: boolean; children: ReactNode }) => (
     <button
       type="button"
-      title={label}
+      title={accion ? t(label, accion) : label}
+      data-gw-estado={accion ? t(label, accion) : label}
       onClick={onClick}
       disabled={disabled}
       className="group flex h-[44px] w-[96px] flex-col items-center justify-center gap-0.5 border-l border-[var(--gw-border-light)] text-[12px] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
@@ -144,36 +168,36 @@ export function BarraCompacta({
     </button>
   )
   return (
-    <div className="mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
+    <div ref={raiz} className="mt-1.5 flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
       <div className="grid w-[192px] grid-cols-3 border-t border-l border-[var(--gw-border-light)]">
-        <button type="button" className={mini} title="Primero" disabled={!canNavigate} onClick={onFirst}>
+        <button type="button" className={mini} title={t('Primero', 'primero')} data-gw-estado={t('Primero', 'primero')} disabled={!canNavigate} onClick={onFirst}>
           <ChevronFirst size={13} strokeWidth={3} />
         </button>
-        <button type="button" className={mini} title="Siguiente" disabled={!canNavigate} onClick={onNext}>
+        <button type="button" className={mini} title={t('Siguiente', 'siguiente')} data-gw-estado={t('Siguiente', 'siguiente')} disabled={!canNavigate} onClick={onNext}>
           <Play size={9} fill="currentColor" />
         </button>
         <button type="button" className={mini} title="Ordenar" disabled={!consulta} onClick={onSort}>
           <ArrowDownAZ size={13} />
         </button>
-        <button type="button" className={mini} title="Anterior" disabled={!canNavigate} onClick={onPrev}>
+        <button type="button" className={mini} title={t('Anterior', 'anterior')} data-gw-estado={t('Anterior', 'anterior')} disabled={!canNavigate} onClick={onPrev}>
           <Play size={9} className="rotate-180" fill="currentColor" />
         </button>
-        <button type="button" className={mini} title="Último" disabled={!canNavigate} onClick={onLast}>
+        <button type="button" className={mini} title={t('Último', 'ultimo')} data-gw-estado={t('Último', 'ultimo')} disabled={!canNavigate} onClick={onLast}>
           <ChevronLast size={13} strokeWidth={3} />
         </button>
-        <button type="button" className={mini} title="Buscar" disabled={!consulta} onClick={onSearch}>
+        <button type="button" className={mini} title={t('Buscar', 'buscar')} data-gw-estado={t('Buscar', 'buscar')} disabled={!consulta} onClick={onSearch}>
           <Binoculars size={13} />
         </button>
       </div>
       <Grande label="Imprimir" onClick={onPrint} disabled={!consulta}>
         <Printer size={15} />
       </Grande>
-      <Grande label="Agregar" onClick={onNew} disabled={!consulta}>
+      <Grande label="Agregar" accion="nuevo" onClick={onNew} disabled={!consulta}>
         <FilePlus2 size={15} />
       </Grande>
       {consulta ? (
         <>
-          <Grande label="Editar" onClick={onEdit}>
+          <Grande label="Editar" accion="modificar" onClick={onEdit}>
             <FilePen size={15} />
           </Grande>
           <Grande label="Eliminar" onClick={onDelete}>
@@ -182,15 +206,15 @@ export function BarraCompacta({
         </>
       ) : (
         <>
-          <Grande label="Aceptar" onClick={onSave} disabled={saving}>
+          <Grande label="Aceptar" accion="guardar" onClick={onSave} disabled={saving}>
             <Check size={16} strokeWidth={3} className="text-[#127a12]" />
           </Grande>
-          <Grande label="Cancelar" onClick={onCancel} disabled={saving}>
+          <Grande label="Cancelar" accion="cancelar" onClick={onCancel} disabled={saving}>
             <X size={16} strokeWidth={3} className="text-[#c42b1c]" />
           </Grande>
         </>
       )}
-      <Grande label="Cerrar" onClick={onExit}>
+      <Grande label="Cerrar" accion="salir" onClick={onExit}>
         <DoorOpen size={15} />
       </Grande>
     </div>

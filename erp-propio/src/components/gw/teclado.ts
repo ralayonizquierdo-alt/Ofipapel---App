@@ -20,13 +20,39 @@ const fotos = new WeakMap<Event, { modal: Element | null }>()
 
 /** Primer control del diálogo que puede tener el foco (o el propio diálogo). */
 function focoDentro(modal: Element): HTMLElement {
-  const c = Array.from(modal.querySelectorAll<HTMLElement>('[autofocus], input, select, textarea, button')).find(
-    (x) => !(x as HTMLInputElement).disabled && x.tabIndex >= 0 && x.getClientRects().length > 0 && (x as HTMLInputElement).type !== 'hidden',
-  )
-  if (c) return c
+  const usable = (x: HTMLElement) =>
+    !(x as HTMLInputElement).disabled && x.tabIndex >= 0 && x.getClientRects().length > 0 && (x as HTMLInputElement).type !== 'hidden'
+  // Primero el campo (no la X de la barra de título): Esc/Intro del diálogo siguen funcionando.
+  for (const sel of ['[autofocus]', 'input, select, textarea']) {
+    const c = Array.from(modal.querySelectorAll<HTMLElement>(sel)).find(usable)
+    if (c) return c
+  }
+  const b = botonDelDialogo(modal, 'aceptar')
+  if (b) return b
   const m = modal as HTMLElement
   if (m.tabIndex < 0) m.tabIndex = -1
   return m
+}
+
+const TEXTO_BOTON = {
+  aceptar: /^(aceptar|ok|sí|si)$/i,
+  cancelar: /^(cancelar|cerrar|salir|no)$/i,
+}
+
+/**
+ * Botón por defecto (Intro) o de cancelar (Esc) de un diálogo: el marcado `data-gw-aceptar` /
+ * `data-gw-cancelar`, o el rotulado Aceptar/Sí/OK · Cancelar/Cerrar/Salir/No (o la X «Cerrar»).
+ */
+export function botonDelDialogo(modal: Element, tipo: 'aceptar' | 'cancelar'): HTMLButtonElement | null {
+  const botones = Array.from(modal.querySelectorAll<HTMLButtonElement>('button')).filter(
+    (b) => !b.disabled && b.getClientRects().length > 0,
+  )
+  return (
+    botones.find((b) => b.hasAttribute(`data-gw-${tipo}`)) ??
+    botones.find((b) => TEXTO_BOTON[tipo].test((b.textContent ?? '').trim())) ??
+    (tipo === 'cancelar' ? botones.find((b) => b.title === 'Cerrar' || b.getAttribute('aria-label') === 'Cerrar') : undefined) ??
+    null
+  )
 }
 
 if (typeof window !== 'undefined') {
@@ -65,6 +91,30 @@ if (typeof window !== 'undefined') {
     },
     true,
   )
+}
+
+// Diálogos sin teclas propias: Intro = Aceptar y Esc = Cancelar, como en Windows. Solo si nadie ha
+// usado ya la tecla (preventDefault) y, tras dejar que React pinte (setTimeout), el diálogo sigue
+// abierto: así un diálogo que ya se cierra solo con su Esc no recibe un segundo clic.
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+    if (e.key !== 'Escape' && e.key !== 'Enter') return
+    const modal = modalAlPulsar(e)
+    if (!modal || teclaDeHerramienta(e)) return
+    const t = e.target
+    if (e.key === 'Enter') {
+      // Intro en un botón lo pulsa el propio botón; en un área de texto es salto de línea; en un
+      // formulario lo envía el navegador.
+      if (!(t instanceof Element) || t instanceof HTMLButtonElement || esTextarea(t) || t.closest('form')) return
+      if (t instanceof HTMLInputElement && ['checkbox', 'radio', 'file'].includes(t.type)) return
+    }
+    const tipo = e.key === 'Enter' ? 'aceptar' : 'cancelar'
+    window.setTimeout(() => {
+      if (!modal.isConnected || modalSuperior() !== modal) return
+      botonDelDialogo(modal, tipo)?.click()
+    }, 0)
+  })
 }
 
 /** Diálogo modal abierto en el momento en que se pulsó la tecla (null si no había). */
