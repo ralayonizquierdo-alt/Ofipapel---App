@@ -45,6 +45,8 @@ export function SeguimientoPresupuesto({
   clienteNombre,
   total,
   datosPdf,
+  formulario,
+  setFormulario,
 }: {
   d: DatosSeguimiento
   editando: boolean
@@ -58,13 +60,15 @@ export function SeguimientoPresupuesto({
   total?: number | null
   /** Datos para el PDF del presupuesto (cabecera, líneas y totales de la ficha). */
   datosPdf?: () => DatosPdf
+  /** Formulario SEGUIMIENTO abierto: lo controla la ficha, que pone el botón debajo del Dto. %. */
+  formulario: boolean
+  setFormulario: (v: boolean) => void
 }) {
   const navigate = useNavigate()
   const [empleados, setEmpleados] = useState<{ codigo: string; nombre: string; numero_operario: string | null }[]>([])
   const [pasando, setPasando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState(false)
-  const [formulario, setFormulario] = useState(false)
   const [enviando, setEnviando] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   useEffect(() => {
@@ -225,16 +229,6 @@ export function SeguimientoPresupuesto({
           {aviso && <span className="max-w-[420px] text-[12px] text-[#185a18]">{aviso}</span>}
         </span>
       )}
-      <button
-        type="button"
-        className="gw-boton-barra h-[52px] w-[190px] text-[17px] font-bold tracking-wide text-[#1d3a8a]"
-        style={{ background: '#e8e8e8' }}
-        disabled={numero == null || tienda == null}
-        title={numero == null ? 'Guarda primero el presupuesto' : 'Llamadas, correos y cierre del presupuesto'}
-        onClick={() => setFormulario(true)}
-      >
-        📞 SEGUIMIENTO
-      </button>
       <button type="button" className="gw-btn" onClick={() => setAyuda((a) => !a)}>
         Operativa
       </button>
@@ -260,7 +254,7 @@ export function SeguimientoPresupuesto({
                 titulo: 'Seguimiento de un presupuesto',
                 pasos: [
                   'Mandarlo al cliente: ✉ Enviar por correo o 💬 WhatsApp (va el PDF). Pasa solo a «Enviado» y se pone la fecha de volver a llamar (a los 3 días). 📄 PDF solo lo descarga.',
-                  'Cuando llames o escribas: botón 📞 SEGUIMIENTO → rellena el 1.º (luego el 2.º y el 3.º): día, con quién hablaste, qué contesta y cuándo volver a contactar → 💾 Guardar.',
+                  'Cuando llames o escribas: botón 📞 SEGUIMIENTO (debajo del Dto. %, junto a los totales) → rellena el 1.º (luego el 2.º y el 3.º): día, con quién hablaste, qué contesta y cuándo volver a contactar → 💾 Guardar.',
                   'Por correo: marca «E-mail» y pulsa ✉ Enviar correo: se abre tu correo con el texto hecho y queda apuntado.',
                   'Si lo acepta: Estado «Aceptado» y luego «➜ Pasar a pedido».',
                   'Si no: en SEGUIMIENTO → «Cerrar el presupuesto» con el motivo (queda la fecha y el vendedor).',
