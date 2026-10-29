@@ -176,7 +176,23 @@ export function usePanelData(tienda: string, periodo: Periodo) {
 
 // ---- Tarjetas del día: presupuestos, compras y peticiones (fn_panel_dia) ---------------------
 
+export interface SeguimientoFila {
+  tienda: string
+  numero: number
+  cliente: string | null
+  total: number | null
+  estado: string
+  proximo_contacto: string | null
+  valido_hasta: string | null
+  responsable: string | null
+  mio: boolean
+  caducado: boolean
+  dias_retraso: number | null
+}
+
 export interface PanelDia {
+  /** Presupuestos que hay que llamar hoy o ya vencidos, y caducados (fn_presupuestos_seguimiento). */
+  seguimiento: { hoy: number; vencidos: number; caducados: number; mios: number; lista: SeguimientoFila[] }
   presupuestos: {
     total: number
     aceptados: number
@@ -202,7 +218,13 @@ export function usePanelDia(tienda: string, vuelta: unknown): PanelDia | null {
   const [dia, setDia] = useState<PanelDia | null>(null)
   useEffect(() => {
     let vivo = true
-    supabase.rpc('fn_panel_dia', { p_tienda: tienda || null }).then(({ data }) => vivo && data && setDia(data as PanelDia))
+    Promise.all([
+      supabase.rpc('fn_panel_dia', { p_tienda: tienda || null }),
+      supabase.rpc('fn_presupuestos_seguimiento', { p_tienda: tienda || null }),
+    ]).then(([a, b]) => {
+      if (!vivo || !a.data) return
+      setDia({ ...(a.data as Omit<PanelDia, 'seguimiento'>), seguimiento: (b.data as PanelDia['seguimiento']) ?? { hoy: 0, vencidos: 0, caducados: 0, mios: 0, lista: [] } })
+    })
     return () => {
       vivo = false
     }

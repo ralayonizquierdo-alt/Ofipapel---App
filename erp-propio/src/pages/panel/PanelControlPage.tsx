@@ -140,7 +140,8 @@ export function PanelControlPage() {
                   titulo: 'Tarjetas de arriba',
                   notas: [
                     'Pedidos, pendientes de preparar, reparto y pedidos web: pulsa para abrir su pantalla.',
-                    'Presupuestos hoy: hechos hoy, cuántos aceptados, pendientes y en seguimiento.',
+                    'Presupuestos hoy: hechos hoy, cuántos aceptados, pendientes y en seguimiento; debajo, a cuántos hay que llamar hoy y cuántos están vencidos (en rojo).',
+                    'Al pulsar Presupuestos: lista «Para llamar» (marca «Solo los míos»); pulsa uno para abrirlo.',
                     'Compras hoy: altas del día actualizadas, pendientes de actualizar y abonos.',
                     'Peticiones hoy: cuántas, por nº de empleado.',
                     'Pulsa Presupuestos, Compras o Peticiones para ver la lista con sus números (pedido, albarán, factura, código de venta…).',
@@ -347,11 +348,25 @@ function Kpis({ d, dia, abrir, verDetalle }: { d: PanelData; dia: PanelDia | nul
             ? `Último: ${d.pedidos_web.ultimo_fecha === d.meta.hoy ? 'hoy' : fmtFecha(d.pedidos_web.ultimo_fecha)}${d.pedidos_web.ultimo_hora ? ' a las ' + d.pedidos_web.ultimo_hora : ''}`
             : 'Aún no hay pedidos web'}
       </Kpi>
-      <Kpi label="Presupuestos hoy" icon={FileText} valor={pr ? fmtNum(pr.total) : '…'} onClick={() => verDetalle('presupuestos')}>
-        <span className="flex gap-2">
-          {cifra('Acept.', pr?.aceptados, '#127a12')}
-          {cifra('Pend.', pr?.pendientes, '#b45309')}
-          {cifra('Seguim.', pr?.seguimiento, '#1d5fb4')}
+      <Kpi
+        label="Presupuestos hoy"
+        icon={FileText}
+        valor={pr ? fmtNum(pr.total) : '…'}
+        alerta={!!dia && dia.seguimiento.vencidos + dia.seguimiento.caducados > 0}
+        onClick={() => verDetalle('presupuestos')}
+      >
+        <span className="flex flex-col">
+          <span className="flex gap-2">
+            {cifra('Acept.', pr?.aceptados, '#127a12')}
+            {cifra('Pend.', pr?.pendientes, '#b45309')}
+            {cifra('Seguim.', pr?.seguimiento, '#1d5fb4')}
+          </span>
+          {dia && (
+            <span className="flex gap-2" title="Seguimientos: presupuestos a los que hay que llamar">
+              {cifra('Llamar hoy', dia.seguimiento.hoy, '#1d5fb4')}
+              {cifra('Vencidos', dia.seguimiento.vencidos, '#c42b1c')}
+            </span>
+          )}
         </span>
       </Kpi>
       <Kpi
@@ -402,10 +417,67 @@ function DetalleDia({ que, dia, abrir, onClose }: { que: Detalle; dia: PanelDia;
             filas: dia.peticiones.lista.map((x) => [`${x.tienda}-${x.numero}`, x.operario ?? '', x.codigo_venta ?? '', x.descripcion ?? '', fmtNum(x.cantidad, 2), x.estado ?? '']),
           }
   const ir = abrir(t.ruta)
+  const navigate = useNavigate()
+  const [soloMios, setSoloMios] = useState(false)
+  const seguir = dia.seguimiento.lista.filter((x) => !soloMios || x.mio)
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-20" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <GwWindow title={t.titulo} onClose={onClose} className="w-[760px] max-w-[95vw]">
         <div className="flex flex-col gap-1.5 text-[13px]">
+          {que === 'presupuestos' && (
+            <>
+              <div className="flex items-center gap-2">
+                <b className="text-[14px] text-[#1d3a8a]">Para llamar ({seguir.length})</b>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={soloMios} onChange={(e) => setSoloMios(e.target.checked)} />
+                  Solo los míos
+                </label>
+              </div>
+              <div className="max-h-[260px] overflow-y-auto border border-[var(--gw-border)] bg-white">
+                <table className="gw-grid">
+                  <thead className="sticky top-0">
+                    <tr>
+                      <th>Nº presupuesto</th>
+                      <th>Cliente</th>
+                      <th>Estado</th>
+                      <th>Llamar</th>
+                      <th>Empl.</th>
+                      <th className="text-right!">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {seguir.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="text-[#777]">
+                          Nadie a quien llamar hoy.
+                        </td>
+                      </tr>
+                    )}
+                    {seguir.map((x) => (
+                      <tr
+                        key={`${x.tienda}-${x.numero}`}
+                        className="cursor-pointer hover:bg-[#e5f1fb]"
+                        title="Abrir el presupuesto"
+                        onClick={() => (onClose(), navigate(`/presupuestos/${encodeURIComponent(x.tienda)}/${x.numero}`))}
+                      >
+                        <td>
+                          {x.tienda}-{x.numero}
+                        </td>
+                        <td className="truncate">{x.cliente ?? ''}</td>
+                        <td>{x.estado === 'seguimiento' ? 'En seguimiento' : x.estado === 'enviado' ? 'Enviado' : 'Borrador'}</td>
+                        <td className={x.caducado || (x.dias_retraso ?? 0) > 0 ? 'font-bold text-[#c42b1c]' : 'text-[#1d5fb4]'}>
+                          {x.caducado ? 'Caducado' : (x.dias_retraso ?? 0) > 0 ? `Vencido hace ${x.dias_retraso} d` : 'Hoy'}
+                        </td>
+                        <td>{x.responsable ?? ''}</td>
+                        <td className="text-right">{x.total != null ? fmtNum(x.total, 2) : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <b className="text-[14px] text-[#1d3a8a]">Hechos hoy</b>
+            </>
+          )}
           <div className="max-h-[400px] overflow-y-auto border border-[var(--gw-border)] bg-white">
             <table className="gw-grid">
               <thead className="sticky top-0">

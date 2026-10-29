@@ -10,6 +10,7 @@ import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { PedidoBar } from './PedidoBar'
+import { SeguimientoPresupuesto, type EstadoPresupuesto } from './SeguimientoPresupuesto'
 import { entregarPedido } from './entregar'
 import { decimalesPrecio } from '../../../lib/parametros'
 import {
@@ -52,6 +53,13 @@ interface Cabecera {
   aceptado: boolean
   /** Presupuesto en seguimiento (se está hablando con el cliente). */
   en_seguimiento: boolean
+  presupuesto_estado: EstadoPresupuesto | null
+  proximo_contacto: string | null
+  responsable_codigo: string | null
+  enviado_en: string | null
+  motivo_perdida: string | null
+  pedido_generado_tienda: string | null
+  pedido_generado_numero: number | null
   preparado: boolean
   entregado: boolean
   liquidado: number | null
@@ -102,7 +110,7 @@ interface Tienda {
 }
 
 const CAB_COLS =
-  'tienda_terminal_codigo, numero, fecha, hora, web_pedido_id, es_presupuesto, empleado_codigo, cliente_codigo, cliente_sucursal_codigo, nombre_cliente, nif_cliente, vendedor_codigo, fecha_inicio, fecha_fin, almacen_codigo, tarifa_nivel, forma_pago_codigo, tipo_credito, ruta_codigo, descuento_pie_pct, igic_pie_pct, anulado, aceptado, en_seguimiento, preparado, entregado, liquidado, venta_tienda_codigo, venta_numero, observaciones'
+  'tienda_terminal_codigo, numero, fecha, hora, web_pedido_id, es_presupuesto, empleado_codigo, cliente_codigo, cliente_sucursal_codigo, nombre_cliente, nif_cliente, vendedor_codigo, fecha_inicio, fecha_fin, almacen_codigo, tarifa_nivel, forma_pago_codigo, tipo_credito, ruta_codigo, descuento_pie_pct, igic_pie_pct, anulado, aceptado, en_seguimiento, presupuesto_estado, proximo_contacto, responsable_codigo, enviado_en, motivo_perdida, pedido_generado_tienda, pedido_generado_numero, preparado, entregado, liquidado, venta_tienda_codigo, venta_numero, observaciones'
 
 const NIVELES = ['General', 'MAYOR M-1', 'MAYOR M-2', 'MAYOR M-3', 'Tarifa Dto-4', 'Tarifa Dto-5', 'Tarifa Dto-6']
 
@@ -174,6 +182,13 @@ function vacia(tienda: Tienda | undefined, empleado: string | null, presupuesto:
     anulado: false,
     aceptado: false,
     en_seguimiento: false,
+    presupuesto_estado: presupuesto ? 'borrador' : null,
+    proximo_contacto: null,
+    responsable_codigo: null,
+    enviado_en: null,
+    motivo_perdida: null,
+    pedido_generado_tienda: null,
+    pedido_generado_numero: null,
     preparado: false,
     entregado: false,
     liquidado: null,
@@ -1051,20 +1066,22 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         </div>
       </div>
 
+      {/* Presupuestos: estado, responsable y próximo contacto (que ninguno se quede en el limbo) */}
+      {cab?.es_presupuesto && (
+        <SeguimientoPresupuesto
+          d={cab}
+          editando={!ro}
+          consulta={mode === 'consulta'}
+          tienda={cab.tienda_terminal_codigo}
+          numero={cab.numero}
+          onChange={(p) => patch(p as Partial<Cabecera>)}
+        />
+      )}
+
       {/* Estados y enlace con la venta */}
       <div className="flex gap-1.5 border-t border-[var(--gw-border-light)] pt-[3px]">
         <EstadoBtn label="Anulado" on={!!cab?.anulado} disabled={ro} onClick={() => patch({ anulado: !cab?.anulado })} tall />
-        <EstadoBtn label="Aceptado" on={!!cab?.aceptado} disabled={ro} onClick={() => patch({ aceptado: !cab?.aceptado })} tall />
-        {cab?.es_presupuesto && (
-          <EstadoBtn
-            label="En seguimiento"
-            on={!!cab?.en_seguimiento}
-            disabled={ro || !!cab?.aceptado}
-            title="Presupuesto en seguimiento: se está hablando con el cliente"
-            onClick={() => patch({ en_seguimiento: !cab?.en_seguimiento })}
-            tall
-          />
-        )}
+        {!cab?.es_presupuesto && <EstadoBtn label="Aceptado" on={!!cab?.aceptado} disabled={ro} onClick={() => patch({ aceptado: !cab?.aceptado })} tall />}
         <div className="flex w-[180px] flex-col">
           <EstadoBtn label="Preparado" inline on={!!cab?.preparado} disabled={ro} onClick={() => patch({ preparado: !cab?.preparado })} />
           <EstadoBtn
