@@ -142,7 +142,7 @@ export function PanelControlPage() {
                     'Pedidos, pendientes de preparar, reparto y pedidos web: pulsa para abrir su pantalla.',
                     'Presupuestos hoy: hechos hoy, cuántos aceptados, pendientes y en seguimiento.',
                     'Compras hoy: altas del día actualizadas, pendientes de actualizar y abonos.',
-                    'Peticiones hoy: cuántas, por nº de operario.',
+                    'Peticiones hoy: cuántas, por nº de empleado.',
                     'Pulsa Presupuestos, Compras o Peticiones para ver la lista con sus números (pedido, albarán, factura, código de venta…).',
                   ],
                 },
@@ -369,7 +369,7 @@ function Kpis({ d, dia, abrir, verDetalle }: { d: PanelData; dia: PanelDia | nul
       </Kpi>
       <Kpi label="Peticiones hoy" icon={MessageSquarePlus} valor={pe ? fmtNum(pe.total) : '…'} onClick={() => verDetalle('peticiones')}>
         {pe && pe.por_operario.length ? (
-          <span className="flex gap-2">{pe.por_operario.slice(0, 3).map((x) => cifra(`Op. ${x.operario ?? '?'}`, x.n))}</span>
+          <span className="flex gap-2">{pe.por_operario.slice(0, 3).map((x) => cifra(`Empl. ${x.operario ?? '?'}`, x.n))}</span>
         ) : (
           'Ninguna petición hoy'
         )}
@@ -385,7 +385,7 @@ function DetalleDia({ que, dia, abrir, onClose }: { que: Detalle; dia: PanelDia;
       ? {
           titulo: 'Presupuestos de hoy',
           ruta: '/gestor-presupuestos',
-          cols: ['Nº presupuesto', 'Cliente', 'Estado', 'Oper.'],
+          cols: ['Nº presupuesto', 'Cliente', 'Estado', 'Empl.'],
           filas: dia.presupuestos.lista.map((x) => [`${x.tienda}-${x.numero}`, x.cliente ?? '', x.estado, x.operario ?? '']),
         }
       : que === 'compras'
@@ -398,7 +398,7 @@ function DetalleDia({ que, dia, abrir, onClose }: { que: Detalle; dia: PanelDia;
         : {
             titulo: 'Peticiones de hoy',
             ruta: '/peticiones',
-            cols: ['Nº petición', 'Oper.', 'Código venta', 'Descripción', 'Cant.', 'Estado'],
+            cols: ['Nº petición', 'Empl.', 'Código venta', 'Descripción', 'Cant.', 'Estado'],
             filas: dia.peticiones.lista.map((x) => [`${x.tienda}-${x.numero}`, x.operario ?? '', x.codigo_venta ?? '', x.descripcion ?? '', fmtNum(x.cantidad, 2), x.estado ?? '']),
           }
   const ir = abrir(t.ruta)
