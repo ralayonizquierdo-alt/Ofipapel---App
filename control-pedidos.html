@@ -819,10 +819,13 @@ function imprimirGuiaFacturacion(clave) {
   const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0;
   // Con la liquidación de Géminis subida, cada línea lleva nuestro código interno.
   const conCodigos = validados.some((p) => p.codigos && Object.keys(p.codigos).length);
-  // Sin la factura final no se sabe qué ha llegado: la guía saca todo lo validado.
-  const sinFactura = validados.filter((p) => !(p.factura && (p.factura.lineas || []).length));
+  // Solo se factura lo que ha llegado: si la campaña ya trabaja con facturas
+  // finales, un pedido sin la suya no entra (no ha llegado). Sin ninguna, sale todo lo validado.
+  const conFactura = (p) => Boolean(p.factura && (p.factura.lineas || []).length);
+  const sinFactura = validados.some(conFactura) ? validados.filter((p) => !conFactura(p)) : [];
+  const incluidos = validados.filter((p) => !sinFactura.includes(p));
   let totalCampana = 0;
-  const bloques = validados.map((p) => {
+  const bloques = incluidos.map((p) => {
     // Si ya está la factura final, solo se factura al cliente lo que ha venido.
     const rf = revisarFactura(p);
     const noVino = new Map(((rf && rf.faltan) || []).map((x) => [CP.claveRef(x.ref), x.cant]));
@@ -852,9 +855,9 @@ function imprimirGuiaFacturacion(clave) {
   table{border-collapse:collapse;width:100%}table.guia{table-layout:fixed}th,td{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}td.n,th.n{text-align:right}td.cod{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   tr.tot td{font-weight:bold;border-bottom:0}.nota{background:#eef4ff;padding:4px 6px}.resto{background:#fff6e0;padding:4px 6px}.aviso{background:#fde8e8;padding:6px}.sincod{color:#b00;font-weight:bold}</style></head><body>
   <h1>Guía de facturación · ${h(nombre)}</h1>
-  <p>${h(fmtFecha(hoy()))} · ${validados.length} cliente(s)${validados.some((p) => !p.factura) ? ' · <b>aún sin factura final del proveedor:</b> ' + validados.filter((p) => !p.factura).map((p) => 'nº ' + h(nPed(p.numero))).join(', ') : ''} · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
+  <p>${h(fmtFecha(hoy()))} · ${incluidos.length} cliente(s) · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
   ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
-  ${sinFactura.length ? `<p class="aviso"><b>Sin factura final (sale todo lo validado):</b> ${sinFactura.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
+  ${sinFactura.length ? `<p class="aviso"><b>Sin factura final, no incluidos:</b> ${sinFactura.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
   ${bloques}
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
