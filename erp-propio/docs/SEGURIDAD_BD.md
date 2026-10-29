@@ -337,3 +337,8 @@ El detalle exacto está en la migración (un `values` por bloque). Resumen:
 | | `articulo_tarifa_cantidad(_nivel)` | `/articulos`, `/modificacion-precios`, `/tarifas-oferta` |
 | | resto de hijas de artículo, `color`, `talla` | `/articulos` |
 | | `articulo_plu` · `oferta_tarifa` · `modificacion_precio*` · `modificacion_articulo*` | `/almacen/plus` · `/tarifas-oferta` · `/modificacion-precios` · `/almacen/modificacion-bloque` |
+| 3 | `movimiento_stock` | `/tpv`, `/ventas`, `/pedidos`, `/presupuestos`, `/pedidos-proveedor`, `/creacion-rapida-pedidos`, `/gestor-pedidos-proveedor`, `/almacen/creacion-rapida`, `/almacen/inventariar`, `/inventario`, `/regularizacion-stock`, `/traspasos`, `/almacen/stock-cero-familia`, `/almacen/puntos-restauracion`, `carga` |
+| | `articulo_almacen_stock` | `/almacen/recalcular-stock`, `carga` (el saldo normal lo lleva el trigger DEFINER) |
+| | `traspaso_almacen(_linea)` · `regularizacion_stock` | `/traspasos`, `/regularizacion-stock` · `/regularizacion-stock` |
+| | `inventario(_linea)` · `punto_restauracion_stock(_linea)` | `/inventario`, `/almacen/inventariar` (+ `/almacen/puntos-restauracion`) |
+| | `articulo_lote(_movimiento)` · `articulo_numero_serie` | `/almacen/lotes`, `/almacen/stock-cero-familia` · `/numeros-serie` |
