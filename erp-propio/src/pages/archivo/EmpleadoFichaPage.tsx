@@ -132,11 +132,11 @@ export function EmpleadoFichaPage() {
         <GwField label="Código">
           <GwCampoBusqueda value={d.codigo} editable={mode === 'alta'} disabled={mode === 'edicion'} title="CODIGO" maxLength={10} onChange={(v) => patch({ codigo: v.toUpperCase() })} {...f.busqueda('codigo')} />
         </GwField>
-        <GwField label="Nº Empleado">
+        <GwField label="Nº Vend.">
           <GwInput
             value={d.numero_operario ?? ''}
             disabled={!editing}
-            title="Número de empleado (el que sale en listados y consultas, como en GeminisWin)"
+            title="Nº de vendedor: el número de este empleado que sale en listados y consultas (como en GeminisWin)"
             onChange={(e) => patch({ numero_operario: e.target.value.trim() || null })}
           />
         </GwField>

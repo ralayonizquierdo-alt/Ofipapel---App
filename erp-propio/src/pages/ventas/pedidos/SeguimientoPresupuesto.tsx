@@ -9,18 +9,10 @@ import { GwDate, GwSelect } from '../../../components/gw'
 import { supabase } from '../../../lib/supabase'
 import { valorParametro } from '../../../lib/parametros'
 import { GwOperativa } from '../../../components/gw/GwOperativa'
+import { SeguimientoFormulario } from './SeguimientoFormulario'
+import { ESTADOS_PRESUPUESTO, MOTIVOS_PERDIDA, type EstadoPresupuesto } from './estadosPresupuesto'
 
-export type EstadoPresupuesto = 'borrador' | 'enviado' | 'seguimiento' | 'aceptado' | 'perdido'
-
-export const ESTADOS_PRESUPUESTO: { valor: EstadoPresupuesto; texto: string; color: string }[] = [
-  { valor: 'borrador', texto: 'Borrador', color: '#6b7280' },
-  { valor: 'enviado', texto: 'Enviado', color: '#1d5fb4' },
-  { valor: 'seguimiento', texto: 'En seguimiento', color: '#b45309' },
-  { valor: 'aceptado', texto: 'Aceptado', color: '#127a12' },
-  { valor: 'perdido', texto: 'Perdido', color: '#c42b1c' },
-]
-
-export const MOTIVOS_PERDIDA = ['Precio', 'Plazo de entrega', 'Se lo compró a la competencia', 'No contesta', 'Ya no lo necesita', 'Otro']
+export { ESTADOS_PRESUPUESTO, MOTIVOS_PERDIDA, type EstadoPresupuesto } from './estadosPresupuesto'
 
 export interface DatosSeguimiento {
   presupuesto_estado: EstadoPresupuesto | null
@@ -47,6 +39,9 @@ export function SeguimientoPresupuesto({
   tienda,
   numero,
   onChange,
+  clienteCodigo,
+  clienteNombre,
+  total,
 }: {
   d: DatosSeguimiento
   editando: boolean
@@ -55,12 +50,16 @@ export function SeguimientoPresupuesto({
   tienda: string | null
   numero: number | null
   onChange: (p: Partial<DatosSeguimiento>) => void
+  clienteCodigo?: string | null
+  clienteNombre?: string | null
+  total?: number | null
 }) {
   const navigate = useNavigate()
   const [empleados, setEmpleados] = useState<{ codigo: string; nombre: string; numero_operario: string | null }[]>([])
   const [pasando, setPasando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState(false)
+  const [formulario, setFormulario] = useState(false)
   useEffect(() => {
     supabase
       .from('empleado')
@@ -115,7 +114,7 @@ export function SeguimientoPresupuesto({
         </GwSelect>
       </label>
       <label className="flex flex-col">
-        <span className="gw-label">Responsable (Nº Empl.)</span>
+        <span className="gw-label">Responsable (Nº Vend.)</span>
         <GwSelect className="w-[200px]" value={d.responsable_codigo ?? ''} disabled={!editando} onChange={(e) => onChange({ responsable_codigo: e.target.value || null })}>
           <option value="">—</option>
           {empleados.map((e) => (
@@ -162,9 +161,32 @@ export function SeguimientoPresupuesto({
           </button>
         )
       )}
+      <button
+        type="button"
+        className="gw-boton-barra h-[52px] w-[190px] text-[17px] font-bold tracking-wide text-[#1d3a8a]"
+        style={{ background: '#e8e8e8' }}
+        disabled={numero == null || tienda == null}
+        title={numero == null ? 'Guarda primero el presupuesto' : 'Llamadas, correos y cierre del presupuesto'}
+        onClick={() => setFormulario(true)}
+      >
+        📞 SEGUIMIENTO
+      </button>
       <button type="button" className="gw-btn" onClick={() => setAyuda((a) => !a)}>
         Operativa
       </button>
+      {formulario && tienda && numero != null && (
+        <SeguimientoFormulario
+          tienda={tienda}
+          numero={numero}
+          clienteCodigo={clienteCodigo ?? null}
+          clienteNombre={clienteNombre ?? null}
+          responsable={d.responsable_codigo}
+          estado={estado}
+          total={total ?? null}
+          onClose={() => setFormulario(false)}
+          onCambio={(p) => onChange(p as Partial<DatosSeguimiento>)}
+        />
+      )}
       {error && <span className="w-full text-[#c42b1c]">{error}</span>}
       {ayuda && (
         <div className="w-full border-t border-[var(--gw-border-light)] pt-1">
@@ -174,9 +196,10 @@ export function SeguimientoPresupuesto({
                 titulo: 'Seguimiento de un presupuesto',
                 pasos: [
                   'Al mandarlo al cliente: Modificar → Estado «Enviado» → Aceptar. Se pone sola la fecha de volver a llamar (a los 3 días).',
-                  'Cuando llames: cambia el Próximo contacto (o el estado a «En seguimiento»).',
+                  'Cuando llames o escribas: botón 📞 SEGUIMIENTO → rellena el 1.º (luego el 2.º y el 3.º): día, con quién hablaste, qué contesta y cuándo volver a contactar → 💾 Guardar.',
+                  'Por correo: marca «E-mail» y pulsa ✉ Enviar correo: se abre tu correo con el texto hecho y queda apuntado.',
                   'Si lo acepta: Estado «Aceptado» y luego «➜ Pasar a pedido».',
-                  'Si no: Estado «Perdido» y elige el motivo (es obligatorio).',
+                  'Si no: en SEGUIMIENTO → «Cerrar el presupuesto» con el motivo (queda la fecha y el vendedor).',
                 ],
               },
               {

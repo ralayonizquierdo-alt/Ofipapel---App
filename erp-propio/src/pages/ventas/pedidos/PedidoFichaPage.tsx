@@ -257,6 +257,20 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [preciosNivel, setPreciosNivel] = useState<{ nivel: number; pvp: number }[]>([])
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  // «Ver Presup.» / «Ver Pedido» (Ctrl+F5): buscar por nº, cliente o vendedor.
+  const [verTexto, setVerTexto] = useState('')
+  const [verAbierto, setVerAbierto] = useState(false)
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'F5') {
+        e.preventDefault()
+        e.stopPropagation()
+        setVerAbierto(true)
+      }
+    }
+    window.addEventListener('keydown', tecla, true)
+    return () => window.removeEventListener('keydown', tecla, true)
+  }, [])
   const [cargando, setCargando] = useState(true)
   const [refresco, setRefresco] = useState(0)
 
@@ -824,7 +838,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
     >
       {/* Fila 1: Tienda · Número · Fecha · Hora · Id Web · Tipo Documento | Empleado */}
       <div className="flex gap-1.5">
-        <fieldset className="gw-group grid flex-1 grid-cols-[78px_minmax(110px,1fr)_150px_88px_110px_170px] gap-x-1 !pt-[2px]">
+        <fieldset className="gw-group grid flex-1 grid-cols-[78px_90px_132px_66px_96px_minmax(150px,1fr)_160px] gap-x-1 !pt-[2px]">
           <Campo label="Tienda" title="OFICINA">
             <GwSelect
               disabled={mode !== 'alta'}
@@ -857,6 +871,22 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
               value={cab?.web_pedido_id != null ? String(cab.web_pedido_id) : ''}
               onChange={(e) => patch({ web_pedido_id: e.target.value === '' ? null : Number(e.target.value.replace(/\D/g, '')) })}
             />
+          </Campo>
+          <Campo label={presupuestos ? 'Ver Presup. (Ctrl+F5)' : 'Ver Pedido (Ctrl+F5)'} title="Busca por nº, cliente o vendedor y pulsa Intro">
+            <div className="flex">
+              <GwInput
+                value={verTexto}
+                placeholder="nº, cliente o vendedor"
+                onChange={(e) => setVerTexto(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    setVerAbierto(true)
+                  }
+                }}
+              />
+              <GwLookupButton onClick={() => setVerAbierto(true)} />
+            </div>
           </Campo>
           <Campo label="Tipo Documento">
             <GwSelect
@@ -1071,6 +1101,31 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         </div>
       </div>
 
+      {verAbierto && (
+        <GwLookupDialog<Record<string, unknown>>
+          title={presupuestos ? 'Ver presupuestos' : 'Ver pedidos'}
+          table="v_busca_presupuestos"
+          eq={{ es_presupuesto: presupuestos ? 'true' : 'false' }}
+          filtroInicial={verTexto}
+          columns={[
+            { key: 'tienda_terminal_codigo', label: 'Ti.', width: 45 },
+            { key: 'numero_txt', label: 'Nº', width: 70 },
+            { key: 'fecha', label: 'Fecha', width: 95 },
+            { key: 'cliente_nombre', label: 'Cliente' },
+            { key: 'vendedor_nombre', label: 'Vendedor', width: 160 },
+            { key: 'presupuesto_estado', label: 'Estado', width: 100 },
+          ]}
+          searchColumns={['numero_txt', 'cliente_codigo', 'cliente_nombre', 'vendedor_codigo', 'vendedor_nombre']}
+          orderBy="numero"
+          keyColumn="numero"
+          onPick={(r) => {
+            setVerAbierto(false)
+            navigate(`${base}/${encodeURIComponent(String(r.tienda_terminal_codigo))}/${Number(r.numero)}`)
+          }}
+          onClose={() => setVerAbierto(false)}
+        />
+      )}
+
       {/* Presupuestos: estado, responsable y próximo contacto (que ninguno se quede en el limbo) */}
       {cab?.es_presupuesto && (
         <SeguimientoPresupuesto
@@ -1080,6 +1135,9 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           tienda={cab.tienda_terminal_codigo}
           numero={cab.numero}
           onChange={(p) => patch(p as Partial<Cabecera>)}
+          clienteCodigo={cab.cliente_codigo}
+          clienteNombre={cab.nombre_cliente}
+          total={tot.total}
         />
       )}
 

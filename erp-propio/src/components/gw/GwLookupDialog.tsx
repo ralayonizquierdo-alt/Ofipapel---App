@@ -25,6 +25,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   eq,
   ordenPrevio,
   filaRoja,
+  filtroInicial = '',
 }: {
   title: string
   table: string
@@ -40,8 +41,10 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   ordenPrevio?: string
   /** Filas que salen en rojo (p. ej. empleados de baja). */
   filaRoja?: (r: T) => boolean
+  /** Texto con el que se abre ya filtrado (p. ej. lo escrito en «Ver Presup.»). */
+  filtroInicial?: string
 }) {
-  const [filtro, setFiltro] = useState('')
+  const [filtro, setFiltro] = useState(filtroInicial)
   const eqClave = JSON.stringify(eq ?? {})
   const [rows, setRows] = useState<T[]>([])
   const [sel, setSel] = useState(0)

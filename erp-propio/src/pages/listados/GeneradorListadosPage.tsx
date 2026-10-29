@@ -260,7 +260,7 @@ export function GeneradorListadosPage() {
           { clave: 'yo', titulo: `Mis listados${yo ? ` · Nº ${num(yo)}` : ''}`, lista: visibles.filter((g) => g.creado_por && g.creado_por === yo) },
           ...[...new Set(visibles.map((g) => g.creado_por).filter((c): c is string => !!c && c !== yo))]
             .sort((a, b) => num(a).localeCompare(num(b), 'es', { numeric: true }))
-            .map((c) => ({ clave: c, titulo: `Empleado Nº ${num(c)}`, lista: visibles.filter((g) => g.creado_por === c) })),
+            .map((c) => ({ clave: c, titulo: `Vend. Nº ${num(c)}`, lista: visibles.filter((g) => g.creado_por === c) })),
           { clave: 'serie', titulo: 'De serie (para todos)', lista: visibles.filter((g) => !g.creado_por) },
         ].filter((x) => x.lista.length)
   const alternarGrupo = (c: string) =>
@@ -279,18 +279,18 @@ export function GeneradorListadosPage() {
           <b className="flex-1">Listados guardados</b>
           <input
             className="h-[20px] w-[64px] border border-[var(--gw-border)] bg-white px-1 text-[12px]"
-            placeholder="Nº empl."
-            title="Escribe el número de empleado para ver solo sus listados"
+            placeholder="Nº vend."
+            title="Escribe el nº de vendedor (empleado) para ver solo sus listados"
             value={operario}
             onChange={(e) => setOperario(e.target.value)}
           />
           <select className="h-[20px] border border-[var(--gw-border)] bg-white text-[12px]" value={agruparPor} onChange={(e) => setAgruparPor(e.target.value as 'operario' | 'tipo')} title="Cómo agrupar la lista">
-            <option value="operario">Por empleado</option>
+            <option value="operario">Por vendedor</option>
             <option value="tipo">Por tipo</option>
           </select>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {gruposGuardados.length === 0 && <div className="p-2 text-[13px] text-[#777]">{op ? `El empleado ${op} no tiene listados guardados.` : 'Todavía no hay ninguno: haz uno y pulsa Guardar.'}</div>}
+          {gruposGuardados.length === 0 && <div className="p-2 text-[13px] text-[#777]">{op ? `El vendedor ${op} no tiene listados guardados.` : 'Todavía no hay ninguno: haz uno y pulsa Guardar.'}</div>}
           {gruposGuardados.map((gr) => (
             <div key={gr.clave}>
               <button
@@ -423,8 +423,8 @@ export function GeneradorListadosPage() {
                     titulo: 'Bueno es saber',
                     notas: [
                       'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
-                      'Los guardados salen a la izquierda, agrupados por nº de empleado (o por tipo); pulsa uno para abrirlo.',
-                      'Nº empl.: escribe el número de un empleado para ver solo sus listados.',
+                      'Los guardados salen a la izquierda, agrupados por nº de vendedor (o por tipo); pulsa uno para abrirlo.',
+                      'Nº vend.: escribe el número de un vendedor para ver solo sus listados.',
                       'Columnas → «Todos los campos de la ficha»: cualquier campo, con buscador.',
                       '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
                       'Acceso directo: botón «📋 Listados» en la barra de título de cada pantalla (abre el generador con lo de esa pantalla), icono «Listados» de la barra de accesos y «Generador de listados» en cada menú Listados.',
