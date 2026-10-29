@@ -23,7 +23,7 @@ import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { BIG_INPUT, BIG_LABEL, type ArticuloStock, empleadoActual, fechaHora, resolverArticulo, stockDe } from './comun'
 import { GwDateTime } from '../../../components/gw/GwDateTime'
 import { navDir, navIndice, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
-import { useTeclasFicha } from '../../../components/gw/teclasFicha'
+import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
 
 // Traspasos de artículos entre almacenes (Almacén → Traspasos en GeminisWin, TRASPCAB/TRASPLIN).
 // A diferencia de GeminisWin, la pantalla abre en consulta y el número se asigna al guardar.
@@ -707,17 +707,17 @@ export function TraspasoFichaPage() {
       {sinDoc && modo === 'consulta' && <p className="gw-label text-[#1a4fd0]">No hay traspasos todavía. Pulsa Nuevo para crear el primero.</p>}
 
       <div ref={barra} className="flex border border-[var(--gw-border)] bg-[var(--gw-face)] p-[2px]">
-        <BarBtn title="Ir al primer registro" disabled={editable || idx < 0} onClick={() => navegar('primero')}>
+        <BarBtn title={conTecla('Ir al primer registro', 'primero')} disabled={editable || idx < 0} onClick={() => navegar('primero')}>
           <ChevronFirst size={17} strokeWidth={3} />
         </BarBtn>
-        <BarBtn title="Ir al anterior registro" disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
+        <BarBtn title={conTecla('Ir al anterior registro', 'anterior')} disabled={editable || idx <= 0} onClick={() => navegar('anterior')}>
           <Play size={12} className="rotate-180" fill="currentColor" />
         </BarBtn>
-        <BarBtn title="Ir al siguiente registro" disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
+        <BarBtn title={conTecla('Ir al siguiente registro', 'siguiente')} disabled={editable || idx < 0 || idx >= totalClaves - 1} onClick={() => navegar('siguiente')}>
           <Play size={12} fill="currentColor" />
         </BarBtn>
         <BarBtn
-          title="Ir al último registro"
+          title={conTecla('Ir al último registro', 'ultimo')}
           disabled={editable || idx < 0}
           onClick={() => navegar('ultimo')}
         >
@@ -726,7 +726,7 @@ export function TraspasoFichaPage() {
         <BarBtn title={ordenDesc ? 'Orden: del más nuevo al más antiguo' : 'Orden: del más antiguo al más nuevo'} disabled={editable} onClick={() => setOrdenDesc((o) => !o)}>
           <ArrowDownAZ size={17} />
         </BarBtn>
-        <BarBtn title="Buscar (Localizar registros)" disabled={editable} onClick={() => setDialogo('buscar')}>
+        <BarBtn title={conTecla('Buscar (Localizar registros)', 'buscar')} disabled={editable} onClick={() => setDialogo('buscar')}>
           <Binoculars size={17} />
         </BarBtn>
         <BarBtn title="Imprimir" disabled={sinDoc} onClick={() => window.print()}>
@@ -734,10 +734,10 @@ export function TraspasoFichaPage() {
         </BarBtn>
         {editable ? (
           <>
-            <BarBtn title="Guardar (F1)" disabled={guardando} onClick={guardar}>
+            <BarBtn title={conTecla('Guardar', 'guardar')} disabled={guardando} onClick={guardar}>
               <Save size={17} />
             </BarBtn>
-            <BarBtn title="Cancelar (Alt+Retroceso)" disabled={guardando} onClick={cancelar}>
+            <BarBtn title={conTecla('Cancelar', 'cancelar')} disabled={guardando} onClick={cancelar}>
               <X size={18} strokeWidth={3} />
             </BarBtn>
             <BarBtn title="Deshacer cambios" disabled={guardando} onClick={deshacer}>
@@ -746,10 +746,10 @@ export function TraspasoFichaPage() {
           </>
         ) : (
           <>
-            <BarBtn title="Nuevo" onClick={() => navigate('/traspasos/nuevo')}>
+            <BarBtn title={conTecla('Nuevo', 'nuevo')} onClick={() => navigate('/traspasos/nuevo')}>
               <FilePlus2 size={17} />
             </BarBtn>
-            <BarBtn title="Modificar" disabled={sinDoc} onClick={() => setModo('edicion')}>
+            <BarBtn title={conTecla('Modificar', 'modificar')} disabled={sinDoc} onClick={() => setModo('edicion')}>
               <FilePen size={17} />
             </BarBtn>
             <BarBtn title="Los traspasos no se eliminan: modifícalo o desmarca «Reflejar traspaso en los almacenes»" disabled>
@@ -757,7 +757,7 @@ export function TraspasoFichaPage() {
             </BarBtn>
           </>
         )}
-        <BarBtn title="Cerrar" onClick={() => navigate('/')}>
+        <BarBtn title={conTecla('Cerrar', 'salir')} onClick={() => navigate('/')}>
           <DoorOpen size={17} />
         </BarBtn>
       </div>
@@ -924,6 +924,7 @@ function BarBtn({ title, onClick, disabled, children }: { title: string; onClick
     <button
       type="button"
       title={title}
+      data-gw-estado={title}
       onClick={onClick}
       disabled={disabled}
       className="flex h-[34px] flex-1 items-center justify-center border-r border-[var(--gw-border-light)] text-[#1d3a8a] last:border-r-0 hover:bg-[#e5f1fb] disabled:text-[#a8a8a8] disabled:hover:bg-transparent"

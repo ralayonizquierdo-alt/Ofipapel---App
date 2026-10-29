@@ -83,7 +83,7 @@ export function VendedoresListPage({ tipo }: { tipo: TipoFicha }) {
 
   const campo = (key: keyof typeof VACIO, label: string) => (
     <GwField label={label}>
-      <GwInput value={filtros[key]} onChange={(e) => setFiltros((f) => ({ ...f, [key]: e.target.value }))} onKeyDown={onKey} />
+      <GwInput value={filtros[key]} onChange={(e) => setFiltros((f) => ({ ...f, [key]: e.target.value }))} onKeyDown={onKey} autoFocus={key === 'codigo'} />
     </GwField>
   )
 

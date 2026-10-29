@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { MENUS, isEnabled, type MenuEntry, type MenuItem } from './menus'
 import { usePermisos } from '../../lib/PermisosContext'
 import { LETRA_MENU, letraDeEvento, mnemonicos, posicionLetra } from './mnemonicos'
-import { modalAlPulsar } from '../gw/teclado'
+import { modalAlPulsar, normalizarAtajo, textoAtajo } from '../gw/teclado'
 
 const NOT_AVAILABLE = 'Aún no disponible en el ERP propio'
 const SIN_PERMISO = 'Sin permiso: tu grupo de acceso no tiene esta opción'
@@ -393,7 +393,8 @@ function MenuList({
                 <span className="flex-1">
                   <Rotulo label={it.label} pos={mn[i]?.pos} />
                 </span>
-                {it.shortcut && <span className="ml-8">{it.shortcut}</span>}
+                {/* Rotulado uniforme («CTRL+F12» y «ALT+F6» de menus.ts se ven Ctrl+F12, Alt+F6) */}
+                {it.shortcut && <span className="ml-8">{textoAtajo(normalizarAtajo(it.shortcut))}</span>}
                 {hasChildren && <span className="ml-6 text-[9px]">▶</span>}
               </button>
               {resaltada && subAbierto && hasChildren && enabled && (

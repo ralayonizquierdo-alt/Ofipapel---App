@@ -60,6 +60,32 @@ export function useTeclasFicha({
     estado.current = { mode, canNavigate, saving, acciones, desactivadas }
   })
 
+  // Al pasar a Modificar/Nuevo (F2/F3 o botón), el cursor va al primer campo editable de la ficha,
+  // como en GeminisWin (antes se quedaba en el botón o en ninguna parte y había que ir con el ratón).
+  const modoAnterior = useRef(mode)
+  useEffect(() => {
+    const antes = modoAnterior.current
+    modoAnterior.current = mode
+    if (antes !== 'consulta' || mode === 'consulta') return
+    const t = window.setTimeout(() => {
+      const bar = raiz.current
+      const act = document.activeElement
+      if (!bar || (act && act !== document.body && !(act instanceof HTMLButtonElement))) return
+      const zona = bar.closest('.fixed.inset-0, [data-gw-modal], [data-gw-ventana]') ?? bar.parentElement
+      const campo = Array.from(zona?.querySelectorAll<HTMLElement>('input, select, textarea') ?? []).find(
+        (x) =>
+          !bar.contains(x) &&
+          !(x as HTMLInputElement).disabled &&
+          !(x as HTMLInputElement).readOnly &&
+          x.tabIndex >= 0 &&
+          !['hidden', 'checkbox', 'radio', 'button', 'file'].includes((x as HTMLInputElement).type) &&
+          x.getClientRects().length > 0,
+      )
+      campo?.focus()
+    }, 50)
+    return () => window.clearTimeout(t)
+  }, [mode, raiz])
+
   useEffect(() => {
     const yo = { id: siguienteId++, raiz }
     pila.push(yo)
