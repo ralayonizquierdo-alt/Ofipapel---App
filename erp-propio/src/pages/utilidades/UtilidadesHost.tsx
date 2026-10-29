@@ -49,10 +49,14 @@ export function UtilidadesHost() {
     cargarParametros()
     supabase
       .from('ejercicio')
-      .select('anio, fecha_inicio, fecha_fin')
+      .select('anio, descripcion, fecha_inicio, fecha_fin')
       .eq('activo', true)
       .maybeSingle()
-      .then(({ data }) => fijarEjercicioActivo(data ? { anio: data.anio as number, desde: data.fecha_inicio as string, hasta: data.fecha_fin as string } : null))
+      .then(({ data }) =>
+        fijarEjercicioActivo(
+          data ? { anio: data.anio as number, desde: data.fecha_inicio as string, hasta: data.fecha_fin as string, descripcion: data.descripcion as string | null } : null,
+        ),
+      )
     // Sin tienda elegida (o una que ya no existe): la primera, como hacían TPV y caja.
     supabase
       .from('tienda_terminal')

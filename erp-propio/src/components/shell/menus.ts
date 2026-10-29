@@ -39,7 +39,7 @@ export const MENUS: TopMenu[] = [
     items: [
       // SIN CAPTURA (Seleccionar Periodo y Periodos o Ejercicios): tabla `ejercicio`, ver pages/utilidades.
       item('Seleccionar Periodo', { action: 'seleccionar-periodo', description: 'Crea, modifica, elimina, establece el período de trabajo actual' }),
-      item('Periodos o Ejercicios', { to: '/utilidades/ejercicios', description: 'Periodos o ejercicios de trabajo (sin captura)' }),
+      item('Periodos o Ejercicios', { to: '/utilidades/ejercicios', description: 'Periodos: el periodo en curso y los cerrados (solo super administradores)' }),
       item('Datos de Empresa', { to: '/empresa', description: 'Datos de la empresa' }),
       item('Tiendas', { to: '/tiendas', description: 'Ficha de Tiendas' }),
       // SIN CAPTURA (Parámetros, Zonas de servicio, Carga Cotización, Importar e impresión): pages/archivo y pages/utilidades/ImpresionDialogs.
@@ -483,7 +483,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad', title: 'Contabilidad' },
   { prefix: '/cambiar-clave', title: 'Cambiar Contraseña' },
   { prefix: '/utilidades/examinar', title: 'Examinar' },
-  { prefix: '/utilidades/ejercicios', title: 'Periodos o Ejercicios' },
+  { prefix: '/utilidades/ejercicios', title: 'Periodos' },
   { prefix: '/resumen', title: 'Panel de Control' },
   { prefix: '/web/publicar', title: 'Publicar Artículos en la Web (vista previa)' },
   { prefix: '/web/catalogo', title: 'Sincronizar Catálogo (comparación web ↔ ERP)' },

@@ -20,6 +20,15 @@ export function useEsAdministrador() {
   return admin
 }
 
+/** ¿El usuario es super administrador? (periodos cerrados y Archivo → Periodos). */
+export function useEsSuperAdministrador() {
+  const [es, setEs] = useState<boolean | null>(null)
+  useEffect(() => {
+    supabase.rpc('fn_es_super_administrador').then(({ data }) => setEs(data === true))
+  }, [])
+  return es
+}
+
 interface Opcion {
   codigo: string
   nombre: string

@@ -9,16 +9,16 @@ import { GwDateTime } from '../../components/gw/GwDateTime'
 import { supabase } from '../../lib/supabase'
 import {
   ahoraTrabajo,
-  elegirEjercicio,
+  entrarPeriodoCerrado,
   elegirFecha,
   elegirFechaHora,
   elegirTienda,
-  ejercicioTrabajo,
   fechaTrabajo,
   isoLocal,
   restablecerFecha,
   tiendaDeTrabajo,
   useSesionTrabajo,
+  volverPeriodoEnCurso,
 } from '../../lib/sesionTrabajo'
 import { Botones, Dialogo, Mensaje } from './comun'
 import { fechaEs } from './datos'
@@ -199,79 +199,150 @@ export function CambioFechaDialog({ conHora, onClose }: { conHora: boolean; onCl
 
 /* ------------------------------------------------------------------ Seleccionar Periodo */
 
+/**
+ * Archivo → Seleccionar Periodo. Solo salen los periodos CERRADOS: el periodo en curso es con el
+ * que se trabaja siempre y no está en la lista. Abrir uno es para consultarlo (todo queda en solo
+ * consulta) y lo pueden hacer solo los super administradores, escribiendo su contraseña.
+ */
 export function SeleccionarPeriodoDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
+  const { consulta } = useSesionTrabajo()
   const [lista, setLista] = useState<Ejercicio[] | null>(null)
-  const [sel, setSel] = useState<number>(() => ejercicioTrabajo().anio)
+  const [sel, setSel] = useState<number | null>(consulta?.anio ?? null)
   const [error, setError] = useState<string | null>(null)
+  const [pidiendoClave, setPidiendoClave] = useState(false)
+  const [clave, setClave] = useState('')
+  const [comprobando, setComprobando] = useState(false)
+  const [superAdmin, setSuperAdmin] = useState(false)
 
   useEffect(() => {
     supabase
       .from('ejercicio')
       .select('anio, descripcion, fecha_inicio, fecha_fin, cerrado, activo')
-      .order('anio', { ascending: false })
+      .eq('cerrado', true)
+      .order('fecha_inicio', { ascending: true })
       .then(({ data, error: e }) => {
         if (e) setError(e.message)
-        setLista((data ?? []) as Ejercicio[])
+        const l = (data ?? []) as Ejercicio[]
+        setLista(l)
+        setSel((s) => s ?? l[l.length - 1]?.anio ?? null)
       })
+    supabase.rpc('fn_es_super_administrador').then(({ data }) => setSuperAdmin(data === true))
   }, [])
 
-  function aceptar(anio = sel) {
-    const e = lista?.find((x) => x.anio === anio)
-    if (!e) return
-    elegirEjercicio({ anio: e.anio, desde: e.fecha_inicio, hasta: e.fecha_fin })
-    onClose()
+  const elegido = lista?.find((x) => x.anio === sel) ?? null
+
+  async function comprobarYEntrar() {
+    if (!elegido) return
+    setError(null)
+    setComprobando(true)
+    try {
+      const { data: s } = await supabase.auth.getSession()
+      const email = s.session?.user.email
+      if (!email) throw new Error('No hay sesión abierta.')
+      const { error: e } = await supabase.auth.signInWithPassword({ email, password: clave })
+      if (e) throw new Error('Contraseña incorrecta.')
+      const { data: es } = await supabase.rpc('fn_es_super_administrador')
+      if (es !== true) throw new Error('Solo los super administradores pueden consultar periodos cerrados.')
+      entrarPeriodoCerrado({ anio: elegido.anio, desde: elegido.fecha_inicio, hasta: elegido.fecha_fin, descripcion: elegido.descripcion })
+      onClose()
+      navigate('/')
+    } catch (e) {
+      setError((e as Error).message)
+      setClave('')
+    } finally {
+      setComprobando(false)
+    }
   }
 
   return (
-    <Dialogo titulo="Seleccionar Periodo" onClose={onClose} ancho={440}>
-      <span className="gw-label">Periodo de trabajo de este puesto (fechas por defecto de listados y gestores):</span>
-      <div className="h-[180px] overflow-auto border border-[var(--gw-border)] bg-white">
+    <Dialogo titulo="Selecciona Periodo" onClose={onClose} ancho={480}>
+      <span className="gw-label">Periodos cerrados (solo consulta):</span>
+      <div className="h-[200px] overflow-auto border border-[var(--gw-border)] bg-white">
         <table className="gw-grid">
           <thead className="sticky top-0">
             <tr>
-              <th className="w-[50px]">Año</th>
+              <th className="w-[70px]">Código</th>
               <th>Descripción</th>
-              <th className="w-[80px]">Inicio</th>
-              <th className="w-[80px]">Fin</th>
-              <th className="w-[60px]">Estado</th>
+              <th className="w-[85px]">Inicio</th>
+              <th className="w-[85px]">Final</th>
             </tr>
           </thead>
           <tbody>
             {lista?.map((e) => (
-              <tr key={e.anio} className={e.anio === sel ? 'gw-selected' : ''} onClick={() => setSel(e.anio)} onDoubleClick={() => aceptar(e.anio)}>
-                <td>{e.anio}</td>
+              <tr
+                key={e.anio}
+                className={e.anio === sel ? 'gw-selected' : ''}
+                onClick={() => setSel(e.anio)}
+                onDoubleClick={() => {
+                  setSel(e.anio)
+                  setPidiendoClave(true)
+                }}
+              >
+                <td>{String(e.anio).padStart(6, '0')}</td>
                 <td className="truncate">
                   {e.descripcion}
-                  {e.activo ? ' (activo)' : ''}
+                  {consulta?.anio === e.anio ? ' (consultando)' : ''}
                 </td>
                 <td>{fechaEs(e.fecha_inicio)}</td>
                 <td>{fechaEs(e.fecha_fin)}</td>
-                <td>{e.cerrado ? 'Cerrado' : 'Abierto'}</td>
               </tr>
             ))}
             {lista?.length === 0 && (
               <tr>
-                <td colSpan={5}>No hay periodos: créalos en Archivo → Periodos o Ejercicios.</td>
+                <td colSpan={4}>Todavía no hay periodos cerrados.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {pidiendoClave && elegido && (
+        <div className="flex flex-col gap-1 border border-[var(--gw-border)] bg-[#fff8e0] p-2">
+          <span className="font-bold">
+            Consultar «{elegido.descripcion ?? elegido.anio}»: contraseña de super administrador
+          </span>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="password"
+              autoFocus
+              className="gw-input w-[200px]"
+              value={clave}
+              onChange={(e) => setClave(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && clave && comprobarYEntrar()}
+            />
+            <button type="button" className="gw-btn w-[90px]" disabled={!clave || comprobando} onClick={comprobarYEntrar}>
+              {comprobando ? 'Comprobando…' : 'Entrar'}
+            </button>
+          </div>
+        </div>
+      )}
       {error && <Mensaje texto={error} error />}
-      <span className="text-[#444]">Se recuerda en este navegador. No cambia la contabilidad ni la fecha de los documentos.</span>
       <Botones>
-        <button
-          type="button"
-          className="gw-btn mr-auto"
-          onClick={() => {
-            onClose()
-            navigate('/utilidades/ejercicios')
-          }}
-        >
-          Periodos…
-        </button>
-        <button type="button" className="gw-btn w-[90px]" disabled={!lista?.some((e) => e.anio === sel)} onClick={() => aceptar()}>
+        {superAdmin && (
+          <button
+            type="button"
+            className="gw-btn mr-auto"
+            onClick={() => {
+              onClose()
+              navigate('/utilidades/ejercicios')
+            }}
+          >
+            Periodos…
+          </button>
+        )}
+        {consulta && (
+          <button
+            type="button"
+            className="gw-btn"
+            onClick={() => {
+              volverPeriodoEnCurso()
+              onClose()
+            }}
+          >
+            Volver al periodo en curso
+          </button>
+        )}
+        <button type="button" className="gw-btn w-[90px]" disabled={!elegido} onClick={() => setPidiendoClave(true)}>
           Aceptar
         </button>
         <button type="button" className="gw-btn w-[90px]" onClick={onClose}>

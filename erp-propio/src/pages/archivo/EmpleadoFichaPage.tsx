@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff, KeyRound, UserPlus } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { GwDate, GwField, GwGroup, GwInline, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
+import { GwCheck, GwDate, GwField, GwGroup, GwInline, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { useFichaMaestro } from '../almacen/useFichaMaestro'
 import { PieEstado } from '../almacen/piezas'
-import { BloqueDireccion, CampoEnlace, ObservacionesImagen, PestanaPendiente, hoy, useEsAdministrador } from './comun'
+import { BloqueDireccion, CampoEnlace, ObservacionesImagen, PestanaPendiente, hoy, useEsAdministrador, useEsSuperAdministrador } from './comun'
 
 interface Empleado {
   codigo: string
@@ -28,6 +28,8 @@ interface Empleado {
   fecha_baja: string | null
   activo: boolean
   rol_id: number | null
+  /** Consulta periodos cerrados y gestiona Archivo → Periodos (solo lo cambia otro super administrador). */
+  super_administrador: boolean
   auth_user_id: string | null
   sugerencia_clave: string | null
   vendedor_codigo: string | null
@@ -58,6 +60,7 @@ const VACIO: Empleado = {
   fecha_baja: null,
   activo: true,
   rol_id: null,
+  super_administrador: false,
   auth_user_id: null,
   sugerencia_clave: null,
   vendedor_codigo: null,
@@ -278,6 +281,7 @@ function Seguridad({
   }, [d.auth_user_id, d.codigo])
 
   const puede = admin && !alta
+  const superAdmin = useEsSuperAdministrador()
   const tieneUsuario = Boolean(d.auth_user_id)
 
   async function enviar() {
@@ -319,6 +323,13 @@ function Seguridad({
           value={d.rol_id == null ? null : String(d.rol_id)}
           disabled={!editando || !admin}
           onChange={(v) => onChange({ rol_id: v == null ? null : Number(v) })}
+        />
+        <GwCheck
+          className="mt-2"
+          label={<span className="text-[16px]">Super administrador (consulta periodos cerrados y gestiona Archivo → Periodos)</span>}
+          checked={d.super_administrador}
+          disabled={!editando || superAdmin !== true}
+          onChange={(v) => onChange({ super_administrador: v })}
         />
       </GwGroup>
 
