@@ -511,7 +511,7 @@ export function FacturaProveedorFichaPage() {
     <div className="flex flex-col gap-1">
       {/* Cabecera */}
       <div className="flex gap-2">
-        <div className="grid flex-1 grid-cols-[70px_110px_170px_130px_120px_120px] gap-x-1 border border-[var(--gw-border-light)] px-1.5 pb-1.5 pt-0.5">
+        <div className="grid flex-none grid-cols-[70px_110px_170px_130px_120px_120px] gap-x-1 border border-[var(--gw-border-light)] px-1.5 pb-1.5 pt-0.5">
           <GwField label={<span className="text-[15px]">Tienda</span>}>
             <GwSelect value={cab?.tienda_terminal_codigo ?? ''} disabled={mode !== 'alta'} onChange={(e) => patch({ tienda_terminal_codigo: e.target.value })}>
               {tiendas.map((t) => (
@@ -541,7 +541,7 @@ export function FacturaProveedorFichaPage() {
             <GwDate disabled={disabledCab} value={cab?.fecha_vencimiento} onChange={(v) => patch({ fecha_vencimiento: v })} />
           </GwField>
         </div>
-        <GwGroup title={<span className="text-[15px]">Proveedor</span>} className="w-[540px] flex-none">
+        <GwGroup title={<span className="text-[15px]">Proveedor</span>} className="min-w-0 max-w-[540px] flex-1">
           <div className="flex gap-1">
             <GwInput
               className="!w-[120px]"
