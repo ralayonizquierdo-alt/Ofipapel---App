@@ -85,14 +85,22 @@ export function ProveedorFichaPage() {
   const [buscar, setBuscar] = useState(false)
   const [tab, setTab] = useState('generales')
   const [ver, setVerEstado] = useState<Ver>(verGuardado)
-  const setVer = (v: Ver) => {
+  const setVer = async (v: Ver) => {
     setVerEstado(v)
     try {
       sessionStorage.setItem(CLAVE_VER, v)
     } catch {
       /* sin almacenamiento: vale para esta visita */
     }
+    // Si el que se ve no es del tipo elegido, salta al primero de ese tipo.
+    if (v !== 'todos' && proveedor.tipo !== v) {
+      const { data } = await supabase.from('proveedor').select('codigo').eq('tipo', v).order('codigo').limit(1)
+      if (data?.[0]) navigate(`${base}/${encodeURIComponent(data[0].codigo)}`)
+    }
   }
+  // Ctrl+Intro y búsqueda por el inicio del campo, con el mismo «Ver».
+  const fuenteVer = ver === 'todos' ? 'proveedor' : ver === 'acreedor' ? 'acreedor' : 'proveedor_solo'
+  const RPC_LISTA = 'gw_lista_ordenada_proveedor'
   const palabra = draft.tipo === 'acreedor' ? 'acreedor' : 'proveedor'
 
   const editing = mode !== 'consulta'
@@ -235,13 +243,23 @@ export function ProveedorFichaPage() {
     else setError(`No existe el ${palabra} ${t}`)
   }
   const buscarInicio = (campo: string, que: string) => async (t: string) => {
-    const f = await gwBuscarPorInicio('proveedor', campo, t)
+    const f = await gwBuscarPorInicio(fuenteVer, campo, t, RPC_LISTA)
     if (f) goTo(String(f.codigo))
     else setError(`No existe ningún ${palabra} con ${que} que empiece por «${t}»`)
   }
   const listaCampo = (campo: string) =>
     consulta
-      ? (texto: string | null) => listaOrd.abrir(defTercero('proveedor', campo), { texto, ancla: proveedor.codigo, onPick: (f) => goTo(String(f.codigo)) })
+      ? (texto: string | null) =>
+          listaOrd.abrir(
+            {
+              ...defTercero('proveedor', campo),
+              fuente: fuenteVer,
+              rpc: RPC_LISTA,
+              que: ver === 'acreedor' ? 'Acreedores' : ver === 'proveedor' ? 'Proveedores' : 'Proveedores y Acreedores',
+              columnas: [...defTercero('proveedor', campo).columnas, { key: 'tipo', label: 'Tipo', width: 90 }],
+            },
+            { texto, ancla: proveedor.codigo, onPick: (f) => goTo(String(f.codigo)) },
+          )
       : undefined
   const campoBusqueda = (campo: 'nombre' | 'razon_social' | 'nif', title: string, que: string, className?: string) => (
     <GwCampoBusqueda
