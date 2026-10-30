@@ -566,26 +566,24 @@ function apuntarHecho(p, que, claves) {
 const hecho = (p, que, k) => ((p.hechos || {})[que] || []).includes(String(k));
 const PASOS = { lineas: 'Sin líneas', propuesta: 'Falta propuesta', validar: 'Falta validar',
   reclamar: 'Reclamación pendiente', factura: 'Falta factura final', excel: 'Falta Excel Géminis',
-  codigos: 'Falta liquidación de Géminis', guia: 'Falta imprimir guía' };
+  guia: 'Falta imprimir guía' };
 /** Pasos que le quedan al pedido, en orden: [{ paso, fra? }]. */
 function pasosPendientes(p) {
   if (!p.lineas.length) return [{ paso: 'lineas' }];
   if (!p.propuesta) return [{ paso: 'propuesta' }];
+  // En reposición solo se avisa de la propuesta del proveedor (propietario, 30/10/2026).
+  if (esRepo(p)) return [];
   if (!p.validado) return [{ paso: 'validar' }];
   const r = [];
   const rec = CP.aReclamar(comparar(p), p.decisiones);
   if (rec.faltan.length || rec.sobran.length || rec.precios.length) r.push({ paso: 'reclamar' });
   const fras = facturasDe(p);
   if (!fras.length) {
-    if (!esRepo(p)) r.push({ paso: 'factura' });
-    else if (!hecho(p, 'excel', 'validado')) r.push({ paso: 'excel', fra: '' });
+    r.push({ paso: 'factura' });
     return r;
   }
   fras.filter((f) => !hecho(p, 'excel', f)).forEach((fra) => r.push({ paso: 'excel', fra }));
-  if (!esRepo(p)) {
-    if (!p.codigos || !Object.keys(p.codigos).length) r.push({ paso: 'codigos' });
-    fras.filter((f) => !hecho(p, 'guia', f)).forEach((fra) => r.push({ paso: 'guia', fra }));
-  }
+  fras.filter((f) => !hecho(p, 'guia', f)).forEach((fra) => r.push({ paso: 'guia', fra }));
   return r;
 }
 /** Chips de la cabecera de la campaña: qué falta y en qué pedidos o facturas. */
