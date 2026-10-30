@@ -275,6 +275,7 @@ table.lista-pedidos .c-movil{display:none}
 <main id="main"></main>
 <dialog id="dlgEnvio" class="dlg"></dialog>
 <dialog id="dlgAvisos" class="dlg"></dialog>
+<dialog id="dlgPlantilla" class="dlg"></dialog>
 <div id="login" class="oculto">
   <form onsubmit="event.preventDefault(); entrarConUsuario()">
     <h2>Control de Pedidos</h2>
@@ -741,7 +742,7 @@ function vistaGrupo(g, i) {
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       ${esComercial() ? '' : `${esRepo(ej) ? `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📄 Subir propuesta o factura del proveedor (PDF o Excel)
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>` : ''}
-      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>${selPlantilla()}
+      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
       ${esRepo(ej) ? '' : `<label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="La «Propuesta de Pedido» de Géminis (PDF) de esta campaña: sus Cod.Venta salen en la guía de facturación">🏷️ Subir nuestra liquidación de Géminis (códigos internos)
         <input type="file" multiple class="oculto" onchange="cargarCodigosCampana(this.files, ${js(g.clave)}); this.value=''"></label>`}
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
@@ -1561,7 +1562,7 @@ function vistaComparacion(p, filas) {
     </div>
     ${p.validado ? `<div class="fila no-imprimir" style="margin-top:10px">
       ${esRepo(p) ? `<button class="btn" onclick="window.print()">Imprimir comparación</button>` : `<button class="btn" onclick="imprimirListado('${p.id}')">Imprimir listado del cliente</button>`}
-      <button class="btn" onclick="exportarPedidos(['${p.id}'])">📥 Excel de la compra al proveedor (Géminis)</button>${selPlantilla()}
+      <button class="btn" onclick="exportarPedidos(['${p.id}'])">📥 Excel de la compra al proveedor (Géminis)</button>
     </div>` : ''}
   </div>`;
 }
@@ -2020,7 +2021,7 @@ function bloqueDocumentos(g) {
   const docs = documentosCampana(g.pedidos);
   const nFotos = g.pedidos.reduce((s, p) => s + fotosDe(p).length, 0);
   const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €
-    ${d.campo === 'factura' ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})" title="Excel de Géminis solo de esta factura">📥 Excel Géminis</button>${selPlantilla()}
+    ${d.campo === 'factura' ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})" title="Excel de Géminis solo de esta factura">📥 Excel Géminis</button>
       <button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})" title="Guía de facturación solo de esta factura">🧾 Guía</button>` : ''}
     <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)}, ${i})" title="Quitarlo de todos los pedidos de la campaña">🗑️ Quitar</button></li>`;
   const lista = (campo, titulo) => {
@@ -3321,7 +3322,6 @@ function vistaDatos() {
     <div class="fila">
       <label>Almacén<input id="cfgAlmacen" value="${h(localStorage.getItem('cp.almacen') || '')}" onchange="localStorage.setItem('cp.almacen', this.value)"></label>
       <label>IGIC %<input id="cfgIgic" type="number" step="0.5" value="${h(localStorage.getItem('cp.igic') || '7')}" onchange="localStorage.setItem('cp.igic', this.value)"></label>
-      <label>Plantilla${selPlantilla()}</label>
       <label>Decimales del descuento<select onchange="localStorage.setItem('cp.decimales', this.value)">
         ${[2, 3, 4, 6].map((n) => `<option ${String(n) === (localStorage.getItem('cp.decimales') || '2') ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
     </div>
@@ -3666,7 +3666,7 @@ function exportarSeleccionados(raiz) {
   if (!ids.length) { alert('No hay pedidos que exportar.'); return; }
   exportarPedidos(ids);
 }
-function exportarPedidos(ids, opciones) {
+async function exportarPedidos(ids, opciones) {
   const soloFactura = opciones && opciones.soloFactura;
   const ps = ids.map(pedidoPorId).filter(Boolean);
   const sinValidar = ps.filter((p) => !p.validado);
@@ -3678,6 +3678,8 @@ function exportarPedidos(ids, opciones) {
   let marca = marcaDe(ps) || marcaDe(E.pedidos.filter((p) => grupos.includes(claveGrupo(p))));
   if (!marca) marca = elegirMarca(grupos[0]);
   if (!marca) { alert('Elige la marca de la campaña para exportar el Excel de Géminis.'); return; }
+  const plantilla = await elegirPlantilla();
+  if (!plantilla) return;
   // Cada línea con un único descuento equivalente (encadenados + global del
   // pedido) sin tocar el precio base. Varias selecciones se suman por
   // referencia, precio y descuento.
@@ -3737,20 +3739,25 @@ function exportarPedidos(ids, opciones) {
       const peds = [...new Set(ls.map((l) => l._ped))];
       ls.forEach((l) => { delete l._fra; delete l._ped; });
       descargarGeminis(ls, { proveedor: provs[0], numero: soloFactura || porFactura.size > 1 || peds.length > 1 ? `FRA ${fra}` : peds[0].numero,
-        observaciones: `Factura ${fra}: ` + peds.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca });
+        observaciones: `Factura ${fra}: ` + peds.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca, plantilla });
     }
     return;
   }
   descargarGeminis([...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
-    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca });
+    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca, plantilla });
 }
-/** Selector de plantilla del Excel de Géminis, junto a cada botón que lo saca (todos van a la misma). */
-function selPlantilla() {
-  const v = localStorage.getItem('cp.plantilla') || 'luis';
-  return `<select class="selPlantilla" title="Plantilla del Excel de Géminis" style="width:auto"
-    onchange="localStorage.setItem('cp.plantilla', this.value); document.querySelectorAll('.selPlantilla').forEach((x) => { x.value = this.value; })">
-    <option value="luis" ${v === 'luis' ? 'selected' : ''}>Plantilla Luis</option>
-    <option value="rober" ${v === 'rober' ? 'selected' : ''}>Plantilla Rober</option></select>`;
+/** Al sacar el Excel de Géminis se pregunta la plantilla (Luis o Rober); la última elegida va marcada. */
+function elegirPlantilla() {
+  const dlg = document.getElementById('dlgPlantilla');
+  const ult = localStorage.getItem('cp.plantilla') || 'luis';
+  const b = (v, t) => `<button class="btn ${v === ult ? 'primario' : ''}" value="${v}">${t}</button>`;
+  dlg.innerHTML = `<form method="dialog"><h2>¿Qué plantilla?</h2>
+    <div class="fila" style="margin-top:10px">${b('luis', 'Luis')}${b('rober', 'Rober')}<button class="btn" value="">Cancelar</button></div></form>`;
+  return new Promise((ok) => {
+    dlg.onclose = () => { const v = dlg.returnValue; if (v) localStorage.setItem('cp.plantilla', v); ok(v || null); };
+    dlg.returnValue = '';
+    dlg.showModal();
+  });
 }
 /** Escribe el Excel 5.0/95 de Géminis (artículos desde la fila 11) con líneas ya pasadas por lineasParaGeminis. */
 function descargarGeminis(lineas, o) {
@@ -3765,7 +3772,7 @@ function descargarGeminis(lineas, o) {
   const quitar = (v) => typeof v === 'string' ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[Ññ]/g, (m) => (m === 'Ñ' ? 'N' : 'n')) : v;
   // Plantilla «Luis» (la oficial de Gestión, la de «PDF a Excel») por defecto:
   // con la «Rober» Géminis no reconocía las referencias (20/10/2026).
-  const rober = (localStorage.getItem('cp.plantilla') || 'luis') === 'rober';
+  const rober = (o.plantilla || localStorage.getItem('cp.plantilla') || 'luis') === 'rober';
   const cab = { proveedor: provs[0], fecha: fmtFecha(hoy()), numero, almacen: localStorage.getItem('cp.almacen') || '', observaciones: o.observaciones || '', marca: o.marca || '' };
   const opc = { igic: CP.parseNum(localStorage.getItem('cp.igic') || '7') };
   const aoa = (rober ? CP.filasGeminis([...suma.values()], cab, opc) : CP.filasGeminisLuis([...suma.values()], cab, opc)).map((f) => f.map(quitar));
