@@ -290,6 +290,11 @@ export function GeneradorListadosPage() {
             value={operario}
             onChange={(e) => setOperario(e.target.value)}
           />
+          {operario && (
+            <button type="button" className="h-[20px] px-1 text-[13px] font-bold text-[#c42b1c]" title="Quitar el número y volver a verlos todos" onClick={() => setOperario('')}>
+              ✖
+            </button>
+          )}
           <select className="h-[20px] border border-[var(--gw-border)] bg-white text-[12px]" value={agruparPor} onChange={(e) => setAgruparPor(e.target.value as 'operario' | 'tipo')} title="Cómo agrupar la lista">
             <option value="operario">Por vendedor</option>
             <option value="tipo">Por tipo</option>
@@ -397,7 +402,7 @@ export function GeneradorListadosPage() {
                         'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
                         'Los guardados salen a la izquierda, agrupados por nº de vendedor (o por tipo); pulsa uno para abrirlo.',
                         'Tus listados salen solos arriba, en «Mis listados · Nº (tu número)»: no hace falta escribir nada.',
-                        'Ver Nº…: solo para ver los listados de OTRO vendedor; escribe su número (bórralo para volver a verlos todos).',
+                        'Ver Nº…: solo para ver los listados de OTRO vendedor; escribe su número. La ✖ de al lado lo borra y vuelven a salir todos.',
                         'Pestaña «Todos los campos de la ficha»: cualquier campo, con buscador.',
                         '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
                         'Acceso directo: botón «📋 Listados» en la barra de título de cada pantalla (abre el generador con lo de esa pantalla), icono «Listados» de la barra de accesos y «Generador de listados» en cada menú Listados.',
