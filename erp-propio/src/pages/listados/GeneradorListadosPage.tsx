@@ -276,6 +276,10 @@ export function GeneradorListadosPage() {
     <div className="flex h-full min-h-[600px] gap-1.5 text-[14px]">
       {/* Listados guardados */}
       <div className="flex w-[250px] flex-none flex-col border border-[var(--gw-border)] bg-white">
+        {/* Arriba del todo, para que se vea siempre (Luis no lo encontraba abajo). */}
+        <button type="button" className="gw-boton-barra h-[36px] flex-none text-[15px] font-bold text-[#1d3a8a]" onClick={() => nuevo()}>
+          ➕ Listado nuevo
+        </button>
         <div className="flex items-center gap-1 border-b border-[var(--gw-border)] bg-[var(--gw-face)] px-2 py-1">
           <b className="flex-1">Listados guardados</b>
           <input
@@ -324,9 +328,6 @@ export function GeneradorListadosPage() {
             </div>
           ))}
         </div>
-        <button type="button" className="gw-boton-barra h-[34px] flex-none" onClick={() => nuevo()}>
-          ➕ Listado nuevo
-        </button>
       </div>
 
       {/* Definición y resultado */}
