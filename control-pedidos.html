@@ -555,8 +555,71 @@ function chipsFaltasSobras(p) {
 function sobrasPendientes(p, filas) {
   return CP.faltasYSobras(filas).sobran.filter((x) => { const a = (p.decisiones[x.ref] || {}).accion; return !a || a === 'reclamar'; });
 }
+// ── Qué le falta a cada pedido (y a cada campaña) para darlo por terminado ──
+const fraDeLinea = (l, p) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo);
+function facturasDe(p) { return p.factura ? [...new Set((p.factura.lineas || []).map((l) => String(fraDeLinea(l, p))))] : []; }
+/** Apunta en el pedido que ya se sacó el Excel de Géminis o se imprimió la guía de esas facturas. */
+function apuntarHecho(p, que, claves) {
+  p.hechos = Object.assign({}, p.hechos);
+  p.hechos[que] = [...new Set([...(p.hechos[que] || []), ...claves.map(String)])];
+}
+const hecho = (p, que, k) => ((p.hechos || {})[que] || []).includes(String(k));
+const PASOS = { lineas: 'Sin líneas', propuesta: 'Falta propuesta', validar: 'Falta validar',
+  reclamar: 'Reclamación pendiente', factura: 'Falta factura final', excel: 'Falta Excel Géminis',
+  codigos: 'Falta liquidación de Géminis', guia: 'Falta imprimir guía' };
+/** Pasos que le quedan al pedido, en orden: [{ paso, fra? }]. */
+function pasosPendientes(p) {
+  if (!p.lineas.length) return [{ paso: 'lineas' }];
+  if (!p.propuesta) return [{ paso: 'propuesta' }];
+  if (!p.validado) return [{ paso: 'validar' }];
+  const r = [];
+  const rec = CP.aReclamar(comparar(p), p.decisiones);
+  if (rec.faltan.length || rec.sobran.length || rec.precios.length) r.push({ paso: 'reclamar' });
+  const fras = facturasDe(p);
+  if (!fras.length) {
+    if (!esRepo(p)) r.push({ paso: 'factura' });
+    else if (!hecho(p, 'excel', 'validado')) r.push({ paso: 'excel', fra: '' });
+    return r;
+  }
+  fras.filter((f) => !hecho(p, 'excel', f)).forEach((fra) => r.push({ paso: 'excel', fra }));
+  if (!esRepo(p)) {
+    if (!p.codigos || !Object.keys(p.codigos).length) r.push({ paso: 'codigos' });
+    fras.filter((f) => !hecho(p, 'guia', f)).forEach((fra) => r.push({ paso: 'guia', fra }));
+  }
+  return r;
+}
+/** Chips de la cabecera de la campaña: qué falta y en qué pedidos o facturas. */
+function chipsQueFalta(g) {
+  const por = new Map();
+  for (const p of g.pedidos) for (const x of pasosPendientes(p)) {
+    if (!por.has(x.paso)) por.set(x.paso, new Set());
+    por.get(x.paso).add(x.paso === 'excel' || x.paso === 'guia' ? x.fra || 'validado' : 'nº ' + nPed(p.numero));
+  }
+  const ids = new Set(g.pedidos.map((p) => p.id));
+  const enRestos = E.restos.filter((r) => ids.has(r.pedidoId) && r.pendiente > 0 && !r.anulado).reduce((s, r) => s + r.pendiente, 0);
+  const restos = enRestos ? `<span class="chip aviso">${enRestos} ud. en restos</span>` : '';
+  if (!por.size) return `<span class="chip ok">✅ Terminada</span>${restos}`;
+  const lista = (xs) => xs.length > 6 ? xs.slice(0, 6).join(', ') + '…' : xs.join(', ');
+  // El Excel y la guía, uno por factura y pulsables: si ya se hizo fuera de la app, se da por hecho.
+  const porFra = (k) => [...por.get(k)].map((f) => `<span class="chip mal" style="cursor:pointer" title="Pulsa si ya está hecho"
+    onclick="event.preventDefault(); event.stopPropagation(); marcarHecho(${js(g.clave)}, '${k}', ${js(f)})">${PASOS[k]}${f === 'validado' ? '' : ' · Fra ' + h(f)}</span>`).join('');
+  return Object.keys(PASOS).filter((k) => por.has(k))
+    .map((k) => k === 'excel' || k === 'guia' ? porFra(k) : `<span class="chip ${k === 'reclamar' ? 'aviso' : 'mal'}">${PASOS[k]}: ${h(lista([...por.get(k)]))}</span>`).join('') + restos;
+}
+function marcarHecho(clave, que, fra) {
+  const queEs = que === 'excel' ? 'el Excel de Géminis' : 'la guía de facturación';
+  if (!confirm(`¿Ya está hecho ${queEs}${fra === 'validado' ? '' : ' de la factura ' + fra}?\nAceptar = darlo por hecho.`)) return;
+  for (const p of E.pedidos.filter((q) => claveGrupo(q) === clave && q.validado)) {
+    const fras = facturasDe(p);
+    if (fra === 'validado' ? !fras.length : fras.includes(fra)) apuntarHecho(p, que, [fra]);
+  }
+  guardar(); pintar();
+}
 function estadoPedido(p) {
-  if (p.validado) return { chip: 'ok', texto: 'Validado' };
+  if (p.validado) {
+    const pp = pasosPendientes(p);
+    return pp.length ? { chip: 'aviso', texto: 'Validado · ' + PASOS[pp[0].paso].replace(/^F/, 'f') } : { chip: 'ok', texto: 'Terminado' };
+  }
   if (!p.lineas.length) return { chip: 'gris', texto: 'Sin líneas' };
   if (!p.propuesta) return { chip: 'gris', texto: 'Sin propuesta' };
   const pend = CP.sinDecidir(comparar(p), p.decisiones).length;
@@ -710,6 +773,7 @@ function vistaGrupo(g, i) {
         <span class="chip ${validados === g.pedidos.length ? 'ok' : 'info'}">${validados} validado(s)</span>
         ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
       </span>
+      <span class="resumen">${chipsQueFalta(g)}</span>
     </summary>
     ${esComercial() ? '' : bloqueMarca(g)}
     ${esComercial() ? '' : bloqueDocumentos(g)}
@@ -877,6 +941,8 @@ function imprimirGuiaFacturacion(clave, opciones) {
   ${bloques}
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
+  incluidos.forEach((p) => apuntarHecho(p, 'guia', soloFactura ? [soloFactura] : facturasDe(p)));
+  guardar(); pintar();
 }
 function marcarGrupo(clave, abierto) {
   gruposAbiertos = gruposAbiertos || new Set();
@@ -3738,13 +3804,16 @@ async function exportarPedidos(ids, opciones) {
     for (const [fra, ls] of porFactura) {
       const peds = [...new Set(ls.map((l) => l._ped))];
       ls.forEach((l) => { delete l._fra; delete l._ped; });
-      descargarGeminis(ls, { proveedor: provs[0], numero: soloFactura || porFactura.size > 1 || peds.length > 1 ? `FRA ${fra}` : peds[0].numero,
-        observaciones: `Factura ${fra}: ` + peds.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca, plantilla });
+      if (descargarGeminis(ls, { proveedor: provs[0], numero: soloFactura || porFactura.size > 1 || peds.length > 1 ? `FRA ${fra}` : peds[0].numero,
+        observaciones: `Factura ${fra}: ` + peds.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca, plantilla })) peds.forEach((p) => apuntarHecho(p, 'excel', [fra]));
     }
+    guardar(); pintar();
     return;
   }
-  descargarGeminis([...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
-    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca, plantilla });
+  if (!descargarGeminis([...suma.values()], { proveedor: provs[0], numero: ps.length === 1 ? ps[0].numero : ps.map((p) => p.numero).join('+'),
+    observaciones: ps.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca, plantilla })) return;
+  ps.forEach((p) => apuntarHecho(p, 'excel', facturasDe(p).length ? facturasDe(p) : ['validado']));
+  guardar(); pintar();
 }
 /** Al sacar el Excel de Géminis se pregunta la plantilla (Luis o Rober); la última elegida va marcada. */
 function elegirPlantilla() {
@@ -3768,7 +3837,7 @@ function descargarGeminis(lineas, o) {
   const descuadres = [...suma.values()].filter((l) => l.residuo);
   if (descuadres.length && !confirm(`Con ${decimales} decimales en el descuento, ${descuadres.length} línea(s) no cuadran al céntimo con el importe del proveedor:\n` +
     descuadres.slice(0, 8).map((l) => `${l.ref}: ${l.residuo > 0 ? '+' : ''}${fmt(l.residuo)} €`).join('\n') +
-    '\n\nPuedes subir los decimales en «Datos». ¿Exportar igualmente?')) return;
+    '\n\nPuedes subir los decimales en «Datos». ¿Exportar igualmente?')) return false;
   const quitar = (v) => typeof v === 'string' ? v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[Ññ]/g, (m) => (m === 'Ñ' ? 'N' : 'n')) : v;
   // Plantilla «Luis» (la oficial de Gestión, la de «PDF a Excel») por defecto:
   // con la «Rober» Géminis no reconocía las referencias (20/10/2026).
@@ -3783,6 +3852,7 @@ function descargarGeminis(lineas, o) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
   XLSX.writeFile(wb, `PEDIDO_${quitar(provs[0]).replace(/\W+/g, '_')}${numero ? '_' + String(numero).replace(/\W+/g, '_') : ''}${rober ? '_ROBER' : ''}.xls`, { bookType: 'biff5' });
+  return true;
   // El total, para cuadrarlo con la factura en la mano (en el Excel no va: la
   // plantilla de Géminis no lleva fila de total y la importaría como artículo).
   const total = CP.red2([...suma.values()].reduce((t, l) => t + (CP.parseNum(l.total) || 0), 0));
