@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { GwDate, GwField, GwInput, GwSelect, GwTabs, formatGw } from '../../components/gw'
+import { GwDate, GwField, GwInput, GwSelect, GwTabs, GwWindow, formatGw } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 import { supabase } from '../../lib/supabase'
 import { FUENTES, FUENTE_POR_CLAVE, OPERADORES, definicionNueva, type ColumnaFuente, type DefinicionListado, type FiltroListado } from '../../lib/listados/fuentes'
@@ -34,6 +34,7 @@ export function GeneradorListadosPage() {
   const [def, setDef] = useState<DefinicionListado>(definicionNueva(FUENTES[0]))
   const [compartir, setCompartir] = useState<number[] | null>(null)
   const [tab, setTab] = useState('columnas')
+  const [ayuda, setAyuda] = useState(false)
   const [filas, setFilas] = useState<Fila[] | null>(null)
   const [truncado, setTruncado] = useState(false)
   const [cargando, setCargando] = useState(false)
@@ -355,6 +356,9 @@ export function GeneradorListadosPage() {
           <button type="button" className="gw-btn h-[30px]" disabled={!filas?.length} onClick={() => window.print()}>
             🖨️ Imprimir / PDF
           </button>
+          <button type="button" className="gw-btn h-[30px]" onClick={() => setAyuda(true)}>
+            Operativa
+          </button>
           <button type="button" className="gw-btn h-[30px]" disabled={!filas?.length} onClick={excel}>
             📊 Excel
           </button>
@@ -372,15 +376,50 @@ export function GeneradorListadosPage() {
           </button>
         </div>
 
+        {ayuda && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/25 pt-16" onKeyDown={(e) => e.key === 'Escape' && setAyuda(false)}>
+            <GwWindow title="Generador de listados · Operativa" onClose={() => setAyuda(false)} className="w-[720px] max-w-[95vw]">
+              <GwOperativa
+                  bloques={[
+                    {
+                      titulo: 'Hacer un listado',
+                      pasos: [
+                        'Elige «Qué listar» (clientes, artículos, ventas…).',
+                        'Columnas: marca las que quieras y ordénalas con ↑ ↓.',
+                        'Filtros: «Añadir filtro», elige columna, condición y valor.',
+                        'Pulsa ▶ Ver listado (o F9).',
+                        'Imprimir / PDF o Excel para sacarlo; 💾 Guardar para tenerlo a mano.',
+                      ],
+                    },
+                    {
+                      titulo: 'Bueno es saber',
+                      notas: [
+                        'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
+                        'Los guardados salen a la izquierda, agrupados por nº de vendedor (o por tipo); pulsa uno para abrirlo.',
+                        'Tus listados salen solos arriba, en «Mis listados · Nº (tu número)»: no hace falta escribir nada.',
+                        'Ver Nº…: solo para ver los listados de OTRO vendedor; escribe su número (bórralo para volver a verlos todos).',
+                        'Pestaña «Todos los campos de la ficha»: cualquier campo, con buscador.',
+                        '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
+                        'Acceso directo: botón «📋 Listados» en la barra de título de cada pantalla (abre el generador con lo de esa pantalla), icono «Listados» de la barra de accesos y «Generador de listados» en cada menú Listados.',
+                        'Compartir: elige qué grupos de empleados ven el listado.',
+                        'Cada uno solo ve los datos que su permiso le deja ver.',
+                      ],
+                    },
+                  ]}
+                />
+            </GwWindow>
+          </div>
+        )}
         <GwTabs
           rows={[
             [
               { key: 'columnas', label: `Columnas (${def.columnas.length})` },
               { key: 'filtros', label: `Filtros (${def.filtros.length})` },
-              { key: 'agrupar', label: def.agrupar.length ? `Agrupar y sumar (${def.agrupar.length})` : 'Agrupar y sumar' },
+              { key: 'agrupar', label: def.agrupar.length ? `Agrupar (${def.agrupar.length})` : 'Agrupar' },
               { key: 'orden', label: 'Orden' },
               { key: 'compartir', label: 'Compartir' },
-              { key: 'operativa', label: 'Operativa' },
+              // Luis (30/10/2026): aquí, en el sitio de «Operativa» (que pasa a la barra de arriba).
+              { key: 'todos', label: `Todos los campos de la ficha (${extras.length})` },
             ],
           ]}
           active={tab}
@@ -388,6 +427,7 @@ export function GeneradorListadosPage() {
         >
           <div className="h-[200px] overflow-y-auto p-2" onKeyDown={(e) => e.key === 'F9' && (e.preventDefault(), ejecutar())}>
             {tab === 'columnas' && <Columnas principales={F.columnas} extras={extras} sel={def.columnas} onChange={(c) => setD({ columnas: c })} />}
+            {tab === 'todos' && <Columnas principales={F.columnas} extras={extras} sel={def.columnas} onChange={(c) => setD({ columnas: c })} soloTodos />}
             {tab === 'filtros' && <Filtros fuente={todas} filtros={def.filtros} onChange={(f) => setD({ filtros: f })} />}
             {tab === 'agrupar' && <Agrupar fuente={todas} def={def} onChange={setD} />}
             {tab === 'orden' && <Orden fuente={todas} def={def} onChange={(o) => setD({ orden: o })} />}
@@ -410,36 +450,6 @@ export function GeneradorListadosPage() {
                   ))}
                 <span className="text-[13px] text-[#555]">Tú y los administradores lo veis siempre. Se aplica al pulsar Guardar.</span>
               </div>
-            )}
-            {tab === 'operativa' && (
-              <GwOperativa
-                bloques={[
-                  {
-                    titulo: 'Hacer un listado',
-                    pasos: [
-                      'Elige «Qué listar» (clientes, artículos, ventas…).',
-                      'Columnas: marca las que quieras y ordénalas con ↑ ↓.',
-                      'Filtros: «Añadir filtro», elige columna, condición y valor.',
-                      'Pulsa ▶ Ver listado (o F9).',
-                      'Imprimir / PDF o Excel para sacarlo; 💾 Guardar para tenerlo a mano.',
-                    ],
-                  },
-                  {
-                    titulo: 'Bueno es saber',
-                    notas: [
-                      'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
-                      'Los guardados salen a la izquierda, agrupados por nº de vendedor (o por tipo); pulsa uno para abrirlo.',
-                      'Tus listados salen solos arriba, en «Mis listados · Nº (tu número)»: no hace falta escribir nada.',
-                      'Ver Nº…: solo para ver los listados de OTRO vendedor; escribe su número (bórralo para volver a verlos todos).',
-                      'Columnas → «Todos los campos de la ficha»: cualquier campo, con buscador.',
-                      '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
-                      'Acceso directo: botón «📋 Listados» en la barra de título de cada pantalla (abre el generador con lo de esa pantalla), icono «Listados» de la barra de accesos y «Generador de listados» en cada menú Listados.',
-                      'Compartir: elige qué grupos de empleados ven el listado.',
-                      'Cada uno solo ve los datos que su permiso le deja ver.',
-                    ],
-                  },
-                ]}
-              />
             )}
           </div>
         </GwTabs>
@@ -514,9 +524,21 @@ export function GeneradorListadosPage() {
   )
 }
 
-function Columnas({ principales, extras, sel, onChange }: { principales: ColumnaFuente[]; extras: ColumnaFuente[]; sel: string[]; onChange: (c: string[]) => void }) {
+function Columnas({
+  principales,
+  extras,
+  sel,
+  onChange,
+  soloTodos = false,
+}: {
+  principales: ColumnaFuente[]
+  extras: ColumnaFuente[]
+  sel: string[]
+  onChange: (c: string[]) => void
+  /** Pestaña «Todos los campos de la ficha»: todos los campos con buscador, en vez de los principales. */
+  soloTodos?: boolean
+}) {
   const [buscar, setBuscar] = useState('')
-  const [verTodos, setVerTodos] = useState(false)
   const fuente = [...principales, ...extras]
   const mover = (i: number, d: number) => {
     const j = i + d
@@ -536,15 +558,21 @@ function Columnas({ principales, extras, sel, onChange }: { principales: Columna
   return (
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <div className="gw-label mb-1">Principales (marca para añadir):</div>
-        <div className="grid grid-cols-2 gap-x-3">{principales.map(casilla)}</div>
-        <div className="mt-2 flex items-center gap-2">
-          <button type="button" className="gw-btn !h-[22px]" onClick={() => setVerTodos((v) => !v)}>
-            {verTodos ? '▾' : '▸'} Todos los campos de la ficha ({extras.length})
-          </button>
-          {verTodos && <GwInput className="w-[200px]" placeholder="buscar campo…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />}
-        </div>
-        {verTodos && <div className="mt-1 grid grid-cols-2 gap-x-3">{encontrados.map(casilla)}</div>}
+        {soloTodos ? (
+          <>
+            <div className="mb-1 flex items-center gap-2">
+              <span className="gw-label">Todos los campos de la ficha (marca para añadir):</span>
+              <GwInput className="w-[200px]" placeholder="buscar campo…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-x-3">{encontrados.map(casilla)}</div>
+          </>
+        ) : (
+          <>
+            <div className="gw-label mb-1">Principales (marca para añadir):</div>
+            <div className="grid grid-cols-2 gap-x-3">{principales.map(casilla)}</div>
+            <div className="mt-2 text-[12px] text-[#777]">Más campos en la pestaña «Todos los campos de la ficha».</div>
+          </>
+        )}
       </div>
       <div>
         <div className="gw-label mb-1">En el listado, en este orden:</div>
