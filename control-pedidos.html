@@ -808,7 +808,12 @@ function codigoDe(p, ref) {
 // El relleno del body se repite en cada hoja (box-decoration-break: clone): si
 // el @page se ignora, sin él las filas del final de cada hoja salían cortadas.
 const CSS_HOJA = '@page{size:A4;margin:12mm 10mm 16mm 10mm}html{margin:0}body{margin:0;padding:8mm 12mm 12mm 8mm;box-sizing:border-box;box-decoration-break:clone;-webkit-box-decoration-break:clone}';
-function imprimirGuiaFacturacion(clave) {
+function imprimirGuiaFacturacion(clave, opciones) {
+  // Con `soloFactura`, la guía de esa factura del proveedor: a cada cliente solo
+  // lo que le llega en ella (lo validado, a su precio, hasta lo que trae la factura).
+  const soloFactura = opciones && opciones.soloFactura;
+  const fraDe = (l, p) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo);
+  const deLaFactura = (p) => (p.factura && p.factura.lineas || []).filter((l) => fraDe(l, p) === soloFactura);
   const ps = E.pedidos.filter((p) => claveGrupo(p) === clave)
     .sort((a, b) => String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true }) || String(a.cliente).localeCompare(String(b.cliente), 'es'));
   if (!ps.length) return;
@@ -823,11 +828,11 @@ function imprimirGuiaFacturacion(clave) {
   // finales, un pedido sin la suya no entra (no ha llegado). Sin ninguna, sale todo lo validado.
   const conFactura = (p) => Boolean(p.factura && (p.factura.lineas || []).length);
   const sinFactura = validados.some(conFactura) ? validados.filter((p) => !conFactura(p)) : [];
-  const incluidos = validados.filter((p) => !sinFactura.includes(p));
+  const incluidos = soloFactura ? validados.filter((p) => deLaFactura(p).length) : validados.filter((p) => !sinFactura.includes(p));
   let totalCampana = 0;
   const bloques = incluidos.map((p) => {
     // Si ya está la factura final, solo se factura al cliente lo que ha venido.
-    const rf = revisarFactura(p);
+    const rf = soloFactura ? null : revisarFactura(p);
     const noVino = new Map(((rf && rf.faltan) || []).map((x) => [CP.claveRef(x.ref), x.cant]));
     const lineas = p.final.lineas.map((l) => {
       const menos = noVino.get(CP.claveRef(l.ref)) || 0;
@@ -836,6 +841,16 @@ function imprimirGuiaFacturacion(clave) {
       noVino.set(CP.claveRef(l.ref), menos - quitar);
       return Object.assign({}, l, { cant: CP.red2(l.cant - quitar) });
     }).filter((l) => l.cant > 0);
+    if (soloFactura) {
+      const eq = Object.assign({}, p.equivalencias);
+      const llega = new Map();
+      for (const l of deLaFactura(p)) { const k = CP.claveRef(eq[l.ref] || l.ref); llega.set(k, (llega.get(k) || 0) + (CP.parseNum(l.cant) || 0)); }
+      lineas.splice(0, lineas.length, ...p.final.lineas.map((l) => {
+        const k = CP.claveRef(l.ref); const q = Math.min(l.cant, llega.get(k) || 0);
+        llega.set(k, (llega.get(k) || 0) - q);
+        return Object.assign({}, l, { cant: CP.red2(q) });
+      }).filter((l) => l.cant > 0));
+    }
     const total = CP.red2(lineas.reduce((s, l) => s + pc(l) * l.cant, 0));
     totalCampana += total;
     const notas = E.notas.filter((n) => n.pedidoId === p.id && !n.resuelta);
@@ -848,16 +863,16 @@ function imprimirGuiaFacturacion(clave) {
     </section>`;
   }).join('');
   const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Guía de facturación · ${h(nombre)}</title>
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Guía de facturación · ${h(nombre)}${soloFactura ? ' · Factura ' + h(soloFactura) : ''}</title>
   <style>${CSS_HOJA}body{font-family:system-ui,sans-serif;color:#111;font-size:12px}td{overflow-wrap:anywhere}h1{font-size:18px;margin:0 0 4px}
   section{border-top:2px solid #333;padding-top:6px;margin-top:16px}
   h2{font-size:15px;margin:0 0 6px;break-after:avoid;page-break-after:avoid}tr{break-inside:avoid;page-break-inside:avoid}thead{display:table-header-group}h2 small{font-weight:normal;color:#555}.caja{display:inline-block;width:12px;height:12px;border:1.5px solid #333;margin-right:4px;vertical-align:-1px}
   table{border-collapse:collapse;width:100%}table.guia{table-layout:fixed}th,td{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}td.n,th.n{text-align:right}td.cod{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   tr.tot td{font-weight:bold;border-bottom:0}.nota{background:#eef4ff;padding:4px 6px}.resto{background:#fff6e0;padding:4px 6px}.aviso{background:#fde8e8;padding:6px}.sincod{color:#b00;font-weight:bold}</style></head><body>
-  <h1>Guía de facturación · ${h(nombre)}</h1>
+  <h1>Guía de facturación · ${h(nombre)}${soloFactura ? ' · Factura ' + h(soloFactura) : ''}</h1>
   <p>${h(fmtFecha(hoy()))} · ${incluidos.length} cliente(s) · total ${fmt(CP.red2(totalCampana))} € sin impuestos · marca la casilla de cada cliente al facturarlo.</p>
-  ${sinValidar.length ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
-  ${sinFactura.length ? `<p class="aviso"><b>Sin factura final, no incluidos:</b> ${sinFactura.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
+  ${sinValidar.length && !soloFactura ? `<p class="aviso"><b>Sin validar, no incluidos:</b> ${sinValidar.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
+  ${sinFactura.length && !soloFactura ? `<p class="aviso"><b>Sin factura final, no incluidos:</b> ${sinFactura.map((p) => `nº ${h(nPed(p.numero))} ${h(p.cliente)}`).join(', ')}</p>` : ''}
   ${bloques}
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
@@ -2005,7 +2020,8 @@ function bloqueDocumentos(g) {
   const docs = documentosCampana(g.pedidos);
   const nFotos = g.pedidos.reduce((s, p) => s + fotosDe(p).length, 0);
   const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €
-    ${d.campo === 'factura' ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})" title="Excel de Géminis solo de esta factura">📥 Excel Géminis</button>` : ''}
+    ${d.campo === 'factura' ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})" title="Excel de Géminis solo de esta factura">📥 Excel Géminis</button>
+      <button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})" title="Guía de facturación solo de esta factura">🧾 Guía</button>` : ''}
     <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)}, ${i})" title="Quitarlo de todos los pedidos de la campaña">🗑️ Quitar</button></li>`;
   const lista = (campo, titulo) => {
     const ds = docs.map((d, i) => [d, i]).filter(([d]) => d.campo === campo);
@@ -2024,6 +2040,11 @@ function excelDeFactura(clave, indice) {
   const d = documentosCampana(E.pedidos.filter((p) => claveGrupo(p) === clave))[indice];
   if (!d || d.campo !== 'factura') return;
   exportarPedidos(d.pedidos.map((p) => p.id), { soloFactura: d.nombre.replace(/^Factura /, '') });
+}
+function guiaDeFactura(clave, indice) {
+  const d = documentosCampana(E.pedidos.filter((p) => claveGrupo(p) === clave))[indice];
+  if (!d || d.campo !== 'factura') return;
+  imprimirGuiaFacturacion(clave, { soloFactura: d.nombre.replace(/^Factura /, '') });
 }
 function cuadreCampana(ps) {
   return CP.cuadreArticulos(ps.filter((p) => p.factura).map((p) => {
