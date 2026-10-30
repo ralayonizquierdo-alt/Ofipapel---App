@@ -42,7 +42,7 @@ const { connectLambda, getStore } = require('@netlify/blobs');
 const STORE_NAME = 'pedidos-manuscritos';
 const CLAUDE_MODEL = 'claude-opus-5-5';
 const MAX_TOKENS = 32000; // una factura larga, con todas sus líneas
-const MAX_BASE64 = 4 * 1024 * 1024;
+const MAX_BASE64 = 24 * 1024 * 1024; // llega en trozos por leer-pedido-manuscrito-subir.js (~18 MB de fichero)
 const TIPOS_OK = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const JOB_ID_OK = /^[A-Za-z0-9-]{8,64}$/;
 
@@ -243,6 +243,17 @@ exports.handler = async (event) => {
     try {
       const entrada = await store.get('entrada-' + jobId, { type: 'json' });
       if (entrada) ({ imagenBase64, mediaType } = entrada);
+      // Un fichero grande llega en trozos («entrada-<jobId>-<n>»): se juntan en orden.
+      if (entrada && entrada.partes > 1) {
+        const trozos = [];
+        for (let i = 0; i < entrada.partes; i++) {
+          const t = await store.get(`entrada-${jobId}-${i}`, { type: 'json' });
+          if (!t || typeof t.trozo !== 'string') return fallo('La subida del fichero no se completó (falta un trozo). Vuelve a intentarlo.');
+          trozos.push(t.trozo);
+          await store.delete(`entrada-${jobId}-${i}`).catch(() => {});
+        }
+        imagenBase64 = trozos.join('');
+      }
       // Lleva la foto o la factura: no se guarda más de lo necesario.
       await store.delete('entrada-' + jobId).catch(() => {});
     } catch (err) {
@@ -254,7 +265,7 @@ exports.handler = async (event) => {
   if (!apiKey) return fallo('Lector no configurado (falta ANTHROPIC_API_KEY en Netlify)');
   if (typeof imagenBase64 !== 'string' || !imagenBase64) return fallo('No ha llegado el fichero (la subida no se completó)');
   if (!TIPOS_OK.includes(mediaType)) return fallo(`Formato no admitido: ${mediaType || 'desconocido'}`);
-  if (imagenBase64.length > MAX_BASE64) return fallo('El fichero es demasiado grande (máximo unos 3 MB). Si es un PDF escaneado, prueba a reducirlo o a hacer una foto de cada página.');
+  if (imagenBase64.length > MAX_BASE64) return fallo('El fichero es demasiado grande (máximo unos 18 MB). Si es un PDF escaneado, prueba a reducirlo o a hacer una foto de cada página.');
 
   try {
     const resultado = await leerConClaude(apiKey, imagenBase64, mediaType, modo);
