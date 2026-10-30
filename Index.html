@@ -522,9 +522,9 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
 
     <div id="navOperaciones">
       <div class="nav-section">Operaciones</div>
-      <div class="nav-item" onclick="showView('caja')"><span class="ni">💰</span><span>Caja</span></div>
-      <div class="nav-item" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas</span></div>
-      <div class="nav-item" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
+      <div class="nav-item" id="navCaja" onclick="showView('caja')"><span class="ni">💰</span><span>Caja</span></div>
+      <div class="nav-item" id="navVentas" onclick="showView('ventas')"><span class="ni">🏪</span><span>Ventas</span></div>
+      <div class="nav-item" id="navCompras" onclick="showView('compras')"><span class="ni">🛒</span><span>Compras</span></div>
     </div>
 
     <div id="navChat">
@@ -1487,7 +1487,7 @@ const STORAGE_KEY = 'ofipapel_registros_v1';
 // Menús restringidos por usuario (vacío = acceso total)
 const USER_BLOCKED = { monica: ['ventas','compras','chat'] };
 // Usuarios con acceso a la sección Operaciones (Ventas, Compras, Familias)
-const OPERACIONES_ACCESO = ['admin', 'rober', 'david', 'luis'];
+const OPERACIONES_ACCESO = ['admin', 'rober', 'david', 'luis', 'monica']; // Mónica entra a Operaciones solo para Caja: Ventas y Compras se le ocultan con USER_BLOCKED
 // Usuarios con acceso al panel de administración de usuarios
 const ADMIN_USERS = ['admin', 'rober'];
 
@@ -2127,6 +2127,7 @@ function applyAccessControl(){
   // Sección Operaciones
   const nav = document.getElementById('navOperaciones');
   if(nav) nav.style.display = OPERACIONES_ACCESO.includes(currentUser) ? '' : 'none';
+  ['caja','ventas','compras'].forEach(k=>{ const el=document.getElementById('nav'+k.charAt(0).toUpperCase()+k.slice(1)); if(el) el.style.display=blocked.includes(k)?'none':''; });
   // Chat IA
   const navChat = document.getElementById('navChat');
   if(navChat) navChat.style.display = blocked.includes('chat') ? 'none' : '';
