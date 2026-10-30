@@ -15,9 +15,15 @@ import { resumenParaAsistente } from '../lib/resumenParaAsistente'
  *   ya sumadas. El asistente solo redacta sobre ese resumen, así que no puede
  *   inventarse un total: o está ahí, o contesta que no lo sabe.
  * · La clave de Anthropic no está aquí: la llamada va a una función del
- *   servidor (`netlify/functions/alquileres-asistente.js`), que además exige el
- *   token de sesión de Firebase del que pregunta.
+ *   servidor, que además exige el token de sesión de Firebase del que
+ *   pregunta.
  * · No escribe nada. Es de mirar.
+ * · **La pregunta se hace en dos tiempos** (30/10/2026): se manda a una
+ *   función en segundo plano y luego se va a recoger la respuesta. Antes era
+ *   una sola llamada, y Netlify corta una función normal a los 10 segundos:
+ *   una respuesta que tardaba 8,6 s pasaba por los pelos y cualquier otra se
+ *   quedaba en «El asistente no ha podido responder», que es lo que se ve
+ *   cuando el servidor devuelve una página de error en vez de JSON.
  *
  * Fuera de Netlify (la copia de GitHub Pages) no hay funciones: en vez de dar
  * un error raro, lo dice y manda a la buena.
@@ -25,7 +31,13 @@ import { resumenParaAsistente } from '../lib/resumenParaAsistente'
 
 interface Mensaje { role: 'user' | 'assistant'; content: string }
 
-const RUTA = '/.netlify/functions/alquileres-asistente'
+const RUTA = '/.netlify/functions/alquileres-asistente-background'
+const RUTA_ESTADO = '/.netlify/functions/alquileres-asistente-estado'
+/** Cuánto se espera a la respuesta antes de rendirse, y cada cuánto se mira. */
+const ESPERA_MS = 90_000
+const CADA_MS = 1_500
+
+const duerme = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 const EJEMPLOS = [
   '¿Qué estancias terminaron sin cobrar del todo?',
@@ -68,17 +80,40 @@ export default function PreguntarApp() {
       const token = await auth.currentUser?.getIdToken()
       if (!token) throw new Error('No encuentro tu sesión. Vuelve a entrar en la app.')
       const contexto = resumenParaAsistente({ apartments, reservations, payments, expenses }, year)
+      // El número de la pregunta lo pone esta pantalla: la función de segundo
+      // plano contesta 202 al momento y no puede devolver nada.
+      const jobId = crypto.randomUUID()
       const resp = await fetch(RUTA, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ pregunta: limpio, contexto, historial }),
+        body: JSON.stringify({ jobId, pregunta: limpio, contexto, historial }),
       })
       if (resp.status === 404) {
         throw new Error('Esta copia de la app no tiene el asistente. Ábrela en ofipapel.netlify.app/alquileres/')
       }
-      const datos = await resp.json().catch(() => ({}))
-      if (!resp.ok) throw new Error(datos.error || 'El asistente no ha podido responder.')
-      setMensajes(m => [...m, { role: 'assistant', content: datos.respuesta }])
+      if (!resp.ok && resp.status !== 202) {
+        const datos = await resp.json().catch(() => ({}))
+        throw new Error(datos.error || 'No he podido mandar la pregunta.')
+      }
+
+      // Y ahora se va a recoger la respuesta hasta que esté.
+      const hasta = Date.now() + ESPERA_MS
+      for (;;) {
+        await duerme(CADA_MS)
+        const r = await fetch(`${RUTA_ESTADO}?jobId=${jobId}`, {
+          headers: { authorization: `Bearer ${token}` },
+        })
+        const datos = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(datos.error || 'No he podido recoger la respuesta.')
+        if (datos.estado === 'hecho') {
+          setMensajes(m => [...m, { role: 'assistant', content: datos.respuesta }])
+          break
+        }
+        if (datos.estado === 'error') throw new Error(datos.error || 'El asistente no ha podido responder.')
+        if (Date.now() > hasta) {
+          throw new Error('Está tardando demasiado. Vuelve a preguntarlo en un momento.')
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Algo ha fallado.')
     } finally {
