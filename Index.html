@@ -4899,9 +4899,11 @@ function conciliarRecibos(){
     por.forEach(e=>{
       if(!e.cierre.fecha) return;
       const d=dias(r.fecha,e.cierre.fecha); if(d<0||d>7) return;
-      e.lineas.forEach(l=>{ if(!l.recibo&&l.cat===cat&&String(l.banco).toUpperCase().includes(String(r.banco||'#').toUpperCase())) cands.push({importe:l.importe,fecha:e.cierre.fecha}); });
+      e.lineas.forEach(l=>{ if(!l.recibo&&l.cat===cat&&String(l.banco).toUpperCase().includes(String(r.banco||'#').toUpperCase())) cands.push({importe:l.importe,fecha:e.cierre.fecha,d}); });
     });
-    if(cands.length===1) sugerencias.set(r,cands[0]);
+    // el recibo lleva uno o dos días menos que el cierre: se sugiere la línea libre del cierre MÁS CERCANO, si es una sola
+    const dMin=cands.length?Math.min(...cands.map(c=>c.d)):null, cercanas=cands.filter(c=>c.d===dMin);
+    if(cercanas.length===1) sugerencias.set(r,{importe:cercanas[0].importe,fecha:cercanas[0].fecha});
   });
   return {por,sinCierre,clave,sugerencias};
 }
@@ -4985,12 +4987,21 @@ function renderCajaConciliacion(){
   const es=estadoBancoDeCierre(last,conc);
   const fechaLabel=last.fecha?new Date(last.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
   const _diaRec=last.fechaCierre?` (ingresos del ${_diaCorto(last.fechaCierre)})`:'';
+  // Pista: un recibo sin pareja que probablemente es una de las líneas que faltan, con el importe mal leído
+  const _pista=(()=>{
+    const out=[];
+    conc.sugerencias.forEach((sg,r)=>{
+      if(sg.fecha!==last.fecha||!es.faltan.some(l=>Math.abs(l.importe-sg.importe)<0.005)) return;
+      out.push(`${r.banco||'Banco'} del ${_diaCorto(r.fecha)}, leído como <strong>${fmt(r.importe)}</strong>`);
+    });
+    return out.length?`<div style="margin-top:8px;font-weight:600;">💡 Hay un recibo sin pareja (${out.join(' · ')}). Si en realidad es el que falta, corrígelo con ✏️ en «Recibos del banco guardados» (más abajo).</div>`:'';
+  })();
   const _banner=(bg,ico,tit,txt)=>`<div style="background:${bg};color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">${ico}</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">${tit}</div><div style="font-size:13px;opacity:0.9;">${txt}</div></div></div>`;
   if(es.estado==='manual') alertEl.innerHTML=_banner('#5d8a5d','☑️',`CUADRADO POR EXCEPCIÓN — ${fechaLabel}`,`Sin recibo del banco: <strong>${textoFaltan(es)}</strong>. Excepción autorizada por ${es.manual.por||'el propietario'} el ${_diaCorto(String(es.manual.ts).slice(0,10))}.`);
   else if(es.estado==='ok') alertEl.innerHTML=_banner('#27AE60','✅',`CAJA CUADRADA — ${fechaLabel}`,`Los ${es.lineas.length} ingresos del cierre tienen su recibo del banco. Efectivo depositado: <strong>${fmt(es.bancoEf)}</strong>`);
-  else if(es.estado==='parcial') alertEl.innerHTML=_banner('#c0392b','⚠️',`FALTAN RECIBOS — ${fechaLabel}`,`Hay recibo de ${es.lineas.length-es.faltan.length} de ${es.lineas.length} ingresos${_diaRec}. Faltan: <strong>${textoFaltan(es)}</strong>`);
+  else if(es.estado==='parcial') alertEl.innerHTML=_banner('#c0392b','⚠️',`FALTAN RECIBOS — ${fechaLabel}`,`Hay recibo de ${es.lineas.length-es.faltan.length} de ${es.lineas.length} ingresos${_diaRec}. Faltan: <strong>${textoFaltan(es)}</strong>${_pista}`);
   else if(es.estado==='sin') alertEl.innerHTML=_banner('#7f8c8d','➖',`SIN INGRESOS AL BANCO — ${fechaLabel}`,'El cierre no trae ingresos de efectivo ni cheques que justificar.');
-  else alertEl.innerHTML=_banner('var(--naranja,#F5A623)','⏳',`PENDIENTE — ${fechaLabel}`,`Cierre cargado${_diaRec}. Faltan los recibos de: <strong>${textoFaltan(es)}</strong>`);
+  else alertEl.innerHTML=_banner('var(--naranja,#F5A623)','⏳',`PENDIENTE — ${fechaLabel}`,`Cierre cargado${_diaRec}. Faltan los recibos de: <strong>${textoFaltan(es)}</strong>${_pista}`);
 
   const storeRows=(()=>{
     if(!last.stores||!last.stores.length) return '';
