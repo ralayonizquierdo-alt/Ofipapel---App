@@ -1200,7 +1200,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         onLast={() => irNav('ultimo')}
         onSort={() => setOrden((o) => (o === 'numero' ? 'proveedor' : 'numero'))}
         onSearch={() => setDialogo('buscar')}
-        onPrint={() => window.print()}
+        // Impresora: abre sus «Informes de…», como GeminisWin (Luis, 30/10/2026).
+        onPrint={() => navigate('/listados-compras/pedidos')}
         onNew={() => navigate(rutaNuevo)}
         onEdit={() => cab && setMode('edicion')}
         onSave={guardar}

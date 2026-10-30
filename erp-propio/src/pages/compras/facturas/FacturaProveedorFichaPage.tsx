@@ -816,7 +816,8 @@ export function FacturaProveedorFichaPage() {
         onLast={() => irNav('ultimo')}
         onSort={() => setOrden((o) => (o === 'id' ? 'fecha' : 'id'))}
         onSearch={() => setLookup('buscar')}
-        onPrint={() => window.print()}
+        // Impresora: abre sus «Informes de…», como GeminisWin (Luis, 30/10/2026).
+        onPrint={() => navigate('/listados-compras/facturas')}
         onNew={() => navigate('/facturas-proveedor/nuevo')}
         onEdit={() => cab && setMode('edicion')}
         onDelete={eliminar}

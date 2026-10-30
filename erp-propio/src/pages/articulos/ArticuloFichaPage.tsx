@@ -660,7 +660,8 @@ export function ArticuloFichaPage() {
         onLast={() => irA('ultimo')}
         onSort={() => setOrden((o) => (o === 'codigo' ? 'descripcion' : 'codigo'))}
         onSearch={() => setLookup('buscar')}
-        onPrint={() => window.print()}
+        // Impresora: abre sus «Informes de…», como GeminisWin (Luis, 30/10/2026).
+        onPrint={() => navigate('/almacen/listados-articulos')}
         onNew={() => navigate('/articulos/nuevo')}
         onEdit={() => !vacio && setMode('edicion')}
         onDelete={handleDelete}

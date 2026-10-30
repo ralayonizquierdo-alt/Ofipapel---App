@@ -99,6 +99,7 @@ import { CobrosTarjetasPage } from './pages/listados/CobrosTarjetasPage'
 import { CobrosDivisasPage } from './pages/listados/CobrosDivisasPage'
 import { AperturasCajonPage } from './pages/listados/AperturasCajonPage'
 import { ListadoPedidosProveedorPage } from './pages/listados/ListadoPedidosProveedorPage'
+import { ListadoProveedoresPage } from './pages/listados/ListadoProveedoresPage'
 import { ListadoFacturasProveedorPage } from './pages/listados/ListadoFacturasProveedorPage'
 import * as ListadosClientes from './pages/listados/clientes'
 import { RecalcularDeudaPage } from './pages/clientes/RecalcularDeudaPage'
@@ -221,6 +222,7 @@ function App() {
             <Route path="/listados-ventas/divisas" element={<CobrosDivisasPage />} />
             <Route path="/listados-ventas/cajon" element={<AperturasCajonPage />} />
             <Route path="/listados-compras/pedidos" element={<ListadoPedidosProveedorPage />} />
+            <Route path="/listados-compras/proveedores" element={<ListadoProveedoresPage />} />
             <Route path="/listados-compras/facturas" element={<ListadoFacturasProveedorPage />} />
             {/* Clientes → Listados, Facturación → Listados (pend. de cobro, extracto), Ventas → List Pedidos y Recalcular deuda */}
             <Route path="/listados-clientes/clientes" element={<ListadosClientes.ListadoClientesPage />} />

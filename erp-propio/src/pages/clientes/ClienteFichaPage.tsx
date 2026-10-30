@@ -331,7 +331,8 @@ export function ClienteFichaPage() {
         onLast={() => irA('ultimo')}
         onSort={() => setOrden((o) => (o === 'codigo' ? 'nombre' : 'codigo'))}
         onSearch={() => setBuscar(true)}
-        onPrint={() => window.print()}
+        // Impresora: abre sus «Informes de…», como GeminisWin (Luis, 30/10/2026).
+        onPrint={() => navigate('/listados-clientes/clientes')}
         onNew={() => navigate('/clientes/nuevo')}
         onEdit={() => !vacio && setMode('edicion')}
         onDelete={handleDelete}

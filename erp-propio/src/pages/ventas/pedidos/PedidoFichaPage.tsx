@@ -1300,7 +1300,8 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         onLast={() => ir('ultimo')}
         onSort={() => setOrden((o) => (o === 'numero' ? 'cliente' : 'numero'))}
         onSearch={() => setDialogo('buscar')}
-        onPrint={() => window.print()}
+        // Impresora: abre sus «Informes de…», como GeminisWin (Luis, 30/10/2026).
+        onPrint={() => navigate(presupuestos ? '/listados-ventas/presupuestos' : '/listados-ventas/pedidos')}
         onNew={() => navigate(`${base}/nuevo`)}
         onEdit={() => cab && setMode('edicion')}
         onSave={guardar}
