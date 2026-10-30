@@ -10,6 +10,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GwDate, GwField, GwInput, GwSelect, GwTabs, GwWindow, formatGw } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 import { supabase } from '../../lib/supabase'
+import { usePermisos } from '../../lib/PermisosContext'
 import { FUENTES, FUENTE_POR_CLAVE, OPERADORES, definicionNueva, type ColumnaFuente, type DefinicionListado, type FiltroListado } from '../../lib/listados/fuentes'
 
 interface Guardado {
@@ -19,6 +20,13 @@ interface Guardado {
   definicion: DefinicionListado
   grupos: number[] | null
   creado_por: string | null
+  /** Código único e inmutable (CLI-0012, ART-0007…), lo pone la base de datos al guardar. */
+  codigo: string | null
+  /** «Para qué sirve». */
+  descripcion: string | null
+  archivado: boolean
+  usos?: number
+  ultimo_uso?: string | null
 }
 
 type Fila = Record<string, unknown>
@@ -46,7 +54,14 @@ export function GeneradorListadosPage() {
   const [agruparPor, setAgruparPor] = useState<'operario' | 'tipo'>('operario')
   const [cerrados, setCerrados] = useState<Set<string>>(new Set())
   const [completa, setCompleta] = useState(false)
+  const [sacado, setSacado] = useState<Date | null>(null)
   const [operario, setOperario] = useState('')
+  const [buscarListado, setBuscarListado] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [bajas, setBajas] = useState<Set<string>>(new Set())
+  const [gestionar, setGestionar] = useState<string | null>(null)
+  const { realAdmin, superAdmin } = usePermisos()
+  const puedeGestionar = realAdmin || superAdmin
 
   // Pantalla completa: Esc la cierra (antes que cualquier otro Esc de la ventana).
   useEffect(() => {
@@ -85,8 +100,12 @@ export function GeneradorListadosPage() {
   const col = useCallback((c: string): ColumnaFuente | undefined => todas.find((x) => x.clave === c), [todas])
 
   const cargarGuardados = useCallback(async () => {
-    const { data } = await supabase.from('listado_guardado').select('id, nombre, fuente, definicion, grupos, creado_por').order('nombre')
-    setGuardados((data ?? []) as Guardado[])
+    const [{ data }, { data: usos }] = await Promise.all([
+      supabase.from('listado_guardado').select('id, nombre, fuente, definicion, grupos, creado_por, codigo, descripcion, archivado').order('nombre'),
+      supabase.from('v_listado_uso_resumen').select('listado_id, usos, ultimo_uso'),
+    ])
+    const u = new Map(((usos ?? []) as { listado_id: number; usos: number; ultimo_uso: string }[]).map((x) => [x.listado_id, x]))
+    setGuardados(((data ?? []) as Guardado[]).map((g) => ({ ...g, usos: Number(u.get(g.id)?.usos ?? 0), ultimo_uso: u.get(g.id)?.ultimo_uso ?? null })))
   }, [])
 
   useEffect(() => {
@@ -94,9 +113,10 @@ export function GeneradorListadosPage() {
     supabase.rpc('fn_empleado_actual').then(({ data }) => setYo(typeof data === 'string' ? data : null))
     supabase
       .from('empleado')
-      .select('codigo, nombre, numero_operario')
+      .select('codigo, nombre, numero_operario, activo')
       .then(({ data }) => {
-        const l = (data ?? []) as { codigo: string; nombre: string; numero_operario: string | null }[]
+        const l = (data ?? []) as { codigo: string; nombre: string; numero_operario: string | null; activo: boolean | null }[]
+        setBajas(new Set(l.filter((e) => e.activo === false).map((e) => e.codigo)))
         setOperarios(Object.fromEntries(l.map((e) => [e.codigo, e.nombre])))
         setNumeros(Object.fromEntries(l.map((e) => [e.codigo, e.numero_operario || e.codigo])))
       })
@@ -113,6 +133,7 @@ export function GeneradorListadosPage() {
     setFuente(g.fuente)
     setDef({ ...definicionNueva(FUENTE_POR_CLAVE[g.fuente] ?? FUENTES[0]), ...g.definicion })
     setCompartir(g.grupos)
+    setDescripcion(g.descripcion ?? '')
     setFilas(null)
     setMensaje(null)
   }, [])
@@ -149,6 +170,7 @@ export function GeneradorListadosPage() {
     setFuente(clave)
     setDef(definicionNueva(FUENTE_POR_CLAVE[clave]))
     setCompartir(null)
+    setDescripcion('')
     setFilas(null)
     setMensaje(null)
     setParams({})
@@ -174,17 +196,21 @@ export function GeneradorListadosPage() {
     setFilas(r.filas)
     setTruncado(r.truncado)
     setUltimaDef(def)
+    setSacado(new Date())
+    // Uso del listado guardado (último uso y nº de usos en la lista de la izquierda).
+    if (id) void supabase.rpc('fn_listado_usado', { p_id: id })
   }
 
   async function guardar(comoNuevo: boolean) {
     const n = (comoNuevo || !nombre.trim() ? prompt('Nombre del listado:', nombre || F.titulo) : nombre)?.trim()
     if (!n) return
-    const fila = { nombre: n, fuente, definicion: def, grupos: compartir, actualizado_en: new Date().toISOString() }
+    const fila = { nombre: n, fuente, definicion: def, grupos: compartir, descripcion: descripcion.trim() || null, actualizado_en: new Date().toISOString() }
     const r = id && !comoNuevo ? await supabase.from('listado_guardado').update(fila).eq('id', id).select('id').single() : await supabase.from('listado_guardado').insert(fila).select('id').single()
     if (r.error) return setMensaje({ texto: r.error.message, error: true })
     setId((r.data as { id: number }).id)
     setNombre(n)
-    setMensaje({ texto: `Listado «${n}» guardado.` })
+    const { data: g } = await supabase.from('listado_guardado').select('codigo').eq('id', (r.data as { id: number }).id).single()
+    setMensaje({ texto: `Listado ${g?.codigo ?? ''} «${n}» guardado.` })
     cargarGuardados()
   }
 
@@ -227,6 +253,8 @@ export function GeneradorListadosPage() {
     if (!filas) return
     const esc = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s)
     const lineas = [
+      ...identificacion().map(([k, v]) => `${esc(k)};${esc(v)}`),
+      '',
       columnasResultado.map((c) => esc(c.etiqueta)).join(';'),
       ...filas.map((r) =>
         columnasResultado
@@ -242,9 +270,42 @@ export function GeneradorListadosPage() {
     const blob = new Blob(['﻿' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `${(nombre || F.titulo).replace(/[^\w\- áéíóúñÁÉÍÓÚÑ]/g, '')}.csv`
+    a.download = `${actual?.codigo ? `${actual.codigo} ` : ''}${(nombre || F.titulo).replace(/[^\w\- áéíóúñÁÉÍÓÚÑ]/g, '')}.csv`
     a.click()
     URL.revokeObjectURL(a.href)
+  }
+
+  // Identificación del listado: sale arriba en lo impreso / PDF y al principio del Excel.
+  const actual = id ? guardados.find((g) => g.id === id) : undefined
+  const numDe = (c: string | null | undefined) => (c ? (numeros[c] ?? c) : '')
+  const resumenDe = (fu: string, dd: DefinicionListado) => {
+    const fte = FUENTE_POR_CLAVE[fu]
+    const et = (c: string) => fte?.columnas.find((x) => x.clave === c)?.etiqueta ?? etiquetaCampo(c)
+    const opTxt = (o: string) => OPERADORES.find((x) => x.op === o)?.texto ?? o
+    const partes = [
+      fte?.titulo ?? fu,
+      `${dd.columnas.length} columnas`,
+      dd.filtros.length ? `filtros: ${dd.filtros.map((f) => `${et(f.col)} ${opTxt(f.op)}${f.valor ? ` ${f.valor}` : ''}${f.valor2 ? ` y ${f.valor2}` : ''}`).join(', ')}` : 'sin filtros',
+      dd.agrupar.length ? `agrupado por ${dd.agrupar.map(et).join(', ')}` : '',
+      dd.orden.length ? `orden: ${dd.orden.map((o) => et(o.col) + (o.desc ? ' ↓' : '')).join(', ')}` : '',
+    ]
+    return partes.filter(Boolean).join(' · ')
+  }
+  const identificacion = (): [string, string][] =>
+    [
+      ['Listado', `${actual?.codigo ? `${actual.codigo} · ` : ''}${nombre || F.titulo}${actual ? '' : ' (sin guardar)'}`],
+      ['Qué incluye', resumenDe(fuente, ultimaDef ?? def)],
+      ['Para qué sirve', descripcion.trim()],
+      ['Creado por', actual ? (actual.creado_por ? `Nº ${numDe(actual.creado_por)} · ${operarios[actual.creado_por] ?? ''}` : 'De serie') : ''],
+      ['Sacado por', `Nº ${numDe(yo)} · ${yo ? (operarios[yo] ?? '') : ''} · ${(sacado ?? new Date()).toLocaleString('es-ES')}`],
+    ].filter(([, v]) => v) as [string, string][]
+
+  async function accionVendedor(emp: string | null, accion: string, destino: string | null, ids: number[] | null) {
+    const { data, error } = await supabase.rpc('fn_listados_vendedor', { p_empleado: emp, p_accion: accion, p_destino: destino, p_ids: ids })
+    if (error) return setMensaje({ texto: error.message, error: true })
+    setMensaje({ texto: `${Number(data ?? 0)} listado(s): hecho.` })
+    setGestionar(null)
+    cargarGuardados()
   }
 
   const setD = (p: Partial<DefinicionListado>) => setDef((x) => ({ ...x, ...p }))
@@ -253,18 +314,35 @@ export function GeneradorListadosPage() {
   // Filtro por nº de operario (código de empleado de quien lo hizo).
   const op = operario.trim().toUpperCase()
   const num = (c: string | null) => (c ? (numeros[c] ?? c) : '')
-  const visibles = op ? guardados.filter((g) => num(g.creado_por).toUpperCase().startsWith(op) || (g.creado_por ?? '').toUpperCase().startsWith(op)) : guardados
-  const gruposGuardados: { clave: string; titulo: string; lista: Guardado[] }[] =
+  // Buscar por código, nombre, «para qué sirve» o lo que incluye (Luis, 30/10/2026).
+  const tb = buscarListado.trim().toLowerCase()
+  const coincide = (g: Guardado) =>
+    !tb || [g.codigo, g.nombre, g.descripcion, resumenDe(g.fuente, g.definicion)].some((x) => (x ?? '').toLowerCase().includes(tb))
+  const visibles = guardados.filter(
+    (g) => coincide(g) && (!op || num(g.creado_por).toUpperCase().startsWith(op) || (g.creado_por ?? '').toUpperCase().startsWith(op)),
+  )
+  const activos = visibles.filter((g) => !g.archivado)
+  const otros = [...new Set(activos.map((g) => g.creado_por).filter((c): c is string => !!c && c !== yo))].sort((a, b) =>
+    num(a).localeCompare(num(b), 'es', { numeric: true }),
+  )
+  const gruposGuardados: { clave: string; titulo: string; lista: Guardado[]; emp?: string; baja?: boolean; archivados?: boolean }[] =
     agruparPor === 'tipo'
-      ? FUENTES.map((fu) => ({ clave: fu.clave, titulo: fu.titulo, lista: visibles.filter((g) => g.fuente === fu.clave) })).filter((x) => x.lista.length)
+      ? FUENTES.map((fu) => ({ clave: fu.clave, titulo: fu.titulo, lista: activos.filter((g) => g.fuente === fu.clave) })).filter((x) => x.lista.length)
       : [
-          { clave: 'yo', titulo: `Mis listados${yo ? ` · Nº ${num(yo)}` : ''}`, lista: visibles.filter((g) => g.creado_por && g.creado_por === yo) },
-          ...[...new Set(visibles.map((g) => g.creado_por).filter((c): c is string => !!c && c !== yo))]
-            .sort((a, b) => num(a).localeCompare(num(b), 'es', { numeric: true }))
-            .map((c) => ({ clave: c, titulo: `Vend. Nº ${num(c)}`, lista: visibles.filter((g) => g.creado_por === c) })),
-          { clave: 'serie', titulo: 'De serie (para todos)', lista: visibles.filter((g) => !g.creado_por) },
+          { clave: 'yo', titulo: `Mis listados${yo ? ` · Nº ${num(yo)}` : ''}`, lista: activos.filter((g) => g.creado_por && g.creado_por === yo), emp: yo ?? undefined },
+          ...otros
+            .filter((c) => !bajas.has(c))
+            .map((c) => ({ clave: c, titulo: `Vend. Nº ${num(c)}`, lista: activos.filter((g) => g.creado_por === c), emp: c })),
+          { clave: 'serie', titulo: 'De serie (para todos)', lista: activos.filter((g) => !g.creado_por) },
+          // Los de quien ya no trabaja aquí: al final y en rojo, para decidir qué hacer con ellos.
+          ...otros
+            .filter((c) => bajas.has(c))
+            .map((c) => ({ clave: c, titulo: `Nº ${num(c)} · BAJA`, lista: activos.filter((g) => g.creado_por === c), emp: c, baja: true })),
+          ...(puedeGestionar
+            ? [{ clave: 'archivados', titulo: 'Archivados (solo administradores)', lista: visibles.filter((g) => g.archivado), archivados: true }]
+            : []),
           // «Mis listados» sale siempre (aunque esté vacío), para que se vea dónde van los tuyos.
-        ].filter((x) => x.lista.length || (x.clave === 'yo' && !op))
+        ].filter((x) => x.lista.length || (x.clave === 'yo' && !op && !tb))
   const alternarGrupo = (c: string) =>
     setCerrados((x) => {
       const n = new Set(x)
@@ -300,20 +378,41 @@ export function GeneradorListadosPage() {
             <option value="tipo">Por tipo</option>
           </select>
         </div>
+        <div className="border-b border-[var(--gw-border)] px-2 py-1">
+          <input
+            className="h-[22px] w-full border border-[var(--gw-border)] bg-white px-1 text-[13px]"
+            placeholder="🔍 Buscar: código, nombre, para qué sirve…"
+            title="Escribe el código (p. ej. CLI-0012) o parte del nombre, de «para qué sirve» o de lo que incluye"
+            value={buscarListado}
+            onChange={(e) => setBuscarListado(e.target.value)}
+          />
+        </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {gruposGuardados.length === 0 && <div className="p-2 text-[13px] text-[#777]">{op ? `El vendedor ${op} no tiene listados guardados.` : 'Todavía no hay ninguno: haz uno y pulsa Guardar.'}</div>}
           {gruposGuardados.map((gr) => (
             <div key={gr.clave}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 bg-[#eef1f5] px-2 py-0.5 text-left text-[13px] font-bold text-[#333]"
-                title={operarios[gr.clave] ?? (gr.clave === 'yo' && yo ? operarios[yo] : undefined)}
-                onClick={() => alternarGrupo(gr.clave)}
-              >
-                <span className="w-[12px]">{cerrados.has(gr.clave) ? '▸' : '▾'}</span>
-                <span className="flex-1 truncate">{gr.titulo}</span>
-                <span className="text-[11px] font-normal text-[#777]">{gr.lista.length}</span>
-              </button>
+              <div className={`flex w-full items-center ${gr.baja ? 'bg-[#fdeaea]' : 'bg-[#eef1f5]'}`}>
+                <button
+                  type="button"
+                  className={`flex min-w-0 flex-1 items-center gap-1 px-2 py-0.5 text-left text-[13px] font-bold ${gr.baja ? 'text-[#c42b1c]' : 'text-[#333]'}`}
+                  title={gr.baja ? `${operarios[gr.clave] ?? ''}: ya no trabaja aquí. Un administrador decide qué hacer con sus listados (⚙).` : (operarios[gr.clave] ?? (gr.clave === 'yo' && yo ? operarios[yo] : undefined))}
+                  onClick={() => alternarGrupo(gr.clave)}
+                >
+                  <span className="w-[12px]">{cerrados.has(gr.clave) ? '▸' : '▾'}</span>
+                  <span className="flex-1 truncate">{gr.titulo}</span>
+                  <span className="text-[11px] font-normal text-[#777]">{gr.lista.length}</span>
+                </button>
+                {puedeGestionar && (gr.emp || gr.archivados) && gr.lista.length > 0 && (
+                  <button
+                    type="button"
+                    className="px-1.5 text-[13px]"
+                    title="Qué hacer con estos listados: pasarlos a otro vendedor, a «De serie», archivarlos o borrarlos"
+                    onClick={() => setGestionar(gr.clave)}
+                  >
+                    ⚙
+                  </button>
+                )}
+              </div>
               {!cerrados.has(gr.clave) && gr.clave === 'yo' && !gr.lista.length && (
                 <div className="px-3 py-1 text-[12px] text-[#777]">Aún no has guardado ninguno: haz un listado y pulsa «Guardar». Saldrá aquí.</div>
               )}
@@ -325,7 +424,20 @@ export function GeneradorListadosPage() {
                     onClick={() => setParams({ id: String(g.id) })}
                     className={`flex w-full items-baseline gap-1 px-3 py-[3px] text-left ${g.id === id ? 'bg-[#0078d7] text-white' : 'hover:bg-[#e5f1fb]'}`}
                   >
-                    <span className="min-w-0 flex-1 truncate">{g.nombre}</span>
+                    <span
+                      className="min-w-0 flex-1 truncate"
+                      title={[
+                        `${g.codigo ?? ''} · ${g.nombre}`,
+                        g.descripcion ? `Para qué sirve: ${g.descripcion}` : '',
+                        resumenDe(g.fuente, g.definicion),
+                        g.usos ? `Usado ${g.usos} ${g.usos === 1 ? 'vez' : 'veces'} · último: ${new Date(g.ultimo_uso ?? '').toLocaleDateString('es-ES')}` : 'Aún no se ha usado',
+                      ]
+                        .filter(Boolean)
+                        .join('\n')}
+                    >
+                      <b className={`mr-1 text-[11px] ${g.id === id ? 'text-white' : 'text-[#1d3a8a]'}`}>{g.codigo}</b>
+                      {g.nombre}
+                    </span>
                     <span className={`flex-none text-[11px] ${g.id === id ? 'text-white/80' : 'text-[#888]'}`}>
                       {agruparPor === 'operario' ? nombreFuente(g.fuente) : g.creado_por ? `Nº ${num(g.creado_por)}` : 'serie'}
                     </span>
@@ -388,6 +500,44 @@ export function GeneradorListadosPage() {
           </button>
         </div>
 
+        {/* Identificación del listado: código, para qué sirve y uso (Luis, 30/10/2026). */}
+        <div className="flex flex-wrap items-center gap-2 border border-[#c9d7ee] bg-[#eef3fb] px-2 py-1 text-[13px]">
+          <span className="rounded-[3px] bg-[#1d3a8a] px-2 py-[1px] font-bold text-white" title="Código del listado: no cambia nunca, sale impreso">
+            {actual?.codigo ?? 'Sin código (se pone al guardar)'}
+          </span>
+          <span className="text-[#1d3a8a]">Para qué sirve:</span>
+          <GwInput
+            className="min-w-[220px] flex-1"
+            placeholder="p. ej. «Los lunes, para llamar a los que deben»"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            title="Se guarda al pulsar Guardar"
+          />
+          {actual && (
+            <span className="text-[12px] text-[#555]">
+              {actual.creado_por ? `Creado por Nº ${numDe(actual.creado_por)}` : 'De serie'} ·{' '}
+              {actual.usos ? `usado ${actual.usos} ${actual.usos === 1 ? 'vez' : 'veces'}, último ${new Date(actual.ultimo_uso ?? '').toLocaleDateString('es-ES')}` : 'aún no se ha usado'}
+            </span>
+          )}
+        </div>
+        <div className="truncate text-[12px] text-[#555]" title={resumenDe(fuente, def)}>
+          Qué incluye: {resumenDe(fuente, def)}
+        </div>
+
+        {gestionar && (
+          <GestionarListados
+            titulo={gruposGuardados.find((x) => x.clave === gestionar)?.titulo ?? ''}
+            emp={gestionar === 'archivados' ? null : gestionar}
+            lista={gruposGuardados.find((x) => x.clave === gestionar)?.lista ?? []}
+            archivados={gestionar === 'archivados'}
+            empleados={Object.keys(operarios)
+              .filter((c) => !bajas.has(c) && c !== gestionar)
+              .map((c) => ({ codigo: c, texto: `Nº ${numDe(c)} · ${operarios[c]}` }))}
+            onAccion={(accion, destino, ids, empLista) => void accionVendedor(empLista, accion, destino, ids)}
+            onClose={() => setGestionar(null)}
+          />
+        )}
+
         {ayuda && (
           <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/25 pt-16" onKeyDown={(e) => e.key === 'Escape' && setAyuda(false)}>
             <GwWindow title="Generador de listados · Operativa" onClose={() => setAyuda(false)} className="w-[720px] max-w-[95vw]">
@@ -409,6 +559,10 @@ export function GeneradorListadosPage() {
                         'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
                         'Los guardados salen a la izquierda, agrupados por nº de vendedor (o por tipo); pulsa uno para abrirlo.',
                         'Tus listados salen solos arriba, en «Mis listados · Nº (tu número)»: no hace falta escribir nada.',
+                      'Cada listado tiene un código que no cambia (CLI-0012, ART-0007, COM-0003…): sale en la lista, al imprimir, en el PDF y en el Excel. Búscalo en «🔍 Buscar».',
+                      '«Para qué sirve»: una frase para acordarte; se guarda con Guardar. Debajo, «Qué incluye» lo resume solo.',
+                      'Al imprimir o en PDF sale arriba el código, el nombre, qué incluye, quién lo creó y quién lo saca (con fecha y hora), y abajo «Página X de Y».',
+                      'Vendedor de baja: su grupo sale al final en rojo («Nº … · BAJA»). Un administrador pulsa ⚙ y elige: pasarlos a otro vendedor, a «De serie», archivarlos o borrarlos.',
                         'Ver Nº…: solo para ver los listados de OTRO vendedor; escribe su número. La ✖ de al lado lo borra y vuelven a salir todos.',
                         'Pestaña «Todos los campos de la ficha»: cualquier campo, con buscador.',
                         '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
@@ -474,7 +628,10 @@ export function GeneradorListadosPage() {
           className={`informe-impresion flex min-h-0 flex-col border border-[var(--gw-border)] bg-white ${completa ? 'fixed inset-0 z-[150] shadow-2xl' : 'flex-1'}`}
         >
           <div className="flex items-center gap-3 border-b border-[var(--gw-border)] px-2 py-1">
-            <b>{nombre || F.titulo}</b>
+            <b>
+              {actual?.codigo ? `${actual.codigo} · ` : ''}
+              {nombre || F.titulo}
+            </b>
             <span className="text-[13px] text-[#555]">
               {filas ? `${filas.length} filas${truncado ? ' (hay más: afina los filtros; se muestran 5.000)' : ''}` : 'Pulsa ▶ Ver listado'}
             </span>
@@ -494,7 +651,16 @@ export function GeneradorListadosPage() {
               </span>
             )}
           </div>
-          <div className="min-h-[220px] flex-1 overflow-auto">
+          {/* Solo al imprimir / PDF: quién, qué y cuándo (y «Página X de Y» al pie). */}
+          <div className="hidden border-b border-[#999] px-1 pb-1 text-[10pt] print:block">
+            {identificacion().map(([k, v]) => (
+              <div key={k}>
+                <b>{k}:</b> {v}
+              </div>
+            ))}
+          </div>
+          <style media="print">{`@page { @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 9pt Arial; } @bottom-left { content: "${(actual?.codigo ?? '').replace(/"/g, '')} ${(nombre || F.titulo).replace(/"/g, '')}"; font: 9pt Arial; } }`}</style>
+          <div className="informe-scroll min-h-[220px] flex-1 overflow-auto">
             {filas && (
               <table className="gw-grid">
                 <thead className="sticky top-0">
@@ -772,3 +938,94 @@ function tipoCampo(t: string): ColumnaFuente['tipo'] {
   if (t === 'boolean') return 'bool'
   return 'texto'
 }
+
+/** ⚙ de un grupo: qué hacer con los listados de un vendedor (p. ej. cuando deja la empresa). Solo administradores. */
+function GestionarListados({
+  titulo,
+  emp,
+  lista,
+  archivados,
+  empleados,
+  onAccion,
+  onClose,
+}: {
+  titulo: string
+  emp: string | null
+  lista: Guardado[]
+  archivados: boolean
+  empleados: { codigo: string; texto: string }[]
+  onAccion: (accion: string, destino: string | null, ids: number[] | null, emp: string | null) => void
+  onClose: () => void
+}) {
+  const [marcados, setMarcados] = useState<Set<number>>(() => new Set(lista.map((g) => g.id)))
+  const [accion, setAccion] = useState(archivados ? 'recuperar' : 'reasignar')
+  const [destino, setDestino] = useState('')
+  const ids = lista.filter((g) => marcados.has(g.id))
+  const aplicar = () => {
+    if (!ids.length) return
+    if (accion === 'reasignar' && !destino) return alert('Elige a qué vendedor se pasan.')
+    if (accion === 'borrar' && !confirm(`¿Borrar ${ids.length} listado(s) para siempre? No se puede deshacer.`)) return
+    // En «Archivados» puede haber listados de varios vendedores: se aplica a cada uno con su dueño.
+    const porDueno = new Map<string | null, number[]>()
+    for (const g of ids) porDueno.set(archivados ? g.creado_por : emp, [...(porDueno.get(archivados ? g.creado_por : emp) ?? []), g.id])
+    for (const [dueno, l] of porDueno) onAccion(accion, accion === 'reasignar' ? destino : null, l, dueno)
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/25 pt-16" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <GwWindow title={`Listados de ${titulo}`} onClose={onClose} className="w-[620px] max-w-[95vw]">
+        <div className="flex flex-col gap-2 text-[13px]">
+          <div className="max-h-[40vh] overflow-auto border border-[var(--gw-border)] bg-white p-1">
+            {lista.map((g) => (
+              <label key={g.id} className="flex items-center gap-2 py-[2px]">
+                <input
+                  type="checkbox"
+                  checked={marcados.has(g.id)}
+                  onChange={(e) =>
+                    setMarcados((m) => {
+                      const n = new Set(m)
+                      if (e.target.checked) n.add(g.id)
+                      else n.delete(g.id)
+                      return n
+                    })
+                  }
+                />
+                <b className="w-[70px] text-[#1d3a8a]">{g.codigo}</b>
+                <span className="flex-1 truncate">{g.nombre}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold">Qué hacer con los {ids.length} marcados:</span>
+            <GwSelect className="w-[230px]" value={accion} onChange={(e) => setAccion(e.target.value)}>
+              {archivados && <option value="recuperar">Recuperarlos (volver a verlos)</option>}
+              <option value="reasignar">Pasarlos a otro vendedor</option>
+              <option value="serie">Pasarlos a «De serie» (para todos)</option>
+              {!archivados && <option value="archivar">Archivarlos (no se ven, se recuperan)</option>}
+              <option value="borrar">Borrarlos para siempre</option>
+            </GwSelect>
+            {accion === 'reasignar' && (
+              <GwSelect className="w-[200px]" value={destino} onChange={(e) => setDestino(e.target.value)}>
+                <option value="">— elige vendedor —</option>
+                {empleados.map((e) => (
+                  <option key={e.codigo} value={e.codigo}>
+                    {e.texto}
+                  </option>
+                ))}
+              </GwSelect>
+            )}
+          </div>
+          <div className="text-[12px] text-[#666]">Queda apuntado en la Auditoría. El código de cada listado no cambia.</div>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="gw-btn" onClick={onClose}>
+              Cancelar
+            </button>
+            <button type="button" className={`gw-btn font-bold ${accion === 'borrar' ? 'text-[#c42b1c]' : ''}`} disabled={!ids.length} onClick={aplicar}>
+              Aplicar
+            </button>
+          </div>
+        </div>
+      </GwWindow>
+    </div>
+  )
+}
+
