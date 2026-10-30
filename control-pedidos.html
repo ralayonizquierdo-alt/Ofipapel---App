@@ -2935,8 +2935,20 @@ function repartirFacturas(docs, clave) {
   // (Finocam FV2605151: 2 calendarios de TANIA acababan en PAPELES).
   // Un bloque de factura que no es de ningún pedido abierto no se reparte entre otros (regla del propietario).
   if (r.bloquesSinDueno.length || r.sobrantes.some((l) => l.deBloque)) ultimaCarga.push({ ok: false, texto: `Bloques de la factura sin pedido en esta campaña (no se reparten entre otros): ${[...new Set(r.sobrantes.filter((l) => l.deBloque).map((l) => l.bloque))].join(', ')}` });
-  // Lo sobrante, al pedido que más líneas recibe de ese mismo PDF (solo lo que no viene por bloques).
+  // Lo sobrante va al pedido de su albarán, como lo haría una persona: el que
+  // se queda el resto de esa misma línea o la línea de justo encima en el PDF
+  // (Finocam FV2605761: 2 calendarios de más de TANIA y el expositor vacío de
+  // su albarán acababan en ALDAYO). Sin eso, al que más líneas recibe del PDF.
+  const duenoDePos = new Map();
+  for (const [id, ls] of r.porPedido) for (const x of ls) if (x.pos != null) duenoDePos.set(x.origen + '|' + x.pos, id);
+  const vecino = (l) => {
+    if (l.pos == null) return null;
+    for (let p = l.pos; p >= 0; p--) { const id = duenoDePos.get(l.origen + '|' + p); if (id) return id; }
+    return null;
+  };
   for (const l of r.sobrantes.filter((x) => !x.deBloque)) {
+    const id = vecino(l);
+    if (id && r.porPedido.has(id)) { r.porPedido.get(id).push(Object.assign({}, l, { deMas: true })); continue; }
     const cuenta = new Map();
     for (const [id, ls] of r.porPedido) cuenta.set(id, ls.filter((x) => x.origen === l.origen).length);
     const destino = [...cuenta].sort((a, b) => b[1] - a[1])[0];
@@ -2959,7 +2971,7 @@ function repartirFacturas(docs, clave) {
     const dm = nuevas.filter((l) => l.deMas).length; nDeMas += dm;
     if (nuevas.length) ultimaCarga.push({ ok: true, texto: `→ nº ${nPed(q.numero)} ${q.cliente || ''} · ${nuevas.length} líneas · ${fmt(importeDoc({ lineas: nuevas }))} €${rv && rv.cuadra ? ' — ✅ cuadra' : rv && rv.faltan.length ? ` — ❌ no vienen ${rv.faltan.length}` : ' — ⚠️ revisar'}${dm ? ` (${dm} sin pedir)` : ''}` });
   }
-  ultimaCarga.push({ ok: true, texto: `Total: ${docs.length} documento(s) · ${lineas.length} líneas · ${fmt(CP.red2(lineas.reduce((t, l) => t + (CP.parseNum(l.importe) || 0), 0)))} € · repartido entre ${r.porPedido.size} pedido(s)${nDeMas ? ` · ${nDeMas} línea(s) que no pidió nadie, en el pedido que más comparte con su PDF` : ''}${dtoGlobal ? ` · dto. global ${dtoGlobal} %` : ''}` });
+  ultimaCarga.push({ ok: true, texto: `Total: ${docs.length} documento(s) · ${lineas.length} líneas · ${fmt(CP.red2(lineas.reduce((t, l) => t + (CP.parseNum(l.importe) || 0), 0)))} € · repartido entre ${r.porPedido.size} pedido(s)${nDeMas ? ` · ${nDeMas} línea(s) que no pidió nadie, en el pedido de su albarán` : ''}${dtoGlobal ? ` · dto. global ${dtoGlobal} %` : ''}` });
 }
 /** El usuario decide que lo facturado de más sustituye a lo que no viene. */
 function sustituir(id, refValidada, refFactura) {
