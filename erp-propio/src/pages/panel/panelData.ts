@@ -236,8 +236,9 @@ export interface FamiliaTop {
   codigo: string
   descripcion: string | null
   unidades: number
-  /** % sobre las ventas totales del periodo (por importe; el panel no enseña euros). */
-  pct: number
+  /** % sobre el total del periodo, por unidades vendidas y por importe (el panel no enseña euros). */
+  pct_unidades: number
+  pct_importe: number
 }
 
 /** Las 20 familias más vendidas del periodo (fn_panel_familias); se recargan con `vuelta`. */

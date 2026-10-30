@@ -153,7 +153,7 @@ export function PanelControlPage() {
                   notas: [
                     '«En seguimiento» se marca en la ficha del presupuesto (botón junto a Aceptado).',
                     'Tienda y periodo de arriba cambian lo de abajo; se actualiza solo cada pocos minutos.',
-                    'Las 20 familias más vendidas: nº de familia, descripción y % sobre lo vendido en el periodo (de más a menos).',
+                    'Las 20 familias más vendidas: nº de familia, descripción, % de las unidades vendidas y % del importe vendido (sin IGIC), de más a menos importe.',
                   ],
                 },
               ]}
@@ -223,7 +223,7 @@ export function PanelControlPage() {
           </div>
 
           <div className="grid grid-cols-12 gap-1.5">
-            <Card className="col-span-12" title="Las 20 familias más vendidas" sub={`nº de familia · % sobre las ventas totales · ${per.label.toLowerCase()}`}>
+            <Card className="col-span-12" title="Las 20 familias más vendidas" sub={`% sobre el total vendido, por unidades y por importe · de más a menos importe · ${per.label.toLowerCase()}`}>
               <TopFamilias lista={familias} />
             </Card>
           </div>
@@ -629,23 +629,39 @@ function Alertas({ d, abrir }: { d: PanelData; abrir: Abrir }) {
 function TopFamilias({ lista }: { lista: FamiliaTop[] | null }) {
   if (!lista) return <Vacio texto="Cargando…" />
   if (!lista.length) return <Vacio texto="Sin ventas en este periodo" />
-  const max = Math.max(...lista.map((f) => f.pct), 1)
+  const max = Math.max(...lista.map((f) => f.pct_importe), 1)
+  const columna = (desde: number) => (
+    <div className="min-w-0">
+      <div className="flex items-baseline gap-1.5 border-b border-[#e3e3e3] pb-[2px] text-[11px] text-[#76746e]">
+        <span className="w-[18px] flex-none" />
+        <span className="w-[70px] flex-none">Nº familia</span>
+        <span className="min-w-0 flex-1">Descripción</span>
+        <span className="w-[62px] flex-none text-right" title="% sobre las unidades vendidas en el periodo">% unid.</span>
+        <span className="w-[66px] flex-none text-right" title="% sobre el importe vendido en el periodo (sin IGIC)">% importe</span>
+      </div>
+      <ol className="mt-1 flex flex-col gap-1">
+        {lista.slice(desde, desde + 10).map((f, i) => (
+          <li key={f.codigo || '-'} title={`${f.codigo} · ${f.descripcion ?? ''} · ${fmtNum(f.unidades, 2)} uds.`}>
+            <span className="flex items-baseline gap-1.5">
+              <span className="w-[18px] flex-none text-right text-[11px] text-[#76746e]">{desde + i + 1}</span>
+              <span className="w-[70px] flex-none tabular-nums text-[#1d3a8a]">{f.codigo || '—'}</span>
+              <span className="min-w-0 flex-1 truncate">{f.descripcion ?? ''}</span>
+              <span className="w-[62px] flex-none text-right tabular-nums">{fmtNum(f.pct_unidades, 2)} %</span>
+              <b className="w-[66px] flex-none text-right tabular-nums">{fmtNum(f.pct_importe, 2)} %</b>
+            </span>
+            <span className="ml-[24px] mt-[2px] block h-[6px] bg-[#eef3fb]">
+              <span className="block h-full rounded-r-[3px]" style={{ width: `${(f.pct_importe / max) * 100}%`, background: C.s1 }} />
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
   return (
-    <ol className="grid grid-flow-col grid-cols-2 grid-rows-10 gap-x-6 gap-y-1">
-      {lista.map((f, i) => (
-        <li key={f.codigo || '-'} title={`${f.codigo} · ${f.descripcion ?? ''} · ${fmtNum(f.unidades, 2)} uds.`}>
-          <span className="flex items-baseline gap-1.5">
-            <span className="w-[18px] flex-none text-right text-[11px] text-[#76746e]">{i + 1}</span>
-            <span className="w-[70px] flex-none tabular-nums text-[#1d3a8a]">{f.codigo || '—'}</span>
-            <span className="min-w-0 flex-1 truncate">{f.descripcion ?? ''}</span>
-            <b className="flex-none tabular-nums">{fmtNum(f.pct, 2)} %</b>
-          </span>
-          <span className="ml-[24px] mt-[2px] block h-[6px] bg-[#eef3fb]">
-            <span className="block h-full rounded-r-[3px]" style={{ width: `${(f.pct / max) * 100}%`, background: C.s1 }} />
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div className="grid grid-cols-2 gap-x-6">
+      {columna(0)}
+      {lista.length > 10 ? columna(10) : <span />}
+    </div>
   )
 }
 
