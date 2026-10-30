@@ -11,6 +11,8 @@ import { useParametro, valorParametro } from '../lib/parametros'
 import { dentroDeHorario, useMiAcceso } from '../lib/accesoEmpleado'
 import { AvisoVersion } from './shell/AvisoVersion'
 import { AvisoConformidad } from './shell/AvisoConformidad'
+import { AvisoAuditoria } from './shell/AvisoAuditoria'
+import { BotonHistorial } from '../pages/archivo/HistorialAuditoria'
 import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo, volverPeriodoEnCurso } from '../lib/sesionTrabajo'
 import { NexaAsistente } from '../nexa/NexaAsistente'
@@ -65,6 +67,18 @@ export function Layout() {
     return () => clearInterval(t)
   }, [])
   const fueraDeHorario = !dentroDeHorario(acceso)
+  // Intento de trabajar fuera de horario: queda en la auditoría (una vez por sesión).
+  useEffect(() => {
+    if (!fueraDeHorario || !session) return
+    const clave = `erp.fueraHorario.${session.user.id}`
+    try {
+      if (sessionStorage.getItem(clave)) return
+      sessionStorage.setItem(clave, '1')
+    } catch {
+      /* sin almacenamiento: se apunta igual */
+    }
+    void supabase.rpc('fn_registrar_acceso', { p_tipo: 'FUERA_HORARIO', p_tienda: null, p_usuario: null })
+  }, [fueraDeHorario, session])
   const salir = () => {
     if (valorParametro('local.confirmar_salir') !== false && !confirm('¿Salir del programa?')) return
     signOut()
@@ -254,6 +268,7 @@ export function Layout() {
       </div>
       <AvisoVersion />
       <AvisoConformidad uid={session?.user.id ?? null} />
+      <AvisoAuditoria />
       {sesion.consulta && (
         <div className="flex flex-none items-center justify-center gap-3 bg-[#c42b1c] px-2 py-1 text-[13px] font-bold text-white">
           <span>
@@ -286,6 +301,7 @@ export function Layout() {
               title={title}
               movible={false}
               principal
+              extraTitulo={<BotonHistorial pathname={pathname} />}
               color={coloresSeccion ? colorDePantalla(pathname, mapaColores) : null}
               onClose={() => cerrarVentana(false)}
               className="absolute inset-1 z-10 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-auto"

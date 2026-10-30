@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
 import { AuditoriaConformidades } from './AuditoriaConformidades'
 import { AuditoriaDocumentos } from './AuditoriaDocumentos'
+import { pdfJustificante, pdfTextoLegal } from './textosLegalesPdf'
 
 interface Apunte {
   id: number
@@ -25,6 +26,9 @@ interface Apunte {
   version: string
   titulo: string
   vigente: boolean
+  grupo: string | null
+  ip: string | null
+  dispositivo: string | null
 }
 
 const hoy = () => new Date().toLocaleDateString('sv-SE')
@@ -63,6 +67,40 @@ function Registro() {
     void buscar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const leerVersion = async (a: Apunte) => {
+    const { data, error: e } = await supabase
+      .from('auditoria_documento_version')
+      .select('titulo, contenido')
+      .eq('documento_id', a.documento)
+      .eq('version', a.version)
+      .maybeSingle()
+    if (e || !data) {
+      setError(e?.message ?? 'No se encuentra esa versión del texto.')
+      return null
+    }
+    return data as { titulo: string; contenido: string | null }
+  }
+  const verPdf = async (a: Apunte) => {
+    const v = await leerVersion(a)
+    if (v) pdfTextoLegal({ ...v, version: a.version })
+  }
+  const verJustificante = async (a: Apunte) => {
+    const v = await leerVersion(a)
+    if (v)
+      pdfJustificante({
+        ...v,
+        version: a.version,
+        resultado: a.resultado,
+        fecha: a.fecha,
+        empleado: a.empleado,
+        empleadoNombre: a.empleado_nombre,
+        empleadoNumero: a.empleado_numero,
+        grupo: a.grupo,
+        ip: a.ip,
+        dispositivo: a.dispositivo,
+      })
+  }
 
   const verTexto = async (a: Apunte) => {
     const { data, error: e } = await supabase
@@ -128,46 +166,81 @@ function Registro() {
         </button>
       </div>
       {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
-      <div className="max-h-[62vh] overflow-auto border border-[var(--gw-border)]">
-        <table id="tabla-textos-legales" className="gw-grid">
+      <div className="text-[13px] font-bold text-[#1d3a8a]">TEXTOS LEGALES · {filas ? `${filas.length} registro(s)` : 'Cargando…'}</div>
+      <div className="h-[60vh] overflow-auto border border-[var(--gw-border)] bg-white">
+        <table id="tabla-textos-legales" className="w-full border-separate border-spacing-0 text-[13.5px] leading-[18px]">
           <thead>
             <tr>
-              <th className="w-[150px]">Fecha y hora</th>
-              <th className="w-[70px]">Nº empl.</th>
-              <th className="w-[200px]">Nombre</th>
-              <th className="w-[110px]">Resultado</th>
-              <th>Texto legal</th>
-              <th className="w-[100px]">Versión</th>
+              {[
+                ['Fecha y hora', '#1d3a8a'],
+                ['Empleado', '#1d3a8a'],
+                ['Tipo clave acceso', '#1d3a8a'],
+                ['Texto legal (PDF)', '#1d3a8a'],
+                ['ACEPTADOS', '#5f9a2a'],
+                ['NO ACEPTADOS', '#c98a00'],
+                ['Registro (archivo) aceptación', '#1d3a8a'],
+              ].map(([t, color]) => (
+                <th
+                  key={t}
+                  className="sticky top-0 z-[1] whitespace-nowrap border-r border-[#3c5aa8] px-2.5 py-2 text-left text-[13px] font-bold text-white"
+                  style={{ background: color }}
+                >
+                  {t}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {(filas ?? []).map((a) => (
-              <tr key={a.id}>
-                <td className="tabular-nums">{fechaHora(a.fecha)}</td>
-                <td>{a.empleado_numero ?? a.empleado}</td>
-                <td className="truncate">{a.empleado_nombre ?? a.empleado}</td>
-                <td className={`font-bold ${a.resultado === 'aceptado' ? 'text-[#127a12]' : 'text-[#c42b1c]'}`}>
-                  {a.resultado === 'aceptado' ? '✔ Autorizado' : '✖ Denegado'}
-                </td>
-                <td className="max-w-0 truncate">
-                  <button
-                    type="button"
-                    className="text-left text-[#1d5fb4] underline"
-                    title="Ver el texto exacto que se le enseñó"
-                    onClick={() => void verTexto(a)}
-                  >
-                    {a.titulo}
-                  </button>
-                </td>
-                <td className={a.vigente ? '' : 'text-[#8a5a00]'} title={a.version}>
-                  {a.vigente ? 'Vigente' : 'Anterior'}
-                </td>
-              </tr>
-            ))}
+            {(filas ?? []).map((a, i) => {
+              const td = 'border-b border-r border-[#e6e6e6] px-2.5 py-1.5'
+              const fondo = i % 2 ? '#f6f9fd' : '#fff'
+              return (
+                <tr key={a.id} style={{ background: fondo }}>
+                  <td className={`${td} whitespace-nowrap tabular-nums`}>{fechaHora(a.fecha)}</td>
+                  <td className={`${td} whitespace-nowrap`}>
+                    {a.empleado_numero ?? a.empleado} · {a.empleado_nombre ?? ''}
+                  </td>
+                  <td className={td}>
+                    {a.grupo ? (
+                      <span className="whitespace-nowrap rounded-[3px] border border-[#c9d7ee] bg-[#eef3fb] px-1.5 text-[12px] text-[#1d3a8a]">
+                        {a.grupo === 'Super admin' ? '👑 ' : ''}
+                        {a.grupo}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className={td}>
+                    <button type="button" className="text-left font-bold text-[#c42b1c] hover:underline" title={a.titulo} onClick={() => void verPdf(a)}>
+                      📄 Ver PDF · {a.vigente ? 'versión vigente' : 'versión anterior'}
+                    </button>
+                    <button type="button" className="ml-2 text-[12px] text-[#1d5fb4] underline" onClick={() => void verTexto(a)}>
+                      leer aquí
+                    </button>
+                  </td>
+                  <td className={`${td} text-center font-bold`} style={a.resultado === 'aceptado' ? { background: '#92d050', color: '#0b3d0b' } : undefined}>
+                    {a.resultado === 'aceptado' ? '✔ Sí' : ''}
+                  </td>
+                  <td className={`${td} text-center font-bold`} style={a.resultado === 'denegado' ? { background: '#ffc000', color: '#5a3a00' } : undefined}>
+                    {a.resultado === 'denegado' ? '✖ No (Ahora no)' : ''}
+                  </td>
+                  <td className={td}>
+                    <button
+                      type="button"
+                      className="text-left text-[#1d3a8a] hover:underline"
+                      title={`Conexión ${a.ip ?? '—'}`}
+                      onClick={() => void verJustificante(a)}
+                    >
+                      📎 Justificante {a.empleado_numero ?? a.empleado}-{fechaHora(a.fecha).slice(0, 10).replace(/\//g, '')}.pdf
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
             {filas && !filas.length && (
               <tr>
-                <td colSpan={6} className="text-center text-[#777]">
-                  Nadie ha autorizado ni denegado todavía en esas fechas.
+                <td colSpan={7} className="p-3 text-center text-[#777]">
+                  Nadie ha aceptado ni denegado todavía en esas fechas.
                 </td>
               </tr>
             )}
@@ -238,7 +311,7 @@ export function TextosLegalesPage() {
                 titulo: 'Autorizados y denegados',
                 pasos: [
                   'Cada vez que un empleado entra y le sale el aviso legal queda apuntado aquí: «✔ Autorizado» si pulsa «Doy mi conformidad», «✖ Denegado» si pulsa «Ahora no».',
-                  'Sale su nº de empleado, nombre, día y hora. Pulsa el título del texto para ver exactamente el texto que se le enseñó.',
+                  'Sale su nº de empleado, nombre, grupo de acceso, día y hora. «📄 Ver PDF» abre el texto exacto que se le enseñó; «📎 Justificante» saca un PDF con quién, cuándo, desde qué conexión y equipo, y el texto completo.',
                   'Filtra por fechas, empleado o resultado y pulsa Buscar. 🖨 Imprimir lo saca en papel.',
                 ],
               },

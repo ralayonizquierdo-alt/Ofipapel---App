@@ -1,229 +1,29 @@
-// Archivo → Auditoría (Luis, 30/10/2026): quién cambió qué y cuándo. Solo super administradores
+// Archivo → Auditoría (Luis, 30/10/2026): quién cambió qué y cuándo, entradas y salidas del
+// programa, contraseñas fallidas y consultas de la propia auditoría. Solo super administradores
 // (Luis, David y Rober); para el resto la opción sale apagada y la base de datos tampoco les deja
-// leerla. Se registra solo lo que cambia (altas, cambios campo a campo y bajas), se guarda 5 años
-// y no se puede modificar ni borrar. Cada consulta hecha aquí queda también registrada.
-// Datos: fn_auditoria_consultar (migración 20261030_auditoria_completa).
+// leerla. Se guarda 5 años y no se puede modificar ni borrar. Cada consulta queda registrada.
+// Diseño del boceto de Luis: cabecera fija, una línea por campo cambiado y detalle a la derecha.
+// «🔔 Avisos»: borrados, precios por debajo del coste, cambios de permisos, contraseñas fallidas…
+// Datos: fn_auditoria_consultar y fn_auditoria_avisos (migración 20261030_auditoria_accesos_avisos).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { GwDate, GwInput, GwSelect } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
-
-interface Fila {
-  id: number
-  ocurrido_en: string
-  tabla: string
-  operacion: 'INSERT' | 'UPDATE' | 'DELETE' | 'CONSULTA' | 'DEPURACION'
-  registro: string | null
-  /** Nombre del registro (cliente, artículo, descripción…), si se apuntó. */
-  nombre?: string | null
-  tienda: string | null
-  empleado: string | null
-  empleado_nombre: string | null
-  empleado_numero: string | null
-  campos: string[] | null
-  antes: Record<string, unknown> | null
-  despues: Record<string, unknown> | null
-}
-
-/** Nombre de la pantalla para cada tabla; las que no están, con el nombre de la tabla legible. */
-const PANTALLA: Record<string, string> = {
-  articulo: 'Artículos',
-  articulo_codigo_barras: 'Artículos · códigos de barras',
-  articulo_precio_nivel: 'Artículos · tarifas',
-  articulo_proveedor: 'Artículos · proveedores',
-  articulo_oferta: 'Artículos · ofertas',
-  articulo_lote: 'Artículos · lotes',
-  auditoria: 'Auditoría (consultas)',
-  caja_apertura_cierre: 'Caja · aperturas y cierres',
-  cliente: 'Clientes',
-  cliente_contacto: 'Clientes · contactos',
-  cliente_sucursal: 'Clientes · sucursales',
-  cliente_articulo_precio: 'Clientes · precios especiales',
-  cobro_cliente: 'Cobros de clientes',
-  empleado: 'Empleados',
-  empleado_acceso: 'Empleados · límites de acceso',
-  empleado_permiso: 'Empleados · permisos',
-  empresa: 'Datos de Empresa',
-  ejercicio: 'Periodos',
-  factura: 'Facturas',
-  factura_proveedor: 'Facturas de proveedor',
-  familia: 'Familias',
-  forma_pago: 'Formas de Pago',
-  listado_guardado: 'Listados guardados',
-  marca: 'Marcas',
-  modificacion_precio: 'Modificación de precios',
-  movimiento_caja: 'Caja · movimientos',
-  movimiento_stock: 'Stock · movimientos (cambios y bajas)',
-  pago_proveedor: 'Pagos a proveedores',
-  parametro: 'Parámetros',
-  parametro_empleado: 'Parámetros por empleado',
-  pedido_cliente: 'Pedidos / Presupuestos',
-  pedido_cliente_linea: 'Pedidos / Presupuestos · líneas',
-  pedido_proveedor: 'Compras',
-  pedido_proveedor_linea: 'Compras · líneas',
-  permiso: 'Permisos',
-  peticion: 'Peticiones',
-  presupuesto_contacto: 'Presupuestos · seguimiento',
-  presupuesto_correo: 'Presupuestos · correos',
-  proveedor: 'Proveedores',
-  repartidor: 'Repartidores',
-  reparto: 'Repartos',
-  reparto_linea: 'Repartos · entregas',
-  rol: 'Grupos de Acceso',
-  rol_permiso: 'Grupos de Acceso · permisos',
-  ruta_reparto: 'Rutas de reparto',
-  tienda_terminal: 'Tiendas',
-  traspaso_almacen: 'Traspasos',
-  vendedor: 'Vendedores',
-  venta: 'Ventas / TPV',
-  venta_linea: 'Ventas / TPV · líneas',
-}
-const pantalla = (t: string) => PANTALLA[t] ?? t.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
-
-const OPERACION: Record<Fila['operacion'], { texto: string; color: string }> = {
-  INSERT: { texto: 'Alta', color: '#127a12' },
-  UPDATE: { texto: 'Cambio', color: '#1d5fb4' },
-  DELETE: { texto: 'Baja', color: '#c42b1c' },
-  CONSULTA: { texto: 'Consulta auditoría', color: '#8a5a00' },
-  DEPURACION: { texto: 'Depuración (+5 años)', color: '#8a5a00' },
-}
-
-const hoy = () => new Date().toLocaleDateString('sv-SE')
-const haceDias = (n: number) => new Date(Date.now() - n * 86400000).toLocaleDateString('sv-SE')
-const fechaHora = (iso: string) =>
-  new Date(iso).toLocaleString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-const valor = (v: unknown) => (v == null || v === '' ? '—' : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : typeof v === 'object' ? JSON.stringify(v) : String(v))
-
-/** Nombre de cada campo para leer (los que no están, con el nombre de la columna legible). */
-const ETIQUETA: Record<string, string> = {
-  nombre: 'Nombre',
-  nombre_corto: 'Nombre corto',
-  razon_social: 'Razón social',
-  descripcion: 'Descripción',
-  descripcion_corta: 'Descripción corta',
-  nombre_cliente: 'Cliente',
-  cliente_codigo: 'Nº cliente',
-  proveedor_codigo: 'Proveedor',
-  nif: 'NIF',
-  nif_cliente: 'NIF cliente',
-  contacto: 'Persona de contacto',
-  direccion: 'Dirección',
-  poblacion: 'Población',
-  codigo_postal: 'Código postal',
-  telefono_fijo: 'Teléfono',
-  telefono_movil: 'Móvil',
-  email: 'Correo',
-  pvp: 'PVP',
-  precio: 'Precio',
-  precio_compra: 'Precio de compra',
-  coste_puro: 'Coste',
-  coste_neto: 'Coste neto',
-  precio_medio_compra: 'Precio medio de compra',
-  cantidad: 'Cantidad',
-  descuento_pct: 'Dto. %',
-  descuento_pie_pct: 'Dto. pie %',
-  igic_pct: 'IGIC %',
-  subtotal: 'Subtotal',
-  total: 'Total',
-  total_pagado: 'Pagado',
-  total_pendiente: 'Pendiente',
-  importe_cobrado: 'Importe cobrado',
-  ingreso: 'Ingreso',
-  gasto: 'Gasto',
-  estado: 'Estado',
-  presupuesto_estado: 'Estado del presupuesto',
-  proximo_contacto: 'Próximo contacto',
-  responsable_codigo: 'Responsable',
-  motivo_perdida: 'Motivo de pérdida',
-  vendedor_codigo: 'Comercial',
-  empleado_codigo: 'Empleado',
-  repartidor_codigo: 'Repartidor',
-  ruta_codigo: 'Ruta',
-  forma_pago_codigo: 'Forma de pago',
-  tipo_credito: 'Contado / Crédito',
-  tarifa_nivel: 'Tarifa',
-  familia_codigo: 'Familia',
-  codigo_venta: 'Código de venta',
-  codigo_compra_habitual: 'Código de compra',
-  codigo_barras_principal: 'Código de barras',
-  stock_minimo: 'Stock mínimo',
-  observaciones: 'Observaciones',
-  fecha: 'Fecha',
-  hora: 'Hora',
-  fecha_inicio: 'Válido desde',
-  fecha_fin: 'Válido hasta',
-  fecha_entrega: 'Fecha de entrega',
-  aceptado: 'Aceptado',
-  preparado: 'Preparado',
-  entregado: 'Entregado',
-  anulado: 'Anulado',
-  va_a_reparto: 'Va a reparto',
-  activo: 'Activo',
-  bloqueado: 'Bloqueado',
-  limite_deuda: 'Límite de deuda',
-  titulo: 'Título',
-  contenido: 'Texto',
-  archivo_nombre: 'Archivo',
-  super_administrador: 'Super administrador',
-  conformidad_obligatoria: 'Exige conformidad',
-  rol_id: 'Grupo de acceso',
-  numero_operario: 'Nº de empleado',
-  valor: 'Valor',
-}
-const etiqueta = (c: string) => ETIQUETA[c] ?? c.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase())
-const IGNORAR = new Set(['actualizado_en', 'creado_en', 'fecha_hora_actualizacion'])
-
-/** Campos que cambiaron (los apuntes antiguos no los traen: se sacan comparando antes y después). */
-function cambiados(f: Fila): string[] {
-  if (f.campos?.length) return f.campos
-  if (f.operacion !== 'UPDATE') return []
-  const claves = new Set([...Object.keys(f.antes ?? {}), ...Object.keys(f.despues ?? {})])
-  return [...claves].filter((k) => !IGNORAR.has(k) && JSON.stringify(f.antes?.[k] ?? null) !== JSON.stringify(f.despues?.[k] ?? null)).sort()
-}
-const CAMPOS_NOMBRE = ['nombre_cliente', 'nombre', 'descripcion', 'titulo', 'concepto']
-
-/** Nombre del registro: el apuntado o, en apuntes antiguos, el de los datos. */
-function nombreRegistro(f: Fila): string {
-  if (f.nombre) return f.nombre
-  const d = { ...(f.antes ?? {}), ...(f.despues ?? {}) }
-  const n = CAMPOS_NOMBRE.map((c) => d[c]).find((v) => v != null && v !== '')
-  return n != null ? String(n) : ''
-}
-
-/** Una línea para la lista: qué datos cambiaron (antes → después), o qué se dio de alta / baja. */
-function resumen(f: Fila): string {
-  if (f.operacion === 'UPDATE')
-    return (
-      cambiados(f)
-        .map((c) => `${etiqueta(c)}: ${valor(f.antes?.[c])} → ${valor(f.despues?.[c])}`)
-        .join(' · ') || 'Sin cambios en los datos'
-    )
-  if (f.operacion === 'CONSULTA' || f.operacion === 'DEPURACION')
-    return Object.entries(f.despues ?? {})
-      .map(([k, v]) => `${k === 'tabla' ? 'pantalla' : k}: ${k === 'tabla' ? pantalla(String(v)) : valor(v)}`)
-      .join(' · ')
-  const n = nombreRegistro(f)
-  return `${f.operacion === 'DELETE' ? 'Baja' : 'Alta'} de ${pantalla(f.tabla).toLowerCase()}${f.registro ? ` ${f.registro}` : ''}${n ? ` · ${n}` : ''}`
-}
+import { DetalleAuditoria, TablaAuditoria, exportarExcel, haceDias, hoy, imprimirAuditoria, pantalla, type Fila } from './auditoriaComun'
 
 const POR_PAGINA = 200
 
 export function AuditoriaPage() {
   const { superAdmin, cargando } = usePermisos()
+  const [params, setParams] = useSearchParams()
   const [desde, setDesde] = useState(haceDias(7))
   const [hasta, setHasta] = useState(hoy())
   const [empleado, setEmpleado] = useState('')
   const [tabla, setTabla] = useState('')
-  const [operacion, setOperacion] = useState('')
+  const [modifico, setModifico] = useState('')
   const [texto, setTexto] = useState('')
   const [empleados, setEmpleados] = useState<{ codigo: string; nombre: string; numero_operario: string | null }[]>([])
   const [tablas, setTablas] = useState<string[]>([])
@@ -233,6 +33,8 @@ export function AuditoriaPage() {
   const [buscando, setBuscando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState(false)
+  const [modoAvisos, setModoAvisos] = useState(params.get('avisos') === '1')
+  const [avisosPendientes, setAvisosPendientes] = useState(0)
 
   useEffect(() => {
     if (!superAdmin) return
@@ -243,21 +45,25 @@ export function AuditoriaPage() {
       .then(({ data }) => setEmpleados((data ?? []) as typeof empleados))
     supabase
       .rpc('fn_auditoria_tablas')
-      .then(({ data }) => setTablas(((data as string[]) ?? []).slice().sort((a, b) => pantalla(a).localeCompare(pantalla(b), 'es'))))
+      .then(({ data }) => setTablas(['acceso', ...((data as string[]) ?? [])].sort((a, b) => pantalla(a).localeCompare(pantalla(b), 'es'))))
+    supabase.rpc('fn_auditoria_avisos', { p_dias: 30 }).then(({ data }) => setAvisosPendientes(Number((data as { pendientes?: number })?.pendientes ?? 0)))
   }, [superAdmin])
 
   const buscar = async (mas = false) => {
     setBuscando(true)
     setError(null)
+    setModoAvisos(false)
+    if (params.has('avisos')) setParams({}, { replace: true })
     const { data, error: e } = await supabase.rpc('fn_auditoria_consultar', {
       p_desde: desde,
       p_hasta: hasta,
       p_empleado: empleado || null,
       p_tabla: tabla || null,
-      p_operacion: operacion || null,
+      p_operacion: null,
       p_texto: texto || null,
       p_limite: POR_PAGINA,
       p_desplazamiento: mas ? filas.length : 0,
+      p_modifico: modifico === '' ? null : modifico === 'si',
     })
     setBuscando(false)
     if (e) return setError(e.message)
@@ -267,44 +73,51 @@ export function AuditoriaPage() {
     if (!mas) setSel(r.filas[0] ?? null)
   }
 
-  // Primera búsqueda al entrar: los últimos 7 días.
+  const verAvisos = async () => {
+    setBuscando(true)
+    setError(null)
+    const { data, error: e } = await supabase.rpc('fn_auditoria_avisos', { p_dias: 30 })
+    setBuscando(false)
+    if (e) return setError(e.message)
+    const r = data as { pendientes: number; lista: Fila[] }
+    setModoAvisos(true)
+    setFilas(r.lista)
+    setTotal(r.lista.length)
+    setSel(r.lista[0] ?? null)
+    setAvisosPendientes(0)
+    void supabase.rpc('fn_auditoria_avisos_vistos')
+    window.dispatchEvent(new Event('erp:avisos-auditoria-vistos'))
+  }
+
+  // Al entrar: los avisos si se viene del aviso rojo; si no, los últimos 7 días.
   useEffect(() => {
-    if (superAdmin) void buscar()
+    if (!superAdmin) return
+    if (modoAvisos) void verAvisos()
+    else void buscar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [superAdmin])
-
-  const detalle = useMemo(() => {
-    if (!sel) return []
-    const claves = new Set([...Object.keys(sel.antes ?? {}), ...Object.keys(sel.despues ?? {})])
-    const cambiadosSel = new Set(cambiados(sel))
-    return [...claves]
-      .filter((k) => !IGNORAR.has(k))
-      .sort((a, b) => Number(cambiadosSel.has(b)) - Number(cambiadosSel.has(a)) || a.localeCompare(b))
-      .map((k) => ({
-        campo: k,
-        antes: sel.antes?.[k],
-        despues: sel.despues?.[k],
-        cambiado: cambiadosSel.has(k),
-      }))
-  }, [sel])
 
   if (cargando) return <div className="p-3 text-[13px]">Comprobando permisos…</div>
   if (!superAdmin) return <div className="p-3 text-[13px] font-bold text-[#c42b1c]">La auditoría solo la pueden ver los super administradores.</div>
 
+  const titulo = modoAvisos
+    ? 'Avisos de la auditoría (últimos 30 días)'
+    : `Auditoría del ${desde.split('-').reverse().join('/')} al ${hasta.split('-').reverse().join('/')}`
+
   return (
-    <div className="flex w-[1180px] max-w-full flex-col gap-1.5 text-[13px]">
-      <div className="flex flex-wrap items-end gap-2">
+    <div className="flex w-[1500px] max-w-full flex-col gap-2 text-[13px]">
+      <div className="flex flex-wrap items-end gap-2.5 border-b border-[#c8c8c8] bg-[#f7f7f7] p-2">
         <label className="flex flex-col">
           <span className="gw-label">Desde</span>
-          <GwDate value={desde} onChange={(v) => setDesde(v ?? hoy())} style={{ width: 100 }} />
+          <GwDate value={desde} onChange={(v) => setDesde(v ?? hoy())} style={{ width: 105 }} />
         </label>
         <label className="flex flex-col">
           <span className="gw-label">Hasta</span>
-          <GwDate value={hasta} onChange={(v) => setHasta(v ?? hoy())} style={{ width: 100 }} />
+          <GwDate value={hasta} onChange={(v) => setHasta(v ?? hoy())} style={{ width: 105 }} />
         </label>
         <label className="flex flex-col">
           <span className="gw-label">Empleado</span>
-          <GwSelect className="w-[200px]" value={empleado} onChange={(e) => setEmpleado(e.target.value)}>
+          <GwSelect className="w-[190px]" value={empleado} onChange={(e) => setEmpleado(e.target.value)}>
             <option value="">Todos</option>
             {empleados.map((e) => (
               <option key={e.codigo} value={e.codigo}>
@@ -315,7 +128,7 @@ export function AuditoriaPage() {
         </label>
         <label className="flex flex-col">
           <span className="gw-label">Pantalla</span>
-          <GwSelect className="w-[230px]" value={tabla} onChange={(e) => setTabla(e.target.value)}>
+          <GwSelect className="w-[220px]" value={tabla} onChange={(e) => setTabla(e.target.value)}>
             <option value="">Todas</option>
             {tablas.map((t) => (
               <option key={t} value={t}>
@@ -325,24 +138,37 @@ export function AuditoriaPage() {
           </GwSelect>
         </label>
         <label className="flex flex-col">
-          <span className="gw-label">Qué</span>
-          <GwSelect className="w-[150px]" value={operacion} onChange={(e) => setOperacion(e.target.value)}>
+          <span className="gw-label">¿Hubo modificación?</span>
+          <GwSelect className="w-[200px]" value={modifico} onChange={(e) => setModifico(e.target.value)}>
             <option value="">Todo</option>
-            <option value="INSERT">Altas</option>
-            <option value="UPDATE">Cambios</option>
-            <option value="DELETE">Bajas</option>
-            <option value="CONSULTA">Consultas de la auditoría</option>
+            <option value="si">Sí (altas, cambios, bajas)</option>
+            <option value="no">No (entradas, consultas…)</option>
           </GwSelect>
         </label>
         <label className="flex flex-col">
-          <span className="gw-label">Buscar (nº, código o valor)</span>
-          <GwInput className="w-[180px]" value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void buscar()} />
+          <span className="gw-label">Buscar (nº, código, nombre o valor)</span>
+          <GwInput className="w-[190px]" value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void buscar()} />
         </label>
-        <button type="button" className="gw-btn h-[26px] font-bold" disabled={buscando} onClick={() => void buscar()}>
+        <button type="button" className="gw-btn h-[28px] px-4 font-bold" disabled={buscando} onClick={() => void buscar()}>
           {buscando ? 'Buscando…' : 'Buscar'}
         </button>
+        <button
+          type="button"
+          className={`gw-btn h-[28px] font-bold ${avisosPendientes ? 'text-[#c42b1c]' : ''}`}
+          disabled={buscando}
+          onClick={() => void verAvisos()}
+          title="Borrados, precios por debajo del coste, cambios de permisos, contraseñas fallidas… (últimos 30 días)"
+        >
+          🔔 Avisos{avisosPendientes ? ` (${avisosPendientes} nuevos)` : ''}
+        </button>
         <span className="flex-1" />
-        <button type="button" className="gw-btn h-[26px]" onClick={() => setAyuda((a) => !a)}>
+        <button type="button" className="gw-btn h-[28px]" disabled={!filas.length} onClick={() => exportarExcel(filas, 'auditoria')}>
+          📊 Excel
+        </button>
+        <button type="button" className="gw-btn h-[28px]" disabled={!filas.length} onClick={() => imprimirAuditoria(filas, titulo)}>
+          🖨 Imprimir / PDF
+        </button>
+        <button type="button" className="gw-btn h-[28px]" onClick={() => setAyuda((a) => !a)}>
           Operativa
         </button>
       </div>
@@ -354,27 +180,37 @@ export function AuditoriaPage() {
               {
                 titulo: 'Consultar la auditoría',
                 pasos: [
-                  'Elige las fechas y, si quieres, el empleado, la pantalla, el tipo (altas, cambios, bajas) o un nº / código / valor.',
-                  'Pulsa Buscar (o Intro en el cuadro de buscar).',
-                  'Pulsa una línea: abajo sale el detalle, campo a campo, antes y después (lo cambiado en amarillo).',
-                  'Si hay más de 200, «Ver más» trae los siguientes.',
+                  'Elige las fechas y, si quieres, el empleado, la pantalla, si hubo modificación o un nº / código / nombre / valor.',
+                  'Pulsa Buscar (o Intro en el cuadro de buscar). Al bajar por la lista, los títulos se quedan arriba.',
+                  'Cada cambio sale en una línea por campo: «Campo modificado» y su valor de antes (tachado, en rojo) y el de ahora (en verde).',
+                  'Pulsa una línea: a la derecha sale todo el apunte, con la conexión y el equipo desde el que se hizo.',
+                  '📊 Excel descarga la lista; 🖨 Imprimir / PDF la saca en papel o en PDF («Guardar como PDF»).',
+                ],
+              },
+              {
+                titulo: '🔔 Avisos',
+                pasos: [
+                  'Lo que conviene revisar de los últimos 30 días: borrados, precios por debajo del coste, cambios de permisos, grupos, super administradores o periodos, contraseñas incorrectas e intentos fuera de horario.',
+                  'Cuando hay avisos nuevos, sale arriba un aviso rojo en todo el programa (solo a los super administradores). Al abrirlos, dejan de ser nuevos.',
                 ],
               },
               {
                 titulo: 'Cómo se lee',
                 notas: [
-                  'Registro: el nº del documento o el código de la ficha, y su nombre (cliente, artículo, descripción…).',
-                  'Detalle: en un cambio, cada dato cambiado con su valor de antes y el de ahora (p. ej. «Precio: 3,50 → 3,95»); en un alta o una baja, qué se dio de alta o de baja.',
-                  '«Consulta auditoría»: alguien con permiso abrió o buscó en esta pantalla; el detalle dice con qué filtros (fechas, empleado, pantalla…).',
+                  'Tipo clave acceso: el grupo con el que entra el empleado (👑 Super admin, Administrador, Dependiente…).',
+                  'Registro utilizado: el nº del documento o el código de la ficha, y su nombre.',
+                  '¿Modificó?: Sí en altas, cambios y bajas; No en entradas, salidas, contraseñas incorrectas y consultas de la auditoría.',
+                  '«Sistema»: lo hizo el propio programa o la web, no una persona.',
+                  'Desde cada ficha (cliente, pedido, artículo…), el botón «🕘 Historial» de la ventana enseña solo los cambios de esa ficha.',
                 ],
               },
               {
                 titulo: 'Bueno es saber',
                 notas: [
-                  'Se apunta solo lo que cambia: altas, bajas y cada campo modificado, con empleado, día, hora y tienda. Mirar una ficha no se apunta.',
+                  'Mirar una ficha no se apunta; sí las entradas y salidas del programa y las contraseñas incorrectas.',
                   'Nadie puede modificar ni borrar la auditoría, tampoco un super administrador. Se guarda 5 años.',
-                  'Solo la ven los super administradores (Luis, David y Rober). Cada consulta queda también apuntada (Qué → Consultas de la auditoría).',
-                  'El aviso legal a los empleados, quién lo ha aceptado o denegado y los demás documentos están en Archivo → Textos legales.',
+                  'Solo la ven los super administradores (Luis, David y Rober). Cada consulta queda también apuntada.',
+                  'El aviso legal a los empleados, quién lo ha aceptado o denegado y los documentos están en Archivo → Textos legales.',
                 ],
               },
             ]}
@@ -383,94 +219,23 @@ export function AuditoriaPage() {
       )}
       {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
 
-      <div className="text-[12px] text-[#555]">{total == null ? '' : `${total} registro(s)${filas.length < total ? ` · se ven ${filas.length}` : ''}`}</div>
-      <div className="max-h-[42vh] overflow-auto border border-[var(--gw-border)]">
-        <table className="gw-grid">
-          <thead>
-            <tr>
-              <th className="w-[150px]">Fecha y hora</th>
-              <th className="w-[150px]">Empleado</th>
-              <th className="w-[190px]">Pantalla</th>
-              <th className="w-[200px]">Registro</th>
-              <th className="w-[40px]">Ti.</th>
-              <th className="w-[120px]">Qué</th>
-              <th>Detalle</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map((f) => (
-              <tr key={f.id} className={`cursor-pointer ${sel?.id === f.id ? 'gw-selected' : 'hover:bg-[#e5f1fb]'}`} onClick={() => setSel(f)}>
-                <td className="tabular-nums">{fechaHora(f.ocurrido_en)}</td>
-                <td className="truncate" title={f.empleado ?? ''}>
-                  {f.empleado ? `${f.empleado_numero ?? f.empleado} · ${f.empleado_nombre ?? ''}` : '— (sistema)'}
-                </td>
-                <td className="truncate">{pantalla(f.tabla)}</td>
-                <td className="truncate" title={`${f.registro ?? ''} ${nombreRegistro(f)}`}>
-                  {f.registro ?? ''}
-                  {nombreRegistro(f) ? ` · ${nombreRegistro(f)}` : ''}
-                </td>
-                <td>{f.tienda ?? ''}</td>
-                <td className="font-bold" style={{ color: OPERACION[f.operacion]?.color }}>
-                  {OPERACION[f.operacion]?.texto ?? f.operacion}
-                </td>
-                <td className="max-w-0 truncate" title={resumen(f)}>
-                  {resumen(f)}
-                </td>
-              </tr>
-            ))}
-            {total === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center text-[#777]">
-                  No hay nada con esos filtros.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex items-center gap-3 text-[12px] text-[#555]">
+        <b className="text-[13px] text-[#1d3a8a]">{modoAvisos ? '🔔 Avisos de los últimos 30 días' : 'REGISTROS AUDITORÍA'}</b>
+        {total == null ? '' : `${total} apunte(s)${filas.length < total ? ` · se ven ${filas.length}` : ''}`}
       </div>
-      {total != null && filas.length < total && (
-        <div>
-          <button type="button" className="gw-btn" disabled={buscando} onClick={() => void buscar(true)}>
-            Ver más
-          </button>
+      <div className="flex min-h-0 gap-0">
+        <div className="min-w-0 flex-1">
+          <TablaAuditoria filas={filas} sel={sel} onSel={setSel} conMotivo={modoAvisos} className="h-[58vh]" />
+          {!modoAvisos && total != null && filas.length < total && (
+            <button type="button" className="gw-btn mt-1" disabled={buscando} onClick={() => void buscar(true)}>
+              Ver más
+            </button>
+          )}
         </div>
-      )}
-
-      {sel && (
-        <fieldset className="gw-group !pt-0">
-          <legend className="font-bold text-[#1d3a8a]">
-            {OPERACION[sel.operacion]?.texto} · {pantalla(sel.tabla)} {sel.registro ? `· ${sel.registro}` : ''}{' '}
-            {nombreRegistro(sel) ? `· ${nombreRegistro(sel)}` : ''} · {fechaHora(sel.ocurrido_en)} ·{' '}
-            {sel.empleado ? `Empl. ${sel.empleado_numero ?? sel.empleado} ${sel.empleado_nombre ?? ''}` : 'sistema'}
-          </legend>
-          <div className="max-h-[30vh] overflow-auto">
-            <table className="gw-grid">
-              <thead>
-                <tr>
-                  <th className="w-[220px]">Campo</th>
-                  <th>Antes</th>
-                  <th>Después</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detalle.map((d) => (
-                  <tr key={d.campo} style={d.cambiado ? { background: '#fff6d5' } : undefined}>
-                    <td className={d.cambiado ? 'font-bold' : ''} title={d.campo}>
-                      {etiqueta(d.campo)}
-                    </td>
-                    <td className="max-w-0 truncate" title={valor(d.antes)}>
-                      {sel.operacion === 'INSERT' ? '' : valor(d.antes)}
-                    </td>
-                    <td className="max-w-0 truncate" title={valor(d.despues)}>
-                      {sel.operacion === 'DELETE' ? '' : valor(d.despues)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </fieldset>
-      )}
+        <div className="h-[58vh] w-[340px] flex-none overflow-auto border border-l-2 border-[var(--gw-border)] border-l-[#1d3a8a] bg-white">
+          <DetalleAuditoria fila={sel} />
+        </div>
+      </div>
     </div>
   )
 }

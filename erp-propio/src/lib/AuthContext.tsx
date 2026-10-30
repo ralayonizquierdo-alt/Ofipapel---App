@@ -26,12 +26,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  // Entradas, salidas y contraseñas incorrectas quedan en la auditoría (fn_registrar_acceso).
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) void supabase.rpc('fn_registrar_acceso', { p_tipo: 'FALLO_CLAVE', p_tienda: null, p_usuario: email })
+    else void supabase.rpc('fn_registrar_acceso', { p_tipo: 'ENTRADA', p_tienda: null, p_usuario: email })
     return { error: error?.message ?? null }
   }
 
   async function signOut() {
+    await supabase.rpc('fn_registrar_acceso', { p_tipo: 'SALIDA', p_tienda: null, p_usuario: null })
     await supabase.auth.signOut()
   }
 
