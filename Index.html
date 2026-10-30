@@ -706,7 +706,7 @@ tfoot td:first-child{text-align:left;font-family:'Inter',sans-serif;}
               ondragleave="this.classList.remove('drag')"
               ondrop="cajaBancoDrop(event)">
               <div class="upload-icon">🏦</div>
-              <div class="upload-title">Resguardos del Banco (PDF)</div>
+              <div class="upload-title">Comprobantes de ingreso del banco (PDF)</div>
               <div class="upload-sub">Ingresos, talones y pagarés Santander / BBVA · PDF o escaneo · Admite varios</div>
               <div class="upload-status" id="cajaBancoStatus"></div>
             </div>
@@ -1546,7 +1546,7 @@ async function syncImportLogToCloud(){
 
 const IMPORT_LOG_LABELS = {
   volcado:'Volcado Diario (Excel)', cajaCierres:'Cierre de Cajas (PDF)',
-  cajaBancoRecibos:'Banco / Recibos (PDF)', ventasCaja:'Ventas Caja (Excel)',
+  cajaBancoRecibos:'Banco / Comprobantes de ingreso (PDF)', ventasCaja:'Ventas Caja (Excel)',
   ventasWeb:'Ventas Web (Excel)', ventasAnual:'Ventas Anuales (Excel)',
   ventasVendedores:'Ventas Vendedores (Excel)', ventasTiendas:'Ventas Tiendas (Excel)',
   ventasClientes:'Ventas Clientes (Excel)', compras:'Compras (Excel)',
@@ -2562,15 +2562,15 @@ function renderDashboard(){
     const conc=conciliarRecibos();
     const sinConc=cajaCierres.map(c=>({c,es:estadoBancoDeCierre(c,conc)})).filter(x=>x.es.estado==='pendiente'||x.es.estado==='parcial').reverse();
     if(sinConc.length){
-      const filas=sinConc.slice(0,8).map(({c,es})=>`<div style="margin-top:6px;font-size:14px;">${es.estado==='parcial'?'🟡':'⏳'} <strong>${_diaCorto(c.fecha)}</strong> — ${es.estado==='parcial'?'faltan recibos: '+escapeHtml(textoFaltan(es)):'sin recibos · efectivo '+fmt(es.sistemaEf)}</div>`).join('');
+      const filas=sinConc.slice(0,8).map(({c,es})=>`<div style="margin-top:6px;font-size:14px;">${es.estado==='parcial'?'🟡':'⏳'} <strong>${_diaCorto(c.fecha)}</strong> — ${es.estado==='parcial'?'faltan comprobantes de ingreso: '+escapeHtml(textoFaltan(es)):'sin comprobantes de ingreso · efectivo '+fmt(es.sistemaEf)}</div>`).join('');
       const mas=sinConc.length>8?`<div style="margin-top:6px;font-size:14px;">… y ${sinConc.length-8} más</div>`:'';
-      return `<div class="alert-card err" style="margin-bottom:20px;cursor:pointer;border-left-width:8px;padding:18px 20px;" onclick="showView('caja')"><div class="alert-ico" style="font-size:34px;">🚨</div><div><div class="alert-ttl" style="font-size:20px;font-weight:800;color:var(--rojo);">${sinConc.length===1?'HAY 1 CIERRE DE CAJA SIN CONCILIAR':'HAY '+sinConc.length+' CIERRES DE CAJA SIN CONCILIAR'}</div><div class="alert-txt">Faltan los recibos del banco. Pulsa para abrir Control de Caja.${filas}${mas}</div></div></div>`;
+      return `<div class="alert-card err" style="margin-bottom:20px;cursor:pointer;border-left-width:8px;padding:18px 20px;" onclick="showView('caja')"><div class="alert-ico" style="font-size:34px;">🚨</div><div><div class="alert-ttl" style="font-size:20px;font-weight:800;color:var(--rojo);">${sinConc.length===1?'HAY 1 CIERRE DE CAJA SIN CONCILIAR':'HAY '+sinConc.length+' CIERRES DE CAJA SIN CONCILIAR'}</div><div class="alert-txt">Faltan los comprobantes de ingreso. Pulsa para abrir Control de Caja.${filas}${mas}</div></div></div>`;
     }
     const lc=cajaCierres[cajaCierres.length-1];
     const es=estadoBancoDeCierre(lc);
     const ico=iconoBanco(es);
     const tipo=es.estado==='ok'||es.estado==='manual'?'ok':es.estado==='parcial'?'warn':'info';
-    const txt=es.estado==='manual'?'Cuadrado por excepción':es.estado==='ok'?`Conciliado ✔ Efectivo depositado: ${fmt(es.bancoEf)}`:es.estado==='sin'?'Sin ingresos al banco en este cierre':es.estado==='parcial'?`Faltan recibos: ${textoFaltan(es)}`:`Resguardos bancarios pendientes · Efectivo sistema: ${fmt(es.sistemaEf)}`;
+    const txt=es.estado==='manual'?'Cuadrado por excepción':es.estado==='ok'?`Conciliado ✔ Efectivo depositado: ${fmt(es.bancoEf)}`:es.estado==='sin'?'Sin ingresos al banco en este cierre':es.estado==='parcial'?`Faltan comprobantes de ingreso: ${textoFaltan(es)}`:`Comprobantes de ingreso pendientes · Efectivo sistema: ${fmt(es.sistemaEf)}`;
     return `<div class="alert-card ${tipo}" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')"><div class="alert-ico">${ico}</div><div><div class="alert-ttl">💰 Control de Caja — ${new Date((lc.fecha||'')+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}</div><div class="alert-txt">${txt}</div></div></div>`;
   })()}
 
@@ -3139,7 +3139,7 @@ function renderDocStatusHtml(){
 
   const DOCS=[
     {key:'cajaCierres',      lbl:'Cierre de Caja (PDF)',           ico:'📋', nav:'caja',       op:true},
-    {key:'cajaBancoRecibos', lbl:'Resguardos Bancarios (PDF)',      ico:'🏦', nav:'caja',       op:true},
+    {key:'cajaBancoRecibos', lbl:'Comprobantes de ingreso (PDF)',      ico:'🏦', nav:'caja',       op:true},
     {key:'ventasCaja',       lbl:'Ventas por Caja (Excel)',         ico:'🏪', nav:'caja'},
     {key:'ventasVendedores', lbl:'Ventas por Vendedor (Excel)',     ico:'🧑‍💼', nav:'ventas'},
     {key:'ventasAnual',      lbl:'Ventas Anuales (Excel)',          ico:'📅', nav:'ventas'},
@@ -3162,8 +3162,8 @@ function renderDocStatusHtml(){
       const fLabel=lastC.fecha?new Date(lastC.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}):'—';
       resguardoAlert=`<div class="alert-card err" style="margin-bottom:12px;cursor:pointer;" onclick="showView('caja')">
         <div class="alert-ico">🏦</div>
-        <div><div class="alert-ttl">Resguardos bancarios pendientes — ${fLabel}</div>
-        <div class="alert-txt">El cierre de caja de ese día no tiene resguardos bancarios asociados. Accede a <strong>Control de Caja → Volcado Diario</strong> para importar el PDF del banco.</div></div>
+        <div><div class="alert-ttl">Comprobantes de ingreso pendientes — ${fLabel}</div>
+        <div class="alert-txt">El cierre de caja de ese día no tiene comprobantes de ingreso asociados. Accede a <strong>Control de Caja → Volcado Diario</strong> para importar el PDF del banco.</div></div>
       </div>`;
     }
   }
@@ -3240,8 +3240,8 @@ function alertaResguardosPendientes(){
   const fLabel=lastC.fecha?new Date(lastC.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—';
   return `<div class="alert-card err" style="margin-bottom:20px;cursor:pointer;" onclick="showView('caja')">
     <div class="alert-ico">🏦</div>
-    <div><div class="alert-ttl">Resguardos bancarios pendientes — ${fLabel}</div>
-    <div class="alert-txt">Cierre de caja importado sin resguardos bancarios. Ve a Control de Caja para completar la conciliación.</div></div>
+    <div><div class="alert-ttl">Comprobantes de ingreso pendientes — ${fLabel}</div>
+    <div class="alert-txt">Cierre de caja importado sin comprobantes de ingreso. Ve a Control de Caja para completar la conciliación.</div></div>
   </div>`;
 }
 
@@ -4768,7 +4768,7 @@ async function importBancoPDF(input){
     const pendientePagina=x=>aPendiente(paginas.length>1?`${f.name} · pág. ${x.p.pagina}`:f.name,{fecha:x.data.fecha||h.fecha,tipo:/Negociaci/i.test(x.p.lines.join(' '))?'cheque':h.tipo,banco:x.data.banco!=='Santander'?x.data.banco:h.banco,importe:x.data.importe||''});
     const escaneosSinLeer=res.filter(x=>x.p.ocr&&!buenas.includes(x));
     if(buenas.length){
-      // Una página sin importe de un PDF de texto es continuación (un correo impreso en varias hojas); un escaneo sin leer puede ser otro recibo.
+      // Una página sin importe de un PDF de texto es continuación (un correo impreso en varias hojas); un escaneo sin leer puede ser otro comprobante de ingreso.
       const sufijo=buenas.length>1||escaneosSinLeer.length>0;
       buenas.forEach(x=>guardar(sufijo?`${f.name} · pág. ${x.p.pagina}`:f.name,x.data,x.p.ocr));
       escaneosSinLeer.forEach(pendientePagina);
@@ -4783,9 +4783,9 @@ async function importBancoPDF(input){
   saveCajaBanco();
   const tsB=new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   if(st) st.textContent=noLeidos.length
-    ? `⚠️ ${importados} recibos leídos · ${noLeidos.length} NO se han podido leer: rellénalos a mano en el cuadro de abajo · ${tsB}`
-    : `✅ ${importados} recibos importados${porImagen?` (${porImagen} leídos de imagen: revisa el importe en la lista)`:''} · ${tsB}`;
-  if(noLeidos.length) showToast(`⚠️ ${noLeidos.length} recibo(s) sin leer: rellénalos a mano`,'err');
+    ? `⚠️ ${importados} comprobantes de ingreso leídos · ${noLeidos.length} NO se han podido leer: rellénalos a mano en el cuadro de abajo · ${tsB}`
+    : `✅ ${importados} comprobantes de ingreso importados${porImagen?` (${porImagen} leídos de imagen: revisa el importe en la lista)`:''} · ${tsB}`;
+  if(noLeidos.length) showToast(`⚠️ ${noLeidos.length} comprobante(s) de ingreso sin leer: rellénalos a mano`,'err');
   if(importados>0) stampImport('cajaBancoRecibos', files.map(f=>f.name));
   renderCajaView();
 }
@@ -4810,7 +4810,7 @@ function corregirReciboBanco(i){
 }
 function editarReciboBanco(i){
   const r=cajaBancoRecibos[i]; if(!r) return;
-  const v=prompt('Importe correcto de este recibo (€):',String(r.importe).replace('.',','));
+  const v=prompt('Importe correcto de este comprobante de ingreso (€):',String(r.importe).replace('.',','));
   if(v===null) return;
   const raw=String(v).replace(/[^\d.,]/g,''), n=/,\d{1,2}$/.test(raw)?parseNumES2(raw):parseFloat(raw);
   if(!(n>0)){ showToast('Importe no válido','err'); return; }
@@ -4818,14 +4818,14 @@ function editarReciboBanco(i){
 }
 function deleteReciboBanco(i){
   const r=cajaBancoRecibos[i]; if(!r) return;
-  if(!confirm('¿Eliminar el recibo de '+fmt(r.importe)+' ('+r.filename+')?')) return;
+  if(!confirm('¿Eliminar el comprobante de ingreso de '+fmt(r.importe)+' ('+r.filename+')?')) return;
   cajaBancoRecibos.splice(i,1); saveCajaBanco(); renderCajaView();
 }
 function renderCajaBancoLista(){
   const pe=document.getElementById('cajaBancoPendientes'), li=document.getElementById('cajaBancoLista');
   const inp='padding:5px 8px;border:1px solid var(--borde);border-radius:8px;font:inherit;';
   if(pe) pe.innerHTML=recibosPendientes.length?`<div class="card" style="padding:14px 16px;margin:12px 0;border-left:4px solid #F5A623;">
-    <div style="font-weight:700;margin-bottom:8px;">✍️ Recibos que no se han podido leer (${recibosPendientes.length}) — rellena los datos mirando el documento</div>
+    <div style="font-weight:700;margin-bottom:8px;">✍️ Comprobantes de ingreso que no se han podido leer (${recibosPendientes.length}) — rellena los datos mirando el documento</div>
     ${recibosPendientes.map((p,i)=>`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--borde);">
       <span style="font-size:12px;min-width:220px;flex:1;">📄 ${p.archivo}</span>
       <input type="date" id="rp_f_${i}" value="${p.fecha||''}" style="${inp}">
@@ -4840,7 +4840,7 @@ function renderCajaBancoLista(){
   conc.por.forEach(e=>e.lineas.forEach(l=>{ if(l.recibo) donde.set(l.recibo,l.cierreFecha); }));
   const orig={pdf:'PDF',ocr:'<span title="Leído de una imagen: comprueba que el importe es correcto" style="color:#B9770E;font-weight:700;">⚠ imagen</span>',manual:'a mano'};
   const filas=cajaBancoRecibos.map((r,i)=>({r,i})).sort((a,b)=>(b.r.fecha||'').localeCompare(a.r.fecha||''));
-  li.innerHTML=filas.length?`<div class="sec-title" style="margin-top:20px;">🏦 Recibos del banco guardados (${filas.length})</div>
+  li.innerHTML=filas.length?`<div class="sec-title" style="margin-top:20px;">🏦 Comprobantes de ingreso guardados (${filas.length})</div>
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div style="overflow-x:auto;"><table class="tabla">
     <thead><tr><th>Fecha</th><th>Banco</th><th>Tipo</th><th style="text-align:right;">Importe</th><th>Archivo</th><th>Lectura</th><th>Cierre</th><th></th></tr></thead><tbody>
     ${filas.map(({r,i})=>`<tr>
@@ -4995,14 +4995,14 @@ function renderCajaConciliacion(){
       if(sg.fecha!==last.fecha||!es.faltan.some(l=>Math.abs(l.importe-sg.importe)<0.005)) return;
       out.push(`${r.banco||'Banco'} del ${_diaCorto(r.fecha)}, leído como <strong>${fmt(r.importe)}</strong>`);
     });
-    return out.length?`<div style="margin-top:8px;font-weight:600;">💡 Hay un recibo sin pareja (${out.join(' · ')}). Si en realidad es el que falta, corrígelo con ✏️ en «Recibos del banco guardados» (más abajo).</div>`:'';
+    return out.length?`<div style="margin-top:8px;font-weight:600;">💡 Hay un comprobante de ingreso sin pareja (${out.join(' · ')}). Si en realidad es el que falta, corrígelo con ✏️ en «Comprobantes de ingreso guardados» (más abajo).</div>`:'';
   })();
   const _banner=(bg,ico,tit,txt)=>`<div style="background:${bg};color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;"><span style="font-size:28px;">${ico}</span><div><div style="font-weight:800;font-size:15px;margin-bottom:4px;">${tit}</div><div style="font-size:13px;opacity:0.9;">${txt}</div></div></div>`;
-  if(es.estado==='manual') alertEl.innerHTML=_banner('#5d8a5d','☑️',`CUADRADO POR EXCEPCIÓN — ${fechaLabel}`,`Sin recibo del banco: <strong>${textoFaltan(es)}</strong>. Excepción autorizada por ${es.manual.por||'el propietario'} el ${_diaCorto(String(es.manual.ts).slice(0,10))}.`);
-  else if(es.estado==='ok') alertEl.innerHTML=_banner('#27AE60','✅',`CAJA CUADRADA — ${fechaLabel}`,`Los ${es.lineas.length} ingresos del cierre tienen su recibo del banco. Efectivo depositado: <strong>${fmt(es.bancoEf)}</strong>`);
-  else if(es.estado==='parcial') alertEl.innerHTML=_banner('#c0392b','⚠️',`FALTAN RECIBOS — ${fechaLabel}`,`Hay recibo de ${es.lineas.length-es.faltan.length} de ${es.lineas.length} ingresos${_diaRec}. Faltan: <strong>${textoFaltan(es)}</strong>${_pista}`);
+  if(es.estado==='manual') alertEl.innerHTML=_banner('#5d8a5d','☑️',`CUADRADO POR EXCEPCIÓN — ${fechaLabel}`,`Sin comprobante de ingreso: <strong>${textoFaltan(es)}</strong>. Excepción autorizada por ${es.manual.por||'el propietario'} el ${_diaCorto(String(es.manual.ts).slice(0,10))}.`);
+  else if(es.estado==='ok') alertEl.innerHTML=_banner('#27AE60','✅',`CAJA CUADRADA — ${fechaLabel}`,`Los ${es.lineas.length} ingresos del cierre tienen su comprobante de ingreso. Efectivo depositado: <strong>${fmt(es.bancoEf)}</strong>`);
+  else if(es.estado==='parcial') alertEl.innerHTML=_banner('#c0392b','⚠️',`FALTAN COMPROBANTES DE INGRESO — ${fechaLabel}`,`Hay comprobante de ${es.lineas.length-es.faltan.length} de ${es.lineas.length} ingresos${_diaRec}. Faltan: <strong>${textoFaltan(es)}</strong>${_pista}`);
   else if(es.estado==='sin') alertEl.innerHTML=_banner('#7f8c8d','➖',`SIN INGRESOS AL BANCO — ${fechaLabel}`,'El cierre no trae ingresos de efectivo ni cheques que justificar.');
-  else alertEl.innerHTML=_banner('var(--naranja,#F5A623)','⏳',`PENDIENTE — ${fechaLabel}`,`Cierre cargado${_diaRec}. Faltan los recibos de: <strong>${textoFaltan(es)}</strong>${_pista}`);
+  else alertEl.innerHTML=_banner('var(--naranja,#F5A623)','⏳',`PENDIENTE — ${fechaLabel}`,`Cierre cargado${_diaRec}. Faltan los comprobantes de ingreso de: <strong>${textoFaltan(es)}</strong>${_pista}`);
 
   const storeRows=(()=>{
     if(!last.stores||!last.stores.length) return '';
@@ -5027,18 +5027,18 @@ function renderCajaConciliacion(){
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💵</div><div class="kpi-lbl">Efectivo Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">💳</div><div class="kpi-lbl">Tarjetas Tiendas</div><div class="kpi-val" style="font-size:18px;">${fmt(last.tarjetasTotal||0)}</div><div class="kpi-sub">del sistema</div></div>
       <div class="kpi" style="background:var(--azul-pale,#e8f5e9);"><div class="kpi-ico">🏦</div><div class="kpi-lbl">Ingreso según sistema</div><div class="kpi-val" style="font-size:18px;">${fmt(last.efectivoBancoDeposit||0)}</div><div class="kpi-sub">estimado del PDF · sin confirmar con el banco</div></div>
-      <div class="kpi" style="background:${es.estado==='ok'?'#e8f5e9':'#fff8e1'};"><div class="kpi-ico">${iconoBanco(es)}</div><div class="kpi-lbl">Banco (resguardos)</div><div class="kpi-val" style="font-size:18px;">${fmt(es.bancoEf)}</div><div class="kpi-sub">efectivo confirmado con recibos</div></div>
+      <div class="kpi" style="background:${es.estado==='ok'?'#e8f5e9':'#fff8e1'};"><div class="kpi-ico">${iconoBanco(es)}</div><div class="kpi-lbl">Banco (comprobantes)</div><div class="kpi-val" style="font-size:18px;">${fmt(es.bancoEf)}</div><div class="kpi-sub">efectivo confirmado con comprobantes</div></div>
     </div>
     <table class="tabla" style="margin-bottom:0;">
-      <thead><tr><th>Ingreso que dice el sistema</th><th>Nº pago</th><th style="text-align:right;">Importe</th><th>Recibo del banco</th><th style="text-align:center;">Estado</th></tr></thead>
+      <thead><tr><th>Ingreso que dice el sistema</th><th>Nº pago</th><th style="text-align:right;">Importe</th><th>Comprobante de ingreso</th><th style="text-align:center;">Estado</th></tr></thead>
       <tbody>
         ${es.lineas.length?es.lineas.map(x=>`<tr>
           <td style="font-weight:600;">${x.banco}</td>
           <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;">${x.numPago||'—'}</td>
           <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(x.importe)}</td>
-          <td style="font-size:11px;">${x.recibo?`${x.recibo.filename} <span style="color:var(--texto2);">(${x.recibo.fecha?new Date(x.recibo.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):'—'})</span>`:'<span style="color:#c0392b;font-weight:600;">falta el recibo</span>'}</td>
+          <td style="font-size:11px;">${x.recibo?`${x.recibo.filename} <span style="color:var(--texto2);">(${x.recibo.fecha?new Date(x.recibo.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):'—'})</span>`:'<span style="color:#c0392b;font-weight:600;">falta el comprobante</span>'}</td>
           <td style="text-align:center;">${x.recibo?'✅':'⏳'}</td></tr>`).join(''):'<tr><td colspan="5" style="color:var(--texto2);padding:10px 12px;">El cierre no trae ingresos al banco.</td></tr>'}
-        ${es.lineas.length?`<tr style="background:var(--fondo,#f8f9fa);font-weight:700;"><td colspan="2">Efectivo</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(es.sistemaEf)}</td><td style="font-size:11px;">con recibo: ${fmt(es.bancoEf)}</td><td></td></tr>`:''}
+        ${es.lineas.length?`<tr style="background:var(--fondo,#f8f9fa);font-weight:700;"><td colspan="2">Efectivo</td><td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(es.sistemaEf)}</td><td style="font-size:11px;">con comprobante: ${fmt(es.bancoEf)}</td><td></td></tr>`:''}
       </tbody>
     </table>
   </div>
@@ -5081,16 +5081,16 @@ function renderCajaHistorico(){
     ${sorted.map(c=>{
       const es=estadoBancoDeCierre(c,_conc);
       const tbef=es.bancoEf;
-      const ico=`<span title="${es.estado==='sin'?'El cierre no trae ingresos al banco':es.estado==='manual'?'Cuadrado por excepción (autorizada por '+(es.manual.por||'el propietario')+', '+_diaCorto(String(es.manual.ts).slice(0,10))+'). Sin recibo: '+textoFaltan(es):es.faltan.length?'Faltan recibos'+(c.fechaCierre?' (ingresos del '+_diaCorto(c.fechaCierre)+')':'')+': '+textoFaltan(es):'Todos los ingresos tienen su recibo'}">${iconoBanco(es)}</span>`;
+      const ico=`<span title="${es.estado==='sin'?'El cierre no trae ingresos al banco':es.estado==='manual'?'Cuadrado por excepción (autorizada por '+(es.manual.por||'el propietario')+', '+_diaCorto(String(es.manual.ts).slice(0,10))+'). Sin comprobante: '+textoFaltan(es):es.faltan.length?'Faltan comprobantes'+(c.fechaCierre?' (ingresos del '+_diaCorto(c.fechaCierre)+')':'')+': '+textoFaltan(es):'Todos los ingresos tienen su comprobante'}">${iconoBanco(es)}</span>`;
       const cKey=(c.fecha||'')+'|'+(c.filename||'');
       const acKey=_selectedCierreKey||((cajaCierres.length?(cajaCierres[cajaCierres.length-1].fecha||'')+'|'+(cajaCierres[cajaCierres.length-1].filename||''):null));
       const isSel=cKey===acKey;
       return `<tr onclick="selectCierre('${(c.fecha||'').replace(/'/g,"\\'")}','${(c.filename||'').replace(/'/g,"\\'")}')" style="cursor:pointer;border-bottom:1px solid var(--borde);${isSel?'background:rgba(26,92,26,0.07);font-weight:600;':''}" title="Ver conciliación de este día">
-        <td style="padding:6px 8px;">${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}${c.fechaCierre?`<div style="font-size:10px;font-weight:400;color:var(--texto2);" title="La fecha de la fila es la del correo; los recibos de este cierre llevan la fecha de cierre de la caja">recibos del ${_diaCorto(c.fechaCierre)}</div>`:''}</td>
+        <td style="padding:6px 8px;">${c.fecha?new Date(c.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}):'—'}${c.fechaCierre?`<div style="font-size:10px;font-weight:400;color:var(--texto2);" title="La fecha de la fila es la del correo; los comprobantes de este cierre llevan la fecha de cierre de la caja">comprobantes del ${_diaCorto(c.fechaCierre)}</div>`:''}</td>
         <td style="padding:6px 8px;font-size:11px;color:var(--texto2);" title="${c.filename||''}">${c.sourceZip||c.filename||'—'}</td>
         <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.efectivoTotal||0)}</td>
         <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(c.tarjetasTotal||0)}</td>
-        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;" title="Confirmado con resguardos del banco. Según el PDF de caja: ${fmt(c.efectivoBancoDeposit||0)}">${fmt(tbef)}</td>
+        <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;" title="Confirmado con comprobantes de ingreso. Según el PDF de caja: ${fmt(c.efectivoBancoDeposit||0)}">${fmt(tbef)}</td>
         <td style="padding:6px 8px;text-align:center;font-size:16px;">${ico}</td>
         <td style="padding:6px 8px;"><button onclick="event.stopPropagation();deleteCierre('${(c.fecha||'').replace(/'/g,"\\'")}','${(c.filename||'').replace(/'/g,"\\'")}')" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td>
       </tr>`;
