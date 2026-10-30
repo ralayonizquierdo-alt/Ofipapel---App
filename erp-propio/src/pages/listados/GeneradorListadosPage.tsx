@@ -361,12 +361,12 @@ export function GeneradorListadosPage() {
           <button type="button" className="gw-btn h-[30px]" disabled={!filas?.length} onClick={() => window.print()}>
             🖨️ Imprimir / PDF
           </button>
-          <button type="button" className="gw-btn h-[30px]" onClick={() => setAyuda(true)}>
-            Operativa
-          </button>
           <button type="button" className="gw-btn h-[30px]" disabled={!filas?.length} onClick={excel}>
             📊 Excel
           </button>
+        </div>
+        {/* Segunda fila: guardar a la izquierda y Operativa a la derecha, debajo de Excel (Luis, 30/10/2026). */}
+        <div className="flex flex-wrap items-center gap-2">
           <button type="button" className="gw-btn h-[30px]" onClick={() => guardar(false)}>
             💾 Guardar
           </button>
@@ -378,6 +378,10 @@ export function GeneradorListadosPage() {
           </button>
           <button type="button" className="gw-btn h-[30px]" onClick={() => navigate('/')}>
             Salir
+          </button>
+          <span className="flex-1" />
+          <button type="button" className="gw-btn h-[30px] w-[95px]" onClick={() => setAyuda(true)}>
+            Operativa
           </button>
         </div>
 
