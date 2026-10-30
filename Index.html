@@ -4814,7 +4814,17 @@ function editarReciboBanco(i){
   if(v===null) return;
   const raw=String(v).replace(/[^\d.,]/g,''), n=/,\d{1,2}$/.test(raw)?parseNumES2(raw):parseFloat(raw);
   if(!(n>0)){ showToast('Importe no válido','err'); return; }
-  r.importe=Math.round(n*100)/100; r.origen='manual'; saveCajaBanco(); renderCajaView();
+  const bk=prompt('Banco del comprobante (Santander, BBVA…):',r.banco||'');
+  if(bk===null) return;
+  const f0=(r.fecha||'').split('-'), fTxt=f0.length===3?f0[2]+'/'+f0[1]+'/'+f0[0]:'';
+  const fd=prompt('Fecha del comprobante (dd/mm/aaaa):',fTxt);
+  if(fd===null) return;
+  const m=String(fd).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})$/);
+  if(!m){ showToast('Fecha no válida: escríbela como 15/10/2026','err'); return; }
+  const anio=m[3].length===2?'20'+m[3]:m[3], fecha=anio+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  if(isNaN(new Date(fecha+'T12:00:00'))){ showToast('Fecha no válida','err'); return; }
+  r.importe=Math.round(n*100)/100; r.banco=bk.trim()||r.banco; r.fecha=fecha; r.origen='manual';
+  saveCajaBanco(); renderCajaView();
 }
 function deleteReciboBanco(i){
   const r=cajaBancoRecibos[i]; if(!r) return;
@@ -4851,7 +4861,7 @@ function renderCajaBancoLista(){
       <td style="padding:6px 8px;font-size:11px;color:var(--texto2);">${r.filename||''}</td>
       <td style="padding:6px 8px;font-size:12px;">${orig[r.origen]||'—'}</td>
       <td style="padding:6px 8px;font-size:12px;">${donde.has(r)?'✅ cierre del '+new Date(donde.get(r)+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'}):'<span style="color:#c0392b;">sin cierre que coincida</span>'+(conc.sugerencias.has(r)?`<br><span style="color:#B9770E;">¿Será <b>${fmt(conc.sugerencias.get(r).importe)}</b>? (cierre del ${new Date(conc.sugerencias.get(r).fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}) <button onclick="corregirReciboBanco(${i})" style="border:1px solid var(--borde);border-radius:6px;background:#fff;cursor:pointer;font-size:11px;padding:1px 8px;">Corregir</button></span>`:'')}</td>
-      <td style="padding:6px 8px;white-space:nowrap;"><button title="Corregir el importe" onclick="editarReciboBanco(${i})" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 6px;">✏️</button><button onclick="deleteReciboBanco(${i})" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td></tr>`).join('')}
+      <td style="padding:6px 8px;white-space:nowrap;"><button title="Corregir importe, banco o fecha" onclick="editarReciboBanco(${i})" style="background:none;border:none;cursor:pointer;font-size:12px;padding:2px 6px;">✏️</button><button onclick="deleteReciboBanco(${i})" style="background:none;border:none;color:var(--rojo,#E74C3C);cursor:pointer;font-size:12px;padding:2px 6px;">✕</button></td></tr>`).join('')}
     </tbody></table></div></div>`:'';
 }
 
@@ -4881,18 +4891,25 @@ function conciliarRecibos(){
   const por=new Map();
   cajaCierres.forEach(c=>por.set(clave(c),{cierre:c,lineas:(c.bancoPagos||[]).filter(p=>_catPago(p.banco)!=='tarjeta').map(p=>({banco:p.banco,numPago:p.numPago,importe:p.importe,cat:_catPago(p.banco),recibo:null}))}));
   const sinCierre=[];
-  [...cajaBancoRecibos].filter(r=>r&&r.importe>0&&r.fecha).sort((a,b)=>a.fecha.localeCompare(b.fecha)).forEach(r=>{
+  // Se empareja por IMPORTE y, primero, también por BANCO: un «Santander 400» no debe quedarse la línea «BBVA 400» de otro cierre
+  // (le quitaba el comprobante al cierre del día siguiente). Lo que no case con banco se empareja después solo por importe, como siempre.
+  const mismoBanco=(l,r)=>!!r.banco&&String(l.banco).toUpperCase().includes(String(r.banco).toUpperCase());
+  const asignar=(r,exigirBanco)=>{
     const cat=r.tipo==='cheque'?'cheque':'efectivo';
     let mejor=null;
     por.forEach(e=>{
       if(!e.cierre.fecha) return;
       const d=dias(r.fecha,e.cierre.fecha);
       if(d<0||d>7) return;
-      const l=e.lineas.find(x=>!x.recibo&&x.cat===cat&&Math.abs(x.importe-r.importe)<0.005);
+      const l=e.lineas.find(x=>!x.recibo&&x.cat===cat&&Math.abs(x.importe-r.importe)<0.005&&(!exigirBanco||mismoBanco(x,r)));
       if(l&&(!mejor||d<mejor.d)) mejor={d,l,e};
     });
-    if(mejor){ mejor.l.recibo=r; mejor.l.cierreFecha=mejor.e.cierre.fecha; } else sinCierre.push(r);
-  });
+    if(mejor){ mejor.l.recibo=r; mejor.l.cierreFecha=mejor.e.cierre.fecha; return true; }
+    return false;
+  };
+  const ordenados=[...cajaBancoRecibos].filter(r=>r&&r.importe>0&&r.fecha).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const sobrantes=ordenados.filter(r=>!asignar(r,true));
+  sobrantes.forEach(r=>{ if(!asignar(r,false)) sinCierre.push(r); });
   // Un recibo sin pareja al que solo le queda una línea libre del mismo banco y tipo: seguramente el importe se leyó o tecleó mal.
   const sugerencias=new Map();
   sinCierre.forEach(r=>{
