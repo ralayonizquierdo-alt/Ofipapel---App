@@ -10,6 +10,7 @@ import { colorDePantalla, type MapaColores } from '../lib/coloresPantallas'
 import { useParametro, valorParametro } from '../lib/parametros'
 import { dentroDeHorario, useMiAcceso } from '../lib/accesoEmpleado'
 import { AvisoVersion } from './shell/AvisoVersion'
+import { AvisoConformidad } from './shell/AvisoConformidad'
 import { MENUS, esAccionUtilidad, isEnabled, windowTitle, type MenuEntry, type MenuItem } from './shell/menus'
 import { ahoraTrabajo, ejercicioTrabajo, useSesionTrabajo, volverPeriodoEnCurso } from '../lib/sesionTrabajo'
 import { NexaAsistente } from '../nexa/NexaAsistente'
@@ -252,6 +253,7 @@ export function Layout() {
         </span>
       </div>
       <AvisoVersion />
+      <AvisoConformidad uid={session?.user.id ?? null} />
       {sesion.consulta && (
         <div className="flex flex-none items-center justify-center gap-3 bg-[#c42b1c] px-2 py-1 text-[13px] font-bold text-white">
           <span>

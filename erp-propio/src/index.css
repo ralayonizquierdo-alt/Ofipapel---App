@@ -347,8 +347,9 @@ button .gw-icono {
 
 /* Consultando un periodo cerrado (Archivo → Seleccionar Periodo): todo es solo consulta. Se
    apagan los botones de alta, modificación, borrado y guardado de todas las fichas; la base de
-   datos tampoco deja grabar en ese periodo (fn_bloquear_periodo_cerrado). */
-body.gw-solo-consulta :is(button, [role='button'])[title]:is(
+   datos tampoco deja grabar en ese periodo (fn_bloquear_periodo_cerrado). Igual sin conformidad con
+   el aviso legal de la auditoría (gw-sin-conformidad, AvisoConformidad.tsx; la BD tampoco deja). */
+body:is(.gw-solo-consulta, .gw-sin-conformidad) :is(button, [role='button'])[title]:is(
     [title^='Nuevo'],
     [title^='Agregar'],
     [title^='Añadir'],
