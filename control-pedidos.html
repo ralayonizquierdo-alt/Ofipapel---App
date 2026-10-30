@@ -2236,20 +2236,25 @@ async function leerConIA(file, modo) {
   const jobId = nuevoId();
   const pdf = esPdf(file);
   const imagenBase64 = pdf ? await base64DeFichero(file) : await reducirImagen(file);
-  if (imagenBase64.length > 4 * 1024 * 1024) throw new Error('El PDF es demasiado grande (máximo unos 3 MB). Si es un escaneado, prueba a reducirlo o haz una foto de cada página.');
+  if (imagenBase64.length > 24 * 1024 * 1024) throw new Error('El PDF es demasiado grande (máximo unos 18 MB). Si es un escaneado, prueba a reducirlo o haz una foto de cada página.');
   // 1) Subida (función normal, admite hasta 6 MB). 2) Lectura en segundo plano,
   // que solo recibe el jobId: Netlify corta a 256 KB lo que se le manda a una
   // Background Function, y una foto o un PDF pasan de eso (error 413).
   const cab = { 'content-type': 'application/json', 'x-ocr-token': OCR_TOKEN };
   const bloqueo = await pantallaEncendida();
   try {
-  const sub = await fetchReintentando(FN + 'leer-pedido-manuscrito-subir', {
-    method: 'POST', headers: cab,
-    body: JSON.stringify({ jobId, imagenBase64, mediaType: pdf ? 'application/pdf' : 'image/jpeg' }),
-  });
-  if (!sub.ok) {
-    const e = await sub.json().catch(() => ({}));
-    throw new Error(e.error || 'No se ha podido subir (' + sub.status + '). ¿Estás en la web de Netlify?');
+  // En trozos de 3,5 MB: cada envío a una función normal no puede pasar de 6 MB.
+  const TROZO = 3.5 * 1024 * 1024;
+  const partes = Math.max(1, Math.ceil(imagenBase64.length / TROZO));
+  for (let parte = 0; parte < partes; parte++) {
+    const sub = await fetchReintentando(FN + 'leer-pedido-manuscrito-subir', {
+      method: 'POST', headers: cab,
+      body: JSON.stringify({ jobId, imagenBase64: imagenBase64.slice(parte * TROZO, (parte + 1) * TROZO), mediaType: pdf ? 'application/pdf' : 'image/jpeg', parte, partes }),
+    });
+    if (!sub.ok) {
+      const e = await sub.json().catch(() => ({}));
+      throw new Error(e.error || 'No se ha podido subir (' + sub.status + '). ¿Estás en la web de Netlify?');
+    }
   }
   const r = await fetchReintentando(FN + 'leer-pedido-manuscrito-background', { method: 'POST', headers: cab, body: JSON.stringify({ jobId, modo }) }, 2);
   if (r.status !== 202 && !r.ok) throw new Error('El lector no responde (' + r.status + '). ¿Estás en la web de Netlify?');
