@@ -142,6 +142,68 @@ export const FUENTES: Fuente[] = [
       n('neto', 'Neto'), t('forma_pago', 'Forma de pago'), t('cliente', 'Cliente'), t('empleado', 'Empleado'), b('activo', 'Activo'),
     ],
   },
+  // Añadidas por Luis (30/10/2026): migración 20261030_generador_mas_fuentes.
+  {
+    clave: 'presupuestos',
+    titulo: 'Presupuestos',
+    porDefecto: ['tienda', 'numero', 'fecha', 'cliente_nombre', 'estado', 'responsable_numero', 'proximo_contacto', 'total'],
+    columnas: [
+      t('tienda', 'Tienda'), n('numero', 'Número', 0), f('fecha', 'Fecha'), n('anio', 'Año', 0), t('mes', 'Mes'), t('cliente', 'Cliente'),
+      t('cliente_nombre', 'Cliente (nombre)'), t('estado', 'Estado'), t('responsable_numero', 'Vend. Nº'), t('responsable_nombre', 'Vendedor (nombre)'),
+      f('proximo_contacto', 'Próximo contacto'), f('valido_hasta', 'Válido hasta'), b('caducado', 'Caducado'), n('contactos', 'Contactos', 0),
+      t('motivo_perdida', 'Motivo de pérdida'), n('total', 'Total'),
+    ],
+  },
+  {
+    clave: 'pedidos',
+    titulo: 'Pedidos de clientes',
+    porDefecto: ['tienda', 'numero', 'fecha', 'cliente_nombre', 'origen', 'vendedor_nombre', 'estado', 'total'],
+    columnas: [
+      t('tienda', 'Tienda'), n('numero', 'Número', 0), f('fecha', 'Fecha'), n('anio', 'Año', 0), t('mes', 'Mes'), t('cliente', 'Cliente'),
+      t('cliente_nombre', 'Cliente (nombre)'), t('origen', 'Origen (web / comercial / tienda)'), t('vendedor', 'Comercial'),
+      t('vendedor_nombre', 'Comercial (nombre)'), t('empleado', 'Empleado'), t('estado', 'Estado'), n('total', 'Total'),
+      n('total_pendiente', 'Pendiente'), b('va_a_reparto', 'Va a reparto'),
+    ],
+  },
+  {
+    clave: 'repartos',
+    titulo: 'Repartos (entregas)',
+    porDefecto: ['numero', 'fecha', 'repartidor_nombre', 'ruta_desc', 'cliente_nombre', 'estado_entrega', 'importe'],
+    columnas: [
+      n('numero', 'Reparto', 0), f('fecha', 'Fecha'), n('anio', 'Año', 0), t('mes', 'Mes'), t('ruta', 'Ruta'), t('ruta_desc', 'Ruta (desc.)'),
+      t('repartidor', 'Repartidor'), t('repartidor_nombre', 'Repartidor (nombre)'), t('estado_reparto', 'Estado del reparto'),
+      n('venta_numero', 'Albarán', 0), t('cliente', 'Cliente'), t('cliente_nombre', 'Cliente (nombre)'), t('poblacion', 'Población'),
+      t('estado_entrega', 'Estado de la entrega'), t('estado_observaciones', 'Motivo'), n('importe', 'Importe'),
+    ],
+  },
+  {
+    clave: 'cobros',
+    titulo: 'Cobros de clientes',
+    porDefecto: ['tienda', 'fecha_pago', 'cliente_nombre', 'concepto', 'forma', 'importe'],
+    columnas: [
+      t('tienda', 'Tienda'), f('fecha_pago', 'Fecha de cobro'), n('anio', 'Año', 0), t('mes', 'Mes'), t('cliente', 'Cliente'),
+      t('cliente_nombre', 'Cliente (nombre)'), t('concepto', 'Concepto'), t('forma', 'Forma (efectivo / tarjeta…)'), t('estado_cobro', 'Estado'),
+      n('importe', 'Importe'),
+    ],
+  },
+  {
+    clave: 'peticiones',
+    titulo: 'Peticiones',
+    porDefecto: ['tienda', 'numero', 'fecha', 'empleado_numero', 'referencia', 'articulo_desc', 'cantidad', 'estado'],
+    columnas: [
+      t('tienda', 'Tienda'), n('numero', 'Número', 0), f('fecha', 'Fecha'), t('empleado_numero', 'Empl. Nº'), t('referencia', 'Código de venta'),
+      t('articulo_desc', 'Artículo'), t('familia', 'Familia'), t('proveedor', 'Proveedor'), n('cantidad', 'Cantidad'), t('estado', 'Estado'),
+    ],
+  },
+  {
+    clave: 'familias',
+    titulo: 'Familias',
+    porDefecto: ['codigo', 'descripcion', 'nivel1', 'articulos'],
+    columnas: [
+      t('codigo', 'Código'), t('descripcion', 'Descripción'), t('nivel1', 'Nivel 1'), t('nivel2', 'Nivel 2'), n('descuento_pct', 'Dto. %'),
+      n('articulos', 'Nº artículos', 0), b('web_publicada', 'En la web'),
+    ],
+  },
 ]
 
 export const FUENTE_POR_CLAVE: Record<string, Fuente> = Object.fromEntries(FUENTES.map((x) => [x.clave, x]))
