@@ -367,6 +367,9 @@ export function GeneradorListadosPage() {
         </div>
         {/* Segunda fila: guardar a la izquierda y Operativa a la derecha, debajo de Excel (Luis, 30/10/2026). */}
         <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="gw-btn h-[30px] font-bold text-[#1d3a8a]" onClick={() => nuevo()} title="Empieza un listado nuevo (igual que «➕ Listado nuevo» de la izquierda)">
+            ➕ Crear listado
+          </button>
           <button type="button" className="gw-btn h-[30px]" onClick={() => guardar(false)}>
             💾 Guardar
           </button>
