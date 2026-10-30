@@ -20,6 +20,8 @@ export interface MenuItem {
   /** Letra subrayada (Alt+letra / letra con el menú abierto) cuando se conoce la de GeminisWin o
    *  Windows; si no, la elige `mnemonicos.ts` (primera letra libre de cada palabra). */
   letra?: string
+  /** Solo para super administradores (para el resto sale apagada), p. ej. Archivo → Auditoría. */
+  soloSuperAdmin?: boolean
 }
 
 export type MenuEntry = MenuItem | 'sep'
@@ -44,6 +46,8 @@ export const MENUS: TopMenu[] = [
       item('Tiendas', { to: '/tiendas', description: 'Ficha de Tiendas' }),
       // SIN CAPTURA (Parámetros, Zonas de servicio, Carga Cotización, Importar e impresión): pages/archivo y pages/utilidades/ImpresionDialogs.
       item('Parámetros', { to: '/archivo/parametros', description: 'Parámetros generales del programa (sin captura)' }),
+      // Propio del ERP: registro de todos los cambios (solo super administradores).
+      item('Auditoría', { to: '/archivo/auditoria', soloSuperAdmin: true, description: 'Quién cambió qué y cuándo (solo super administradores)' }),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
       item('Cambiar Grupo de Acceso', { action: 'cambiar-grupo', shortcut: 'CTRL+O', description: 'Ver el programa como otro grupo de acceso (solo administradores)' }),
@@ -415,6 +419,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/bancos', title: 'Códigos Bancarios' },
   { prefix: '/monedas', title: 'Monedas' },
   { prefix: '/archivo/parametros', title: 'Parámetros' },
+  { prefix: '/archivo/auditoria', title: 'Auditoría' },
   { prefix: '/archivo/zonas-servicio', title: 'Zonas de servicio' },
   { prefix: '/archivo/carga-cotizacion', title: 'Carga Cotización' },
   { prefix: '/archivo/importar', title: 'Importar' },

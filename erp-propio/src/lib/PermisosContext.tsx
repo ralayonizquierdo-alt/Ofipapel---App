@@ -4,6 +4,9 @@ import { useAuth } from './AuthContext'
 import { opcionPermitida, rutaPermitida } from './permisos'
 import type { MenuItem } from '../components/shell/menus'
 
+/** Pantallas solo para super administradores, tengan el grupo que tengan (la BD también lo exige). */
+const RUTAS_SUPER_ADMIN = ['/archivo/auditoria']
+
 interface PermisosState {
   /** Todavía cargando los permisos del empleado conectado. */
   cargando: boolean
@@ -19,6 +22,8 @@ interface PermisosState {
   recargar: () => void
   /** Administrador de verdad (aunque esté «viendo como» otro grupo). */
   realAdmin: boolean
+  /** Super administrador (empleado.super_administrador): Auditoría, Periodos… */
+  superAdmin: boolean
   /** Grupo con el que el administrador está viendo el programa (Archivo → Cambiar Grupo de Acceso). */
   verComo: GrupoVerComo | null
   /** Ver como otro grupo (solo administradores) o volver al propio con null. */
@@ -51,7 +56,7 @@ const VACIO: ReadonlySet<string> = new Set()
 export function PermisosProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const uid = session?.user.id ?? null
-  const [estado, setEstado] = useState<{ uid: string | null; admin: boolean; codigos: ReadonlySet<string> } | null>(null)
+  const [estado, setEstado] = useState<{ uid: string | null; admin: boolean; superAdmin: boolean; codigos: ReadonlySet<string> } | null>(null)
   const [vuelta, setVuelta] = useState(0)
   // «Ver como» otro grupo (Archivo → Cambiar Grupo de Acceso, Ctrl+O): solo en la interfaz y solo
   // para administradores. Se cargan los permisos de ESE grupo en lugar de los propios; como el
@@ -62,10 +67,10 @@ export function PermisosProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!uid) return
     let vivo = true
-    Promise.all([supabase.rpc('fn_mis_permisos'), supabase.rpc('fn_es_administrador')]).then(([p, a]) => {
+    Promise.all([supabase.rpc('fn_mis_permisos'), supabase.rpc('fn_es_administrador'), supabase.rpc('fn_es_super_administrador')]).then(([p, a, sa]) => {
       if (!vivo) return
       const codigos = new Set(((p.data ?? []) as unknown[]).map((x) => (typeof x === 'string' ? x : String((x as Record<string, unknown>).fn_mis_permisos ?? ''))))
-      setEstado({ uid, admin: !a.error && a.data === true, codigos: p.error ? VACIO : codigos })
+      setEstado({ uid, admin: !a.error && a.data === true, superAdmin: !sa.error && sa.data === true, codigos: p.error ? VACIO : codigos })
     })
     return () => {
       vivo = false
@@ -73,6 +78,8 @@ export function PermisosProvider({ children }: { children: ReactNode }) {
   }, [uid, vuelta])
 
   const realAdmin = !!estado && estado.uid === uid && estado.admin
+  // Super administrador de verdad: no cambia con «Ver como otro grupo».
+  const superAdmin = !!estado && estado.uid === uid && estado.superAdmin
   const verComoActivo = realAdmin && verComo ? verComo : null
 
   useEffect(() => {
@@ -116,15 +123,16 @@ export function PermisosProvider({ children }: { children: ReactNode }) {
       cargando,
       admin,
       codigos,
-      puedeRuta: (ruta) => rutaPermitida(ruta, codigos, admin),
-      puedeOpcion: (i) => opcionPermitida(i, codigos, admin),
+      puedeRuta: (ruta) => (RUTAS_SUPER_ADMIN.some((r) => ruta.startsWith(r)) ? superAdmin : rutaPermitida(ruta, codigos, admin)),
+      puedeOpcion: (i) => (i.soloSuperAdmin ? superAdmin : opcionPermitida(i, codigos, admin)),
       tiene: (c) => admin || codigos.has(c),
       recargar,
       realAdmin,
+      superAdmin,
       verComo: verComoActivo,
       setVerComo,
     }),
-    [cargando, admin, codigos, recargar, realAdmin, verComoActivo, setVerComo],
+    [cargando, admin, codigos, recargar, realAdmin, superAdmin, verComoActivo, setVerComo],
   )
   return <PermisosContext.Provider value={valor}>{children}</PermisosContext.Provider>
 }
