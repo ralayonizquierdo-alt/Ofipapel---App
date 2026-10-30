@@ -2005,6 +2005,7 @@ function bloqueDocumentos(g) {
   const docs = documentosCampana(g.pedidos);
   const nFotos = g.pedidos.reduce((s, p) => s + fotosDe(p).length, 0);
   const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €
+    ${d.campo === 'factura' ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})" title="Excel de Géminis solo de esta factura">📥 Excel Géminis</button>` : ''}
     <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)}, ${i})" title="Quitarlo de todos los pedidos de la campaña">🗑️ Quitar</button></li>`;
   const lista = (campo, titulo) => {
     const ds = docs.map((d, i) => [d, i]).filter(([d]) => d.campo === campo);
@@ -2017,6 +2018,12 @@ function bloqueDocumentos(g) {
     : `<div class="aviso-caja ok" style="margin:6px 0"><b>🧮 Artículos cuadrados:</b> las ${cu.facturadas} uds. que factura el proveedor están todas facturadas a un cliente.</div>`;
   return `${lineaCuadre}<details class="no-imprimir" style="margin:8px 0"><summary>📂 Documentos subidos: 📷 ${nFotos} foto(s) · 📄 ${docs.filter((d) => d.campo === 'propuesta').length} propuesta(s) · 🧾 ${docs.filter((d) => d.campo === 'factura').length} factura(s) final(es)</summary>
     <div style="display:grid;gap:8px;margin-top:8px">${lista('propuesta', '📄 Propuestas del proveedor')}${lista('factura', '🧾 Facturas finales')}</div></details>`;
+}
+/** El Excel de Géminis de una sola factura final de la campaña (la compra de esa factura). */
+function excelDeFactura(clave, indice) {
+  const d = documentosCampana(E.pedidos.filter((p) => claveGrupo(p) === clave))[indice];
+  if (!d || d.campo !== 'factura') return;
+  exportarPedidos(d.pedidos.map((p) => p.id), { soloFactura: d.nombre.replace(/^Factura /, '') });
 }
 function cuadreCampana(ps) {
   return CP.cuadreArticulos(ps.filter((p) => p.factura).map((p) => {
@@ -2942,7 +2949,8 @@ function asignarFactura(p, archivo, doc) {
   const subida = Date.now();
   const fra = (doc.cabecera || {}).numero || '';
   const lineas = (doc.lineas || []).map((l, i) => Object.assign({}, l, { origen: l.origen || archivo, subida: l.subida != null ? l.subida : subida, pos: l.pos != null ? l.pos : i },
-    l.fra || !fra ? {} : { fra }));
+    // El nº de esta factura solo a sus propias líneas: las de facturas subidas antes (otro `origen`) no.
+    l.fra || !fra || (l.origen && l.origen !== archivo) ? {} : { fra }));
   p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas, control: doc.control || null };
   restosPorFactura(p);
 }
@@ -3622,7 +3630,8 @@ function exportarSeleccionados(raiz) {
   if (!ids.length) { alert('No hay pedidos que exportar.'); return; }
   exportarPedidos(ids);
 }
-function exportarPedidos(ids) {
+function exportarPedidos(ids, opciones) {
+  const soloFactura = opciones && opciones.soloFactura;
   const ps = ids.map(pedidoPorId).filter(Boolean);
   const sinValidar = ps.filter((p) => !p.validado);
   if (sinValidar.length) { alert('No se puede exportar con discordancias sin resolver. Sin validar: ' + sinValidar.map((p) => 'nº ' + p.numero).join(', ')); return; }
@@ -3641,17 +3650,20 @@ function exportarPedidos(ids) {
   // Con factura final en todos, el Excel es la factura tal cual: una fila por
   // línea, en su orden (por subida y posición), sin juntar referencias.
   // (las facturas subidas antes del 23/10/2026 no guardan la posición: esas, como antes).
-  const comoFactura = ps.every((p) => p.factura && p.factura.lineas.length && p.factura.lineas.every((l) => l.pos != null));
+  const comoFactura = Boolean(soloFactura) || ps.every((p) => p.factura && p.factura.lineas.length && p.factura.lineas.every((l) => l.pos != null));
   const filas = [];
   for (const p of ps) {
     // La factura final manda: si está, el Excel es ella tal cual (su orden,
     // precio y descuento). Si no, lo validado en el orden de la propuesta.
-    const enOrden = p.factura ? CP.fusionarAltas(p.factura.lineas, p.final.lineas) : CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
+    const lineasFra = !p.factura ? [] : soloFactura
+      ? p.factura.lineas.filter((l) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo) === soloFactura)
+      : p.factura.lineas;
+    const enOrden = p.factura ? CP.fusionarAltas(lineasFra, p.final.lineas) : CP.ordenarComoPropuesta(p.final.lineas, p.propuesta && p.propuesta.lineas);
     const dtoGlobal = p.factura ? (p.factura.cabecera || {}).dtoGlobal : p.final.dto;
     for (const l0 of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
       // Géminis guarda las referencias de Finocam sin el año del final.
       const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(l0.ref, p.proveedor) });
-      if (comoFactura) { filas.push(Object.assign(l, { _fra: CP.facturaDeLinea(l0, (p.factura.cabecera || {}).numero || p.factura.archivo), _ped: p })); continue; }
+      if (comoFactura) { filas.push(Object.assign(l, { _fra: CP.facturaDeLinea(l0, l0.origen || (p.factura.cabecera || {}).numero || p.factura.archivo), _ped: p })); continue; }
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
       const g = suma.get(k);
@@ -3680,11 +3692,15 @@ function exportarPedidos(ids) {
       if (!porFactura.has(l._fra)) porFactura.set(l._fra, []);
       porFactura.get(l._fra).push(l);
     }
+    if (soloFactura) {
+      for (const k of [...porFactura.keys()]) if (k !== soloFactura) porFactura.delete(k);
+      if (!porFactura.size) { alert(`No encuentro las líneas de la factura ${soloFactura} en esos pedidos.`); return; }
+    }
     if (porFactura.size > 1) alert(`Estos pedidos vienen en ${porFactura.size} facturas del proveedor (${[...porFactura.keys()].join(', ')}): se descarga un Excel de Géminis por factura, cada uno en su orden.`);
     for (const [fra, ls] of porFactura) {
       const peds = [...new Set(ls.map((l) => l._ped))];
       ls.forEach((l) => { delete l._fra; delete l._ped; });
-      descargarGeminis(ls, { proveedor: provs[0], numero: porFactura.size > 1 || peds.length > 1 ? `FRA ${fra}` : peds[0].numero,
+      descargarGeminis(ls, { proveedor: provs[0], numero: soloFactura || porFactura.size > 1 || peds.length > 1 ? `FRA ${fra}` : peds[0].numero,
         observaciones: `Factura ${fra}: ` + peds.map((p) => `${p.numero} ${p.cliente || ''}`.trim()).join(', '), decimales, marca });
     }
     return;
