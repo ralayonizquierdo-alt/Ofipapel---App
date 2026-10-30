@@ -566,7 +566,8 @@ function apuntarHecho(p, que, claves) {
 const hecho = (p, que, k) => ((p.hechos || {})[que] || []).includes(String(k));
 const PASOS = { lineas: 'Sin líneas', propuesta: 'Falta propuesta', validar: 'Falta validar',
   reclamar: 'Reclamación pendiente', factura: 'Falta factura final', excel: 'Falta Excel Géminis',
-  guia: 'Falta imprimir guía' };
+  liquidacion: 'Falta liquidación de compra', guia: 'Falta imprimir guía' };
+const POR_FACTURA = ['excel', 'liquidacion', 'guia'];
 /** Pasos que le quedan al pedido, en orden: [{ paso, fra? }]. */
 function pasosPendientes(p) {
   if (!p.lineas.length) return [{ paso: 'lineas' }];
@@ -583,6 +584,8 @@ function pasosPendientes(p) {
     return r;
   }
   fras.filter((f) => !hecho(p, 'excel', f)).forEach((fra) => r.push({ paso: 'excel', fra }));
+  // La liquidación de compra de Géminis de cada factura da los códigos internos de la guía.
+  fras.filter((f) => !hecho(p, 'liquidacion', f)).forEach((fra) => r.push({ paso: 'liquidacion', fra }));
   fras.filter((f) => !hecho(p, 'guia', f)).forEach((fra) => r.push({ paso: 'guia', fra }));
   return r;
 }
@@ -591,7 +594,7 @@ function chipsQueFalta(g) {
   const por = new Map();
   for (const p of g.pedidos) for (const x of pasosPendientes(p)) {
     if (!por.has(x.paso)) por.set(x.paso, new Set());
-    por.get(x.paso).add(x.paso === 'excel' || x.paso === 'guia' ? x.fra || 'validado' : 'nº ' + nPed(p.numero));
+    por.get(x.paso).add(POR_FACTURA.includes(x.paso) ? x.fra || 'validado' : 'nº ' + nPed(p.numero));
   }
   const ids = new Set(g.pedidos.map((p) => p.id));
   const enRestos = E.restos.filter((r) => ids.has(r.pedidoId) && r.pendiente > 0 && !r.anulado).reduce((s, r) => s + r.pendiente, 0);
@@ -602,10 +605,10 @@ function chipsQueFalta(g) {
   const porFra = (k) => [...por.get(k)].map((f) => `<span class="chip mal" style="cursor:pointer" title="Pulsa si ya está hecho"
     onclick="event.preventDefault(); event.stopPropagation(); marcarHecho(${js(g.clave)}, '${k}', ${js(f)})">${PASOS[k]}${f === 'validado' ? '' : ' · Fra ' + h(f)}</span>`).join('');
   return Object.keys(PASOS).filter((k) => por.has(k))
-    .map((k) => k === 'excel' || k === 'guia' ? porFra(k) : `<span class="chip ${k === 'reclamar' ? 'aviso' : 'mal'}">${PASOS[k]}: ${h(lista([...por.get(k)]))}</span>`).join('') + restos;
+    .map((k) => POR_FACTURA.includes(k) ? porFra(k) : `<span class="chip ${k === 'reclamar' ? 'aviso' : 'mal'}">${PASOS[k]}: ${h(lista([...por.get(k)]))}</span>`).join('') + restos;
 }
 function marcarHecho(clave, que, fra) {
-  const queEs = que === 'excel' ? 'el Excel de Géminis' : 'la guía de facturación';
+  const queEs = { excel: 'el Excel de Géminis', liquidacion: 'la liquidación de compra (códigos)', guia: 'la guía de facturación' }[que];
   if (!confirm(`¿Ya está hecho ${queEs}${fra === 'validado' ? '' : ' de la factura ' + fra}?\nAceptar = darlo por hecho.`)) return;
   for (const p of E.pedidos.filter((q) => claveGrupo(q) === clave && q.validado)) {
     const fras = facturasDe(p);
@@ -854,6 +857,11 @@ async function cargarCodigosCampana(files, clave) {
     // Solo cuentan las líneas que saldrán en la guía: con factura final, lo facturado.
     const tiene = (ref) => Object.keys(p.codigos).some((r) => CP.claveRef(r) === CP.claveRef(ref));
     for (const l of (p.factura && p.factura.lineas) || (p.final && p.final.lineas) || []) { if (tiene(l.ref)) con++; else sin.push(`nº ${nPed(p.numero)} ${l.ref}`); }
+  }
+  // La factura cuyas líneas tienen ya todas su código interno queda con la liquidación hecha.
+  for (const p of ps) for (const f of facturasDe(p)) {
+    const ls = p.factura.lineas.filter((l) => String(fraDeLinea(l, p)) === f && !l.deMas);
+    if (ls.length && ls.every((l) => codigoDe(p, l.ref))) apuntarHecho(p, 'liquidacion', [f]);
   }
   guardar(); pintar();
   alert(`Liquidación leída: ${lineas.length} códigos.\n${con} líneas de los pedidos ya tienen código interno.` +
