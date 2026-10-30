@@ -262,7 +262,8 @@ export function GeneradorListadosPage() {
             .sort((a, b) => num(a).localeCompare(num(b), 'es', { numeric: true }))
             .map((c) => ({ clave: c, titulo: `Vend. Nº ${num(c)}`, lista: visibles.filter((g) => g.creado_por === c) })),
           { clave: 'serie', titulo: 'De serie (para todos)', lista: visibles.filter((g) => !g.creado_por) },
-        ].filter((x) => x.lista.length)
+          // «Mis listados» sale siempre (aunque esté vacío), para que se vea dónde van los tuyos.
+        ].filter((x) => x.lista.length || (x.clave === 'yo' && !op))
   const alternarGrupo = (c: string) =>
     setCerrados((x) => {
       const n = new Set(x)
@@ -279,8 +280,8 @@ export function GeneradorListadosPage() {
           <b className="flex-1">Listados guardados</b>
           <input
             className="h-[20px] w-[64px] border border-[var(--gw-border)] bg-white px-1 text-[12px]"
-            placeholder="Nº vend."
-            title="Escribe el nº de vendedor (empleado) para ver solo sus listados"
+            placeholder="Ver Nº…"
+            title="Solo para ver los listados de OTRO vendedor: escribe su nº. Los tuyos ya salen arriba, en «Mis listados»"
             value={operario}
             onChange={(e) => setOperario(e.target.value)}
           />
@@ -303,6 +304,9 @@ export function GeneradorListadosPage() {
                 <span className="flex-1 truncate">{gr.titulo}</span>
                 <span className="text-[11px] font-normal text-[#777]">{gr.lista.length}</span>
               </button>
+              {!cerrados.has(gr.clave) && gr.clave === 'yo' && !gr.lista.length && (
+                <div className="px-3 py-1 text-[12px] text-[#777]">Aún no has guardado ninguno: haz un listado y pulsa «Guardar». Saldrá aquí.</div>
+              )}
               {!cerrados.has(gr.clave) &&
                 gr.lista.map((g) => (
                   <button
@@ -424,7 +428,8 @@ export function GeneradorListadosPage() {
                     notas: [
                       'Agrupar y sumar: por ejemplo, agrupar por Familia y sumar Base = ventas por familia.',
                       'Los guardados salen a la izquierda, agrupados por nº de vendedor (o por tipo); pulsa uno para abrirlo.',
-                      'Nº vend.: escribe el número de un vendedor para ver solo sus listados.',
+                      'Tus listados salen solos arriba, en «Mis listados · Nº (tu número)»: no hace falta escribir nada.',
+                      'Ver Nº…: solo para ver los listados de OTRO vendedor; escribe su número (bórralo para volver a verlos todos).',
                       'Columnas → «Todos los campos de la ficha»: cualquier campo, con buscador.',
                       '⛶ Pantalla: el listado a pantalla completa. Esc o «Cerrar pantalla» para volver.',
                       'Acceso directo: botón «📋 Listados» en la barra de título de cada pantalla (abre el generador con lo de esa pantalla), icono «Listados» de la barra de accesos y «Generador de listados» en cada menú Listados.',
