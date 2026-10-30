@@ -2896,19 +2896,10 @@ function repartirFacturas(docs, clave) {
   const r = CP.repartirPorReferencias(lineas, pedidos.map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente,
     lineas: q.final.lineas.concat(previas(q).map((l) => ({ ref: l.ref, cant: -(CP.parseNum(l.cant) || 0) }))) })),
     { todos: E.pedidos.filter((q) => !q.archivado && claveGrupo(q) === clave && !q.sobrantes).map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente, lineas: (q.final && q.final.lineas) || q.lineas })) });
-  // Un pedido que de esta factura solo recibe unas líneas sueltas no tiene su
-  // albarán en ella (Finocam: ALDAYO recibió 1 línea de 96 y las otras 95
-  // acabaron en Restos): no se le da factura —llegará en otra— y esas líneas
-  // cuentan como sobrantes.
-  for (const q of pedidos) {
-    const ls = r.porPedido.get(q.id);
-    if (!ls || previas(q).length || ls.some((l) => l.bloque)) continue;
-    const pedidas = new Set(q.final.lineas.map((l) => CP.claveRef(l.ref))).size;
-    if (pedidas && new Set(ls.map((l) => CP.claveRef(l.ref))).size < pedidas / 2) {
-      r.sobrantes.push(...ls);
-      r.porPedido.delete(q.id);
-    }
-  }
+  // Lo que pidió un pedido se queda en ese pedido aunque solo le lleguen unas
+  // líneas sueltas: lo demás queda pendiente en sus Restos hasta la siguiente
+  // factura. Antes esas líneas se le daban a otro cliente como «sin pedir»
+  // (Finocam FV2605151: 2 calendarios de TANIA acababan en PAPELES).
   // Un bloque de factura que no es de ningún pedido abierto no se reparte entre otros (regla del propietario).
   if (r.bloquesSinDueno.length || r.sobrantes.some((l) => l.deBloque)) ultimaCarga.push({ ok: false, texto: `Bloques de la factura sin pedido en esta campaña (no se reparten entre otros): ${[...new Set(r.sobrantes.filter((l) => l.deBloque).map((l) => l.bloque))].join(', ')}` });
   // Lo sobrante, al pedido que más líneas recibe de ese mismo PDF (solo lo que no viene por bloques).
