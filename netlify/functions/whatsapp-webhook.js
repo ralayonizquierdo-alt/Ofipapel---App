@@ -82,6 +82,10 @@ const {
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  prometeUnCompromiso,
+  compromisoInfo,
+  preguntaPorAlguienDelEquipo,
+  llamaPorSuNombreInfo,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
   PRODUCTO_NO_VERIFICADO_INFO,
@@ -1086,6 +1090,25 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   const debePresentarse = !fichaCliente?.presentado;
   if (debePresentarse) await conversationStore.marcarPresentado(message.from);
 
+  // LE LLAMA POR SU NOMBRE: NO ES UN CLIENTE CUALQUIERA.
+  //
+  // «Buenos días Rober!!», y detrás «Film negro te mando?» (29/10/2026). A un
+  // asistente de atención al cliente no se le saluda por el nombre de pila del
+  // dueño: quien lo hace ya conoce la casa — un proveedor, un comercial, un
+  // amigo — y su conversación no va de precios ni de pedidos, que es lo único
+  // que el bot sabe hacer.
+  //
+  // Esto llega ANTES de que haya nada que corregir, al revés que la red de los
+  // compromisos, que actúa cuando la IA ya ha metido la pata. Las dos se
+  // quedan: esta ataja el caso de entrada y aquella recoge lo que se escape.
+  const alQuienLlama = preguntaPorAlguienDelEquipo(text);
+  if (alQuienLlama) {
+    const prefijo = llamaPorSuNombreInfo(alQuienLlama, idioma);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
+  }
+
   const history = historialParaLaIA(await getHistory(message.from));
 
   // LAS REGLAS FIJAS SOLO VALEN EN ESPAÑOL.
@@ -1444,6 +1467,23 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       await appendToHistory(message.from, text, enviado);
       return;
     }
+  }
+
+  // EL BOT NO COMPROMETE A LA TIENDA.
+  //
+  // Un comercial ofreció mandar film negro y el bot quedó en recibirlo y en
+  // decirle si lo vendíamos (29/10/2026, ver prometeUnCompromiso). Eso no lo
+  // decide él, y nadie va a ver ese material: lo único honesto es decir que de
+  // eso se encarga una persona y ofrecerla de verdad, con sus botones.
+  //
+  // Va antes que las demás redes a propósito: no importa si había catálogo ni
+  // si la respuesta traía precios. Una cita que no vamos a cumplir es un
+  // problema en sí misma.
+  if (prometeUnCompromiso(respuesta)) {
+    const prefijo = greeting + compromisoInfo(idioma);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
   }
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que

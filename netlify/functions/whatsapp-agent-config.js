@@ -538,6 +538,118 @@ function isUnverifiedStockClaim(text) {
   return STOCK_SIN_DATOS_PATTERN.test(text || '');
 }
 
+// QUIEN LLAMA A ALGUIEN POR SU NOMBRE YA CONOCE LA CASA.
+//
+// «Buenos días Rober!!» — así empezaba la conversación del 29/10/2026 que
+// acabó con el bot quedando en recibir film negro. Palabras del propietario:
+// «si de entrada me llama Rober es que es alguien conocido».
+//
+// Y tiene razón: a un bot de atención al cliente no se le saluda por el nombre
+// de pila del dueño. Quien lo hace es un proveedor, un comercial, un vecino o
+// un amigo — gente cuya conversación no va de precios ni de pedidos, que es lo
+// único que el bot sabe hacer. Esta señal llega ANTES de que haya nada que
+// corregir, al revés que la red de los compromisos.
+//
+// Los nombres se añaden aquí cuando entre alguien nuevo al equipo.
+const NOMBRES_DEL_EQUIPO = ['rober', 'roberto', 'luis', 'miguel', 'm[óo]nica', 'david'];
+const _NOMBRE = `(?:${NOMBRES_DEL_EQUIPO.join('|')})`;
+const _SALUDO = '(?:hola|buenas|buenos\\s*d[íi]as|buenas\\s*tardes|buenas\\s*noches|hey|qu[ée]\\s+tal|oye|perdona|disculpa)';
+
+// «soy Luis», «me llamo Miguel», «aquí David»: quien escribe se está
+// presentando, no preguntando por nadie. Un cliente que se llame como alguien
+// del equipo no puede acabar en una persona por eso.
+const _SE_PRESENTA = new RegExp(`\\b(soy|me\\s+llamo|aqu[íi]|habla|les\\s+habla)\\s+${_NOMBRE}\\b`, 'i');
+
+const _PREGUNTA_POR_ALGUIEN = [
+  // «Buenos días Rober», «Hola, Luis!»
+  new RegExp(`\\b${_SALUDO}[\\s,!¡.·\\-]*${_NOMBRE}\\b`, 'i'),
+  // «¿está Rober?», «me pasas con Luis», «quería hablar con Miguel»
+  new RegExp(`\\b(est[áa]|se\\s+encuentra|me\\s+pasas\\s+con|p[áa]same\\s+con|hablar\\s+con|preguntar\\s+por)\\s+${_NOMBRE}\\b`, 'i'),
+  // «Rober, …» abriendo el mensaje
+  new RegExp(`^\\s*${_NOMBRE}\\s*[,:!]`, 'i'),
+];
+
+// Devuelve el nombre al que llaman, o null. Se devuelve el nombre para poder
+// decirle la verdad a quien escribe: que esa persona no está en este chat.
+function preguntaPorAlguienDelEquipo(texto) {
+  const t = String(texto || '');
+  if (!t.trim() || _SE_PRESENTA.test(t)) return null;
+  for (const patron of _PREGUNTA_POR_ALGUIEN) {
+    const encontrado = t.match(patron);
+    if (encontrado) {
+      // El \b final importa: sin él, «Roberto» se extrae como «Rober», porque
+      // la alternancia prueba «rober» primero y sin frontera se la queda.
+      const nombre = encontrado[0].match(new RegExp(`${_NOMBRE}\\b`, 'i'))[0].toLowerCase();
+      return nombre.charAt(0).toUpperCase() + nombre.slice(1);
+    }
+  }
+  return null;
+}
+
+function llamaPorSuNombreInfo(nombre, idioma = 'es') {
+  return idioma === 'en'
+    ? `I'm Ofipapel's virtual assistant — ${nombre} doesn't see this chat. `
+    : `Soy el asistente virtual de Ofipapel, y ${nombre} no ve este chat. `;
+}
+
+// LO QUE EL BOT NO PUEDE COMPROMETER.
+//
+// Visto en real el 29/10/2026. Alguien escribió «Buenos días Rober!!» y, acto
+// seguido, «Film negro te mando?». El bot contestó:
+//
+//   «Claro, mándamelo y vemos qué es 👍»
+//   «Vale, sin problema. Cuando lo tengas, me lo pasas y te digo si lo vendemos 👍»
+//
+// No era un cliente preguntando: era alguien OFRECIENDO mercancía — un
+// comercial o un proveedor —, y el bot lo aceptó en nombre de Ofipapel. Quedó
+// citado para recibir un material que nadie espera y prometió una decisión
+// («te digo si lo vendemos») que no puede tomar ni trasladar a nadie. Quien
+// escribió se queda esperando una respuesta que no va a llegar nunca.
+//
+// Por qué no basta con pedírselo al prompt: TODAS las reglas de ahí dan por
+// hecho que quien escribe es un cliente que PREGUNTA. Cuando quien escribe
+// OFRECE, no hay ninguna regla que le aplique, y la IA hace lo que hace por
+// defecto — ser simpática y decir que sí. Así que se comprueba en la respuesta,
+// como con los precios y el stock.
+//
+// Lo que se busca es muy concreto, a propósito: que el bot se cite para
+// recibir algo o prometa una decisión comercial. Nada de «mándame una foto» ni
+// «pásame el número de pedido», que son su trabajo de todos los días y tienen
+// su prueba para que no se los lleve esta red por delante.
+const COMPROMISO_PATTERNS = [
+  // «te digo si lo vendemos», «te confirmo si nos interesa».
+  //
+  // OJO: nada de \b justo detrás del verbo. En JavaScript «é» no es carácter de
+  // palabra, así que \b detrás de «comentaré» no casa donde uno cree y la red
+  // se saltaba media lista de futuros.
+  /\bte\s+(digo|dir[ée]|confirmo|confirmar[ée]|aviso|avisar[ée]|comento|comentar[ée]|contesto|contestar[ée]|respondo|responder[ée])(?![a-z])[^.!?]{0,40}\bsi\b[^.!?]{0,40}\b(vendemos|compramos|cogemos|interesa|interesar[íi]a|encaja|nos\s+sirve|nos\s+vale)\b/i,
+
+  // «vemos qué es», «valoramos si nos interesa», «estudiamos tu propuesta»
+  /\b(vemos|veremos|miramos|miraremos|valoramos|valoraremos|estudiamos|estudiaremos)\b[^.!?]{0,30}\b(qu[ée]\s+es|si\s+nos\s+interesa|si\s+lo\s+vendemos|tu\s+(producto|propuesta|muestra|oferta))\b/i,
+
+  // Citarse para recibir género: «mándame una muestra», «enséñame tu tarifa».
+  // Ojo con "material", que aquí NO entra: «mándame la lista del material» es
+  // un presupuesto escolar de verdad.
+  /\b(m[áa]ndame|env[íi]ame|tr[áa]eme|ens[ée]ñame|pas[áa]me)\b[^.!?]{0,25}\b(muestra|muestras|tarifa|tarifas|mercanc[íi]a|cat[áa]logo\s+de\s+precios)\b/i,
+];
+
+function prometeUnCompromiso(texto) {
+  const t = String(texto || '');
+  return COMPROMISO_PATTERNS.some((p) => p.test(t));
+}
+
+// Lo que se contesta en su lugar. No disimula que el bot no es quien decide, y
+// de ahí se sigue con los botones de hablar con una persona.
+// Sin «una persona del equipo» dentro: la pregunta del escalado que va justo
+// detrás ya lo dice, y juntas quedaba «...una persona del equipo. ¿Quieres que
+// te ponga en contacto con una persona del equipo?».
+const COMPROMISO_INFO = 'Eso no lo llevo yo. ';
+const COMPROMISO_INFO_EN = "That's not something I handle. ";
+
+function compromisoInfo(idioma = 'es') {
+  return idioma === 'en' ? COMPROMISO_INFO_EN : COMPROMISO_INFO;
+}
+
 // UN PRECIO QUE NO SALE DE NINGÚN SITIO.
 //
 // El 16/10/2026 un cliente preguntó por folios A-4 y se le dijo que costaban
@@ -1246,6 +1358,7 @@ Instrucciones:
 - Si preguntan por el estado de un pedido ya hecho, lo PRIMERO es pedirles el número de pedido (lo tienen en el email de confirmación): el sistema sí puede consultarlo de verdad y decirles en qué estado está. NUNCA digas que no tienes acceso a sus pedidos ni que no puedes consultarlos desde aquí — es falso y les hace llamar para nada. Si ya te han dado el número y aun así no tienes el dato delante, pídeselo otra vez por si venía mal escrito. Solo cuando se trate de algo que el número no resuelve (una incidencia, una devolución, un cambio en el pedido) indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - IMPORTANTE: nunca prometas cosas que no puedes cumplir tú sola, como "le paso tu consulta al equipo", "he anotado tu nombre y teléfono para que te llamen" o "el equipo te contactará mañana". No tienes forma de avisar a nadie ni de guardar esos datos para un seguimiento real — si dices eso, el cliente se queda esperando una llamada que nunca llega. Si el cliente pide que le devuelvan la llamada, le contacten, o le pasen un mensaje al equipo, no lo gestiones tú: dile que puede escribir directamente a pedidos@ofipapelsl.com con su nombre y teléfono, o (si estamos en horario) llamar al ${STORES[0].phone}.
+- NO ERES QUIEN DECIDE NADA DE LA TIENDA, y hay gente que no escribe para preguntar sino para OFRECER: comerciales y proveedores que quieren vendernos, mandarnos muestras, enseñarnos su tarifa o pasarse por la tienda. Eso NO lo lleva el bot. No aceptes nada ("claro, mándamelo"), no quedes en recibir nada ("cuando lo tengas me lo pasas") y no prometas ninguna decisión ("te digo si lo vendemos", "lo vemos y te cuento"): nadie va a recibir ese material ni va a tomar esa decisión, y esa persona se queda esperando una respuesta que no llega. Visto en real el 29/10/2026 — alguien ofreció mandar film negro y el bot quedó en recibirlo y en decirle si lo vendíamos. Di que de eso se encarga una persona del equipo y añade la frase exacta de "no sé la respuesta".
 - Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo. Si estamos en horario, facilita el teléfono directo: ${STORES[0].phone}. Si estamos fuera de horario, no des el teléfono para llamar ahora: dile que un agente atenderá su petición en cuanto retomemos la actividad.
 - NUNCA le mandes al cliente a buscar él en ofipapel.net ("busca 'Epson 604' en la web y ahí lo ves"). Buscar es tu trabajo, no el suyo: si te ha escrito por WhatsApp es justamente para no tener que hacerlo. Puedes dar el enlace directo de un producto o de una categoría concreta cuando lo tengas en los resultados de búsqueda, pero no la instrucción de que se ponga a buscar. Si no tienes los datos, dile lo que sí sabes y ofrécele el contacto del equipo.
 - LAS FOTOS SÍ LAS VES, pero no directamente. Cuando un cliente manda una foto, el sistema la lee aparte y te pasa esa lectura en un mensaje que empieza por "${MARCA_FOTO}". Lo que viene detrás NO son sus palabras: es una descripción automática de su foto, y PUEDE ESTAR MAL (una referencia mal leída, una marca que no es). Úsala como pista para buscar, nunca como un hecho: que la lectura diga "HP 305XL" no significa que lo tengamos ni que sea de verdad ese modelo — eso solo lo dicen los resultados de búsqueda. Háblale con naturalidad de lo que se ve ("por la foto parece un 305XL, ¿me lo confirmas?"), sin mencionar lecturas, descripciones ni sistemas, y sin dar por hecho que te lo describió él. Si de la lectura no queda claro qué necesita, pregúntaselo. Lo que NO puedes ver es ni un audio, ni un vídeo, ni un PDF: de esos se encarga una persona del equipo.
@@ -1284,6 +1397,12 @@ module.exports = {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  prometeUnCompromiso,
+  compromisoInfo,
+  COMPROMISO_INFO,
+  preguntaPorAlguienDelEquipo,
+  llamaPorSuNombreInfo,
+  NOMBRES_DEL_EQUIPO,
   preciosDe,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
