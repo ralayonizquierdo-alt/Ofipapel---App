@@ -4,8 +4,9 @@ import { ZonaServicioFichaPage } from './ZonaServicioFichaPage'
 import { CargaCotizacionPage } from './CargaCotizacionPage'
 import { ImportarPage } from './ImportarPage'
 import { AuditoriaPage } from './AuditoriaPage'
+import { TextosLegalesPage } from './TextosLegalesPage'
 
-/** Ventanas de Archivo sin captura bajo /archivo/…: Parámetros, Zonas de servicio, Carga Cotización, Importar y Auditoría. */
+/** Ventanas de Archivo sin captura bajo /archivo/…: Parámetros, Zonas de servicio, Carga Cotización, Importar, Auditoría y Textos legales. */
 export function ArchivoRoutes() {
   return (
     <Routes>
@@ -14,6 +15,7 @@ export function ArchivoRoutes() {
       <Route path="carga-cotizacion" element={<CargaCotizacionPage />} />
       <Route path="importar" element={<ImportarPage />} />
       <Route path="auditoria" element={<AuditoriaPage />} />
+      <Route path="textos-legales" element={<TextosLegalesPage />} />
       <Route path="*" element={<Navigate to="/archivo/parametros" replace />} />
     </Routes>
   )

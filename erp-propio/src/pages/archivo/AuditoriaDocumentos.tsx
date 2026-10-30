@@ -1,4 +1,4 @@
-// Auditoría → Documentos legales (Luis, 30/10/2026): el texto que informa a los empleados del
+// Archivo → Textos legales → Documentos (Luis, 30/10/2026): el texto que informa a los empleados del
 // registro de cambios (art. 87 LOPDGDD) y los documentos que se quieran añadir (copias firmadas,
 // actualizaciones…), con texto y/o un archivo adjunto (máx. 8 MB). Solo super administradores.
 // No se borran: se retiran. Tabla auditoria_documento (migración 20261030_auditoria_documentos).

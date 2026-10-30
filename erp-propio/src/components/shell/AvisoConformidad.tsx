@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
-// Aviso legal al entrar (Luis, 30/10/2026): mientras el empleado no haya dado su conformidad a la
-// versión vigente del texto legal de la auditoría (Archivo → Auditoría → Documentos legales,
+// Aviso legal al entrar (Luis, 30/10/2026). «Ahora no» queda registrado como denegado. Mientras el empleado no haya dado su conformidad a la
+// versión vigente del texto legal de la auditoría (Archivo → Textos legales → Documentos,
 // «requiere conformidad»), le sale al entrar. «Doy mi conformidad» la registra con día y hora
 // (fn_dar_conformidad). Si el texto cambia, sale otra vez.
 // Sin conformidad no puede modificar nada (la base de datos lo impide: fn_auditoria_trigger), salvo
-// que un super administrador le deje (Auditoría → Conformidades). «Ahora no» cierra el aviso y deja
+// que un super administrador le deje (Archivo → Textos legales → Por empleado). «Ahora no» cierra el aviso y deja
 // una franja roja «Solo consulta» que lo vuelve a abrir; los botones de alta, modificar y borrar se
 // apagan (clase gw-sin-conformidad, index.css). Los super administradores ven quién la ha dado.
 
@@ -62,6 +62,8 @@ export function AvisoConformidad({ uid }: { uid: string | null }) {
     setPendientes((p) => p.slice(1))
   }
   const ahoraNo = () => {
+    // Queda como «denegado» en Archivo → Textos legales (con día y hora).
+    for (const p of pendientes) void supabase.rpc('fn_denegar_conformidad', { p_documento: p.id, p_version: p.version })
     try {
       sessionStorage.setItem(`${CLAVE_AHORA_NO}.${uid}`, '1')
     } catch {
@@ -94,7 +96,9 @@ export function AvisoConformidad({ uid }: { uid: string | null }) {
           He leído esta información y doy mi conformidad.
         </label>
         {doc.bloquea && (
-          <div className="mx-2 mt-1 text-[12px] font-bold text-[#c42b1c]">Mientras no des tu conformidad, solo podrás consultar: no podrás modificar nada en el programa.</div>
+          <div className="mx-2 mt-1 text-[12px] font-bold text-[#c42b1c]">
+            Mientras no des tu conformidad, solo podrás consultar: no podrás modificar nada en el programa.
+          </div>
         )}
         {error && <div className="mx-2 font-bold text-[#c42b1c]">{error}</div>}
         <div className="flex justify-end gap-2 p-2">

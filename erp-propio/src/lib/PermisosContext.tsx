@@ -5,7 +5,7 @@ import { opcionPermitida, rutaPermitida } from './permisos'
 import type { MenuItem } from '../components/shell/menus'
 
 /** Pantallas solo para super administradores, tengan el grupo que tengan (la BD también lo exige). */
-const RUTAS_SUPER_ADMIN = ['/archivo/auditoria']
+const RUTAS_SUPER_ADMIN = ['/archivo/auditoria', '/archivo/textos-legales']
 
 interface PermisosState {
   /** Todavía cargando los permisos del empleado conectado. */

@@ -48,6 +48,11 @@ export const MENUS: TopMenu[] = [
       item('Parámetros', { to: '/archivo/parametros', description: 'Parámetros generales del programa (sin captura)' }),
       // Propio del ERP: registro de todos los cambios (solo super administradores).
       item('Auditoría', { to: '/archivo/auditoria', soloSuperAdmin: true, description: 'Quién cambió qué y cuándo (solo super administradores)' }),
+      item('Textos legales', {
+        to: '/archivo/textos-legales',
+        soloSuperAdmin: true,
+        description: 'Aviso legal a empleados: autorizados y denegados, y documentos (solo super administradores)',
+      }),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
       item('Cambiar Grupo de Acceso', { action: 'cambiar-grupo', shortcut: 'CTRL+O', description: 'Ver el programa como otro grupo de acceso (solo administradores)' }),
@@ -420,6 +425,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/monedas', title: 'Monedas' },
   { prefix: '/archivo/parametros', title: 'Parámetros' },
   { prefix: '/archivo/auditoria', title: 'Auditoría' },
+  { prefix: '/archivo/textos-legales', title: 'Textos legales' },
   { prefix: '/archivo/zonas-servicio', title: 'Zonas de servicio' },
   { prefix: '/archivo/carga-cotizacion', title: 'Carga Cotización' },
   { prefix: '/archivo/importar', title: 'Importar' },

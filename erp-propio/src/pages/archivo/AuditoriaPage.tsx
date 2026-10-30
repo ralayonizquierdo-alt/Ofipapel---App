@@ -9,8 +9,6 @@ import { GwDate, GwInput, GwSelect } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
-import { AuditoriaDocumentos } from './AuditoriaDocumentos'
-import { AuditoriaConformidades } from './AuditoriaConformidades'
 
 interface Fila {
   id: number
@@ -18,6 +16,8 @@ interface Fila {
   tabla: string
   operacion: 'INSERT' | 'UPDATE' | 'DELETE' | 'CONSULTA' | 'DEPURACION'
   registro: string | null
+  /** Nombre del registro (cliente, artículo, descripción…), si se apuntó. */
+  nombre?: string | null
   tienda: string | null
   empleado: string | null
   empleado_nombre: string | null
@@ -101,19 +101,118 @@ const fechaHora = (iso: string) =>
     minute: '2-digit',
     second: '2-digit',
   })
-const valor = (v: unknown) => (v == null || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v))
-const CAMPOS_NOMBRE = ['nombre', 'descripcion', 'nombre_cliente', 'concepto', 'titulo']
+const valor = (v: unknown) => (v == null || v === '' ? '—' : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : typeof v === 'object' ? JSON.stringify(v) : String(v))
 
-/** Una línea para la lista: qué cambió (campo: antes → después) o qué se dio de alta / baja. */
+/** Nombre de cada campo para leer (los que no están, con el nombre de la columna legible). */
+const ETIQUETA: Record<string, string> = {
+  nombre: 'Nombre',
+  nombre_corto: 'Nombre corto',
+  razon_social: 'Razón social',
+  descripcion: 'Descripción',
+  descripcion_corta: 'Descripción corta',
+  nombre_cliente: 'Cliente',
+  cliente_codigo: 'Nº cliente',
+  proveedor_codigo: 'Proveedor',
+  nif: 'NIF',
+  nif_cliente: 'NIF cliente',
+  contacto: 'Persona de contacto',
+  direccion: 'Dirección',
+  poblacion: 'Población',
+  codigo_postal: 'Código postal',
+  telefono_fijo: 'Teléfono',
+  telefono_movil: 'Móvil',
+  email: 'Correo',
+  pvp: 'PVP',
+  precio: 'Precio',
+  precio_compra: 'Precio de compra',
+  coste_puro: 'Coste',
+  coste_neto: 'Coste neto',
+  precio_medio_compra: 'Precio medio de compra',
+  cantidad: 'Cantidad',
+  descuento_pct: 'Dto. %',
+  descuento_pie_pct: 'Dto. pie %',
+  igic_pct: 'IGIC %',
+  subtotal: 'Subtotal',
+  total: 'Total',
+  total_pagado: 'Pagado',
+  total_pendiente: 'Pendiente',
+  importe_cobrado: 'Importe cobrado',
+  ingreso: 'Ingreso',
+  gasto: 'Gasto',
+  estado: 'Estado',
+  presupuesto_estado: 'Estado del presupuesto',
+  proximo_contacto: 'Próximo contacto',
+  responsable_codigo: 'Responsable',
+  motivo_perdida: 'Motivo de pérdida',
+  vendedor_codigo: 'Comercial',
+  empleado_codigo: 'Empleado',
+  repartidor_codigo: 'Repartidor',
+  ruta_codigo: 'Ruta',
+  forma_pago_codigo: 'Forma de pago',
+  tipo_credito: 'Contado / Crédito',
+  tarifa_nivel: 'Tarifa',
+  familia_codigo: 'Familia',
+  codigo_venta: 'Código de venta',
+  codigo_compra_habitual: 'Código de compra',
+  codigo_barras_principal: 'Código de barras',
+  stock_minimo: 'Stock mínimo',
+  observaciones: 'Observaciones',
+  fecha: 'Fecha',
+  hora: 'Hora',
+  fecha_inicio: 'Válido desde',
+  fecha_fin: 'Válido hasta',
+  fecha_entrega: 'Fecha de entrega',
+  aceptado: 'Aceptado',
+  preparado: 'Preparado',
+  entregado: 'Entregado',
+  anulado: 'Anulado',
+  va_a_reparto: 'Va a reparto',
+  activo: 'Activo',
+  bloqueado: 'Bloqueado',
+  limite_deuda: 'Límite de deuda',
+  titulo: 'Título',
+  contenido: 'Texto',
+  archivo_nombre: 'Archivo',
+  super_administrador: 'Super administrador',
+  conformidad_obligatoria: 'Exige conformidad',
+  rol_id: 'Grupo de acceso',
+  numero_operario: 'Nº de empleado',
+  valor: 'Valor',
+}
+const etiqueta = (c: string) => ETIQUETA[c] ?? c.replace(/_/g, ' ').replace(/^./, (x) => x.toUpperCase())
+const IGNORAR = new Set(['actualizado_en', 'creado_en', 'fecha_hora_actualizacion'])
+
+/** Campos que cambiaron (los apuntes antiguos no los traen: se sacan comparando antes y después). */
+function cambiados(f: Fila): string[] {
+  if (f.campos?.length) return f.campos
+  if (f.operacion !== 'UPDATE') return []
+  const claves = new Set([...Object.keys(f.antes ?? {}), ...Object.keys(f.despues ?? {})])
+  return [...claves].filter((k) => !IGNORAR.has(k) && JSON.stringify(f.antes?.[k] ?? null) !== JSON.stringify(f.despues?.[k] ?? null)).sort()
+}
+const CAMPOS_NOMBRE = ['nombre_cliente', 'nombre', 'descripcion', 'titulo', 'concepto']
+
+/** Nombre del registro: el apuntado o, en apuntes antiguos, el de los datos. */
+function nombreRegistro(f: Fila): string {
+  if (f.nombre) return f.nombre
+  const d = { ...(f.antes ?? {}), ...(f.despues ?? {}) }
+  const n = CAMPOS_NOMBRE.map((c) => d[c]).find((v) => v != null && v !== '')
+  return n != null ? String(n) : ''
+}
+
+/** Una línea para la lista: qué datos cambiaron (antes → después), o qué se dio de alta / baja. */
 function resumen(f: Fila): string {
-  if (f.operacion === 'UPDATE') return (f.campos ?? []).map((c) => `${c}: ${valor(f.antes?.[c])} → ${valor(f.despues?.[c])}`).join(' · ')
+  if (f.operacion === 'UPDATE')
+    return (
+      cambiados(f)
+        .map((c) => `${etiqueta(c)}: ${valor(f.antes?.[c])} → ${valor(f.despues?.[c])}`)
+        .join(' · ') || 'Sin cambios en los datos'
+    )
   if (f.operacion === 'CONSULTA' || f.operacion === 'DEPURACION')
     return Object.entries(f.despues ?? {})
-      .map(([k, v]) => `${k}: ${valor(v)}`)
+      .map(([k, v]) => `${k === 'tabla' ? 'pantalla' : k}: ${k === 'tabla' ? pantalla(String(v)) : valor(v)}`)
       .join(' · ')
-  const d = (f.operacion === 'DELETE' ? f.antes : f.despues) ?? {}
-  const nombre = CAMPOS_NOMBRE.map((c) => d[c]).find((v) => v != null && v !== '')
-  return nombre != null ? String(nombre) : ''
+  const n = nombreRegistro(f)
+  return `${f.operacion === 'DELETE' ? 'Baja' : 'Alta'} de ${pantalla(f.tabla).toLowerCase()}${f.registro ? ` ${f.registro}` : ''}${n ? ` · ${n}` : ''}`
 }
 
 const POR_PAGINA = 200
@@ -134,7 +233,6 @@ export function AuditoriaPage() {
   const [buscando, setBuscando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState(false)
-  const [pestana, setPestana] = useState<'registro' | 'documentos' | 'conformidades'>('registro')
 
   useEffect(() => {
     if (!superAdmin) return
@@ -178,15 +276,15 @@ export function AuditoriaPage() {
   const detalle = useMemo(() => {
     if (!sel) return []
     const claves = new Set([...Object.keys(sel.antes ?? {}), ...Object.keys(sel.despues ?? {})])
-    const cambiados = new Set(sel.campos ?? [])
+    const cambiadosSel = new Set(cambiados(sel))
     return [...claves]
-      .filter((k) => !['actualizado_en'].includes(k))
-      .sort((a, b) => Number(cambiados.has(b)) - Number(cambiados.has(a)) || a.localeCompare(b))
+      .filter((k) => !IGNORAR.has(k))
+      .sort((a, b) => Number(cambiadosSel.has(b)) - Number(cambiadosSel.has(a)) || a.localeCompare(b))
       .map((k) => ({
         campo: k,
         antes: sel.antes?.[k],
         despues: sel.despues?.[k],
-        cambiado: cambiados.has(k),
+        cambiado: cambiadosSel.has(k),
       }))
   }, [sel])
 
@@ -195,214 +293,183 @@ export function AuditoriaPage() {
 
   return (
     <div className="flex w-[1180px] max-w-full flex-col gap-1.5 text-[13px]">
-      <div className="flex gap-1 border-b border-[var(--gw-border)]">
-        {(
-          [
-            ['registro', 'Registro de cambios'],
-            ['documentos', 'Documentos legales'],
-            ['conformidades', 'Conformidades'],
-          ] as const
-        ).map(([v, t]) => (
-          <button
-            key={v}
-            type="button"
-            className={`-mb-px border border-[var(--gw-border)] px-3 py-1 ${pestana === v ? 'border-b-white bg-white font-bold' : 'bg-[var(--gw-face)]'}`}
-            onClick={() => setPestana(v)}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col">
+          <span className="gw-label">Desde</span>
+          <GwDate value={desde} onChange={(v) => setDesde(v ?? hoy())} style={{ width: 100 }} />
+        </label>
+        <label className="flex flex-col">
+          <span className="gw-label">Hasta</span>
+          <GwDate value={hasta} onChange={(v) => setHasta(v ?? hoy())} style={{ width: 100 }} />
+        </label>
+        <label className="flex flex-col">
+          <span className="gw-label">Empleado</span>
+          <GwSelect className="w-[200px]" value={empleado} onChange={(e) => setEmpleado(e.target.value)}>
+            <option value="">Todos</option>
+            {empleados.map((e) => (
+              <option key={e.codigo} value={e.codigo}>
+                {e.numero_operario ?? e.codigo} · {e.nombre}
+              </option>
+            ))}
+          </GwSelect>
+        </label>
+        <label className="flex flex-col">
+          <span className="gw-label">Pantalla</span>
+          <GwSelect className="w-[230px]" value={tabla} onChange={(e) => setTabla(e.target.value)}>
+            <option value="">Todas</option>
+            {tablas.map((t) => (
+              <option key={t} value={t}>
+                {pantalla(t)}
+              </option>
+            ))}
+          </GwSelect>
+        </label>
+        <label className="flex flex-col">
+          <span className="gw-label">Qué</span>
+          <GwSelect className="w-[150px]" value={operacion} onChange={(e) => setOperacion(e.target.value)}>
+            <option value="">Todo</option>
+            <option value="INSERT">Altas</option>
+            <option value="UPDATE">Cambios</option>
+            <option value="DELETE">Bajas</option>
+            <option value="CONSULTA">Consultas de la auditoría</option>
+          </GwSelect>
+        </label>
+        <label className="flex flex-col">
+          <span className="gw-label">Buscar (nº, código o valor)</span>
+          <GwInput className="w-[180px]" value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void buscar()} />
+        </label>
+        <button type="button" className="gw-btn h-[26px] font-bold" disabled={buscando} onClick={() => void buscar()}>
+          {buscando ? 'Buscando…' : 'Buscar'}
+        </button>
+        <span className="flex-1" />
+        <button type="button" className="gw-btn h-[26px]" onClick={() => setAyuda((a) => !a)}>
+          Operativa
+        </button>
       </div>
-      {pestana === 'documentos' ? (
-        <AuditoriaDocumentos />
-      ) : pestana === 'conformidades' ? (
-        <AuditoriaConformidades />
-      ) : (
-        <>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col">
-              <span className="gw-label">Desde</span>
-              <GwDate value={desde} onChange={(v) => setDesde(v ?? hoy())} style={{ width: 100 }} />
-            </label>
-            <label className="flex flex-col">
-              <span className="gw-label">Hasta</span>
-              <GwDate value={hasta} onChange={(v) => setHasta(v ?? hoy())} style={{ width: 100 }} />
-            </label>
-            <label className="flex flex-col">
-              <span className="gw-label">Empleado</span>
-              <GwSelect className="w-[200px]" value={empleado} onChange={(e) => setEmpleado(e.target.value)}>
-                <option value="">Todos</option>
-                {empleados.map((e) => (
-                  <option key={e.codigo} value={e.codigo}>
-                    {e.numero_operario ?? e.codigo} · {e.nombre}
-                  </option>
-                ))}
-              </GwSelect>
-            </label>
-            <label className="flex flex-col">
-              <span className="gw-label">Pantalla</span>
-              <GwSelect className="w-[230px]" value={tabla} onChange={(e) => setTabla(e.target.value)}>
-                <option value="">Todas</option>
-                {tablas.map((t) => (
-                  <option key={t} value={t}>
-                    {pantalla(t)}
-                  </option>
-                ))}
-              </GwSelect>
-            </label>
-            <label className="flex flex-col">
-              <span className="gw-label">Qué</span>
-              <GwSelect className="w-[150px]" value={operacion} onChange={(e) => setOperacion(e.target.value)}>
-                <option value="">Todo</option>
-                <option value="INSERT">Altas</option>
-                <option value="UPDATE">Cambios</option>
-                <option value="DELETE">Bajas</option>
-                <option value="CONSULTA">Consultas de la auditoría</option>
-              </GwSelect>
-            </label>
-            <label className="flex flex-col">
-              <span className="gw-label">Buscar (nº, código o valor)</span>
-              <GwInput className="w-[180px]" value={texto} onChange={(e) => setTexto(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void buscar()} />
-            </label>
-            <button type="button" className="gw-btn h-[26px] font-bold" disabled={buscando} onClick={() => void buscar()}>
-              {buscando ? 'Buscando…' : 'Buscar'}
-            </button>
-            <span className="flex-1" />
-            <button type="button" className="gw-btn h-[26px]" onClick={() => setAyuda((a) => !a)}>
-              Operativa
-            </button>
-          </div>
 
-          {ayuda && (
-            <div className="border border-[var(--gw-border)] bg-white p-2">
-              <GwOperativa
-                bloques={[
-                  {
-                    titulo: 'Consultar la auditoría',
-                    pasos: [
-                      'Elige las fechas y, si quieres, el empleado, la pantalla, el tipo (altas, cambios, bajas) o un nº / código / valor.',
-                      'Pulsa Buscar (o Intro en el cuadro de buscar).',
-                      'Pulsa una línea: abajo sale el detalle, campo a campo, antes y después (lo cambiado en amarillo).',
-                      'Si hay más de 200, «Ver más» trae los siguientes.',
-                    ],
-                  },
-                  {
-                    titulo: 'Documentos legales (segunda pestaña)',
-                    pasos: [
-                      'Ahí está el texto de aviso a los empleados: «🖨 Imprimir texto», que lo firme cada uno y guarda la copia firmada.',
-                      'Para guardar la copia firmada u otro documento: «＋ Nuevo documento», título, texto si quieres, y elige el archivo (PDF o foto, máx. 8 MB) → 💾 Guardar.',
-                      'Para cambiar el texto o añadir un archivo a uno que ya existe: «Modificar / adjuntar archivo».',
-                      'Los documentos no se borran: «Retirar» los quita de la lista (marca «Ver retirados» para verlos).',
-                    ],
-                  },
-                  {
-                    titulo: 'Conformidades (tercera pestaña)',
-                    pasos: [
-                      'Al entrar al programa, a cada empleado le sale el aviso legal hasta que marca «He leído…» y pulsa «Doy mi conformidad» (queda con día y hora).',
-                      'Mientras no la dé, solo puede consultar: no puede modificar nada. En la columna «Sin conformidad» un super administrador puede elegir dejarle trabajar igualmente.',
-                      'Aquí ves quién la ha dado y quién no (en rojo), con cuántos cambios ha hecho cada uno y el último.',
-                      'Si se cambia el texto legal, a todos les vuelve a salir y aquí pone «PENDIENTE (dio la anterior…)».',
-                      '🖨 Imprimir listado lo saca en papel.',
-                    ],
-                  },
-                  {
-                    titulo: 'Bueno es saber',
-                    notas: [
-                      'Se apunta solo lo que cambia: altas, bajas y cada campo modificado, con empleado, día, hora y tienda. Mirar una ficha no se apunta.',
-                      'Nadie puede modificar ni borrar la auditoría, tampoco un super administrador. Se guarda 5 años.',
-                      'Solo la ven los super administradores (Luis, David y Rober). Cada consulta queda también apuntada (Qué → Consultas de la auditoría).',
-                      'Los empleados tienen que estar avisados por escrito de este registro (ley de protección de datos): pestaña «Documentos legales».',
-                    ],
-                  },
-                ]}
-              />
-            </div>
-          )}
-          {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
+      {ayuda && (
+        <div className="border border-[var(--gw-border)] bg-white p-2">
+          <GwOperativa
+            bloques={[
+              {
+                titulo: 'Consultar la auditoría',
+                pasos: [
+                  'Elige las fechas y, si quieres, el empleado, la pantalla, el tipo (altas, cambios, bajas) o un nº / código / valor.',
+                  'Pulsa Buscar (o Intro en el cuadro de buscar).',
+                  'Pulsa una línea: abajo sale el detalle, campo a campo, antes y después (lo cambiado en amarillo).',
+                  'Si hay más de 200, «Ver más» trae los siguientes.',
+                ],
+              },
+              {
+                titulo: 'Cómo se lee',
+                notas: [
+                  'Registro: el nº del documento o el código de la ficha, y su nombre (cliente, artículo, descripción…).',
+                  'Detalle: en un cambio, cada dato cambiado con su valor de antes y el de ahora (p. ej. «Precio: 3,50 → 3,95»); en un alta o una baja, qué se dio de alta o de baja.',
+                  '«Consulta auditoría»: alguien con permiso abrió o buscó en esta pantalla; el detalle dice con qué filtros (fechas, empleado, pantalla…).',
+                ],
+              },
+              {
+                titulo: 'Bueno es saber',
+                notas: [
+                  'Se apunta solo lo que cambia: altas, bajas y cada campo modificado, con empleado, día, hora y tienda. Mirar una ficha no se apunta.',
+                  'Nadie puede modificar ni borrar la auditoría, tampoco un super administrador. Se guarda 5 años.',
+                  'Solo la ven los super administradores (Luis, David y Rober). Cada consulta queda también apuntada (Qué → Consultas de la auditoría).',
+                  'El aviso legal a los empleados, quién lo ha aceptado o denegado y los demás documentos están en Archivo → Textos legales.',
+                ],
+              },
+            ]}
+          />
+        </div>
+      )}
+      {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
 
-          <div className="text-[12px] text-[#555]">{total == null ? '' : `${total} registro(s)${filas.length < total ? ` · se ven ${filas.length}` : ''}`}</div>
-          <div className="max-h-[42vh] overflow-auto border border-[var(--gw-border)]">
+      <div className="text-[12px] text-[#555]">{total == null ? '' : `${total} registro(s)${filas.length < total ? ` · se ven ${filas.length}` : ''}`}</div>
+      <div className="max-h-[42vh] overflow-auto border border-[var(--gw-border)]">
+        <table className="gw-grid">
+          <thead>
+            <tr>
+              <th className="w-[150px]">Fecha y hora</th>
+              <th className="w-[150px]">Empleado</th>
+              <th className="w-[190px]">Pantalla</th>
+              <th className="w-[200px]">Registro</th>
+              <th className="w-[40px]">Ti.</th>
+              <th className="w-[120px]">Qué</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.id} className={`cursor-pointer ${sel?.id === f.id ? 'gw-selected' : 'hover:bg-[#e5f1fb]'}`} onClick={() => setSel(f)}>
+                <td className="tabular-nums">{fechaHora(f.ocurrido_en)}</td>
+                <td className="truncate" title={f.empleado ?? ''}>
+                  {f.empleado ? `${f.empleado_numero ?? f.empleado} · ${f.empleado_nombre ?? ''}` : '— (sistema)'}
+                </td>
+                <td className="truncate">{pantalla(f.tabla)}</td>
+                <td className="truncate" title={`${f.registro ?? ''} ${nombreRegistro(f)}`}>
+                  {f.registro ?? ''}
+                  {nombreRegistro(f) ? ` · ${nombreRegistro(f)}` : ''}
+                </td>
+                <td>{f.tienda ?? ''}</td>
+                <td className="font-bold" style={{ color: OPERACION[f.operacion]?.color }}>
+                  {OPERACION[f.operacion]?.texto ?? f.operacion}
+                </td>
+                <td className="max-w-0 truncate" title={resumen(f)}>
+                  {resumen(f)}
+                </td>
+              </tr>
+            ))}
+            {total === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center text-[#777]">
+                  No hay nada con esos filtros.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {total != null && filas.length < total && (
+        <div>
+          <button type="button" className="gw-btn" disabled={buscando} onClick={() => void buscar(true)}>
+            Ver más
+          </button>
+        </div>
+      )}
+
+      {sel && (
+        <fieldset className="gw-group !pt-0">
+          <legend className="font-bold text-[#1d3a8a]">
+            {OPERACION[sel.operacion]?.texto} · {pantalla(sel.tabla)} {sel.registro ? `· ${sel.registro}` : ''}{' '}
+            {nombreRegistro(sel) ? `· ${nombreRegistro(sel)}` : ''} · {fechaHora(sel.ocurrido_en)} ·{' '}
+            {sel.empleado ? `Empl. ${sel.empleado_numero ?? sel.empleado} ${sel.empleado_nombre ?? ''}` : 'sistema'}
+          </legend>
+          <div className="max-h-[30vh] overflow-auto">
             <table className="gw-grid">
               <thead>
                 <tr>
-                  <th className="w-[150px]">Fecha y hora</th>
-                  <th className="w-[150px]">Empleado</th>
-                  <th className="w-[190px]">Pantalla</th>
-                  <th className="w-[110px]">Registro</th>
-                  <th className="w-[40px]">Ti.</th>
-                  <th className="w-[120px]">Qué</th>
-                  <th>Detalle</th>
+                  <th className="w-[220px]">Campo</th>
+                  <th>Antes</th>
+                  <th>Después</th>
                 </tr>
               </thead>
               <tbody>
-                {filas.map((f) => (
-                  <tr key={f.id} className={`cursor-pointer ${sel?.id === f.id ? 'gw-selected' : 'hover:bg-[#e5f1fb]'}`} onClick={() => setSel(f)}>
-                    <td className="tabular-nums">{fechaHora(f.ocurrido_en)}</td>
-                    <td className="truncate" title={f.empleado ?? ''}>
-                      {f.empleado ? `${f.empleado_numero ?? f.empleado} · ${f.empleado_nombre ?? ''}` : '— (sistema)'}
+                {detalle.map((d) => (
+                  <tr key={d.campo} style={d.cambiado ? { background: '#fff6d5' } : undefined}>
+                    <td className={d.cambiado ? 'font-bold' : ''} title={d.campo}>
+                      {etiqueta(d.campo)}
                     </td>
-                    <td className="truncate">{pantalla(f.tabla)}</td>
-                    <td className="truncate">{f.registro ?? ''}</td>
-                    <td>{f.tienda ?? ''}</td>
-                    <td className="font-bold" style={{ color: OPERACION[f.operacion]?.color }}>
-                      {OPERACION[f.operacion]?.texto ?? f.operacion}
+                    <td className="max-w-0 truncate" title={valor(d.antes)}>
+                      {sel.operacion === 'INSERT' ? '' : valor(d.antes)}
                     </td>
-                    <td className="max-w-0 truncate" title={resumen(f)}>
-                      {resumen(f)}
+                    <td className="max-w-0 truncate" title={valor(d.despues)}>
+                      {sel.operacion === 'DELETE' ? '' : valor(d.despues)}
                     </td>
                   </tr>
                 ))}
-                {total === 0 && (
-                  <tr>
-                    <td colSpan={7} className="text-center text-[#777]">
-                      No hay nada con esos filtros.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
-          {total != null && filas.length < total && (
-            <div>
-              <button type="button" className="gw-btn" disabled={buscando} onClick={() => void buscar(true)}>
-                Ver más
-              </button>
-            </div>
-          )}
-
-          {sel && (
-            <fieldset className="gw-group !pt-0">
-              <legend className="font-bold text-[#1d3a8a]">
-                {OPERACION[sel.operacion]?.texto} · {pantalla(sel.tabla)} {sel.registro ? `· ${sel.registro}` : ''} · {fechaHora(sel.ocurrido_en)} ·{' '}
-                {sel.empleado ? `Empl. ${sel.empleado_numero ?? sel.empleado} ${sel.empleado_nombre ?? ''}` : 'sistema'}
-              </legend>
-              <div className="max-h-[30vh] overflow-auto">
-                <table className="gw-grid">
-                  <thead>
-                    <tr>
-                      <th className="w-[220px]">Campo</th>
-                      <th>Antes</th>
-                      <th>Después</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detalle.map((d) => (
-                      <tr key={d.campo} style={d.cambiado ? { background: '#fff6d5' } : undefined}>
-                        <td className={d.cambiado ? 'font-bold' : ''}>{d.campo}</td>
-                        <td className="max-w-0 truncate" title={valor(d.antes)}>
-                          {sel.operacion === 'INSERT' ? '' : valor(d.antes)}
-                        </td>
-                        <td className="max-w-0 truncate" title={valor(d.despues)}>
-                          {sel.operacion === 'DELETE' ? '' : valor(d.despues)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </fieldset>
-          )}
-        </>
+        </fieldset>
       )}
     </div>
   )

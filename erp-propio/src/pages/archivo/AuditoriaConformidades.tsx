@@ -1,4 +1,4 @@
-// Auditoría → Conformidades (Luis, 30/10/2026): qué empleados han dado su conformidad al texto
+// Archivo → Textos legales → Por empleado (Luis, 30/10/2026): qué empleados han dado su conformidad al texto
 // legal de la auditoría (versión vigente) y cuáles hacen cambios en el programa. Solo super
 // administradores (fn_auditoria_conformidades).
 
@@ -19,6 +19,8 @@ interface Empleado {
     documento: number
     aceptado_en: string | null
     version_anterior: string | null
+    /** Veces que pulsó «Ahora no» con el texto vigente. */
+    denegaciones: number
   }[]
 }
 
@@ -136,7 +138,7 @@ export function AuditoriaConformidades() {
                         ? `✔ ${fechaHora(c.aceptado_en)}`
                         : c?.version_anterior
                           ? `PENDIENTE (dio la del ${fechaHora(c.version_anterior)}, el texto cambió)`
-                          : 'PENDIENTE'}
+                          : `PENDIENTE${c?.denegaciones ? ` · denegado ${c.denegaciones} ${c.denegaciones === 1 ? 'vez' : 'veces'}` : ''}`}
                     </td>
                   )
                 })}
