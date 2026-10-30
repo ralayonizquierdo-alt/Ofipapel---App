@@ -1834,6 +1834,9 @@ function mergePorFilename(local, cloud){
     // «cuadrado a mano» (y su deshacer): gana la marca más reciente, aunque el resto del registro lo traiga otro dispositivo
     if(prev&&prev.cuadradoManual&&(!r.cuadradoManual||(r.cuadradoManual.ts||'')<(prev.cuadradoManual.ts||''))) r=Object.assign({},r,{cuadradoManual:prev.cuadradoManual});
     map[k]=r; } });
+  // Un registro corregido (p. ej. un comprobante al que se le cambió la fecha) lleva en `reemplazaA` la clave del que sustituye:
+  // así la copia antigua que aún tenga otro navegador no lo vuelve a meter.
+  Object.values(map).forEach(r=>{ if(r&&r.reemplazaA) [].concat(r.reemplazaA).forEach(k=>{ delete map[k]; }); });
   return Object.values(map);
 }
 
@@ -4823,7 +4826,9 @@ function editarReciboBanco(i){
   if(!m){ showToast('Fecha no válida: escríbela como 15/10/2026','err'); return; }
   const anio=m[3].length===2?'20'+m[3]:m[3], fecha=anio+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
   if(isNaN(new Date(fecha+'T12:00:00'))){ showToast('Fecha no válida','err'); return; }
+  const claveAntes=(r.fecha||'')+'|'+(r.filename||'');
   r.importe=Math.round(n*100)/100; r.banco=bk.trim()||r.banco; r.fecha=fecha; r.origen='manual';
+  if(claveAntes!==(r.fecha+'|'+(r.filename||''))) r.reemplazaA=[...new Set([...[].concat(r.reemplazaA||[]),claveAntes])];
   saveCajaBanco(); renderCajaView();
 }
 function deleteReciboBanco(i){
