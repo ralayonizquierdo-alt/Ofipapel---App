@@ -423,7 +423,8 @@ export function GeneradorListadosPage() {
             ],
           ]}
           active={tab}
-          onChange={setTab}
+          // «Todos los campos de la ficha» se abre y se cierra como un botón: pulsarla otra vez vuelve a Columnas.
+          onChange={(k) => setTab(k === 'todos' && tab === 'todos' ? 'columnas' : k)}
         >
           <div className="h-[200px] overflow-y-auto p-2" onKeyDown={(e) => e.key === 'F9' && (e.preventDefault(), ejecutar())}>
             {tab === 'columnas' && <Columnas principales={F.columnas} extras={extras} sel={def.columnas} onChange={(c) => setD({ columnas: c })} />}
