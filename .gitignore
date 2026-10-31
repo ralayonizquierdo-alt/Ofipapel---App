@@ -35,3 +35,6 @@ __pycache__/
 # Excel real de alquileres: datos de inquilinos e importes. El repo es PÚBLICO.
 *.xlsx
 !scripts/datos/*.xlsx
+
+# Documentos generados para Luis (Word, PDF…): se entregan aparte, no se versionan.
+_documentos/
