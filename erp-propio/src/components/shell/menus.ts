@@ -4,6 +4,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Banknote, BookOpenText, NotebookText, ShoppingBasket, Wrench } from 'lucide-react'
 import { COLOR_SECCION } from './secciones'
+import { ponerIconos } from './iconosMenu'
 
 export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | AccionUtilidad
 
@@ -398,6 +399,9 @@ export const MENUS: TopMenu[] = [
     items: [item('Panel de Control', { to: '/resumen' }), 'sep', item('Acerca de Ofipapel ERP', { action: 'about', description: 'Versión del programa' })],
   },
 ]
+
+// Iconos de todas las opciones (iconosMenu.ts), como GeminisWin.
+ponerIconos(MENUS)
 
 /** Descripción de cada ventana para la barra de título de la ventana hija y la barra de estado. */
 export const WINDOW_TITLES: { prefix: string; title: string }[] = [
