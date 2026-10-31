@@ -3,32 +3,45 @@
 // - Se despliega con verify_jwt = true: solo la llaman usuarios con sesión del ERP.
 // - La clave de la IA vive SOLO aquí, en el secreto ANTHROPIC_API_KEY
 //   (Supabase → Edge Functions → Secrets). Nunca llega al navegador.
-// - Modelo: secreto opcional NEXA_MODEL (por defecto claude-opus-5-5) y NEXA_EFFORT
-//   (low | medium | high; por defecto medium).
-// - Las herramientas consultan la base de datos COMO EL USUARIO: cliente de Supabase con la
-//   clave pública (anon) + su cabecera Authorization, así que se aplican sus mismos permisos y
-//   RLS. Nunca se usa la service role.
-// - En esta fase NEXA es de SOLO LECTURA: fn_nexa_consulta ejecuta las consultas en una
-//   transacción read only.
+// - Modelo: secreto opcional NEXA_MODEL (por defecto claude-sonnet-5-5, «por ahora algo
+//   barato», Rober 31/10) y NEXA_EFFORT (low | medium | high; por defecto medium).
+// - Las herramientas trabajan COMO EL USUARIO: cliente de Supabase con la clave pública (anon) +
+//   su cabecera Authorization, así que se aplican sus mismos permisos, RLS y fn_puede. La
+//   service role SOLO se usa una vez por arranque para registrar la clave de firma de las
+//   propuestas (fn_nexa_secreto_registrar); nunca para leer ni escribir datos.
+// - Consultas: fn_nexa_consulta las ejecuta en una transacción read only.
 // - Permisos por grupo de acceso: abrir_pantalla solo propone pantallas que el grupo del
 //   usuario permite (fn_mis_permisos / fn_es_administrador, misma regla que la interfaz en
 //   src/lib/permisos.ts). Las consultas siguen limitadas por RLS como hasta ahora.
 //
-// FUTURO (preparado, no construido): acciones que modifiquen datos («crea el pedido»,
-// «cambia el precio»). Irán como herramientas nuevas que NO ejecutan nada: devuelven una
-// propuesta que el panel enseña con un botón «Confirmar»; al confirmar, el navegador llama a
-// una función SQL concreta (no SQL libre) que comprueba el grupo de acceso con
-// fn_tiene_permiso. Ver ACCIONES_FUTURAS más abajo.
+// - CONTROL TOTAL (31/10/2026, decisión de Rober; migración 20261031_nexa_control_total.sql):
+//   NEXA puede escribir en cualquier tabla o llamar a cualquier función del ERP, siempre
+//   proponer → confirmar → ejecutar:
+//     · proponer_cambio: fn_nexa_proponer SIMULA los pasos con los permisos del usuario (y lo
+//       deshace), calcula el nivel 1-5 (catálogo nexa_operacion o nivel prudente) y guarda la
+//       propuesta (caduca a los 10 min). El panel enseña la tarjeta con lo que cambia.
+//     · ejecutar_cambio: solo una propuesta del mismo usuario, pendiente, sin caducar, creada
+//       ANTES de esta petición; aquí se comprueba el ÚLTIMO mensaje del usuario: nivel 2-3 «sí»,
+//       nivel 4 además la palabra de la propuesta y el motivo, nivel 5 además la contraseña
+//       (campo aparte del panel, viaja solo en esa petición como `credencial`, se verifica con
+//       Supabase Auth y no se guarda) y ser administrador. Si todo cuadra, se firma (HMAC) y
+//       fn_nexa_ejecutar lo hace con el JWT del usuario, marcando la auditoría con origen
+//       «NEXA · nivel N · propuesta P · motivo».
+//     · describir_funciones: funciones del ERP (presentes y futuras) con argumentos y nivel.
+//
+// Petición (POST JSON): { mensajes: [{ rol: 'usuario' | 'nexa', texto }], contexto: { ruta, descripcion, datos? },
+//                         credencial?: { propuesta, contrasena } }   ← solo para confirmar un nivel 5
 //
 // - Centro de listados e informes (31/10/2026): buscar_listados, ejecutar_listado,
 //   guardar_listado e informe_geminiswin trabajan con el Generador de listados de Luis
 //   (listado_guardado + vistas v_lst_*) mediante funciones SECURITY INVOKER
 //   (migración 20261031_nexa_listados.sql): cada fuente solo si el grupo del usuario tiene alguna
-//   pantalla de ese tema. Lo ÚNICO que NEXA escribe es un listado guardado, y solo cuando el
-//   último mensaje del usuario es una confirmación.
+//   pantalla de ese tema. Un listado se guarda (guardar_listado) solo cuando el último mensaje
+//   del usuario es una confirmación. Al sacar un listado guardado se apunta su
+//   uso (fn_listado_usado) para las sugerencias de NEXA.
 //
-// Petición (POST JSON): { mensajes: [{ rol: 'usuario' | 'nexa', texto }], contexto: { ruta, descripcion, datos? } }
-// Respuesta (siempre HTTP 200): { ok: true, texto, rutas: [{ ruta, etiqueta }], listados: [ListadoPanel], consultas }
+// Respuesta (siempre HTTP 200): { ok: true, texto, rutas: [{ ruta, etiqueta }], listados: [ListadoPanel],
+//                                 propuestas: [PropuestaPanel], ejecuciones: [EjecucionPanel], consultas }
 //                               { ok: false, codigo, error }
 
 import Anthropic from 'npm:@anthropic-ai/sdk@1.3.0'
@@ -40,7 +53,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const MAX_PASOS = 8 // vueltas del bucle de herramientas
+const MAX_PASOS = 10 // vueltas del bucle de herramientas
 const MAX_MENSAJES = 40 // historial que se manda a la IA
 const MAX_TEXTO = 20000 // caracteres por mensaje
 const MAX_RESULTADO = 60000 // caracteres de un resultado de herramienta
@@ -96,7 +109,17 @@ Cómo respondes:
 - NUNCA inventes datos. Cualquier dato del negocio (ventas, stock, clientes, precios, pedidos…) solo lo afirmas si lo has consultado en esta conversación (consultar_bd o ejecutar_listado). Si no lo puedes consultar o no aparece, dilo tal cual. Si una consulta devuelve 0 filas, dilo; no supongas.
 - Si la pregunta es ambigua, haz la consulta más razonable y explica en una línea qué has interpretado.
 - Cuando tenga sentido llevar al usuario a una ficha o pantalla, usa abrir_pantalla (el programa le enseña un botón «Abrir»; tú no navegas). Solo se pueden proponer pantallas que su grupo de acceso permite: si abrir_pantalla responde que no tiene permiso, no insistas ni busques otra ruta para lo mismo; dile que esa opción no está permitida a su grupo y que lo pida a un administrador.
-- Eres de SOLO LECTURA para los datos del negocio: no puedes crear, modificar ni borrar nada. Si te piden un cambio, explica cómo hacerlo en el programa y ofrece abrir la pantalla. La única excepción es guardar un listado en el Generador (guardar_listado), y solo si el usuario lo confirma.
+
+Puedes LEER y ESCRIBIR todo el ERP, siempre con la identidad y los permisos del usuario que te habla (su grupo de acceso, las reglas de la base y sus funciones). Con un administrador el control es total; un usuario sin permiso no puede usarte para saltárselo. Para CUALQUIER cambio el camino es siempre proponer → confirmar → ejecutar:
+1. Entiende bien qué quiere y consulta lo necesario (consultar_bd, describir_tablas, describir_funciones). Si existe una función del ERP para eso (cobrar, abrir/cerrar caja, facturar albaranes, anular o rectificar, modificar en bloque, stock a cero…), úsala en vez de tocar tablas a mano; si no, pasos sobre tablas copiando cómo están hechos los registros que ya existen (mira uno parecido con consultar_bd: columnas, numeración, estados). Para números de documento usa fn_siguiente_numero (tienda, tipo_documento, serie) y referencia su resultado con "$paso1".
+2. proponer_cambio con un resumen claro y los pasos. NO escribe nada: simula el cambio con sus permisos, calcula el nivel (1-5) y el panel enseña una tarjeta con lo que cambia (antes → después, nº de registros) y los botones «Sí, hazlo» / «No».
+3. Después de proponer, PARA y explica en 1-3 frases qué va a cambiar y qué tiene que hacer el usuario según el nivel: nivel 2-3, responder «sí»; nivel 4 (masivo o con dinero), escribir la palabra de confirmación que te devuelve proponer_cambio (dísela tal cual) y un motivo; nivel 5 (crítico o legal, solo administradores), además, su contraseña en el campo de la tarjeta — NUNCA le pidas la contraseña en el chat y, si la escribe en el chat, dile que no lo haga y que use el campo.
+4. ejecutar_cambio solo cuando el ÚLTIMO mensaje del usuario lo confirme (lo comprueba también el servidor). Nunca en la misma respuesta en la que propones. Después, resume lo hecho en 1-3 frases (registros, documento creado…).
+- NUNCA digas ni des a entender que algo está hecho si ejecutar_cambio no ha devuelto «hecho». Si algo falla, di el motivo real. Si el usuario no tiene permiso (error de permisos o «nivel 5: solo administradores»), díselo claramente y que lo pida a un administrador; no busques otra vía para lo mismo.
+- Si el usuario dice que no, no ejecutes nada. Si una propuesta ha caducado (10 minutos), vuelve a proponerla.
+- Lo registrado en VeriFactu nunca se borra ni se modifica: solo se anula o rectifica con sus funciones. Contabilidad (fn_contab_*, asientos) tiene un plan aparte: no la toques.
+- Guardar un listado en el Generador sigue yendo por guardar_listado.
+- En tus mensajes anteriores verás <propuesta_mostrada> y <cambio_ejecutado>: son la memoria del programa sobre las propuestas (id, nivel, palabra, estado).
 
 Eres el CENTRO DE LISTADOS E INFORMES del ERP. Cuando pidan un listado, informe o relación («listado de clientes de la zona X», «ventas de octubre por vendedor», «artículos sin stock de la familia Y», «el listado CLI-0001»):
 1. Primero buscar_listados (por código, palabras del nombre o tema). Si hay uno guardado que encaja, ejecutar_listado con su código (puedes añadir filtros extra, p. ej. el mes o la zona que pidan).
@@ -287,8 +310,63 @@ const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
       additionalProperties: false,
     },
   },
-  // ACCIONES_FUTURAS: aquí irán herramientas como «proponer_pedido_proveedor» que solo
-  // devuelven una propuesta para confirmar en el panel; nunca escriben desde esta función.
+  {
+    name: 'describir_funciones',
+    description:
+      'Lista las funciones del ERP (esquema public) que el usuario puede ejecutar, con sus argumentos, lo que devuelven, si son de solo lectura, su nivel de confirmación (1-5) y si están bloqueadas para NEXA, más el catálogo de tablas con nivel especial. Sirve también para las funciones nuevas que se vayan creando. Texto = palabras a buscar (todas deben aparecer); vacío = todas.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: { texto: { type: 'string', description: 'P. ej. «cobro», «caja», «anular venta». Vacío = todas.' } },
+      required: ['texto'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'proponer_cambio',
+    description:
+      'Prepara un cambio en los datos del ERP SIN hacerlo: lo simula con los permisos del usuario, calcula el nivel (1-5), guarda la propuesta (caduca a los 10 minutos) y el panel enseña una tarjeta con lo que cambia para que el usuario confirme. Pasos en orden, en una sola transacción: {tipo:"tabla", tabla, accion:"alta"|"modificar"|"borrar", filtro:{col:valor} (igualdad; null = es nulo; lista = «en»), valores:{col:valor}} o {tipo:"funcion", funcion, argumentos:{p_nombre:valor}}. Un valor "$pasoN" o "$pasoN.columna" usa el resultado del paso N. Si el nivel es 1 (consulta) devuelve directamente el resultado.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        resumen: { type: 'string', description: 'Qué se va a hacer, en una frase que entienda el usuario.' },
+        pasos: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 20,
+          items: {
+            type: 'object',
+            properties: {
+              tipo: { type: 'string', enum: ['tabla', 'funcion'] },
+              tabla: { type: 'string' },
+              accion: { type: 'string', enum: ['alta', 'modificar', 'borrar'] },
+              filtro: { type: 'object', description: 'Columnas y valores que identifican los registros (modificar/borrar).' },
+              valores: { type: 'object', description: 'Columnas y valores nuevos (alta/modificar).' },
+              funcion: { type: 'string' },
+              argumentos: { type: 'object', description: 'Argumentos por nombre, p. ej. {"p_tienda":"01","p_numero":66}.' },
+            },
+            required: ['tipo'],
+          },
+        },
+      },
+      required: ['resumen', 'pasos'],
+    },
+  },
+  {
+    name: 'ejecutar_cambio',
+    description:
+      'Ejecuta una propuesta ya enseñada al usuario, SOLO si su último mensaje la confirma (nivel 2-3: «sí»; nivel 4: además la palabra de confirmación y un motivo; nivel 5: además su contraseña, que llega aparte desde el panel). El servidor lo comprueba; si falta algo, no hace nada y dice qué falta. Nunca en la misma respuesta que proponer_cambio.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        propuesta: { type: 'integer', description: 'Id de la propuesta (de proponer_cambio o de <propuesta_mostrada>).' },
+        motivo: { type: ['string', 'null'], description: 'Motivo que ha dado el usuario en su último mensaje (nivel 4-5), copiado tal cual; null si no aplica.' },
+      },
+      required: ['propuesta', 'motivo'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 interface Ruta {
@@ -385,11 +463,223 @@ function leerDefinicion(e: Record<string, unknown>): Definicion {
 const CONFIRMA = /(^|[^a-záéíóúñ])(s[ií]|vale|ok|okay|guard[aá]lo|gu[aá]rdalo|gu[aá]rdala|gu[aá]rdamelo|adelante|confirm[oa]?|de acuerdo|perfecto|hazlo|dale|claro)([^a-záéíóúñ]|$)/i
 const NIEGA = /(^|[^a-záéíóúñ])(no|nunca|cancela)([^a-záéíóúñ]|$)/i
 
+// ---------------------------------------------------------------- Cambios (proponer → confirmar → ejecutar)
+
+/** Lo que el panel enseña como tarjeta de propuesta. */
+interface PropuestaPanel {
+  id: number
+  nivel: number
+  resumen: string
+  palabra: string | null
+  caduca_en: string
+  filas: number
+  requiere: { si: boolean; palabra: boolean; motivo: boolean; contrasena: boolean }
+  cambios: { total: number; por_tabla: { tabla: string; operacion: string; filas: number }[]; detalle: unknown[] }
+  pasos: unknown[]
+}
+/** Resultado de una propuesta ejecutada. */
+interface EjecucionPanel {
+  id: number
+  nivel: number
+  resumen: string
+  filas: number
+  motivo: string | null
+  por_tabla: { tabla: string; operacion: string; filas: number }[]
+}
+
+interface Credencial {
+  propuesta: number
+  contrasena: string
+}
+
+/** Clave de firma: SHA-256 de la clave de servicio + sufijo (la base no la conoce hasta que se registra). */
+let firmaClave: Promise<string> | null = null
+async function claveFirma(): Promise<string> {
+  const servicio = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!servicio) throw new Error('Falta SUPABASE_SERVICE_ROLE_KEY en la Edge Function.')
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(servicio + ':nexa-firma'))
+  const clave = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  // Único uso de la service role: registrar la clave (solo la primera vez queda guardada).
+  const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', servicio, { auth: { persistSession: false, autoRefreshToken: false } })
+  const { data, error } = await admin.rpc('fn_nexa_secreto_registrar', { p_clave: clave })
+  if (error) throw new Error(`No se pudo registrar la clave de firma: ${error.message}`)
+  if (data !== true) throw new Error('La clave de firma guardada en la base no coincide con la de la función.')
+  return clave
+}
+async function firmar(id: number, uid: string, nivel: number) {
+  const clave = await (firmaClave ??= claveFirma().catch((e) => {
+    firmaClave = null
+    throw e
+  }))
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(clave), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const firma = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(`${id}:${uid}:${nivel}`))
+  return [...new Uint8Array(firma)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Comprueba la contraseña con Supabase Auth en un cliente aparte, sin guardarla, y cierra esa sesión. */
+async function contrasenaCorrecta(email: string, uid: string, contrasena: string) {
+  const sbAuth = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || '', {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data, error } = await sbAuth.auth.signInWithPassword({ email, password: contrasena })
+  const ok = !error && data.user?.id === uid
+  if (data.session) await sbAuth.auth.signOut({ scope: 'local' }).catch(() => {})
+  return ok
+}
+
+const normal = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+
 interface Sesion {
   rutas: Ruta[]
   listados: ListadoPanel[]
+  propuestas: PropuestaPanel[]
+  ejecuciones: EjecucionPanel[]
   ultimoUsuario: string
   permisos: () => Promise<Permisos>
+  uid: string
+  email: string
+  inicio: number
+  credencial: Credencial | null
+  /** En esta petición ya se ha propuesto o ejecutado algo (una cosa por confirmación). */
+  propuso: boolean
+  ejecuto: boolean
+}
+
+async function proponerCambio(sb: SupabaseClient, entrada: Record<string, unknown>, sesion: Sesion) {
+  const resumen = typeof entrada.resumen === 'string' ? entrada.resumen.trim().slice(0, 500) : ''
+  const pasos = Array.isArray(entrada.pasos) ? entrada.pasos.slice(0, 21) : []
+  if (!resumen || !pasos.length) return { texto: 'Faltan el resumen o los pasos.', error: true }
+  const { data, error } = await sb.rpc('fn_nexa_proponer', { p_resumen: resumen, p_pasos: pasos })
+  if (error) {
+    const permiso = error.code === '42501' || /permiso|administrador/i.test(error.message)
+    return { texto: `${permiso ? 'Sin permiso' : 'No se puede preparar'}: ${error.message}`, error: true }
+  }
+  const r = data as {
+    id?: number
+    nivel: number
+    consulta?: boolean
+    resultado?: unknown
+    palabra?: string | null
+    caduca_en?: string
+    filas?: number
+    vista_previa?: { pasos: unknown[]; cambios: PropuestaPanel['cambios']; motivos: unknown[] }
+  }
+  if (r.consulta || !r.id) return { texto: recortar(JSON.stringify({ nivel: 1, nota: 'Consulta: no cambia nada, no hace falta confirmar.', resultado: r.resultado })), error: false }
+  sesion.propuso = true
+  const cambios = r.vista_previa?.cambios ?? { total: 0, por_tabla: [], detalle: [] }
+  const p: PropuestaPanel = {
+    id: r.id,
+    nivel: r.nivel,
+    resumen,
+    palabra: r.palabra ?? null,
+    caduca_en: r.caduca_en ?? '',
+    filas: r.filas ?? 0,
+    requiere: { si: true, palabra: r.nivel >= 4, motivo: r.nivel >= 4, contrasena: r.nivel >= 5 },
+    cambios: { total: cambios.total ?? 0, por_tabla: cambios.por_tabla ?? [], detalle: (cambios.detalle ?? []).slice(0, 200) },
+    pasos: (r.vista_previa?.pasos ?? []).map((x) => x),
+  }
+  sesion.propuestas.push(p)
+  const queResponder =
+    r.nivel <= 3
+      ? 'que conteste «sí» (o pulse «Sí, hazlo»)'
+      : r.nivel === 4
+        ? `que escriba la palabra ${p.palabra} y un motivo (o los ponga en la tarjeta y pulse «Sí, hazlo»)`
+        : `que escriba la palabra ${p.palabra}, un motivo y su contraseña EN EL CAMPO DE LA TARJETA (nunca en el chat) y pulse «Sí, hazlo»`
+  return {
+    texto: recortar(
+      JSON.stringify({
+        propuesta: p.id,
+        nivel: p.nivel,
+        palabra: p.palabra,
+        caduca_en: p.caduca_en,
+        registros_afectados: p.filas,
+        por_tabla: p.cambios.por_tabla,
+        muestra: p.cambios.detalle.slice(0, 15),
+        pasos: (r.vista_previa?.pasos ?? []).slice(0, 5),
+        por_que_este_nivel: r.vista_previa?.motivos,
+        siguiente: `NO está hecho. El panel enseña la tarjeta. Explica en 1-3 frases qué cambia y dile ${queResponder}. No llames a ejecutar_cambio en esta respuesta.`,
+      }),
+    ),
+    error: false,
+  }
+}
+
+async function ejecutarCambio(sb: SupabaseClient, entrada: Record<string, unknown>, sesion: Sesion) {
+  const id = Number(entrada.propuesta)
+  if (!Number.isInteger(id) || id <= 0) return { texto: 'Indica el id de la propuesta.', error: true }
+  if (sesion.propuso) return { texto: 'No ejecutado: acabas de proponer el cambio. Enséñaselo al usuario y espera a que confirme en su próximo mensaje.', error: true }
+  if (sesion.ejecuto) return { texto: 'No ejecutado: solo se ejecuta un cambio por cada confirmación del usuario.', error: true }
+  const { data, error } = await sb.from('nexa_propuesta').select('id, nivel, palabra, estado, caduca_en, creado_en, resumen').eq('id', id).maybeSingle()
+  if (error) return { texto: `Error: ${error.message}`, error: true }
+  if (!data) return { texto: `No existe la propuesta ${id} (o es de otro usuario).`, error: true }
+  const p = data as { id: number; nivel: number; palabra: string | null; estado: string; caduca_en: string; creado_en: string; resumen: string }
+  if (p.estado !== 'pendiente') return { texto: `La propuesta ${id} ya está ${p.estado}.`, error: true }
+  if (Date.parse(p.caduca_en) < Date.now()) return { texto: `La propuesta ${id} ha caducado (10 minutos): vuelve a proponerla si el usuario sigue queriendo.`, error: true }
+  if (Date.parse(p.creado_en) >= sesion.inicio) return { texto: 'No ejecutado: la propuesta es de esta misma respuesta; el usuario aún no la ha visto.', error: true }
+
+  // Lo que exige su nivel, en el ÚLTIMO mensaje del usuario (no vale lo que diga la IA).
+  const ultimo = sesion.ultimoUsuario.trim()
+  const u = normal(ultimo)
+  const otra = [...ultimo.matchAll(/(?:#|propuesta\s*n?[ºo°]?\s*)(\d+)/gi)].map((m) => Number(m[1]))
+  if (otra.length && !otra.includes(id)) return { texto: `No ejecutado: el usuario se refiere a otra propuesta (${otra.join(', ')}).`, error: true }
+  const palabraOk = !!p.palabra && new RegExp(`(^|[^a-z0-9])${p.palabra.toLowerCase().replace(/[-]/g, '\\-')}([^a-z0-9]|$)`).test(ultimo.toLowerCase())
+  // Sin «motivo: …» para que un «no» dentro del motivo no cuente como negativa.
+  const sinMotivo = ultimo.replace(/motivo\s*[:=][^\n]*/gi, ' ')
+  const niega = NIEGA.test(sinMotivo) && !/^s[ií]\b/i.test(ultimo)
+  if (!(CONFIRMA.test(sinMotivo) || palabraOk) || niega) return { texto: 'No ejecutado: el último mensaje del usuario no confirma el cambio. Pregúntale.', error: true }
+  let motivo: string | null = null
+  if (p.nivel >= 4) {
+    if (!palabraOk) return { texto: `No ejecutado: falta que el usuario escriba la palabra de confirmación ${p.palabra} (nivel ${p.nivel}).`, error: true }
+    const m = ultimo.match(/motivo\s*[:=]\s*([^\n]+)/i)
+    const arg = typeof entrada.motivo === 'string' ? entrada.motivo.trim() : ''
+    motivo = m ? m[1].replace(/\(propuesta[^)]*\)\s*$/i, '').trim() : arg && u.includes(normal(arg)) ? arg : null
+    if (!motivo || motivo.length < 4) return { texto: `No ejecutado: falta el motivo del cambio (nivel ${p.nivel}). Pídeselo.`, error: true }
+  }
+  let contrasenaVerificada = false
+  if (p.nivel >= 5) {
+    const permisos = await sesion.permisos()
+    if (!permisos.admin) return { texto: 'No ejecutado: los cambios de nivel 5 solo los puede hacer un administrador.', error: true }
+    const cred = sesion.credencial
+    if (!cred || cred.propuesta !== id || !cred.contrasena) {
+      return { texto: 'No ejecutado: para nivel 5 hace falta la contraseña del usuario, escrita en el campo de la tarjeta (no en el chat).', error: true }
+    }
+    contrasenaVerificada = await contrasenaCorrecta(sesion.email, sesion.uid, cred.contrasena)
+    if (!contrasenaVerificada) return { texto: 'No ejecutado: la contraseña no es correcta.', error: true }
+  }
+
+  let firma: string
+  try {
+    firma = await firmar(p.id, sesion.uid, p.nivel)
+  } catch (e) {
+    return { texto: `No ejecutado: ${(e as Error).message}`, error: true }
+  }
+  sesion.ejecuto = true
+  const { data: r, error: e2 } = await sb.rpc('fn_nexa_ejecutar', {
+    p_id: p.id,
+    p_firma: firma,
+    p_motivo: motivo,
+    p_confirmacion: { mensaje: ultimo.slice(0, 300), palabra: palabraOk, contrasena_verificada: contrasenaVerificada, en: new Date().toISOString() },
+  })
+  if (e2) {
+    const permiso = e2.code === '42501' || /permiso/i.test(e2.message)
+    return { texto: `No se ha hecho nada${permiso ? ' (sin permiso)' : ''}: ${e2.message}`, error: true }
+  }
+  const res = r as { filas: number; pasos: unknown[]; cambios: { por_tabla: EjecucionPanel['por_tabla']; detalle: unknown[] } }
+  sesion.ejecuciones.push({ id: p.id, nivel: p.nivel, resumen: p.resumen, filas: res.filas ?? 0, motivo, por_tabla: res.cambios?.por_tabla ?? [] })
+  return {
+    texto: recortar(
+      JSON.stringify({
+        hecho: true,
+        propuesta: p.id,
+        nivel: p.nivel,
+        registros: res.filas,
+        por_tabla: res.cambios?.por_tabla,
+        pasos: (res.pasos ?? []).slice(0, 5),
+        auditoria: `Queda en la auditoría con origen «NEXA · nivel ${p.nivel} · propuesta ${p.id}${motivo ? ' · motivo: …' : ''}».`,
+      }),
+    ),
+    error: false,
+  }
 }
 
 async function ejecutarHerramienta(
@@ -399,6 +689,13 @@ async function ejecutarHerramienta(
   sesion: Sesion,
 ): Promise<{ texto: string; error: boolean }> {
   const { rutas, permisos } = sesion
+  if (nombre === 'proponer_cambio') return await proponerCambio(sb, entrada, sesion)
+  if (nombre === 'ejecutar_cambio') return await ejecutarCambio(sb, entrada, sesion)
+  if (nombre === 'describir_funciones') {
+    const { data, error } = await sb.rpc('fn_nexa_funciones', { p_texto: typeof entrada.texto === 'string' ? entrada.texto.slice(0, 200) : '' })
+    if (error) return { texto: `Error: ${error.message}`, error: true }
+    return { texto: recortar(JSON.stringify(data)), error: false }
+  }
   if (nombre === 'buscar_listados') {
     const { data, error } = await sb.rpc('fn_nexa_listados_buscar', { p_texto: typeof entrada.texto === 'string' ? entrada.texto.slice(0, 200) : '' })
     if (error) return { texto: `Error: ${error.message}`, error: true }
@@ -447,6 +744,8 @@ async function ejecutarHerramienta(
       return { texto: permiso ? `Sin permiso: ${error.message}` : `Error del listado: ${error.message}`, error: true }
     }
     const r = data as { filas: Record<string, unknown>[]; total: number; total_mas: boolean; truncado: boolean; columnas: ListadoPanel['columnas'] }
+    // Uso del listado guardado (para «Tus listados» en las sugerencias de NEXA). Si falla, da igual.
+    if (id) await sb.rpc('fn_listado_usado', { p_id: id }).then(() => {}, () => {})
     const listado: ListadoPanel = {
       titulo: codigo ? `${codigo} · ${nombreGuardado}${titulo && titulo !== nombreGuardado ? ` (${titulo})` : ''}` : titulo || fuente,
       codigo,
@@ -578,7 +877,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return fallo('metodo', 'Usa POST.')
 
-  let cuerpo: { mensajes?: MensajeEntrada[]; contexto?: ContextoEntrada }
+  let cuerpo: { mensajes?: MensajeEntrada[]; contexto?: ContextoEntrada; credencial?: Credencial }
   try {
     cuerpo = await req.json()
   } catch {
@@ -637,7 +936,7 @@ Deno.serve(async (req) => {
     { type: 'text', text: pregunta.content as string },
   ]
 
-  const modelo = Deno.env.get('NEXA_MODEL') || 'claude-opus-5-5'
+  const modelo = Deno.env.get('NEXA_MODEL') || 'claude-sonnet-5-5'
   const esfuerzo = (['low', 'medium', 'high'] as const).find((e) => e === Deno.env.get('NEXA_EFFORT')) ?? 'medium'
   // Respaldo en el servidor si el modelo rechaza por sus filtros de seguridad (solo modelos que lo admiten).
   const conRespaldo = /^claude-(opus-5|fable-5-1|sonnet-5-5)/.test(modelo)
@@ -650,9 +949,26 @@ Deno.serve(async (req) => {
   // Permisos del usuario: se leen una vez, solo si NEXA llega a proponer alguna pantalla.
   let permisosCache: Promise<Permisos> | null = null
   const permisos = () => (permisosCache ??= leerPermisos(sb))
-  const sesion: Sesion = { rutas, listados, ultimoUsuario: entrada[entrada.length - 1].texto, permisos }
-  let consultas = 0
   const inicio = Date.now()
+  // La contraseña (solo nivel 5) llega aparte del historial y solo vive en esta petición.
+  const c = cuerpo.credencial
+  const credencial: Credencial | null =
+    c && Number.isInteger(Number(c.propuesta)) && typeof c.contrasena === 'string' && c.contrasena.length <= 200 ? { propuesta: Number(c.propuesta), contrasena: c.contrasena } : null
+  const sesion: Sesion = {
+    rutas,
+    listados,
+    propuestas: [],
+    ejecuciones: [],
+    ultimoUsuario: entrada[entrada.length - 1].texto,
+    permisos,
+    uid: usuarioData.user.id,
+    email: usuarioData.user.email ?? '',
+    inicio,
+    credencial,
+    propuso: false,
+    ejecuto: false,
+  }
+  let consultas = 0
 
   try {
     for (let paso = 0; ; paso++) {
@@ -688,7 +1004,17 @@ Deno.serve(async (req) => {
       const usos = respuesta.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use')
       if (respuesta.stop_reason !== 'tool_use' || !usos.length || ultimaVuelta) {
         const aviso = respuesta.stop_reason === 'max_tokens' ? '\n\n_(Respuesta cortada por longitud.)_' : ''
-        return json({ ok: true, texto: (texto || (listados.length ? 'Aquí lo tienes.' : 'No tengo una respuesta para eso.')) + aviso, rutas, listados, consultas, modelo: respuesta.model })
+        const porDefecto = sesion.propuestas.length ? 'Revisa la propuesta y confírmala si está bien.' : sesion.ejecuciones.length ? 'Hecho.' : listados.length ? 'Aquí lo tienes.' : 'No tengo una respuesta para eso.'
+        return json({
+          ok: true,
+          texto: (texto || porDefecto) + aviso,
+          rutas,
+          listados,
+          propuestas: sesion.propuestas,
+          ejecuciones: sesion.ejecuciones,
+          consultas,
+          modelo: respuesta.model,
+        })
       }
 
       // Se devuelve el contenido tal cual (incluidos los bloques de razonamiento) y todos los
@@ -703,6 +1029,12 @@ Deno.serve(async (req) => {
       mensajes.push({ role: 'user', content: resultados })
     }
   } catch (e) {
+    // Si ya se ejecutó o propuso algo, que el panel lo sepa aunque la IA falle al redactar.
+    if (sesion.ejecuciones.length || sesion.propuestas.length) {
+      console.error('nexa (tras cambio)', e)
+      const t = sesion.ejecuciones.length ? 'Hecho (la IA no ha podido redactar el resumen: mira la tarjeta).' : 'Revisa la propuesta y confírmala si está bien.'
+      return json({ ok: true, texto: t, rutas, listados, propuestas: sesion.propuestas, ejecuciones: sesion.ejecuciones, consultas })
+    }
     if (e instanceof Anthropic.AuthenticationError) {
       return fallo('clave_invalida', 'La clave de la IA (ANTHROPIC_API_KEY) no es válida. Revísala en Supabase → Edge Functions → Secrets.')
     }
