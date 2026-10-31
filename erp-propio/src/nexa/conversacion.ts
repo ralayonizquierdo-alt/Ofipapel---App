@@ -8,6 +8,7 @@ import { useSyncExternalStore } from 'react'
 import { supabase } from '../lib/supabase'
 import { setNexaLevel, setNexaState } from './estado'
 import type { ContextoNexa } from './contexto'
+import type { ResultadoListado } from '../lib/listados/resultado'
 
 export interface RutaPropuesta {
   ruta: string
@@ -19,6 +20,8 @@ export interface MensajeNexa {
   rol: 'usuario' | 'nexa' | 'error'
   texto: string
   rutas?: RutaPropuesta[]
+  /** Listado que NEXA ha sacado (se enseña como tabla con Excel, PDF y «Abrir en el Generador»). */
+  listado?: ResultadoListado
   hora: number
 }
 
@@ -69,7 +72,10 @@ const oyentes = new Set<() => void>()
 
 function guardar() {
   try {
-    const { mensajes, abierto, ampliado, voz } = estado
+    const { abierto, ampliado, voz } = estado
+    // Las filas de los listados pesan: solo se guardan las de los 3 últimos.
+    const conListado = estado.mensajes.filter((m) => m.listado).slice(-3)
+    const mensajes = estado.mensajes.map((m) => (m.listado && !conListado.includes(m) ? { ...m, listado: { ...m.listado, filas: [], truncado: true } } : m))
     sessionStorage.setItem(CLAVE, JSON.stringify({ mensajes, abierto, ampliado, voz }))
   } catch {
     // sessionStorage lleno o bloqueado: la conversación sigue en memoria.
@@ -239,6 +245,7 @@ interface RespuestaFuncion {
   ok: boolean
   texto?: string
   rutas?: RutaPropuesta[]
+  listados?: ResultadoListado[]
   codigo?: string
   error?: string
 }
@@ -261,6 +268,11 @@ async function mensajeDeError(error: unknown): Promise<string> {
   return msg || 'Error desconocido.'
 }
 
+/** Lo que NEXA necesita recordar de un listado enseñado (sin las filas). */
+function listadoMostrado(l: ResultadoListado) {
+  return JSON.stringify({ codigo: l.codigo, titulo: l.titulo, fuente: l.fuente, definicion: l.definicion, total: l.total })
+}
+
 export async function enviarMensaje(texto: string, contexto: ContextoNexa) {
   const limpio = texto.trim()
   if (!limpio || estado.pensando) return
@@ -271,7 +283,10 @@ export async function enviarMensaje(texto: string, contexto: ContextoNexa) {
   setNexaState('thinking')
 
   // Al servidor solo va la conversación real (los avisos de error no).
-  const historial = mensajes.filter((m) => m.rol !== 'error').map((m) => ({ rol: m.rol, texto: m.texto }))
+  // De los listados enseñados va su definición, para que NEXA pueda guardarlo si se lo piden.
+  const historial = mensajes
+    .filter((m) => m.rol !== 'error')
+    .map((m) => ({ rol: m.rol, texto: m.listado ? `${m.texto}\n\n<listado_mostrado>${listadoMostrado(m.listado)}</listado_mostrado>` : m.texto }))
 
   let respuesta: MensajeNexa
   try {
@@ -280,13 +295,15 @@ export async function enviarMensaje(texto: string, contexto: ContextoNexa) {
     if (!data?.ok) {
       respuesta = { id: nuevoId(), rol: 'error', texto: data?.error ?? 'NEXA no ha podido responder.', hora: Date.now() }
     } else {
-      respuesta = { id: nuevoId(), rol: 'nexa', texto: data.texto ?? '', rutas: data.rutas?.length ? data.rutas : undefined, hora: Date.now() }
+      const listado = data.listados?.length ? data.listados[data.listados.length - 1] : undefined
+      respuesta = { id: nuevoId(), rol: 'nexa', texto: data.texto ?? '', rutas: data.rutas?.length ? data.rutas : undefined, listado, hora: Date.now() }
     }
   } catch (e) {
     respuesta = { id: nuevoId(), rol: 'error', texto: await mensajeDeError(e), hora: Date.now() }
   }
 
-  cambiar({ mensajes: [...estado.mensajes, respuesta], pensando: false, sinLeer: !estado.abierto })
+  // Un listado se ve mejor con el panel ampliado.
+  cambiar({ mensajes: [...estado.mensajes, respuesta], pensando: false, sinLeer: !estado.abierto, ...(respuesta.listado ? { ampliado: true } : {}) })
   if (respuesta.rol === 'error') alerta()
   else hablar(respuesta.texto)
 }

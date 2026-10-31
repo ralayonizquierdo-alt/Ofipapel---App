@@ -5,7 +5,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KeyboardEventReact, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { usePermisos } from '../lib/PermisosContext'
-import { AlertTriangle, ArrowUpRight, Maximize2, Mic, Minimize2, Minus, RotateCcw, SendHorizontal, Square, Volume2, VolumeX, X } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { AlertTriangle, ArrowUpRight, FileSpreadsheet, Maximize2, Mic, Minimize2, Minus, Printer, RotateCcw, Save, SendHorizontal, Square, Table2, Volume2, VolumeX, X } from 'lucide-react'
 import { NexaAvatar } from './NexaAvatar'
 import { getNexaState, onNexaState, type EstadoNexa } from './estado'
 import { contextoActual } from './contexto'
@@ -24,6 +25,8 @@ import {
 } from './conversacion'
 import { dictadoDisponible, empezarDictado, type Dictado } from './dictado'
 import { Markdown } from './Markdown'
+import { esSumable, etiquetaColumna, excelResultado, imprimirResultado, resumenResultado, rutaGenerador, totalesResultado, valorTexto, type ResultadoListado } from '../lib/listados/resultado'
+import { formatGw } from '../components/gw'
 
 export const ATAJO_NEXA = 'Ctrl+Espacio'
 
@@ -32,10 +35,11 @@ const ALTO_CABECERA = 44
 
 const SUGERENCIAS = [
   '¿Cómo van los pedidos de hoy?',
+  'Listado de clientes con deuda',
+  'Ventas de este mes por vendedor',
   '¿Qué artículos están bajo mínimo?',
   'Prepara un resumen del día',
   '¿Qué pedidos están pendientes de servir?',
-  '¿Qué pedidos a proveedor están pendientes de recibir?',
 ]
 
 function useEstadoNexa() {
@@ -268,6 +272,8 @@ function NexaPanel() {
                   if (getConversacion().ampliado) setAmpliado(false)
                   navigate(ruta)
                 }}
+                onEnviar={(t) => enviar(t)}
+                pensando={conv.pensando}
               />
             ))}
             {conv.pensando && (
@@ -372,7 +378,9 @@ function Bienvenida({ onElegir, deshabilitado, conSaludo = true }: { onElegir: (
     <div className="flex flex-col items-center gap-3 pt-1 text-center">
       <div>
         {conSaludo && <div className="text-[15px] font-semibold text-slate-800">Hola, soy NEXA.</div>}
-        <div className="mt-0.5 text-[12px] text-slate-500">Pregúntame por ventas, pedidos, stock, clientes o proveedores. Sé en qué pantalla estás.</div>
+        <div className="mt-0.5 text-[12px] text-slate-500">
+          Pregúntame por ventas, pedidos, stock, clientes o proveedores, o pídeme cualquier listado: te lo saco, lo pasas a Excel o PDF y lo guardo en el Generador. Sé en qué pantalla estás.
+        </div>
       </div>
       <div className="flex w-full flex-col gap-1.5">
         {SUGERENCIAS.map((s) => (
@@ -391,7 +399,7 @@ function Bienvenida({ onElegir, deshabilitado, conSaludo = true }: { onElegir: (
   )
 }
 
-function Mensaje({ m, onAbrir }: { m: MensajeNexa; onAbrir: (ruta: string) => void }) {
+function Mensaje({ m, onAbrir, onEnviar, pensando }: { m: MensajeNexa; onAbrir: (ruta: string) => void; onEnviar: (texto: string) => void; pensando: boolean }) {
   // El servidor ya no propone pantallas sin permiso; aquí se vuelve a filtrar por si acaso
   // (p. ej. conversaciones guardadas de antes o permisos cambiados después).
   const { puedeRuta } = usePermisos()
@@ -416,6 +424,7 @@ function Mensaje({ m, onAbrir }: { m: MensajeNexa; onAbrir: (ruta: string) => vo
       <div className="gw-seleccionable">
         <Markdown texto={m.texto} />
       </div>
+      {m.listado && <TablaListado l={m.listado} onAbrir={onAbrir} onEnviar={onEnviar} pensando={pensando} />}
       {rutas.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {rutas.map((r) => (
@@ -430,6 +439,128 @@ function Mensaje({ m, onAbrir }: { m: MensajeNexa; onAbrir: (ruta: string) => vo
               <ArrowUpRight size={12} />
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- Listado (centro de listados)
+
+/** Quién saca el listado (identificación de lo impreso / Excel): se lee una vez por sesión. */
+let sacadoPorCache: { uid: string; texto: string } | null = null
+async function sacadoPor() {
+  const { data } = await supabase.auth.getSession()
+  const u = data.session?.user
+  if (!u) return ''
+  if (sacadoPorCache?.uid === u.id) return sacadoPorCache.texto
+  const { data: emp } = await supabase.from('empleado').select('codigo, nombre').eq('auth_user_id', u.id).maybeSingle()
+  const texto = emp ? `${emp.codigo as string} · ${emp.nombre as string}` : (u.email ?? '')
+  sacadoPorCache = { uid: u.id, texto }
+  return texto
+}
+
+function BotonListado({ titulo, onClick, children, deshabilitado }: { titulo: string; onClick: () => void; children: ReactNode; deshabilitado?: boolean }) {
+  return (
+    <button
+      type="button"
+      title={titulo}
+      onClick={onClick}
+      disabled={deshabilitado}
+      className="flex items-center gap-1 rounded border border-[#1f4e9c]/40 bg-white/80 px-2 py-0.5 text-[12px] font-semibold text-[#1f4e9c] hover:bg-[#1f4e9c] hover:text-white disabled:opacity-40"
+    >
+      {children}
+    </button>
+  )
+}
+
+function TablaListado({ l, onAbrir, onEnviar, pensando }: { l: ResultadoListado; onAbrir: (ruta: string) => void; onEnviar: (texto: string) => void; pensando: boolean }) {
+  const { puedeRuta } = usePermisos()
+  const [aviso, setAviso] = useState<string | null>(null)
+  const totales = totalesResultado(l)
+  const hayTotales = l.filas.length > 0 && Object.keys(totales).length > 0
+  const ruta = rutaGenerador(l)
+  const sinFilasGuardadas = !l.filas.length && l.total > 0
+  return (
+    <div className="mt-2 rounded border border-slate-300/80 bg-white/90" data-nexa="listado">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 px-2 py-1">
+        <Table2 size={14} className="text-[#1f4e9c]" />
+        <b className="text-[12.5px] text-slate-800">{l.titulo}</b>
+        <span className="text-[11.5px] text-slate-500">
+          {l.total > l.filas.length && l.filas.length
+            ? `${l.filas.length} de ${l.total_mas ? 'más de 50.000' : l.total} filas`
+            : `${l.total} ${l.total === 1 ? 'fila' : 'filas'}`}
+        </span>
+        <span className="flex-1" />
+        <BotonListado titulo="Descargar en Excel (.xlsx)" deshabilitado={!l.filas.length} onClick={() => void sacadoPor().then((q) => excelResultado(l, q))}>
+          <FileSpreadsheet size={13} /> Excel
+        </BotonListado>
+        <BotonListado
+          titulo="Imprimir o guardar como PDF"
+          deshabilitado={!l.filas.length}
+          onClick={() => setAviso(imprimirResultado(l, sacadoPorCache?.texto ?? '') ? null : 'El navegador ha bloqueado la ventana de impresión: permite las ventanas emergentes.')}
+        >
+          <Printer size={13} /> PDF / Imprimir
+        </BotonListado>
+        {puedeRuta('/listados') && (
+          <BotonListado titulo={l.id ? `Abrir ${l.codigo ?? ''} en el Generador de listados` : 'Abrir el Generador de listados con esta fuente y sus filtros «igual a»'} onClick={() => onAbrir(ruta)}>
+            Abrir en el Generador <ArrowUpRight size={12} />
+          </BotonListado>
+        )}
+        {!l.codigo && puedeRuta('/listados') && (
+          <BotonListado titulo="Guardarlo en el Generador de listados (con su código)" deshabilitado={pensando} onClick={() => onEnviar('Sí, guárdalo en el Generador.')}>
+            <Save size={12} /> Guardar
+          </BotonListado>
+        )}
+      </div>
+      <div className="truncate px-2 pt-0.5 text-[11px] text-slate-500" title={resumenResultado(l)}>
+        {resumenResultado(l)}
+      </div>
+      {aviso && <div className="mx-2 mt-1 rounded bg-amber-100 px-2 py-0.5 text-[11px] text-amber-900">{aviso}</div>}
+      {sinFilasGuardadas ? (
+        <div className="px-2 py-2 text-[12px] text-slate-500">Las filas de este listado ya no están en memoria: pídeselo otra vez a NEXA.</div>
+      ) : l.filas.length === 0 ? (
+        <div className="px-2 py-2 text-[12px] text-slate-500">Sin resultados con esos filtros.</div>
+      ) : (
+        <div className="gw-seleccionable mt-1 max-h-[52vh] overflow-auto">
+          <table className="w-full border-collapse text-[12px]">
+            <thead className="sticky top-0 z-[1] bg-[#e7edf6]">
+              <tr>
+                {l.columnas.map((c) => (
+                  <th key={c.clave} className={`whitespace-nowrap border-b border-slate-300 px-2 py-1 font-semibold text-slate-700 ${c.tipo === 'num' ? 'text-right' : 'text-left'}`}>
+                    {etiquetaColumna(l.fuente, c)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {l.filas.map((f, i) => (
+                <tr key={i} className="odd:bg-white even:bg-slate-50 hover:bg-[#e5f1fb]">
+                  {l.columnas.map((c) => (
+                    <td key={c.clave} className={`border-b border-slate-100 px-2 py-[3px] ${c.tipo === 'num' ? 'whitespace-nowrap text-right tabular-nums' : ''}`}>
+                      {valorTexto(l.fuente, c, f[c.clave])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+            {hayTotales && (
+              <tfoot className="sticky bottom-0 bg-[#f0f0f0] font-bold">
+                <tr>
+                  {l.columnas.map((c, i) => (
+                    <td key={c.clave} className={`px-2 py-1 ${c.tipo === 'num' ? 'whitespace-nowrap text-right tabular-nums' : ''}`}>
+                      {esSumable(c) ? formatGw(totales[c.clave], c.clave === 'registros' ? 0 : 2) : i === 0 ? 'TOTAL' : ''}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
+      {l.total > l.filas.length && l.filas.length > 0 && (
+        <div className="border-t border-slate-200 px-2 py-0.5 text-[11px] text-slate-500">
+          Se enseñan las primeras {l.filas.length}: los totales son de estas filas. Afina los filtros o ábrelo en el Generador para verlo entero.
         </div>
       )}
     </div>

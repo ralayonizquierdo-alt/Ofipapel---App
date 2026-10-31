@@ -127,13 +127,21 @@ function refCol(i: number): string {
   return s
 }
 
-/** XLSX de una hoja con las filas dadas (todo como texto; la primera fila en negrita). */
-export async function crearXlsx(nombreHoja: string, filas: Tabla, anchos: number[] = []): Promise<Blob> {
+/**
+ * XLSX de una hoja con las filas dadas (la primera fila en negrita, o la que diga `filaNegrita`).
+ * Los textos van como texto; los `number` (opcional, p. ej. listados de NEXA) como número de
+ * Excel, para que se puedan sumar.
+ */
+export async function crearXlsx(nombreHoja: string, filas: (string | number | null)[][], anchos: number[] = [], filaNegrita = 0): Promise<Blob> {
   const filasXml = filas
     .map(
       (f, r) =>
         `<row r="${r + 1}">${f
-          .map((v, c) => `<c r="${refCol(c)}${r + 1}" t="inlineStr"${r === 0 ? ' s="1"' : ''}><is><t xml:space="preserve">${esc(v ?? '')}</t></is></c>`)
+          .map((v, c) =>
+            typeof v === 'number' && Number.isFinite(v)
+              ? `<c r="${refCol(c)}${r + 1}"${r === filaNegrita ? ' s="1"' : ''}><v>${v}</v></c>`
+              : `<c r="${refCol(c)}${r + 1}" t="inlineStr"${r === filaNegrita ? ' s="1"' : ''}><is><t xml:space="preserve">${esc(v == null ? '' : String(v))}</t></is></c>`,
+          )
           .join('')}</row>`,
     )
     .join('')
