@@ -6,22 +6,28 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Key
 import { useLocation, useNavigate } from 'react-router-dom'
 import { usePermisos } from '../lib/PermisosContext'
 import { supabase } from '../lib/supabase'
-import { AlertTriangle, ArrowUpRight, FileSpreadsheet, Maximize2, Mic, Minimize2, Minus, Printer, RotateCcw, Save, SendHorizontal, Square, Table2, Volume2, VolumeX, X } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, CheckCircle2, FileSpreadsheet, KeyRound, Maximize2, Mic, Minimize2, Minus, PenLine, Printer, RotateCcw, Save, SendHorizontal, Square, Table2, Volume2, VolumeX, X } from 'lucide-react'
 import { NexaAvatar } from './NexaAvatar'
 import { getNexaState, onNexaState, type EstadoNexa } from './estado'
 import { contextoActual } from './contexto'
 import {
   abrirPanel,
   alternarPanel,
+  cancelarPropuesta,
   cerrarPanel,
   enviarMensaje,
+  estadoPropuesta,
   getConversacion,
   nuevaConversacion,
   setAmpliado,
   setVoz,
   useConversacion,
   vozDisponible,
+  type CambioNexa,
+  type EjecucionNexa,
   type MensajeNexa,
+  type OpcionesEnvio,
+  type PropuestaNexa,
 } from './conversacion'
 import { dictadoDisponible, empezarDictado, type Dictado } from './dictado'
 import { Markdown } from './Markdown'
@@ -33,14 +39,38 @@ export const ATAJO_NEXA = 'Ctrl+Espacio'
 /** Alto de la cabecera del Layout: franja del título (24 px) + barra de menús (20 px). */
 const ALTO_CABECERA = 44
 
-const SUGERENCIAS = [
-  '¿Cómo van los pedidos de hoy?',
-  'Listado de clientes con deuda',
-  'Ventas de este mes por vendedor',
-  '¿Qué artículos están bajo mínimo?',
-  'Prepara un resumen del día',
-  '¿Qué pedidos están pendientes de servir?',
+/**
+ * Sugerencias de bienvenida según quién entra. Cada frase lleva las pantallas que dan acceso a
+ * ese tema: solo sale si el grupo del usuario tiene alguna. Las que acaban en «…» rellenan la caja
+ * de texto (para completarlas) en vez de enviarse. Al mostrador nunca le salen importes.
+ */
+interface Frase {
+  texto: string
+  rutas: string[]
+}
+const FRASES_MOSTRADOR: Frase[] = [
+  { texto: '¿Hay stock de…?', rutas: ['/articulos', '/almacen/listados-articulos', '/tpv'] },
+  { texto: 'Busca el cliente…', rutas: ['/clientes'] },
+  { texto: 'Pedidos de hoy pendientes de servir', rutas: ['/gestor-pedidos', '/pedidos'] },
+  { texto: 'Reparaciones pendientes', rutas: ['/reparaciones', '/listados-ventas/reparaciones'] },
+  { texto: 'Crea un presupuesto para…', rutas: ['/presupuestos'] },
 ]
+const FRASES_GERENCIA: Frase[] = [
+  { texto: 'Resumen del día', rutas: ['/resumen'] },
+  { texto: 'Ventas del mes por vendedor', rutas: ['/listados-ventas/ventas', '/listados'] },
+  { texto: 'Clientes con deuda vencida', rutas: ['/gestor-cobros-clientes', '/listados-clientes/clientes'] },
+  { texto: 'Artículos bajo mínimo para pedir', rutas: ['/gestor-pedidos-proveedor', '/pedidos-proveedor'] },
+  { texto: 'Compras del mes por proveedor', rutas: ['/listados-compras/proveedores', '/pedidos-proveedor'] },
+]
+interface ListadoSugerido {
+  codigo: string
+  nombre: string
+  fuente: string
+  origen: 'tuyo' | 'grupo' | 'reciente'
+  usos: number
+}
+/** Listados sugeridos: se piden una vez por usuario y sesión de la página. */
+let sugeridosCache: { uid: string; listados: ListadoSugerido[] } | null = null
 
 function useEstadoNexa() {
   const [estado, setEstado] = useState<EstadoNexa>(getNexaState())
@@ -170,11 +200,22 @@ function NexaPanel() {
 
   useEffect(() => () => dictado?.parar(), [dictado])
 
-  function enviar(t = texto) {
+  function enviar(t = texto, opciones?: OpcionesEnvio) {
     if (!t.trim() || conv.pensando) return
     dictado?.parar()
     setTexto('')
-    void enviarMensaje(t, contextoActual(pathname, search))
+    void enviarMensaje(t, contextoActual(pathname, search), opciones)
+  }
+
+  /** Sugerencia que acaba en «…»: se escribe en la caja para que el usuario la complete. */
+  function rellenar(t: string) {
+    setTexto(t.replace(/…\s*$/, ' ').replace(/\?\s*$/, ' '))
+    window.setTimeout(() => {
+      const el = entradaRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+    }, 0)
   }
 
   function onTecla(e: KeyboardEventReact<HTMLTextAreaElement>) {
@@ -267,7 +308,7 @@ function NexaPanel() {
       {/* Conversación */}
       <div ref={listaRef} className="nexa-lista min-h-0 flex-1 overflow-y-auto px-3 pb-2 pt-1" aria-live="polite">
         {vacia && !conv.mensajes.length ? (
-          <Bienvenida onElegir={(s) => enviar(s)} deshabilitado={conv.pensando} />
+          <Bienvenida onElegir={(s) => enviar(s)} onRellenar={rellenar} deshabilitado={conv.pensando} />
         ) : (
           <div className="flex flex-col gap-2.5">
             {conv.mensajes.map((m) => (
@@ -278,8 +319,9 @@ function NexaPanel() {
                   if (getConversacion().ampliado) setAmpliado(false)
                   navigate(ruta)
                 }}
-                onEnviar={(t) => enviar(t)}
+                onEnviar={(t, o) => enviar(t, o)}
                 pensando={conv.pensando}
+                mensajes={conv.mensajes}
               />
               </div>
             ))}
@@ -294,7 +336,7 @@ function NexaPanel() {
               </div>
             )}
             {/* Tras el saludo, las sugerencias de inicio siguen disponibles */}
-            {vacia && <Bienvenida onElegir={(s) => enviar(s)} deshabilitado={conv.pensando} conSaludo={false} />}
+            {vacia && <Bienvenida onElegir={(s) => enviar(s)} onRellenar={rellenar} deshabilitado={conv.pensando} conSaludo={false} />}
           </div>
         )}
       </div>
@@ -341,7 +383,7 @@ function NexaPanel() {
           </button>
         </div>
         <div className="mt-1 flex justify-between px-0.5 text-[10px] text-slate-500">
-          <span>Solo lectura · consulta los datos con tus permisos</span>
+          <span>Con tus permisos · todo cambio se confirma antes</span>
           <span>Intro envía · Mayús+Intro línea nueva</span>
         </div>
       </div>
@@ -380,33 +422,104 @@ function BotonBarra({
   )
 }
 
-function Bienvenida({ onElegir, deshabilitado, conSaludo = true }: { onElegir: (s: string) => void; deshabilitado: boolean; conSaludo?: boolean }) {
+function Bienvenida({
+  onElegir,
+  onRellenar,
+  deshabilitado,
+  conSaludo = true,
+}: {
+  onElegir: (s: string) => void
+  onRellenar: (s: string) => void
+  deshabilitado: boolean
+  conSaludo?: boolean
+}) {
+  const { admin, puedeRuta, cargando } = usePermisos()
+  const [listados, setListados] = useState<ListadoSugerido[] | null>(sugeridosCache?.listados ?? null)
+  useEffect(() => {
+    let vivo = true
+    void (async () => {
+      const { data: s } = await supabase.auth.getSession()
+      const uid = s.session?.user.id ?? ''
+      if (sugeridosCache?.uid === uid) {
+        if (vivo) setListados(sugeridosCache.listados)
+        return
+      }
+      const { data, error } = await supabase.rpc('fn_nexa_sugerencias')
+      const lista = error ? [] : ((data as { listados?: ListadoSugerido[] } | null)?.listados ?? [])
+      sugeridosCache = { uid, listados: lista }
+      if (vivo) setListados(lista)
+    })()
+    return () => {
+      vivo = false
+    }
+  }, [])
+  // Gerencia: administradores o quien tiene los listados de ventas y los cobros de clientes.
+  const gerencia = admin || (puedeRuta('/listados-ventas/ventas') && puedeRuta('/gestor-cobros-clientes'))
+  const frases = cargando ? [] : (gerencia ? FRASES_GERENCIA : FRASES_MOSTRADOR).filter((f) => f.rutas.some((r) => puedeRuta(r))).slice(0, 5)
+  const boton =
+    'rounded-md border border-white/70 bg-white/65 px-3 py-1.5 text-left text-[12.5px] text-slate-700 shadow-sm hover:border-[#1f4e9c]/40 hover:bg-white disabled:opacity-60'
   return (
     <div className="flex flex-col items-center gap-3 pt-1 text-center">
       <div>
         {conSaludo && <div className="text-[15px] font-semibold text-slate-800">Hola, soy NEXA.</div>}
         <div className="mt-0.5 text-[12px] text-slate-500">
-          Pregúntame por ventas, pedidos, stock, clientes o proveedores, o pídeme cualquier listado: te lo saco, lo pasas a Excel o PDF y lo guardo en el Generador. Sé en qué pantalla estás.
+          Pregúntame lo que quieras del ERP o pídeme cualquier listado (Excel, PDF, Generador). También hago cambios con tus permisos: te enseño antes qué cambia y no hago nada sin tu confirmación.
         </div>
       </div>
-      <div className="flex w-full flex-col gap-1.5">
-        {SUGERENCIAS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            disabled={deshabilitado}
-            onClick={() => onElegir(s)}
-            className="rounded-md border border-white/70 bg-white/65 px-3 py-1.5 text-left text-[12.5px] text-slate-700 shadow-sm hover:border-[#1f4e9c]/40 hover:bg-white"
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+      {listados && listados.length > 0 && (
+        <div className="flex w-full flex-col gap-1.5" data-nexa="tus-listados">
+          <div className="text-left text-[10.5px] font-bold uppercase tracking-wide text-slate-500">Tus listados</div>
+          {listados.map((l) => (
+            <button
+              key={l.codigo}
+              type="button"
+              disabled={deshabilitado}
+              onClick={() => onElegir(`El listado ${l.codigo}`)}
+              title={
+                l.origen === 'tuyo' ? `Lo has sacado ${l.usos} ${l.usos === 1 ? 'vez' : 'veces'}` : l.origen === 'grupo' ? 'De los más usados por tu grupo' : 'Listado reciente del Generador'
+              }
+              className={`${boton} flex items-center gap-1.5`}
+            >
+              <Table2 size={13} className="flex-none text-[#1f4e9c]" />
+              <b className="font-semibold text-[#1f4e9c]">{l.codigo}</b>
+              <span className="truncate">{l.nombre}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {frases.length > 0 && (
+        <div className="flex w-full flex-col gap-1.5" data-nexa="frases">
+          {frases.map((f) => (
+            <button
+              key={f.texto}
+              type="button"
+              disabled={deshabilitado}
+              onClick={() => (f.texto.endsWith('…') ? onRellenar(f.texto) : onElegir(f.texto))}
+              title={f.texto.endsWith('…') ? 'Lo escribe en la caja para que lo completes' : undefined}
+              className={boton}
+            >
+              {f.texto}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function Mensaje({ m, onAbrir, onEnviar, pensando }: { m: MensajeNexa; onAbrir: (ruta: string) => void; onEnviar: (texto: string) => void; pensando: boolean }) {
+function Mensaje({
+  m,
+  onAbrir,
+  onEnviar,
+  pensando,
+  mensajes,
+}: {
+  m: MensajeNexa
+  onAbrir: (ruta: string) => void
+  onEnviar: (texto: string, opciones?: OpcionesEnvio) => void
+  pensando: boolean
+  mensajes: MensajeNexa[]
+}) {
   // El servidor ya no propone pantallas sin permiso; aquí se vuelve a filtrar por si acaso
   // (p. ej. conversaciones guardadas de antes o permisos cambiados después).
   const { puedeRuta } = usePermisos()
@@ -432,6 +545,8 @@ function Mensaje({ m, onAbrir, onEnviar, pensando }: { m: MensajeNexa; onAbrir: 
         <Markdown texto={m.texto} />
       </div>
       {m.listado && <TablaListado l={m.listado} onAbrir={onAbrir} onEnviar={onEnviar} pensando={pensando} />}
+      {m.propuesta && <TarjetaPropuesta p={m.propuesta} mensajes={mensajes} onEnviar={onEnviar} pensando={pensando} />}
+      {m.ejecucion && <TarjetaEjecucion e={m.ejecucion} />}
       {rutas.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {rutas.map((r) => (
@@ -570,6 +685,248 @@ function TablaListado({ l, onAbrir, onEnviar, pensando }: { l: ResultadoListado;
           Se enseñan las primeras {l.filas.length}: los totales son de estas filas. Afina los filtros o ábrelo en el Generador para verlo entero.
         </div>
       )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- Cambios: propuesta y resultado
+
+/** Colores por nivel: 2 leve (azul), 3 normal (ámbar), 4 masivo o con dinero (naranja), 5 crítico o legal (rojo). */
+const NIVEL: Record<number, { nombre: string; borde: string; fondo: string; chapa: string }> = {
+  2: { nombre: 'Cambio leve', borde: 'border-sky-300', fondo: 'bg-sky-50/90', chapa: 'bg-sky-600' },
+  3: { nombre: 'Cambio normal', borde: 'border-amber-300', fondo: 'bg-amber-50/90', chapa: 'bg-amber-500' },
+  4: { nombre: 'Masivo o con dinero', borde: 'border-orange-400', fondo: 'bg-orange-50/90', chapa: 'bg-orange-600' },
+  5: { nombre: 'Crítico o legal', borde: 'border-red-400', fondo: 'bg-red-50/90', chapa: 'bg-red-600' },
+}
+const OPERACION: Record<string, string> = { INSERT: 'alta', UPDATE: 'cambio', DELETE: 'borrado' }
+const MAX_CAMBIOS_TARJETA = 30
+const MAX_CAMPOS_ALTA = 14
+
+function valorCambio(v: unknown): string {
+  if (v === null || v === undefined || v === '') return '—'
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No'
+  if (typeof v === 'number') return formatGw(v, Number.isInteger(v) ? 0 : 2)
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}(T|$)/.test(v)) {
+    const [a, m, d] = v.slice(0, 10).split('-')
+    return `${d}/${m}/${a}${v.length > 10 ? ` ${v.slice(11, 16)}` : ''}`
+  }
+  const t = typeof v === 'string' ? v : JSON.stringify(v)
+  return t.length > 80 ? t.slice(0, 77) + '…' : t
+}
+
+/** Filas campo · antes · después de un cambio (en un alta, solo los campos con valor). */
+function filasCambio(c: CambioNexa): { campo: string; antes: unknown; despues: unknown }[] {
+  const ruido = /^(creado_en|actualizado_en|fecha_hora_actualizacion)$/
+  if (c.operacion === 'UPDATE') {
+    const campos = c.campos?.length ? c.campos : Object.keys(c.despues ?? {})
+    return campos.filter((k) => !ruido.test(k)).map((k) => ({ campo: k, antes: c.antes?.[k], despues: c.despues?.[k] }))
+  }
+  const fuente = (c.operacion === 'DELETE' ? c.antes : c.despues) ?? {}
+  return Object.entries(fuente)
+    .filter(([k, v]) => !ruido.test(k) && v !== null && v !== '' && v !== false)
+    .slice(0, MAX_CAMPOS_ALTA)
+    .map(([k, v]) => (c.operacion === 'DELETE' ? { campo: k, antes: v, despues: null } : { campo: k, antes: null, despues: v }))
+}
+
+function TarjetaPropuesta({
+  p,
+  mensajes,
+  onEnviar,
+  pensando,
+}: {
+  p: PropuestaNexa
+  mensajes: MensajeNexa[]
+  onEnviar: (texto: string, opciones?: OpcionesEnvio) => void
+  pensando: boolean
+}) {
+  const [palabra, setPalabra] = useState('')
+  const [motivo, setMotivo] = useState('')
+  // La contraseña solo vive en este campo: se manda en la petición de confirmar y se borra.
+  const [contrasena, setContrasena] = useState('')
+  const [verTodo, setVerTodo] = useState(false)
+  const [, setReloj] = useState(0)
+  const estado = estadoPropuesta(p, mensajes)
+  // Repinta cada 15 s para que se vea cuándo caduca.
+  useEffect(() => {
+    if (estado !== 'pendiente') return
+    const t = window.setInterval(() => setReloj((x) => x + 1), 15000)
+    return () => window.clearInterval(t)
+  }, [estado])
+  const n = NIVEL[p.nivel] ?? NIVEL[3]
+  const listo =
+    estado === 'pendiente' &&
+    !pensando &&
+    (!p.requiere.palabra || palabra.trim().toUpperCase() === (p.palabra ?? '').toUpperCase()) &&
+    (!p.requiere.motivo || motivo.trim().length >= 4) &&
+    (!p.requiere.contrasena || contrasena.length > 0)
+  const detalle = p.cambios.detalle ?? []
+  const visibles = verTodo ? detalle.slice(0, MAX_CAMBIOS_TARJETA) : detalle.slice(0, 6)
+  const caduca = p.caduca_en ? new Date(p.caduca_en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' }) : ''
+
+  function confirmar() {
+    if (!listo) return
+    let t = `Sí, hazlo (propuesta #${p.id}).`
+    if (p.requiere.palabra) t += ` Palabra: ${p.palabra}.`
+    if (p.requiere.motivo) t += `\nMotivo: ${motivo.trim()}`
+    const opciones: OpcionesEnvio | undefined = p.requiere.contrasena ? { credencial: { propuesta: p.id, contrasena } } : undefined
+    setContrasena('')
+    onEnviar(t, opciones)
+  }
+
+  return (
+    <div className={`mt-2 rounded border ${n.borde} ${n.fondo}`} data-nexa="propuesta" data-nivel={p.nivel}>
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-black/5 px-2 py-1">
+        <span className={`rounded px-1.5 py-[1px] text-[11px] font-bold text-white ${n.chapa}`}>Nivel {p.nivel}</span>
+        <span className="text-[11.5px] font-semibold text-slate-700">{n.nombre}</span>
+        <span className="flex-1" />
+        <span className="text-[11px] text-slate-500">
+          Propuesta #{p.id} · {p.filas} {p.filas === 1 ? 'registro' : 'registros'}
+        </span>
+      </div>
+      <div className="px-2 pt-1 text-[12.5px] font-semibold text-slate-800">{p.resumen}</div>
+      {p.cambios.por_tabla.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-2 pt-1">
+          {p.cambios.por_tabla.map((t) => (
+            <span key={`${t.tabla}-${t.operacion}`} className="rounded bg-white/80 px-1.5 py-[1px] text-[11px] text-slate-600 ring-1 ring-black/5">
+              {t.tabla} · {OPERACION[t.operacion] ?? t.operacion.toLowerCase()} · {t.filas}
+            </span>
+          ))}
+        </div>
+      )}
+      {visibles.length > 0 && (
+        <div className="gw-seleccionable mx-2 mt-1 max-h-[38vh] overflow-auto rounded border border-black/10 bg-white/90">
+          <table className="w-full border-collapse text-[11.5px]">
+            <thead className="sticky top-0 bg-[#e7edf6] text-slate-700">
+              <tr>
+                <th className="px-1.5 py-[2px] text-left font-semibold">Registro</th>
+                <th className="px-1.5 py-[2px] text-left font-semibold">Campo</th>
+                <th className="px-1.5 py-[2px] text-left font-semibold">Antes</th>
+                <th className="px-1.5 py-[2px] text-left font-semibold">Después</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.flatMap((c, i) =>
+                filasCambio(c).map((f, j) => (
+                  <tr key={`${i}-${f.campo}`} className={j === 0 ? 'border-t border-slate-200' : ''}>
+                    <td className="whitespace-nowrap px-1.5 py-[1px] align-top text-slate-600">
+                      {j === 0 ? (
+                        <>
+                          <b className="text-slate-700">{c.tabla}</b> {c.pk}
+                          <span className="text-slate-400"> · {OPERACION[c.operacion] ?? c.operacion.toLowerCase()}</span>
+                        </>
+                      ) : (
+                        ''
+                      )}
+                    </td>
+                    <td className="px-1.5 py-[1px] align-top text-slate-600">{f.campo}</td>
+                    <td className="px-1.5 py-[1px] align-top text-slate-500 line-through decoration-slate-300">{c.operacion === 'INSERT' ? '' : valorCambio(f.antes)}</td>
+                    <td className="px-1.5 py-[1px] align-top font-semibold text-slate-800">{c.operacion === 'DELETE' ? '' : valorCambio(f.despues)}</td>
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {detalle.length > visibles.length && (
+        <button type="button" onClick={() => setVerTodo(true)} className="mx-2 mt-0.5 text-[11px] font-semibold text-[#1f4e9c] hover:underline">
+          Ver {Math.min(detalle.length, MAX_CAMBIOS_TARJETA) - visibles.length} más
+          {p.cambios.total > MAX_CAMBIOS_TARJETA ? ` (de ${p.cambios.total})` : ''}
+        </button>
+      )}
+      {estado === 'pendiente' ? (
+        <div className="flex flex-col gap-1 px-2 pb-2 pt-1.5">
+          {p.requiere.palabra && (
+            <label className="flex items-center gap-1.5 text-[11.5px] text-slate-700">
+              <PenLine size={12} className="flex-none" />
+              <span className="w-[118px] flex-none">
+                Escribe <b className="select-all font-mono">{p.palabra}</b>
+              </span>
+              <input
+                value={palabra}
+                onChange={(e) => setPalabra(e.target.value)}
+                aria-label="Palabra de confirmación"
+                autoComplete="off"
+                spellCheck={false}
+                className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1.5 py-[2px] font-mono text-[12px] uppercase outline-none focus:border-[#1f4e9c]"
+              />
+            </label>
+          )}
+          {p.requiere.motivo && (
+            <label className="flex items-center gap-1.5 text-[11.5px] text-slate-700">
+              <PenLine size={12} className="flex-none" />
+              <span className="w-[118px] flex-none">Motivo</span>
+              <input
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                aria-label="Motivo del cambio"
+                placeholder="Por qué se hace (queda en la auditoría)"
+                className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1.5 py-[2px] text-[12px] outline-none focus:border-[#1f4e9c]"
+              />
+            </label>
+          )}
+          {p.requiere.contrasena && (
+            <label className="flex items-center gap-1.5 text-[11.5px] text-slate-700">
+              <KeyRound size={12} className="flex-none" />
+              <span className="w-[118px] flex-none">Tu contraseña</span>
+              <input
+                type="password"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmar()
+                }}
+                aria-label="Tu contraseña para confirmar"
+                autoComplete="current-password"
+                className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1.5 py-[2px] text-[12px] outline-none focus:border-[#1f4e9c]"
+              />
+            </label>
+          )}
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <button
+              type="button"
+              disabled={!listo}
+              onClick={confirmar}
+              className={`rounded px-2.5 py-[3px] text-[12px] font-bold text-white disabled:opacity-40 ${n.chapa}`}
+            >
+              Sí, hazlo
+            </button>
+            <button
+              type="button"
+              disabled={pensando}
+              onClick={() => void cancelarPropuesta(p.id)}
+              className="rounded border border-slate-300 bg-white px-2.5 py-[3px] text-[12px] font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+            >
+              No
+            </button>
+            <span className="flex-1" />
+            {caduca && <span className="text-[10.5px] text-slate-500">Caduca a las {caduca}</span>}
+          </div>
+          {p.requiere.contrasena && (
+            <div className="text-[10.5px] text-slate-500">La contraseña solo se usa para comprobar que eres tú: no se guarda ni pasa por la conversación.</div>
+          )}
+        </div>
+      ) : (
+        <div className="px-2 pb-1.5 pt-1 text-[11.5px] font-semibold text-slate-600">
+          {estado === 'ejecutada' ? 'Hecho (mira el resultado abajo).' : estado === 'cancelada' ? 'Cancelada: no se ha cambiado nada.' : 'Caducada: pídeselo otra vez a NEXA.'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TarjetaEjecucion({ e }: { e: EjecucionNexa }) {
+  return (
+    <div className="mt-2 rounded border border-emerald-300 bg-emerald-50/90 px-2 py-1.5" data-nexa="ejecucion">
+      <div className="flex items-center gap-1.5 text-[12px] font-bold text-emerald-800">
+        <CheckCircle2 size={14} />
+        Hecho · propuesta #{e.id} · nivel {e.nivel} · {e.filas} {e.filas === 1 ? 'registro' : 'registros'}
+      </div>
+      {e.por_tabla.length > 0 && (
+        <div className="mt-0.5 text-[11.5px] text-emerald-900">{e.por_tabla.map((t) => `${t.tabla}: ${t.filas} ${OPERACION[t.operacion] ?? t.operacion.toLowerCase()}`).join(' · ')}</div>
+      )}
+      {e.motivo && <div className="text-[11.5px] text-emerald-900">Motivo: {e.motivo}</div>}
+      <div className="text-[10.5px] text-emerald-700">Queda en la auditoría como hecho por NEXA a tu nombre.</div>
     </div>
   )
 }

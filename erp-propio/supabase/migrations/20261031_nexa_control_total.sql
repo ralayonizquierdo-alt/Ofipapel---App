@@ -46,6 +46,7 @@ create table if not exists public.nexa_operacion (
   permiso text,
   bloqueada boolean not null default false,
   notas text,
+  receta text,
   actualizado_en timestamptz not null default now()
 );
 comment on table public.nexa_operacion is 'Catálogo de operaciones de NEXA: nivel de confirmación (1-5), permiso requerido y bloqueos. objeto admite patrones LIKE (%). Al crear una función/tabla nueva, añadirla aquí.';
@@ -329,7 +330,7 @@ begin
     end if;
   end if;
   if coalesce(p_filas, 0) > 20 and v_nivel < 4 then v_nivel := 4; v_por := v_por || '; masivo (más de 20 filas)'; end if;
-  return jsonb_build_object('nivel', v_nivel, 'por', v_por, 'objeto', v_obj, 'catalogada', c.codigo is not null);
+  return jsonb_strip_nulls(jsonb_build_object('nivel', v_nivel, 'por', v_por, 'objeto', v_obj, 'catalogada', c.codigo is not null, 'receta', c.receta));
 end;
 $$;
 
@@ -806,17 +807,17 @@ begin
                 else 4 end as nivel,
            coalesce((c).bloqueada, false) as bloqueada,
            coalesce((c).descripcion, comentario) as descripcion,
-           (c).permiso as permiso, provolatile in ('s', 'i') as solo_lectura
+           (c).permiso as permiso, provolatile in ('s', 'i') as solo_lectura, (c).receta as receta
       from f
   )
-  select coalesce(jsonb_agg(to_jsonb(g) order by nombre), '[]'::jsonb) into v
+  select coalesce(jsonb_agg(jsonb_strip_nulls(to_jsonb(g)) order by nombre), '[]'::jsonb) into v
     from g
    where v_palabras is null or not exists (
      select 1 from unnest(v_palabras) w where position(w in lower(concat_ws(' ', nombre, argumentos, descripcion))) = 0);
   return jsonb_build_object('funciones', v,
-    'catalogo_tablas', (select coalesce(jsonb_agg(jsonb_build_object('tabla', objeto, 'accion', accion, 'nivel', nivel, 'bloqueada', bloqueada, 'descripcion', descripcion) order by objeto), '[]'::jsonb)
+    'catalogo_tablas', (select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object('tabla', objeto, 'accion', accion, 'nivel', nivel, 'bloqueada', bloqueada, 'descripcion', descripcion, 'receta', receta)) order by objeto), '[]'::jsonb)
                           from nexa_operacion where tipo = 'tabla'
-                           and (v_palabras is null or not exists (select 1 from unnest(v_palabras) w where position(w in lower(objeto || ' ' || descripcion)) = 0))));
+                           and (v_palabras is null or not exists (select 1 from unnest(v_palabras) w where position(w in lower(objeto || ' ' || descripcion || ' ' || coalesce(receta, ''))) = 0))));
 end;
 $$;
 
@@ -879,3 +880,22 @@ end;
 $$;
 revoke execute on function public.fn_nexa_secreto_registrar(text) from public, anon, authenticated;
 grant execute on function public.fn_nexa_secreto_registrar(text) to service_role;
+
+-- ---------------------------------------------------------------- Recetas (cómo lo hace la pantalla)
+-- Lo que hace una pantalla sin función SQL detrás (varias tablas a la vez) no se adivina mirando
+-- las tablas: el catálogo lleva la «receta» y NEXA la lee con describir_funciones (y le vuelve en
+-- la propuesta). Probado el 31/10: sin receta, NEXA regularizaba el stock solo con
+-- regularizacion_stock y sin el movimiento de stock (el stock no habría cambiado).
+alter table public.nexa_operacion add column if not exists receta text;
+comment on column public.nexa_operacion.receta is 'Cómo hace la operación la pantalla del ERP (tablas, orden, campos) cuando no hay una función SQL que lo haga todo.';
+
+insert into public.nexa_operacion (codigo, descripcion, tipo, objeto, accion, nivel, receta) values
+  ('tabla:pedido_cliente', 'Pedidos, presupuestos y reparaciones de cliente', 'tabla', 'pedido_cliente', '*', 3,
+   'Alta (como Ventas → Presupuestos / Pedidos): 1) funcion fn_siguiente_numero {p_tienda, p_tipo_documento:"pedido_cliente", p_serie:""}; 2) alta en pedido_cliente con numero "$paso1" (es_presupuesto true y presupuesto_estado "borrador" para presupuestos; es_reparacion para reparaciones), cliente, almacén, vendedor, forma de pago y los totales (subtotal, total_igic_pie, total); 3) una alta por línea en pedido_cliente_linea (tienda_terminal_codigo, numero "$paso1", numero_linea 1..n, articulo_codigo, descripcion, cantidad, precio, igic_pct, subtotal, total_base, total_igic). Copia los demás campos de un documento parecido. Un presupuesto no mueve stock; para convertirlo en pedido usa fn_presupuesto_a_pedido.')
+on conflict (codigo) do update set receta = excluded.receta;
+update public.nexa_operacion set receta =
+  'Regularizar el stock de un artículo (como Almacén → Regularización de stock): 1) funcion fn_siguiente_numero {p_tienda, p_tipo_documento:"regularizacion_stock", p_serie:""}; 2) alta en regularizacion_stock {tienda_terminal_codigo, numero:"$paso1", articulo_codigo, almacen_codigo, fecha, documento_externo:"USR_STK", cantidad: el stock NUEVO, precio: articulo.coste_bruto, stock_anterior: cantidad_actual de articulo_almacen_stock en ese almacén, activo:true}; 3) si nuevo − anterior ≠ 0, alta en movimiento_stock {tipo_movimiento:"regularizacion", sentido: 1 si sube / -1 si baja, almacen_codigo, articulo_codigo, cantidad: |nuevo − anterior|, costo_unitario: el precio, documento_origen_tipo:"regularizacion_stock", documento_origen_tienda_codigo: la tienda, documento_origen_numero:"$paso1", tienda_terminal_codigo}. El saldo (articulo_almacen_stock) lo actualiza solo el trigger de movimiento_stock: no lo toques a mano.'
+ where codigo = 'tabla:regularizacion_stock';
+update public.nexa_operacion set receta =
+  'No se escribe a mano: el saldo lo lleva el trigger de movimiento_stock. Para cambiar el stock, regulariza (receta de regularizacion_stock) o usa fn_recalcular_stock_aplicar / fn_stock_cero_familia_aplicar.'
+ where codigo = 'tabla:articulo_almacen_stock';

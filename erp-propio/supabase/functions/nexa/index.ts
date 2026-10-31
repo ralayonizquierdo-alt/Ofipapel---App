@@ -111,7 +111,7 @@ Cómo respondes:
 - Cuando tenga sentido llevar al usuario a una ficha o pantalla, usa abrir_pantalla (el programa le enseña un botón «Abrir»; tú no navegas). Solo se pueden proponer pantallas que su grupo de acceso permite: si abrir_pantalla responde que no tiene permiso, no insistas ni busques otra ruta para lo mismo; dile que esa opción no está permitida a su grupo y que lo pida a un administrador.
 
 Puedes LEER y ESCRIBIR todo el ERP, siempre con la identidad y los permisos del usuario que te habla (su grupo de acceso, las reglas de la base y sus funciones). Con un administrador el control es total; un usuario sin permiso no puede usarte para saltárselo. Para CUALQUIER cambio el camino es siempre proponer → confirmar → ejecutar:
-1. Entiende bien qué quiere y consulta lo necesario (consultar_bd, describir_tablas, describir_funciones). Si existe una función del ERP para eso (cobrar, abrir/cerrar caja, facturar albaranes, anular o rectificar, modificar en bloque, stock a cero…), úsala en vez de tocar tablas a mano; si no, pasos sobre tablas copiando cómo están hechos los registros que ya existen (mira uno parecido con consultar_bd: columnas, numeración, estados). Para números de documento usa fn_siguiente_numero (tienda, tipo_documento, serie) y referencia su resultado con "$paso1".
+1. Entiende bien qué quiere y consulta lo necesario (consultar_bd, describir_tablas, describir_funciones). Si existe una función del ERP para eso (cobrar, abrir/cerrar caja, facturar albaranes, anular o rectificar, modificar en bloque, stock a cero…), úsala en vez de tocar tablas a mano; si no, mira ANTES con describir_funciones (buscando el nombre de la tabla) si el catálogo trae la «receta» de cómo lo hace la pantalla (qué tablas, en qué orden, qué campos) y síguela; si no hay receta, pasos sobre tablas copiando cómo están hechos los registros que ya existen (mira uno parecido con consultar_bd: columnas, numeración, estados) y no olvides los registros que acompañan (movimientos, líneas…). Para números de documento usa fn_siguiente_numero (tienda, tipo_documento, serie) y referencia su resultado con "$paso1".
 2. proponer_cambio con un resumen claro y los pasos. NO escribe nada: simula el cambio con sus permisos, calcula el nivel (1-5) y el panel enseña una tarjeta con lo que cambia (antes → después, nº de registros) y los botones «Sí, hazlo» / «No».
 3. Después de proponer, PARA y explica en 1-3 frases qué va a cambiar y qué tiene que hacer el usuario según el nivel: nivel 2-3, responder «sí»; nivel 4 (masivo o con dinero), escribir la palabra de confirmación que te devuelve proponer_cambio (dísela tal cual) y un motivo; nivel 5 (crítico o legal, solo administradores), además, su contraseña en el campo de la tarjeta — NUNCA le pidas la contraseña en el chat y, si la escribe en el chat, dile que no lo haga y que use el campo.
 4. ejecutar_cambio solo cuando el ÚLTIMO mensaje del usuario lo confirme (lo comprueba también el servidor). Nunca en la misma respuesta en la que propones. Después, resume lo hecho en 1-3 frases (registros, documento creado…).
@@ -969,6 +969,7 @@ Deno.serve(async (req) => {
     ejecuto: false,
   }
   let consultas = 0
+  const textoAntes: string[] = []
 
   try {
     for (let paso = 0; ; paso++) {
@@ -1007,7 +1008,7 @@ Deno.serve(async (req) => {
         const porDefecto = sesion.propuestas.length ? 'Revisa la propuesta y confírmala si está bien.' : sesion.ejecuciones.length ? 'Hecho.' : listados.length ? 'Aquí lo tienes.' : 'No tengo una respuesta para eso.'
         return json({
           ok: true,
-          texto: (texto || porDefecto) + aviso,
+          texto: ([...textoAntes, texto].filter(Boolean).join('\n\n') || porDefecto) + aviso,
           rutas,
           listados,
           propuestas: sesion.propuestas,
@@ -1017,6 +1018,9 @@ Deno.serve(async (req) => {
         })
       }
 
+      // Texto escrito antes de una llamada que solo pone botones (abrir_pantalla): suele ser el
+      // resumen de lo hecho; se conserva para no quedarse solo con la última frase.
+      if (texto && usos.every((u) => u.name === 'abrir_pantalla')) textoAntes.push(texto)
       // Se devuelve el contenido tal cual (incluidos los bloques de razonamiento) y todos los
       // resultados en un único mensaje.
       mensajes.push({ role: 'assistant', content: respuesta.content })
