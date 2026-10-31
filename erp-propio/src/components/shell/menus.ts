@@ -2,7 +2,7 @@
 // (págs. 1-3). Las opciones con `to` o `action` funcionan; el resto sale en gris.
 
 import type { LucideIcon } from 'lucide-react'
-import { Banknote, BookOpenText, NotebookText, ShoppingBasket, Wrench } from 'lucide-react'
+import { Banknote, BookOpenText, FileDown, Landmark, NotebookText, ShieldCheck, ShoppingBasket, Wrench } from 'lucide-react'
 import { COLOR_SECCION } from './secciones'
 import { ponerIconos } from './iconosMenu'
 
@@ -212,10 +212,12 @@ export const MENUS: TopMenu[] = [
     // Menú nuevo, no existe en GeminisWin (petición de Rober, 27/10/2026). En gris: Retenciones,
     // Remesas SEPA y Cierre de ejercicio (pendientes).
     items: [
+      // Diario el primero (Luis, 31/10/2026).
+      item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual', icono: BookOpenText, colorIcono: '#1d3a8a' }),
       item('Generar Asientos Automáticos', { to: '/contabilidad/generar', description: 'Genera los asientos de ventas, facturas, cobros, pagos y caja' }),
       item('Asientos Pendientes / con Errores', { to: '/contabilidad/pendientes', description: 'Asientos que no cuadran o sin cuenta contable' }),
-      item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual', icono: BookOpenText, colorIcono: '#1d3a8a' }),
       'sep',
+      item('Empresas de la Contabilidad', { to: '/contabilidad/empresas', description: 'Empresas del grupo con contabilidad: elegir con cuál se trabaja y dar de alta otras' }),
       item('Plan de Cuentas', { to: '/contabilidad/plan-cuentas', description: 'Plan de cuentas (PGC PYMES) y subcuentas' }),
       item('Mayor / Extracto de Cuenta', { to: '/contabilidad/mayor', description: 'Mayor de una cuenta con saldo acumulado' }),
       item('Sumas y Saldos', { to: '/contabilidad/sumas-saldos', description: 'Balance de sumas y saldos' }),
@@ -227,14 +229,14 @@ export const MENUS: TopMenu[] = [
       item('Modelo 425 (IGIC Anual)', { to: '/contabilidad/modelo-425', description: 'Resumen anual de IGIC' }),
       item('Modelo 347', { to: '/contabilidad/modelo-347', description: 'Operaciones con terceros de más de 3.005,06 €' }),
       ...off(['Retenciones 111 / 115']),
-      item('Verifactu (Registro y Envío)', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados' }),
+      item('Verifactu (Registro y Envío)', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados', icono: ShieldCheck, colorIcono: '#127a12' }),
       'sep',
-      item('Conciliación Bancaria', { to: '/contabilidad/conciliacion', description: 'Importar extractos Norma 43 y casarlos con la contabilidad' }),
+      item('Conciliación Bancaria', { to: '/contabilidad/conciliacion', description: 'Importar extractos Norma 43 y casarlos con la contabilidad', icono: Landmark, colorIcono: '#b07d0a' }),
       ...off(['Remesas SEPA']),
       item('Previsión de Tesorería', { to: '/contabilidad/tesoreria', description: 'Cobros y pagos pendientes por vencimiento' }),
       'sep',
       ...off(['Cierre y Apertura de Ejercicio']),
-      item('Exportar a Gestoría', { to: '/contabilidad/exportar', description: 'Diario y libros de IGIC en CSV para la gestoría' }),
+      item('Exportar a Gestoría', { to: '/contabilidad/exportar', description: 'Diario y libros de IGIC en CSV para la gestoría', icono: FileDown, colorIcono: '#2b5ea8' }),
       item('Configuración Contable', { to: '/contabilidad/configuracion', description: 'Cuentas por defecto de los asientos automáticos' }),
     ],
   },
@@ -505,6 +507,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad/generar', title: 'Generar Asientos Automáticos' },
   { prefix: '/contabilidad/pendientes', title: 'Asientos Pendientes / con Errores' },
   { prefix: '/contabilidad/diario', title: 'Diario de Asientos' },
+  { prefix: '/contabilidad/empresas', title: 'Empresas de la Contabilidad' },
   { prefix: '/contabilidad/plan-cuentas', title: 'Plan de Cuentas' },
   { prefix: '/contabilidad/mayor', title: 'Mayor / Extracto de Cuenta' },
   { prefix: '/contabilidad/sumas-saldos', title: 'Sumas y Saldos' },

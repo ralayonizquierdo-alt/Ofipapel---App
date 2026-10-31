@@ -214,6 +214,7 @@ const ICONOS: Record<string, Icono> = {
   'Extracto clientes': FileText,
   Liquidación: BadgePercent,
   // Contabilidad
+  'Empresas de la Contabilidad': Building2,
   'Generar Asientos Automáticos': Wand2,
   'Asientos Pendientes / con Errores': [TriangleAlert, ROJO],
   'Plan de Cuentas': ListTree,

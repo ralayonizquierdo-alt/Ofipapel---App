@@ -11,6 +11,7 @@ import { GwWindow } from '../../components/gw'
 import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
 import { eur0, fechaEs } from './contabModel'
+import { cargarEmpresas, type EmpresaContable } from './EmpresasContablesPage'
 
 export interface EjercicioInfo {
   anio: number
@@ -29,8 +30,9 @@ interface Simulacion {
   asientos_con_error: number
 }
 
-export function EjercicioBar({ anio, onAnio }: { anio: number; onAnio: (a: number) => void }) {
+export function EjercicioBar({ anio, onAnio, onEmpresa }: { anio: number; onAnio: (a: number) => void; onEmpresa: () => void }) {
   const { superAdmin } = usePermisos()
+  const [empresas, setEmpresas] = useState<EmpresaContable[]>([])
   const [lista, setLista] = useState<EjercicioInfo[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cerrar, setCerrar] = useState<Simulacion | null>(null)
@@ -46,7 +48,18 @@ export function EjercicioBar({ anio, onAnio }: { anio: number; onAnio: (a: numbe
   }, [])
   useEffect(() => {
     void cargar()
+    cargarEmpresas()
+      .then(setEmpresas)
+      .catch((e: Error) => setError(e.message))
   }, [cargar])
+
+  const empresa = empresas.find((e) => e.elegida)
+  const cambiarEmpresa = async (id: number) => {
+    setError(null)
+    const { error: e } = await supabase.rpc('fn_contab_elegir_empresa', { p_id: id })
+    if (e) return setError(e.message)
+    onEmpresa()
+  }
 
   const ej = lista.find((e) => e.anio === anio)
   const anios = lista.some((e) => e.anio === anio) ? lista : [{ anio, cerrado: false } as EjercicioInfo, ...lista]
@@ -79,8 +92,25 @@ export function EjercicioBar({ anio, onAnio }: { anio: number; onAnio: (a: numbe
 
   return (
     <div className="flex flex-col gap-1">
-      <div className={`flex flex-wrap items-center gap-2 border px-2 py-1 text-[13px] ${ej?.cerrado ? 'border-[#c9a400] bg-[#fff6d5]' : 'border-[#c9d7ee] bg-[#eef3fb]'}`}>
-        <b className="text-[#1d3a8a]">Ejercicio</b>
+      <div
+        className={`flex flex-wrap items-center gap-2 border px-2 py-1 text-[13px] ${ej?.cerrado ? 'border-[#c9a400] bg-[#fff6d5]' : 'border-[#c9d7ee] bg-[#eef3fb]'}`}
+      >
+        <b className="text-[#1d3a8a]">Empresa</b>
+        <select
+          className="h-[24px] max-w-[260px] border border-[var(--gw-border)] bg-white px-1 text-[14px] font-bold text-[#1d3a8a]"
+          value={empresa?.id ?? ''}
+          onChange={(e) => void cambiarEmpresa(Number(e.target.value))}
+          title="Empresa del grupo con la que trabajan todas las pantallas de Contabilidad"
+        >
+          {empresas
+            .filter((e) => e.activa || e.elegida)
+            .map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.id} · {e.nombre_corto || e.nombre}
+              </option>
+            ))}
+        </select>
+        <b className="ml-2 text-[#1d3a8a]">Ejercicio</b>
         <select
           className="h-[24px] border border-[var(--gw-border)] bg-white px-1 text-[14px] font-bold"
           value={anio}
@@ -104,7 +134,12 @@ export function EjercicioBar({ anio, onAnio }: { anio: number; onAnio: (a: numbe
         )}
         <span className="flex-1" />
         {superAdmin && !ej?.cerrado && (
-          <button type="button" className="gw-btn h-[24px]" onClick={() => void simular()} title="Regularización, cierre y apertura del año siguiente (solo super administradores)">
+          <button
+            type="button"
+            className="gw-btn h-[24px]"
+            onClick={() => void simular()}
+            title="Regularización, cierre y apertura del año siguiente (solo super administradores)"
+          >
             🔒 Cerrar ejercicio…
           </button>
         )}
@@ -123,8 +158,9 @@ export function EjercicioBar({ anio, onAnio }: { anio: number; onAnio: (a: numbe
           <GwOperativa
             bloques={[
               {
-                titulo: 'Ejercicio contable',
+                titulo: 'Empresa y ejercicio',
                 pasos: [
+                  'En «Empresa» eliges la empresa del grupo con la que trabajas (Ofipapel u otra): todas las pantallas de Contabilidad pasan a esa empresa. Se dan de alta en Contabilidad → Empresas de la Contabilidad.',
                   'Arriba a la izquierda eliges el año: Diario, Mayor, balances, IGIC… trabajan con él (puedes cambiar las fechas en cada pantalla).',
                   'Un año con 🔒 está CERRADO: solo consulta. No se pueden crear, modificar ni anular asientos de ese año.',
                 ],
@@ -161,7 +197,9 @@ export function EjercicioBar({ anio, onAnio }: { anio: number; onAnio: (a: numbe
                 </b>
               </div>
               <div>Cuentas de gastos e ingresos que se regularizan contra la 129: {cerrar.cuentas_regularizadas}</div>
-              <div>Cuentas que se cierran el 31/12 y se abren el 01/01/{anio + 1}: {cerrar.cuentas_cierre}</div>
+              <div>
+                Cuentas que se cierran el 31/12 y se abren el 01/01/{anio + 1}: {cerrar.cuentas_cierre}
+              </div>
               {cerrar.asientos_con_error > 0 && (
                 <div className="font-bold text-[#c42b1c]">
                   Hay {cerrar.asientos_con_error} asiento(s) con error: corrígelos antes (Asientos Pendientes / con Errores).
@@ -174,7 +212,12 @@ export function EjercicioBar({ anio, onAnio }: { anio: number; onAnio: (a: numbe
                 <button type="button" className="gw-btn" onClick={() => setCerrar(null)}>
                   Cancelar
                 </button>
-                <button type="button" className="gw-btn font-bold" disabled={trabajando || cerrar.asientos_con_error > 0} onClick={() => void confirmarCierre()}>
+                <button
+                  type="button"
+                  className="gw-btn font-bold"
+                  disabled={trabajando || cerrar.asientos_con_error > 0}
+                  onClick={() => void confirmarCierre()}
+                >
                   {trabajando ? 'Cerrando…' : `🔒 Cerrar el ${anio}`}
                 </button>
               </div>

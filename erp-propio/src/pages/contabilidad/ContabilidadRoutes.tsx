@@ -12,6 +12,8 @@ import { ConciliacionPage } from './ConciliacionPage'
 import { PrevisionTesoreriaPage } from './PrevisionTesoreriaPage'
 import { BalanceSituacionPage } from './BalanceSituacionPage'
 import { EjercicioBar } from './EjercicioBar'
+import { ContabilidadNav } from './ContabilidadNav'
+import { EmpresasContablesPage } from './EmpresasContablesPage'
 import { ejercicioContable, fijarEjercicioContable } from './contabModel'
 
 /** Rutas del menú Contabilidad (todas bajo /contabilidad/…), con la barra del ejercicio arriba. */
@@ -24,20 +26,26 @@ export function ContabilidadRoutes() {
     setAnio(a)
     setVuelta((v) => v + 1)
   }
+  // Al cambiar de empresa se vuelve a montar todo (barra incluida) con los datos de la nueva empresa.
+  const recargar = () => setVuelta((v) => v + 1)
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <EjercicioBar anio={anio} onAnio={elegir} />
-      <ContabilidadPantallas key={`${anio}-${vuelta}`} />
+    <div className="flex min-w-0 gap-1.5">
+      <ContabilidadNav />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <EjercicioBar key={vuelta} anio={anio} onAnio={elegir} onEmpresa={recargar} />
+        <ContabilidadPantallas key={`${anio}-${vuelta}`} onEmpresa={recargar} />
+      </div>
     </div>
   )
 }
 
-function ContabilidadPantallas() {
+function ContabilidadPantallas({ onEmpresa }: { onEmpresa: () => void }) {
   return (
     <Routes>
       <Route path="generar" element={<GenerarAsientosPage />} />
       <Route path="pendientes" element={<DiarioPage key="errores" modo="errores" />} />
       <Route path="diario" element={<DiarioPage key="diario" />} />
+      <Route path="empresas" element={<EmpresasContablesPage onCambio={onEmpresa} />} />
       <Route path="plan-cuentas" element={<PlanCuentasPage />} />
       <Route path="mayor" element={<MayorPage />} />
       <Route path="sumas-saldos" element={<SumasSaldosPage />} />
