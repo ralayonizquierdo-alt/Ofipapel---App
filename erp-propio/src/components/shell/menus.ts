@@ -336,7 +336,7 @@ export const MENUS: TopMenu[] = [
         children: [
           item('Hacer Copia', { action: 'hacer-copia', shortcut: 'Alt+F8', description: 'Descarga un ZIP con los datos de las tablas del ERP' }),
           item('Testear Copia', { action: 'testear-copia', description: 'Comprueba que un ZIP de copia se puede leer entero' }),
-          item('Restaurar Copia', { description: 'La restauración se hace desde Supabase (copias diarias automáticas)' }),
+          item('Restaurar Copia', { description: 'Sin copias automáticas en el plan actual de Supabase: haz copias con «Hacer Copia»' }),
         ],
       }),
       item('Cambio de Fecha', { action: 'cambio-fecha', description: 'Fecha de trabajo de la sesión para los documentos nuevos' }),
