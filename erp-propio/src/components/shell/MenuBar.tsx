@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { MENUS, isEnabled, type MenuEntry, type MenuItem } from './menus'
+import { isEnabled, type MenuEntry, type MenuItem } from './menus'
+import { areaActual, menusDeArea } from '../../lib/areaTrabajo'
 import { usePermisos } from '../../lib/PermisosContext'
 import { LETRA_MENU, letraDeEvento, mnemonicos, posicionLetra } from './mnemonicos'
 import { modalAlPulsar, normalizarAtajo, textoAtajo } from '../gw/teclado'
@@ -49,6 +50,8 @@ export function MenuBar({
   const [camino, setCamino] = useState<number[]>([])
   const ref = useRef<HTMLDivElement>(null)
   const { puedeOpcion } = usePermisos()
+  // Menús del área de trabajo elegida al entrar (Gestión, Contabilidad, Web o AVATAR = todos).
+  const MENUS = useMemo(() => menusDeArea(areaActual()), [])
 
   const abiertas: MenuItem[] = useMemo(
     () =>

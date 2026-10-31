@@ -6,7 +6,7 @@ import { Banknote, BookOpenText, FileDown, Landmark, NotebookText, ShieldCheck, 
 import { COLOR_SECCION } from './secciones'
 import { ponerIconos } from './iconosMenu'
 
-export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | AccionUtilidad
+export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | 'cambiar-area' | AccionUtilidad
 
 /** Diálogos de Utilidades (y Seleccionar Periodo) que abre UtilidadesHost con el evento «gw:utilidad». */
 export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales', 'preparar-pagina', 'presentacion-preliminar', 'elegir-impresora'] as const
@@ -63,6 +63,8 @@ export const MENUS: TopMenu[] = [
       }),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
+      // Áreas de trabajo (Luis, 01/11/2026): Gestión, Contabilidad, Web o AVATAR (todo).
+      item('Cambiar de Área', { action: 'cambiar-area', description: 'Volver a la ventana de entrada: Gestión, Contabilidad, Web o AVATAR' }),
       item('Cambiar Grupo de Acceso', { action: 'cambiar-grupo', shortcut: 'CTRL+O', description: 'Ver el programa como otro grupo de acceso (solo administradores)' }),
       item('Cambiar Contraseña', { to: '/cambiar-clave', description: 'Cambiar la contraseña del empleado conectado' }),
       'sep',
