@@ -391,6 +391,9 @@ function MenuList({
                 } ${resaltada ? 'bg-[#91c9f7]' : enabled || it.checked ? 'hover:bg-[#91c9f7]' : ''}`}
               >
                 {it.checked && <span className="absolute left-2">✓</span>}
+                {!it.checked && it.icono && (
+                  <it.icono size={16} color={it.colorIcono ?? '#1d3a8a'} fill={it.colorIcono ?? '#1d3a8a'} fillOpacity={0.16} strokeWidth={2} className="absolute left-[3px]" aria-hidden />
+                )}
                 <span className="flex-1">
                   <Rotulo label={it.label} pos={mn[i]?.pos} />
                 </span>

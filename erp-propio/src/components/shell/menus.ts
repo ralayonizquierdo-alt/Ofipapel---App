@@ -1,6 +1,10 @@
 // Árbol de menús de la ventana principal, copiado del mapa funcional de GeminisWin
 // (págs. 1-3). Las opciones con `to` o `action` funcionan; el resto sale en gris.
 
+import type { LucideIcon } from 'lucide-react'
+import { Banknote, BookOpenText, NotebookText, ShoppingBasket, Wrench } from 'lucide-react'
+import { COLOR_SECCION } from './secciones'
+
 export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | AccionUtilidad
 
 /** Diálogos de Utilidades (y Seleccionar Periodo) que abre UtilidadesHost con el evento «gw:utilidad». */
@@ -22,6 +26,9 @@ export interface MenuItem {
   letra?: string
   /** Solo para super administradores (para el resto sale apagada), p. ej. Archivo → Auditoría. */
   soloSuperAdmin?: boolean
+  /** Icono a la izquierda en el menú desplegable, como GeminisWin en las opciones importantes. */
+  icono?: LucideIcon
+  colorIcono?: string
 }
 
 export type MenuEntry = MenuItem | 'sep'
@@ -130,10 +137,11 @@ export const MENUS: TopMenu[] = [
       item('Técnicos', { to: '/tecnicos', description: 'Ficha de Técnicos' }),
       item('Nº Serie', { to: '/numeros-serie', description: 'Números de Serie' }),
       'sep',
-      item('Pedidos', { to: '/pedidos', description: 'Pedidos de Clientes' }),
-      item('TPV / Ventas', { to: '/tpv', shortcut: 'CTRL+F12', description: 'TPV / Ventas' }),
-      item('Ventas / Facturas', { to: '/ventas', description: 'Ventas / Facturas' }),
-      item('Reparaciones', { to: '/reparaciones', shortcut: 'CTRL+F11', description: 'Reparaciones' }),
+      // Con icono, como en GeminisWin (Luis, 31/10/2026).
+      item('Pedidos', { to: '/pedidos', description: 'Pedidos de Clientes', icono: ShoppingBasket, colorIcono: COLOR_SECCION.pedidos }),
+      item('TPV / Ventas', { to: '/tpv', shortcut: 'CTRL+F12', description: 'TPV / Ventas', icono: Banknote, colorIcono: COLOR_SECCION.ventas }),
+      item('Ventas / Facturas', { to: '/ventas', description: 'Ventas / Facturas', icono: NotebookText, colorIcono: COLOR_SECCION.facturacion }),
+      item('Reparaciones', { to: '/reparaciones', shortcut: 'CTRL+F11', description: 'Reparaciones', icono: Wrench, colorIcono: '#6b4f9e' }),
       item('Presupuestos', { to: '/presupuestos', description: 'Presupuestos' }),
       item('Gestor de Pedidos', { to: '/gestor-pedidos', shortcut: 'ALT+F6', description: 'Gestor de Pedidos' }),
       item('Gestor de Presupuestos', { to: '/gestor-presupuestos', description: 'Gestor de Presupuestos' }),
@@ -205,7 +213,7 @@ export const MENUS: TopMenu[] = [
     items: [
       item('Generar Asientos Automáticos', { to: '/contabilidad/generar', description: 'Genera los asientos de ventas, facturas, cobros, pagos y caja' }),
       item('Asientos Pendientes / con Errores', { to: '/contabilidad/pendientes', description: 'Asientos que no cuadran o sin cuenta contable' }),
-      item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual' }),
+      item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual', icono: BookOpenText, colorIcono: '#1d3a8a' }),
       'sep',
       item('Plan de Cuentas', { to: '/contabilidad/plan-cuentas', description: 'Plan de cuentas (PGC PYMES) y subcuentas' }),
       item('Mayor / Extracto de Cuenta', { to: '/contabilidad/mayor', description: 'Mayor de una cuenta con saldo acumulado' }),
