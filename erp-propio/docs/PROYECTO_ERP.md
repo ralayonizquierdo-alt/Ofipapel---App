@@ -417,12 +417,65 @@ lleve a la pantalla adecuada.
 - **Sabe en qué pantalla estás** (`useNexaContexto`) y lo usa para contestar.
 - **Cómo funciona por dentro:** la conversación va a la Edge Function
   **`nexa`**, que llama a Claude (clave de Anthropic «ERP Ofipapel - NEXA»,
-  guardada como secreto en Supabase). Claude tiene tres herramientas:
-  `describir_tablas`, `consultar_bd` y `abrir_pantalla`.
-- **Seguridad:** NEXA **solo puede leer** (función `fn_nexa_consulta`, de solo
-  lectura y con los permisos del propio usuario). **Nunca puede saltarse el
-  sistema de permisos** ni modificar datos. Si algún día hace operaciones,
-  serán siempre con confirmación expresa del usuario.
+  guardada como secreto en Supabase). Claude tiene estas herramientas:
+  `describir_tablas`, `consultar_bd`, `abrir_pantalla` y las del centro de
+  listados (abajo).
+- **Seguridad:** NEXA **solo puede leer** los datos del negocio (función
+  `fn_nexa_consulta`, de solo lectura y con los permisos del propio usuario).
+  **Nunca puede saltarse el sistema de permisos** ni modificar datos. Lo único
+  que escribe es un listado guardado del Generador, y solo si el usuario lo
+  confirma.
+
+### NEXA, centro de listados e informes (31/10/2026)
+
+Petición de Rober: «el centro de listados y de todo debe ser NEXA». El empleado
+pide en lenguaje normal un listado («listado de clientes de la zona Arona
+Centro», «ventas de octubre por vendedor», «artículos sin stock de la familia
+de papel», «el listado CLI-0001») y NEXA se lo da como **tabla en su panel**
+(se amplía sola), con botones **Excel** (.xlsx de verdad, números como
+números, con la identificación del listado arriba), **PDF / Imprimir** (ventana
+aparte con código, qué incluye, quién lo saca y «Página X de Y»), **Abrir en el
+Generador** y, si no estaba guardado, **Guardar**.
+
+- **Cómo lo hace:** primero busca un listado guardado del Generador de Luis
+  (`buscar_listados`); si encaja, lo saca por su código (`ejecutar_listado`,
+  pudiendo añadir filtros, p. ej. el mes). Si no hay, lo monta sobre las vistas
+  `v_lst_*` (columnas, filtros, agrupar y sumar, orden), mirando antes el
+  informe equivalente de GeminisWin (`informe_geminiswin`, tabla `gw_informe`)
+  para copiar sus columnas, agrupación y totales. Enseña hasta 500 filas y
+  dice el total real. Después ofrece guardarlo; solo lo guarda
+  (`guardar_listado`) si el último mensaje del usuario es un «sí» (lo comprueba
+  la Edge Function, no solo la IA), en la misma tabla y formato que la
+  pantalla del Generador y con su código automático (CLI-0005…), a nombre de
+  quien lo pide.
+- **Permisos (migración `20261031_nexa_listados.sql`, todo SECURITY INVOKER con
+  el JWT del usuario):** `fn_listado_fuente_permisos` dice qué pantallas dan
+  acceso a cada fuente (ventas → `/ventas`, `/tpv`, listados de ventas,
+  facturación…; compras → pedidos a proveedor y sus listados; etc.) y
+  `fn_listado_fuente_permitida` lo comprueba con `fn_puede_alguno` (admin
+  siempre). `fn_nexa_listados_buscar` solo devuelve guardados que la RLS deja
+  ver **y** de fuentes permitidas; `fn_nexa_listado` reutiliza
+  `fn_listado_ejecutar` (la del Generador, sin tocarla) y añade el total;
+  `fn_nexa_listado_guardar` exige además `/listados`. Probado: el grupo
+  DEPENDIENTE (`prueba`) no ve ni saca compras, facturas ni proveedores (ni por
+  código: «COM-0001» no existe para él). **Fuente nueva del Generador =
+  añadirla en `fn_listado_fuente_permisos`** (sin entrada, solo la ve un
+  administrador).
+- **Abrir en el Generador:** un guardado abre `/listados?id=…`; uno montado al
+  vuelo abre `/listados?fuente=…&filtro=col:valor` (lo que ya admite la
+  pantalla de Luis: fuente y filtros «igual a»; columnas y el resto se eligen
+  allí). La pantalla del Generador no se ha tocado.
+- **Código:** herramientas en `supabase/functions/nexa/index.ts`; tabla y
+  botones en `src/nexa/NexaAsistente.tsx` (`TablaListado`); etiquetas, Excel,
+  impresión y enlace en `src/lib/listados/resultado.ts` (reglas del Generador:
+  nombres de `fuentes.ts`, sin sumar números/años, fechas dd/mm/aaaa);
+  `crearXlsx` (`src/lib/hojaCalculo.ts`) acepta ahora números y la fila en
+  negrita.
+- **Pendiente:** NEXA no apunta «usos» del listado guardado (`listado_uso`)
+  para no escribir nada más que el listado; «Abrir en el Generador» de un
+  listado montado al vuelo no lleva sus columnas ni filtros que no sean «igual
+  a» (haría falta que la pantalla aceptara la definición entera por URL); las
+  conversaciones guardadas conservan las filas solo de los 3 últimos listados.
 
 ## 12. Cómo trabajamos para no pisarnos
 

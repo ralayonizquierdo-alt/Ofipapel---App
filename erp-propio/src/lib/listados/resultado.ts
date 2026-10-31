@@ -90,7 +90,7 @@ export function resumenResultado(r: ResultadoListado) {
   const opTxt = (o: string) => OPERADORES.find((x) => x.op === o)?.texto ?? o
   return [
     fte?.titulo ?? r.fuente,
-    `${d.columnas.length} columnas`,
+    d.agrupar.length ? '' : `${d.columnas.length} columnas`,
     d.filtros.length ? `filtros: ${d.filtros.map((f) => `${et(f.col)} ${opTxt(f.op)}${f.valor ? ` ${f.valor}` : ''}${f.valor2 ? ` y ${f.valor2}` : ''}`).join(', ')}` : 'sin filtros',
     d.agrupar.length ? `agrupado por ${d.agrupar.map(et).join(', ')}` : '',
     d.orden.length ? `orden: ${d.orden.map((o) => et(o.col) + (o.desc ? ' ↓' : '')).join(', ')}` : '',

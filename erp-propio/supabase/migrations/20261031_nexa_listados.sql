@@ -163,8 +163,10 @@ begin
   end if;
   if nullif(btrim(coalesce(p_nombre, '')), '') is null then raise exception 'Falta el nombre del listado'; end if;
   -- Mismo formato que la pantalla del Generador.
+  -- (al agrupar sin columnas, las columnas son las agrupadas, como al hacerlo en la pantalla)
   v_def := jsonb_build_object(
-    'columnas', coalesce(p_definicion -> 'columnas', '[]'),
+    'columnas', case when jsonb_array_length(coalesce(p_definicion -> 'columnas', '[]')) = 0 then coalesce(p_definicion -> 'agrupar', '[]')
+                     else p_definicion -> 'columnas' end,
     'filtros', coalesce(p_definicion -> 'filtros', '[]'),
     'agrupar', coalesce(p_definicion -> 'agrupar', '[]'),
     'sumar', coalesce(p_definicion -> 'sumar', '[]'),

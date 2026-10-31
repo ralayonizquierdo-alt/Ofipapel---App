@@ -142,17 +142,23 @@ function NexaPanel() {
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const ladoAvatar = Math.round(Math.max(130, Math.min(230, alto * 0.3)))
+  // Con un listado en pantalla la NEXA grande se hace pequeña para dejar sitio a la tabla.
+  const hayListado = conv.mensajes.some((m) => m.listado)
+  const ladoAvatar = hayListado ? 96 : Math.round(Math.max(130, Math.min(230, alto * 0.3)))
 
   useEffect(() => {
     entradaRef.current?.focus()
   }, [])
 
-  // Último mensaje siempre a la vista.
+  // Último mensaje siempre a la vista; si trae un listado, desde su principio (con los botones).
+  const ultimo = conv.mensajes[conv.mensajes.length - 1]
+  const conListado = Boolean(ultimo?.listado) && !conv.pensando
   useEffect(() => {
     const el = listaRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [conv.mensajes.length, conv.pensando])
+    if (!el) return
+    const m = conListado && ultimo ? el.querySelector<HTMLElement>(`[data-nexa-msg="${ultimo.id}"]`) : null
+    el.scrollTop = m ? m.offsetTop - el.offsetTop - 4 : el.scrollHeight
+  }, [conv.mensajes.length, conv.pensando, conListado, ultimo])
 
   // Ajusta el alto de la caja de texto (1 a 6 líneas).
   useLayoutEffect(() => {
@@ -265,8 +271,8 @@ function NexaPanel() {
         ) : (
           <div className="flex flex-col gap-2.5">
             {conv.mensajes.map((m) => (
+              <div key={m.id} data-nexa-msg={m.id} className="flex min-w-0 flex-col">
               <Mensaje
-                key={m.id}
                 m={m}
                 onAbrir={(ruta) => {
                   if (getConversacion().ampliado) setAmpliado(false)
@@ -275,6 +281,7 @@ function NexaPanel() {
                 onEnviar={(t) => enviar(t)}
                 pensando={conv.pensando}
               />
+              </div>
             ))}
             {conv.pensando && (
               <div className="flex items-center gap-2 px-1 text-[12px] text-slate-500">
