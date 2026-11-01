@@ -3,19 +3,32 @@
 -- comprometido en pedidos de clientes; y por línea la decisión «pedir / no pedir / dudosa» con el motivo.
 -- Regla (la de Rober): si con el stock + lo pendiente de recibir − lo comprometido a clientes aguanto lo vendido
 -- en el periodo, no pido; si no, pido la diferencia. Los artículos 00003… (pedidos expresos de cliente) se excluyen.
+-- Plazo de entrega: el de la ficha del proveedor (dias_entrega) o, si no lo tiene, 18 días (casi todos tardan 15-20
+-- días hasta Canarias; los 3 de informática, una semana: ya lo tienen en su ficha). La necesidad es lo que hay que
+-- tener para aguantar el plazo y hasta el siguiente pedido: venta diaria × (días desde la última compra + plazo).
 -- Solo lee (SECURITY INVOKER): no crea pedidos.
 
-create or replace function public.fn_compras_gestor_proveedor(p_proveedor text, p_desde date default null)
+drop function if exists public.fn_compras_gestor_proveedor(text, date, int, int);
+
+create or replace function public.fn_compras_gestor_proveedor(
+  p_proveedor text,
+  p_desde date default null,
+  p_plazo_defecto int default 18,
+  p_ciclo_max int default 90
+)
 returns table (
   articulo_codigo text,
   descripcion text,
   periodo_desde date,
   periodo_dias int,
+  plazo_dias int,
+  plazo_supuesto boolean,
   vendido numeric,
   stock_actual numeric,
   pendiente_recibir numeric,
   comprometido_clientes numeric,
   disponible numeric,
+  necesidad numeric,
   decision text,
   cantidad_sugerida numeric,
   motivo text
@@ -31,7 +44,9 @@ as $$
                where pp.proveedor_codigo = p_proveedor and not coalesce(pp.es_abono, false)),
              (select pr.fecha_ultimo_pedido::date from proveedor pr where pr.codigo = p_proveedor),
              current_date - 90
-           ) as desde
+           ) as desde,
+           coalesce((select nullif(pr.dias_entrega, 0) from proveedor pr where pr.codigo = p_proveedor and pr.dias_entrega > 0), p_plazo_defecto) as plazo,
+           not exists (select 1 from proveedor pr where pr.codigo = p_proveedor and pr.dias_entrega > 0) as supuesto
   ),
   art as (
     select ar.codigo_interno, ar.descripcion
@@ -87,39 +102,42 @@ as $$
   ),
   calc as (
     select b.*, (b.stock + b.pendiente - b.comprometido) as disp,
-           pa.desde, greatest(0, current_date - pa.desde) as dias
+           pa.desde, greatest(0, current_date - pa.desde) as dias, pa.plazo, pa.supuesto,
+           -- Lo que hay que tener para aguantar hasta que llegue este pedido (plazo) y hasta el siguiente (ciclo).
+           ceil(b.vendido / greatest(1, current_date - pa.desde)
+                * (least(greatest(1, current_date - pa.desde), p_ciclo_max) + pa.plazo)) as necesidad
       from base b, param pa
   )
-  select c.codigo_interno::text, c.descripcion::text, c.desde, c.dias::int,
-         c.vendido, c.stock, c.pendiente, c.comprometido, c.disp,
+  select c.codigo_interno::text, c.descripcion::text, c.desde, c.dias::int, c.plazo::int, c.supuesto,
+         c.vendido, c.stock, c.pendiente, c.comprometido, c.disp, c.necesidad,
          case
            when c.vendido = 0 and c.comprometido = 0 then 'dudosa'
-           when c.disp >= c.vendido and not (c.vendido > 0 and c.disp < c.vendido * 1.25) then 'no_pedir'
-           when c.disp >= c.vendido then 'dudosa'
+           when c.disp >= c.necesidad and not (c.necesidad > 0 and c.disp < c.necesidad * 1.25) then 'no_pedir'
+           when c.disp >= c.necesidad then 'dudosa'
            when c.vendido <= 1 and c.comprometido = 0 then 'dudosa'
            when c.dias < 7 then 'dudosa'
            when c.stock < 0 then 'dudosa'
            else 'pedir' end,
-         case when c.vendido = 0 and c.comprometido = 0 then 0 else greatest(0, ceil(c.vendido - c.disp)) end,
+         case when c.vendido = 0 and c.comprometido = 0 then 0 else greatest(0, ceil(c.necesidad - c.disp)) end,
          case
            when c.vendido = 0 and c.comprometido = 0 then 'Stock negativo y sin ventas en el periodo: es un fallo de stock, no una necesidad de compra. Revisar el stock'
-           when c.disp >= c.vendido and not (c.vendido > 0 and c.disp < c.vendido * 1.25) then 'Hay stock de sobra para lo vendido en el periodo'
-           when c.disp >= c.vendido then 'Llega justo (menos de un 25 % de margen sobre lo vendido)'
+           when c.disp >= c.necesidad and not (c.necesidad > 0 and c.disp < c.necesidad * 1.25) then 'Hay stock de sobra para aguantar el plazo de entrega y hasta el siguiente pedido'
+           when c.disp >= c.necesidad then 'Llega justo (menos de un 25 % de margen sobre lo necesario)'
            when c.vendido <= 1 and c.comprometido = 0 then 'Venta aislada (1 unidad o menos): ¿merece reponerse?'
            when c.dias < 7 then 'Periodo muy corto (menos de 7 días desde la última compra)'
            when c.stock < 0 then 'Stock negativo: revisar el stock antes de pedir'
            when c.comprometido > 0 and c.disp < 0 then 'Hay pedidos de clientes sin servir que el stock no cubre'
-           else 'No alcanza para lo vendido en el periodo' end
+           else 'No alcanza para aguantar el plazo de entrega y hasta el siguiente pedido' end
     from calc c
-   order by case when c.disp >= c.vendido then 2 else 1 end, c.codigo_interno
+   order by case when c.disp >= c.necesidad then 2 else 1 end, c.codigo_interno
 $$;
 
-revoke execute on function public.fn_compras_gestor_proveedor(text, date) from public, anon;
-grant execute on function public.fn_compras_gestor_proveedor(text, date) to authenticated;
+revoke execute on function public.fn_compras_gestor_proveedor(text, date, int, int) from public, anon;
+grant execute on function public.fn_compras_gestor_proveedor(text, date, int, int) to authenticated;
 
 insert into public.nexa_operacion (codigo, descripcion, tipo, objeto, accion, nivel, permiso, bloqueada, notas, receta) values
   ('funcion:fn_compras_gestor_proveedor', 'Gestor de Pedidos a Proveedores: ventas desde la última compra y decisión pedir/no pedir por línea (solo lee)', 'funcion',
    'fn_compras_gestor_proveedor', '*', 1, null, false, null,
-   'Para preparar el pedido a un proveedor (es como compra Rober): select * from fn_compras_gestor_proveedor(''CODIGO_PROVEEDOR''). Es su Gestor de Pedidos hecho función: ventas desde la última compra, stock, lo pendiente de recibir y lo comprometido a clientes; decisión pedir / no pedir / dudosa con motivo. Enséñale primero un resumen (cuántas líneas en cada decisión y el total de unidades a pedir), después las líneas «pedir» y «dudosa» con su motivo; las «no pedir» solo si las pide. Los artículos 00003… (pedidos expresos de cliente) ya van excluidos. Avisa si el total no llega a la compra mínima del proveedor. Es una propuesta: no crees ningún pedido sin que Rober lo confirme.')
+   'Para preparar el pedido a un proveedor (es como compra Rober): select * from fn_compras_gestor_proveedor(''CODIGO_PROVEEDOR''). Es su Gestor de Pedidos hecho función: ventas desde la última compra, stock, lo pendiente de recibir y lo comprometido a clientes; decisión pedir / no pedir / dudosa con motivo. Cuenta el plazo de entrega del proveedor (casi todos 15-20 días hasta Canarias, 18 por defecto; los de informática ~1 semana; plazo_supuesto indica que no está en su ficha): la necesidad es lo que hay que tener para aguantar el plazo y hasta el siguiente pedido. Enséñale primero un resumen (cuántas líneas en cada decisión y el total de unidades a pedir), después las líneas «pedir» y «dudosa» con su motivo; las «no pedir» solo si las pide. Los artículos 00003… (pedidos expresos de cliente) ya van excluidos. Avisa si el total no llega a la compra mínima del proveedor. Es una propuesta: no crees ningún pedido sin que Rober lo confirme.')
 on conflict (codigo) do update set descripcion = excluded.descripcion, nivel = excluded.nivel, permiso = excluded.permiso,
                                     notas = excluded.notas, receta = excluded.receta, actualizado_en = now();
