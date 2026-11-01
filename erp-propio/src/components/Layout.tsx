@@ -19,8 +19,8 @@ import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
 import { EdicionHerramientas, IndicadorVerComo, lanzarEdicion } from './shell/EdicionHerramientas'
 import { SinPermiso, usePermisos } from '../lib/PermisosContext'
-import { areaActual, areaElegida, fijarArea, opcionesPropias, rutaEnArea, ultimaArea, type Area } from '../lib/areaTrabajo'
-import { SelectorArea, tituloArea, AREAS } from './shell/SelectorArea'
+import { areaActual, areaElegida, cambiarAreaYRecargar, opcionesPropias, rutaEnArea, ultimaArea, type Area } from '../lib/areaTrabajo'
+import { BotonesAreaCabecera, SelectorArea, tituloArea } from './shell/SelectorArea'
 import { comboDeEvento, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
 
 /** Atajos de menú que no gestiona Layout: los de edición los hace el navegador en el campo;
@@ -147,10 +147,7 @@ export function Layout() {
     return { gestion: tiene('gestion'), contabilidad: tiene('contabilidad'), web: tiene('web'), avatar: true }
   }, [permisos])
   const sinAccesoArea = !permisos.cargando && !areasDisponibles[area]
-  const cambiarArea = (a: Area) => {
-    fijarArea(a)
-    window.location.assign(import.meta.env.BASE_URL)
-  }
+  const cambiarArea = (a: Area) => (a === area && areaElegida() != null ? setElegirArea(false) : cambiarAreaYRecargar(a))
   const contenido = permisos.cargando ? (
     <div className="p-4 text-[13px]">Cargando permisos…</div>
   ) : permisos.puedeRuta(pathname) && rutaEnArea(area, pathname) ? (
@@ -290,15 +287,8 @@ export function Layout() {
         <span className="truncate">
           Ofipapel ERP, Periodo: {ejercicioTrabajo().descripcion ?? `Periodo ${ejercicioTrabajo().anio}`} Empresa: {empresa}
         </span>
-        <button
-          type="button"
-          className="flex-none rounded border px-1.5 text-[11px] font-bold leading-[16px]"
-          style={{ background: AREAS.find((x) => x.id === area)?.fondo, borderColor: AREAS.find((x) => x.id === area)?.borde, color: AREAS.find((x) => x.id === area)?.color }}
-          onClick={() => setElegirArea(true)}
-          title="Área de trabajo: pulsa para cambiar (Gestión, Contabilidad, Web o AVATAR)"
-        >
-          {tituloArea(area)}
-        </button>
+        {/* Las 3 áreas siempre a mano: un clic y se cambia (Luis, 01/11/2026). */}
+        <BotonesAreaCabecera actual={area} disponibles={areasDisponibles} onElegir={cambiarArea} />
       </div>
       <AvisoVersion />
       <AvisoConformidad uid={session?.user.id ?? null} />

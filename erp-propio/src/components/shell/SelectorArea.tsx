@@ -96,3 +96,41 @@ export function SelectorArea({
     </div>
   )
 }
+
+/** Los 3 botones en pequeño para la cabecera del programa: el área actual resaltada. */
+export function BotonesAreaCabecera({
+  actual,
+  disponibles,
+  onElegir,
+}: {
+  actual: Area
+  disponibles: Partial<Record<Area, boolean>>
+  onElegir: (a: Area) => void
+}) {
+  return (
+    <span className="flex flex-none items-center gap-1" role="group" aria-label="Áreas">
+      {EN_ENTRADA.map((id) => {
+        const a = AREAS.find((x) => x.id === id)!
+        const Icono = a.icono
+        const activa = actual === id
+        const apagada = disponibles[id] === false
+        return (
+          <button
+            key={id}
+            type="button"
+            disabled={apagada || activa}
+            onClick={() => onElegir(id)}
+            title={activa ? `Estás en ${a.titulo}` : apagada ? 'Tu grupo de acceso no tiene esta área' : `Ir a ${a.titulo}`}
+            className={`flex h-[19px] items-center gap-1 rounded border px-1.5 text-[11px] leading-none ${
+              activa ? 'font-bold' : apagada ? 'opacity-35' : 'opacity-75 hover:opacity-100'
+            }`}
+            style={{ background: activa ? a.fondo : '#fff', borderColor: activa ? a.color : a.borde, color: a.color }}
+          >
+            {id === 'avatar' ? <img src={`${import.meta.env.BASE_URL}marca/trebol-16.png`} alt="" width={13} height={13} /> : <Icono size={13} aria-hidden />}
+            {a.titulo}
+          </button>
+        )
+      })}
+    </span>
+  )
+}

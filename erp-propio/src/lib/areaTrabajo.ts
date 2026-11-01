@@ -3,7 +3,9 @@
 // base de datos: el área solo decide qué menús se ven y qué pantallas se abren, para que los
 // contables trabajen con «su programa» sin ver la gestión. Lo que cada uno puede usar dentro de un
 // área lo siguen decidiendo los Grupos de Acceso; si no tiene nada de esa área, no entra en ella.
-// El área elegida vale para esta sesión del navegador (pestaña); cambiar de área recarga.
+// El área elegida vale solo mientras el programa está abierto (en memoria): cada vez que se abre o
+// se vuelve a entrar salen otra vez los botones (Luis: «cuando salgas y vuelvas, a los 3 botones»).
+// Cambiar de área recarga la página y pasa el área por un aviso de un solo uso (sessionStorage).
 
 import { MENUS, type MenuEntry, type MenuItem, type TopMenu } from '../components/shell/menus'
 
@@ -20,33 +22,51 @@ const PROPIOS: Record<Area, string[] | null> = {
   avatar: null,
 }
 
-/** Área elegida en esta sesión del navegador, o null si todavía no se ha elegido. */
-export function areaElegida(): Area | null {
+const PENDIENTE = 'erp.area.pendiente'
+const valida = (a: string | null): a is Area => a === 'gestion' || a === 'contabilidad' || a === 'web' || a === 'avatar'
+
+// Área de esta carga del programa: solo la que se acaba de elegir al cambiar de área (antes de recargar).
+let enMemoria: Area | null = (() => {
   try {
-    const a = sessionStorage.getItem(CLAVE)
-    if (a === 'gestion' || a === 'contabilidad' || a === 'web' || a === 'avatar') return a
+    const a = sessionStorage.getItem(PENDIENTE)
+    sessionStorage.removeItem(PENDIENTE)
+    return valida(a) ? a : null
   } catch {
-    return 'avatar' // sin almacenamiento: todo, sin preguntar
+    return null
   }
-  return null
-}
+})()
 
-export const areaActual = (): Area => areaElegida() ?? 'avatar'
+/** Área elegida en esta apertura del programa, o null si todavía no se ha elegido. */
+export const areaElegida = (): Area | null => enMemoria
 
+export const areaActual = (): Area => enMemoria ?? 'avatar'
+
+/** Elige el área (al entrar). Se recuerda solo para marcarla en el selector la próxima vez. */
 export function fijarArea(a: Area) {
+  enMemoria = a
   try {
-    sessionStorage.setItem(CLAVE, a)
     localStorage.setItem(CLAVE, a)
   } catch {
     /* sin almacenamiento */
   }
 }
 
+/** Cambia de área con el programa abierto: recarga la página y entra directamente en la nueva. */
+export function cambiarAreaYRecargar(a: Area) {
+  fijarArea(a)
+  try {
+    sessionStorage.setItem(PENDIENTE, a)
+  } catch {
+    /* sin almacenamiento: tras recargar volverá a preguntar */
+  }
+  window.location.assign(import.meta.env.BASE_URL)
+}
+
 /** Última área elegida en este ordenador (para marcarla en el selector). */
 export function ultimaArea(): Area | null {
   try {
     const a = localStorage.getItem(CLAVE)
-    return a === 'gestion' || a === 'contabilidad' || a === 'web' || a === 'avatar' ? a : null
+    return valida(a) ? a : null
   } catch {
     return null
   }
