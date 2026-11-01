@@ -482,3 +482,13 @@ Function `nexa` (v8, `verify_jwt`). Detalle funcional en `PROYECTO_ERP.md` §11.
 
 - `movimiento_stock` y `registro_facturacion` no tienen trigger de auditoría: lo que NEXA cambia
   ahí se ve en la tarjeta y en el documento, pero no en `auditoria`.
+
+### Rastro de NEXA en las tablas sin auditoría normal (01/11/2026)
+
+Migración `20261101_nexa_auditoria_total.sql`. La auditoría normal no apunta `movimiento_stock` (altas),
+`registro_facturacion`, `articulo_almacen_stock`, `punto_restauracion_stock_linea`, `secuencia_numeracion` ni
+`cliente_deuda_recalculo` (son registros o se recalculan solas). Para que **todo lo que haga NEXA quede apuntado**,
+esas tablas llevan un trigger `trg_auditoria_nexa_*` con `WHEN (erp.nexa_origen está puesto)`: solo escribe en
+`auditoria` cuando el cambio lo hace NEXA, con su origen «NEXA · nivel N · propuesta P · motivo». El uso normal del
+ERP no cambia. `empresa_contable` y `usuario_empresa_contable` (contabilidad multiempresa) no tenían auditoría y ya
+la tienen. `fn_nexa_tablas_sin_rastro()` devuelve las tablas de negocio sin trigger de auditoría: debe salir vacía.
