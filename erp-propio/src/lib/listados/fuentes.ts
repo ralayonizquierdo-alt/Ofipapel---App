@@ -193,6 +193,9 @@ export const FUENTES: Fuente[] = [
     columnas: [
       t('tienda', 'Tienda'), n('numero', 'Número', 0), f('fecha', 'Fecha'), t('empleado_numero', 'Empl. Nº'), t('referencia', 'Código de venta'),
       t('articulo_desc', 'Artículo'), t('familia', 'Familia'), t('proveedor', 'Proveedor'), n('cantidad', 'Cantidad'), t('estado', 'Estado'),
+      // Del pedido a proveedor en el que va (peticion_tramitacion): proveedor del pedido, cliente, número de pedido y llegada.
+      t('proveedor_pedido', 'Proveedor del pedido'), t('proveedor_nombre', 'Proveedor del pedido (nombre)'), t('cliente_nombre', 'Cliente'),
+      t('pedido_ref', 'Pedido a proveedor'), n('pedido', 'Pedido (número)', 0), t('pedido_estado', 'Estado del pedido'), f('fecha_recepcion', 'Recepción del pedido'),
     ],
   },
   {
