@@ -32,3 +32,11 @@ actúa con los permisos de quien lo llama. Dadas de alta en `nexa_operacion` con
 - No corrige la estacionalidad (vuelta al cole): para eso hace falta ≥ 1 año completo.
 - Aún no crea los pedidos: la fase 2 convertirá `fn_compras_propuesta_pedidos` en borradores de `pedido_proveedor`
   (nivel 2-3, con `fn_siguiente_numero`), respetando `compra_minima`.
+
+## Plazos de entrega de los proveedores (01/11/2026)
+
+Los `dias_entrega` que venían de GeminisWin no eran reales (había -1, 1, 2, 8, 10…). Por indicación de Rober se
+cambiaron en bloque, por tipo de proveedor (340 fichas, auditadas con su valor anterior): **informática y consumibles**
+(EXADI 04062, INFORPOR 04030, UFP 04075, MUCHO CARTUCHO 04090) → **7 días**; **locales** (código `50…`) → **3 días**;
+**resto** → **18 días** (el punto medio de 15-20). Se dejaron como estaban los acreedores contables (`60…`/`61…`) y los
+proveedores de baja. Cada proveedor puede afinarse luego en su ficha.
