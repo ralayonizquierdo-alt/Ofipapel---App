@@ -11,7 +11,7 @@ export const OPERATIVAS_CONTABILIDAD: Record<string, BloqueOperativa[]> = {
       titulo: 'Diario de Asientos',
       pasos: [
         'Elige las fechas y el estado (Correctos, Con errores, Todos) y pulsa Actualizar. Puedes buscar por nº de asiento, cuenta, concepto o documento.',
-        '«Nuevo»: asiento manual. Escribe la fecha y el concepto y añade apuntes (cuenta, Debe o Haber). No se guarda si no cuadra.',
+        '«Nuevo»: asiento manual. Escribe la fecha, la tienda (si es de una tienda concreta) y el concepto y añade apuntes (cuenta, Debe o Haber). No se guarda si no cuadra.',
         'Para cambiar un asiento: selecciónalo y «Modificar» (o doble clic). Se guarda como asiento nuevo y el anterior queda anulado, para que quede rastro.',
         '«Anular»: lo deja anulado (no se borra). «Renumerar»: vuelve a numerar por fecha los asientos correctos del ejercicio.',
         '«Excel (CSV)»: el diario de las fechas elegidas.',
@@ -94,6 +94,16 @@ export const OPERATIVAS_CONTABILIDAD: Record<string, BloqueOperativa[]> = {
     {
       titulo: 'Pérdidas y Ganancias',
       pasos: ['Elige las fechas: gastos (grupo 6) e ingresos (grupo 7) con su total y el resultado (beneficio o pérdida).'],
+    },
+  ],
+  'resultados-tiendas': [
+    {
+      titulo: 'Resultados por Tienda',
+      pasos: [
+        'Elige las fechas: por columnas cada tienda, por filas las cuentas de ingresos (7) y gastos (6), y abajo el resultado de cada tienda.',
+        'La tienda es la del ticket, factura o cobro que hizo el asiento. En los asientos manuales se elige en el campo «Tienda» del asiento.',
+        'Lo que no tiene tienda (gastos generales: alquiler de oficinas, asesoría…) sale en «Sin tienda».',
+      ],
     },
   ],
   'libros-igic': [

@@ -223,6 +223,7 @@ const ICONOS: Record<string, Icono> = {
   'Mayor / Extracto de Cuenta': NotebookTabs,
   'Sumas y Saldos': Sigma,
   'Pérdidas y Ganancias': TrendingUp,
+  'Resultados por Tienda': Store,
   'Balance de Situación': Scale,
   'Libros Registro de IGIC': BookOpenText,
   'Modelo 420 (IGIC Trimestral)': Receipt,
