@@ -117,57 +117,18 @@ export async function cargarTramitables(filtro?: { claves?: { t: string; n: numb
     .filter((r) => r.falta > 0)
 }
 
-/** Marca las peticiones como tramitadas en la línea del pedido y deja el rastro en peticion_tramitacion. */
-async function anotarTramitacion(
-  pets: PeticionATramitar[],
-  pedido: { tienda: string; numero: number; linea: number; proveedor: string; almacen: string },
-  empleado: string | null,
-) {
-  for (const p of pets) {
-    const { data: actual } = await supabase.from('peticion').select('cantidad').eq('tienda_terminal_codigo', p.tienda).eq('numero', p.numero).single()
-    const { error: e1 } = await supabase
-      .from('peticion')
-      .update({
-        estado: 'tramitada',
-        cantidad_tramitada: Number(actual?.cantidad ?? p.falta),
-        proveedor_codigo: pedido.proveedor,
-        empleado_atencion_codigo: empleado,
-        actualizado_en: new Date().toISOString(),
-      })
-      .eq('tienda_terminal_codigo', p.tienda)
-      .eq('numero', p.numero)
-    if (e1) throw new Error(e1.message)
-    // PETIDETA.ESTADO es un código numérico de GeminisWin sin documentar: se deja vacío.
-    const { error: e2 } = await supabase.from('peticion_tramitacion').upsert(
-      {
-        tienda_terminal_codigo: p.tienda,
-        numero: p.numero,
-        pedido_proveedor_tienda_codigo: pedido.tienda,
-        pedido_proveedor_numero: pedido.numero,
-        pedido_proveedor_linea: pedido.linea,
-        fecha_hora: new Date().toISOString(),
-        cantidad: p.falta,
-        proveedor_codigo: pedido.proveedor,
-        almacen_codigo: pedido.almacen,
-        actualizado_en: new Date().toISOString(),
-      },
-      { onConflict: 'tienda_terminal_codigo,numero' },
-    )
-    if (e2) throw new Error(e2.message)
-  }
-}
-
 /**
  * Tramita peticiones: un pedido a proveedor por proveedor (el de la petición o el habitual del
  * artículo), una línea por artículo con la suma de lo que falta, precios y códigos de compra del
  * proveedor (como la ficha de pedido al meter un artículo) y totales con recalcularTotalesPedido.
  * Las peticiones sin proveedor se devuelven sin tocar.
+ * Las peticiones siguen «pendiente» mientras el pedido lo esté: pasan a «tramitada» solas cuando el pedido se acepta y a
+ * «resuelta» cuando se liquida (trigger de la base, 20261101_peticiones_flujo_estados.sql).
  */
 export async function tramitarPeticiones(
   pets: PeticionATramitar[],
   opts: { tienda: string; almacen?: string | null; observaciones?: string | null },
 ): Promise<{ pedidos: { tienda: string; numero: number; proveedor: string; lineas: number }[]; sinProveedor: PeticionATramitar[] }> {
-  const empleado = await empleadoActual()
   const sinProveedor = pets.filter((p) => !p.proveedor)
   const porProv = new Map<string, PeticionATramitar[]>()
   for (const p of pets) if (p.proveedor) porProv.set(p.proveedor, [...(porProv.get(p.proveedor) ?? []), p])
@@ -244,40 +205,7 @@ export async function tramitarPeticiones(
     const { error: eLin } = await supabase.from('pedido_proveedor_linea').insert(lineas)
     if (eLin) throw new Error(`Pedido ${opts.tienda}/${numero}: ${eLin.message}`)
     await recalcularTotalesPedido(opts.tienda, Number(numero))
-    for (const l of lineas)
-      await anotarTramitacion(porArt.get(l.articulo_codigo) ?? [], { tienda: opts.tienda, numero: Number(numero), linea: l.linea, proveedor, almacen }, empleado)
     pedidos.push({ tienda: opts.tienda, numero: Number(numero), proveedor, lineas: lineas.length })
   }
   return { pedidos, sinProveedor }
-}
-
-/**
- * Propuestas de pedido del Gestor: el pedido creado ya incluye lo que faltaba de las peticiones
- * abiertas de esos artículos, así que se dan por tramitadas en su línea (por orden de fecha,
- * mientras la cantidad de la línea las cubra).
- */
-export async function vincularPeticionesAPedido(
-  pedido: { tienda: string; numero: number; proveedor: string; almacen: string },
-  lineas: { articulo: string; linea: number; cantidad: number }[],
-  almacenFiltro?: string | null,
-) {
-  if (!lineas.length) return 0
-  const todas = await cargarTramitables()
-  const empleado = await empleadoActual()
-  let n = 0
-  for (const l of lineas) {
-    let queda = l.cantidad
-    const pets = todas.filter((p) => p.articulo === l.articulo && (!almacenFiltro || !p.almacen || p.almacen === almacenFiltro))
-    const cubiertas: PeticionATramitar[] = []
-    for (const p of pets) {
-      if (p.falta > queda) break
-      queda -= p.falta
-      cubiertas.push(p)
-    }
-    if (cubiertas.length) {
-      await anotarTramitacion(cubiertas, { ...pedido, linea: l.linea }, empleado)
-      n += cubiertas.length
-    }
-  }
-  return n
 }
