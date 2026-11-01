@@ -1,5 +1,14 @@
 # Compras con NEXA (01/11/2026)
 
+## Fase 3: borrador de pedido (01/11/2026)
+
+Migración `20261101_compras_crear_pedido.sql`. **`fn_compras_crear_pedido(proveedor, lineas, almacen, observaciones, tienda)`**
+(nivel 3 en NEXA): crea el pedido a proveedor en estado «pendiente» (sin confirmar ni mover stock), con el número de
+`fn_siguiente_numero`, los precios/descuentos del proveedor (o del artículo), IGIC y totales calculados igual que
+`calcularCompra` (sin descuento de pie ni gastos). Hace lo mismo que «Generar pedidos» del Gestor; Rober lo revisa y lo
+confirma él en Compras → Gestor de Pedidos a Proveedores. Probado con 2 artículos de Esselte (transacción deshecha):
+totales cuadrados y auditoría de cabecera y líneas.
+
 ## Fase 2: el Gestor de Pedidos a Proveedores de Rober hecho función
 
 Migración `20261101_compras_gestor.sql`. **`fn_compras_gestor_proveedor(proveedor, desde)`** (nivel 1, solo lee) copia su método:
