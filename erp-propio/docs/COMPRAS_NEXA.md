@@ -5,7 +5,7 @@
 Migración `20261101_compras_gestor.sql`. **`fn_compras_gestor_proveedor(proveedor, desde)`** (nivel 1, solo lee) copia su método:
 lo vendido desde la **última compra al proveedor** (`pedido_proveedor`, o `desde` si se pasa), el stock actual, lo **pendiente de
 recibir** (pedidos a proveedor sin recibir) y lo **comprometido a clientes** (`pedido_cliente` sin anular, entregar ni cerrar).
-Regla: `disponible = stock + pendiente − comprometido`; `necesidad = venta diaria × (días desde la última compra, máx. 90 + plazo de entrega)`; si `disponible ≥ necesidad` no se pide, si no se pide la diferencia. **Plazo de entrega**: el de la ficha del proveedor (`dias_entrega`) o 18 días si no lo tiene (casi todos tardan 15-20 días hasta Canarias; los 3 de informática, una semana).
+Regla: `disponible = stock + pendiente − comprometido`; `necesidad = venta diaria × (días desde la última compra, máx. 90 + plazo de entrega)`; si `disponible ≥ necesidad` no se pide, si no se pide la diferencia. **Plazo de entrega**: el de la ficha del proveedor (`dias_entrega`) o 20 días si no lo tiene (casi todos tardan 15-20 días hasta Canarias; los 3 de informática, una semana).
 Decisión por línea: `pedir`, `no_pedir` o `dudosa` (llega justo con menos de un 25 % de margen, venta aislada de 1 unidad,
 periodo de menos de 7 días, stock negativo) con el **motivo**. Excluye los artículos `00003…` (pedidos expresos de cliente).
 Usa el proveedor habitual del artículo. Aún no crea el pedido ni concilia con la propuesta valorada del proveedor.
@@ -38,5 +38,5 @@ actúa con los permisos de quien lo llama. Dadas de alta en `nexa_operacion` con
 Los `dias_entrega` que venían de GeminisWin no eran reales (había -1, 1, 2, 8, 10…). Por indicación de Rober se
 cambiaron en bloque, por tipo de proveedor (340 fichas, auditadas con su valor anterior): **informática y consumibles**
 (EXADI 04062, INFORPOR 04030, UFP 04075, MUCHO CARTUCHO 04090) → **7 días**; **locales** (código `50…`) → **3 días**;
-**resto** → **18 días** (el punto medio de 15-20). Se dejaron como estaban los acreedores contables (`60…`/`61…`) y los
+**resto** → **20 días** (el punto medio de 15-20). Se dejaron como estaban los acreedores contables (`60…`/`61…`) y los
 proveedores de baja. Cada proveedor puede afinarse luego en su ficha.

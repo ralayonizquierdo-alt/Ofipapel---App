@@ -3,7 +3,7 @@
 -- comprometido en pedidos de clientes; y por línea la decisión «pedir / no pedir / dudosa» con el motivo.
 -- Regla (la de Rober): si con el stock + lo pendiente de recibir − lo comprometido a clientes aguanto lo vendido
 -- en el periodo, no pido; si no, pido la diferencia. Los artículos 00003… (pedidos expresos de cliente) se excluyen.
--- Plazo de entrega: el de la ficha del proveedor (dias_entrega) o, si no lo tiene, 18 días (casi todos tardan 15-20
+-- Plazo de entrega: el de la ficha del proveedor (dias_entrega) o, si no lo tiene, 20 días (casi todos tardan 15-20
 -- días hasta Canarias; los 3 de informática, una semana: ya lo tienen en su ficha). La necesidad es lo que hay que
 -- tener para aguantar el plazo y hasta el siguiente pedido: venta diaria × (días desde la última compra + plazo).
 -- Los proveedores locales (código 50…) quedan fuera: se piden casi cada semana, a demanda, y llegan en 2-3 días.
@@ -15,7 +15,7 @@ drop function if exists public.fn_compras_gestor_proveedor(text, date, int, int)
 create or replace function public.fn_compras_gestor_proveedor(
   p_proveedor text,
   p_desde date default null,
-  p_plazo_defecto int default 18,
+  p_plazo_defecto int default 20,
   p_ciclo_max int default 90
 )
 returns table (
@@ -145,7 +145,7 @@ grant execute on function public.fn_compras_gestor_proveedor(text, date, int, in
 insert into public.nexa_operacion (codigo, descripcion, tipo, objeto, accion, nivel, permiso, bloqueada, notas, receta) values
   ('funcion:fn_compras_gestor_proveedor', 'Gestor de Pedidos a Proveedores: ventas desde la última compra y decisión pedir/no pedir por línea (solo lee)', 'funcion',
    'fn_compras_gestor_proveedor', '*', 1, null, false, null,
-   'Para preparar el pedido a un proveedor (es como compra Rober): select * from fn_compras_gestor_proveedor(''CODIGO_PROVEEDOR''). Es su Gestor de Pedidos hecho función: ventas desde la última compra, stock, lo pendiente de recibir y lo comprometido a clientes; decisión pedir / no pedir / dudosa con motivo. Cuenta el plazo de entrega del proveedor (casi todos 15-20 días hasta Canarias, 18 por defecto; los de informática ~1 semana; plazo_supuesto indica que no está en su ficha): la necesidad es lo que hay que tener para aguantar el plazo y hasta el siguiente pedido. Enséñale primero un resumen (cuántas líneas en cada decisión y el total de unidades a pedir), después las líneas «pedir» y «dudosa» con su motivo; las «no pedir» solo si las pide. Los artículos 00003… (pedidos expresos de cliente) ya van excluidos. Avisa si el total no llega a la compra mínima del proveedor. Es una propuesta: no crees ningún pedido sin que Rober lo confirme.')
+   'Para preparar el pedido a un proveedor (es como compra Rober): select * from fn_compras_gestor_proveedor(''CODIGO_PROVEEDOR''). Es su Gestor de Pedidos hecho función: ventas desde la última compra, stock, lo pendiente de recibir y lo comprometido a clientes; decisión pedir / no pedir / dudosa con motivo. Cuenta el plazo de entrega del proveedor (casi todos 15-20 días hasta Canarias, 20 por defecto; los de informática ~1 semana; plazo_supuesto indica que no está en su ficha): la necesidad es lo que hay que tener para aguantar el plazo y hasta el siguiente pedido. Enséñale primero un resumen (cuántas líneas en cada decisión y el total de unidades a pedir), después las líneas «pedir» y «dudosa» con su motivo; las «no pedir» solo si las pide. Los artículos 00003… (pedidos expresos de cliente) ya van excluidos. Avisa si el total no llega a la compra mínima del proveedor. Es una propuesta: no crees ningún pedido sin que Rober lo confirme.')
 on conflict (codigo) do update set descripcion = excluded.descripcion, nivel = excluded.nivel, permiso = excluded.permiso,
                                     notas = excluded.notas, receta = excluded.receta, actualizado_en = now();
 
