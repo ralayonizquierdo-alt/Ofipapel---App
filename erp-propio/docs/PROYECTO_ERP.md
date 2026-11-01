@@ -500,7 +500,9 @@ Decisión de Rober: NEXA puede leer, escribir y razonar sobre todo el ERP
   contraseña, con contraseña mala, con propuesta caducada o de otro usuario, o
   con firma inventada por RPC: **no se ejecuta**. `prueba` (DEPENDIENTE) no
   puede modificar proveedores ni anular ventas por NEXA. Auditoría con origen
-  NEXA en todos.
+  NEXA en todos. En el navegador (Playwright, como `prueba`): bienvenida con
+  «Tus listados» (PRE-0001 el primero, por uso) y las 5 frases de mostrador, y
+  tarjeta de nivel 2 con antes → después.
 
 ### NEXA, centro de listados e informes (31/10/2026)
 
