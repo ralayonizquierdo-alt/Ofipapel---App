@@ -348,10 +348,10 @@ function Seguridad({
     if (error) return setMsg({ ok: false, texto: await errorFuncion(error) })
     if (!(data as { ok?: boolean })?.ok) return setMsg({ ok: false, texto: (data as { error?: string })?.error ?? 'No se ha podido.' })
     if (tieneUsuario) {
-      setMsg({ ok: true, texto: 'Contraseña cambiada. Dísela al empleado: en el ERP nadie puede volver a verla.' })
+      setMsg({ ok: true, texto: 'Contraseña provisional puesta. Dísela al empleado: al entrar, el programa le obligará a poner una suya.' })
       onClave()
     } else {
-      alert(`Usuario «${(data as { usuario?: string }).usuario}» creado. El empleado ya puede entrar con ese usuario y la contraseña puesta.`)
+      alert(`Usuario «${(data as { usuario?: string }).usuario}» creado. El empleado ya puede entrar con ese usuario y la contraseña puesta; al entrar, el programa le obligará a poner una suya.`)
       onCreado()
     }
   }

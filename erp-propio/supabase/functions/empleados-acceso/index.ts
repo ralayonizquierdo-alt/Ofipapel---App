@@ -9,6 +9,8 @@
 //    Si no, 403 y no se hace nada.
 //  - Solo entonces se usa la service role (SUPABASE_SERVICE_ROLE_KEY, la inyecta Supabase).
 //  - Las contraseñas nunca se devuelven ni se escriben en el registro.
+//  - La clave que pone un administrador es provisional: empleado.debe_cambiar_clave = true y al
+//    entrar se le obliga a poner una propia (migración 20261101_seguridad_claves).
 //
 // Petición (POST JSON):
 //   { accion: 'crear_usuario', empleado: '<código>', usuario: 'nombre', clave: '…' }
@@ -105,7 +107,8 @@ Deno.serve(async (req) => {
       const existe = /already|registered|exists/i.test(errCrear?.message ?? '')
       return respuesta(existe ? 409 : 500, { ok: false, error: existe ? `El usuario «${usuario}» ya existe.` : 'No se ha podido crear el usuario.' })
     }
-    const { error: errVinc } = await admin.from('empleado').update({ auth_user_id: creado.user.id }).eq('codigo', codigo)
+    // Clave puesta por un administrador: al entrar la primera vez se le obliga a poner una propia.
+    const { error: errVinc } = await admin.from('empleado').update({ auth_user_id: creado.user.id, debe_cambiar_clave: true }).eq('codigo', codigo)
     if (errVinc) {
       // No dejar un usuario suelto sin empleado.
       await admin.auth.admin.deleteUser(creado.user.id)
@@ -119,6 +122,8 @@ Deno.serve(async (req) => {
     if (!emp.auth_user_id) return respuesta(409, { ok: false, error: 'Este empleado no tiene usuario de acceso: créalo primero.' })
     const { error: errClave } = await admin.auth.admin.updateUserById(emp.auth_user_id, { password: clave })
     if (errClave) return respuesta(500, { ok: false, error: 'No se ha podido cambiar la contraseña.' })
+    // Si se la pone otro (no él mismo), al entrar se le obliga a cambiarla por una propia.
+    if (emp.auth_user_id !== quien.user.id) await admin.from('empleado').update({ debe_cambiar_clave: true }).eq('codigo', codigo)
     console.log(`empleados-acceso: ${llamante?.codigo} cambió la clave del empleado ${codigo}`)
     return respuesta(200, { ok: true })
   }
