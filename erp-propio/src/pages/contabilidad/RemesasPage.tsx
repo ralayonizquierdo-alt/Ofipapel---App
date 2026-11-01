@@ -459,6 +459,20 @@ function Devoluciones({ avisar }: { avisar: Avisar }) {
     cargar()
   }
   const pendientes = lista.filter((x) => !x.decision).length
+  // Estado de los avisos por correo (la cola solo la ven los administradores).
+  const [correos, setCorreos] = useState<{ pend: number; error: string | null; ultimo: string | null } | null>(null)
+  useEffect(() => {
+    supabase
+      .from('correo_pendiente')
+      .select('enviado_en, error, creado_en')
+      .order('id', { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (!data?.length) return setCorreos(null)
+        const pend = data.filter((c) => !c.enviado_en)
+        setCorreos({ pend: pend.length, error: pend.find((c) => c.error)?.error ?? null, ultimo: data.find((c) => c.enviado_en)?.enviado_en ?? null })
+      })
+  }, [lista])
 
   return (
     <>
@@ -468,6 +482,13 @@ function Devoluciones({ avisar }: { avisar: Avisar }) {
         <b> decidirla</b>: pincha en ella, llama al cliente y elige qué hacer.{' '}
         {pendientes > 0 && <b className="text-[#c42b1c]">{pendientes} pendientes de decidir.</b>}
       </div>
+      {correos && (
+        <div className={`text-[12px] ${correos.error ? 'font-bold text-[#c42b1c]' : 'text-[#555]'}`}>
+          📧 Avisos por correo: {correos.pend ? `${correos.pend} por enviar` : 'todos enviados'}
+          {correos.ultimo ? ` · último enviado ${fechaEs(correos.ultimo.slice(0, 10))}` : ''}
+          {correos.error ? ` · ${correos.error}` : ''}
+        </div>
+      )}
       <div className="grid grid-cols-[minmax(0,1fr)_400px] gap-2 max-lg:grid-cols-1">
         <Rejilla alto="calc(100vh - 290px)">
           <table className="gw-grid">
@@ -792,6 +813,7 @@ function OperativaRemesas() {
             pasos: [
               'Importa el Norma 43 en Conciliación Bancaria: el abono de la remesa sale en verde («Remesa REM…»). Al confirmarlo se cobran todos sus recibos y, si el banco se quedó comisión, se hace su asiento.',
               'Si un cliente devuelve el recibo, el cargo de la devolución sale en Conciliación («Devolución del recibo…»). Al confirmarlo el recibo vuelve a quedar pendiente (la deuda del cliente sube) y deja de ir en las remesas, su cobro se anula en la contabilidad con la fecha del cargo y los gastos van a comisiones.',
+              'Avisos por correo: en Archivo → Parámetros → Generales → «Avisos por correo» se ponen los correos (jefe de ventas, contabilidad…). Llega un correo en cada devolución y un recordatorio cada mañana si queda alguna sin decidir.',
               'Arriba en la cabecera sale el aviso «⚠ N recibos devueltos por decidir». En «Devoluciones» pincha cada uno, llama al cliente y elige qué hacer: que pague por otros medios (lo normal), volver a pasarlo al cobro (excepción, solo el jefe de ventas), repercutir los gastos, bloquear el crédito (solo contado), bloquear el cliente o pasar a dudoso cobro. Desde la 2.ª devolución del mismo cliente se propone bloquear el crédito.',
             ],
           },
@@ -799,6 +821,7 @@ function OperativaRemesas() {
             titulo: 'Bueno es saber',
             notas: [
               'El fichero es el estándar europeo SEPA (pain.008), el mismo para Santander, BBVA, CaixaBank y Cajasiete.',
+              'Contabilidad de las remesas: al marcarla «enviada» los recibos pasan de la cuenta del cliente a la 4312 (efectos en gestión de cobro); al abonarla el banco, de la 4312 al banco (y la comisión a la 626). Si se devuelve un recibo pasa a la 4315 (efectos impagados) y, cuando el cliente lo paga, sale de la 4315. Saldo de la 4312 = remesas enviadas sin cobrar; saldo de la 4315 = recibos devueltos sin cobrar.',
               'Una remesa abonada o una devolución conciliada no se deshacen desde Conciliación (los cobros ya están hechos): avisa a un administrador.',
               'Los IBAN se ven ocultos en las listas; completos solo en la ficha del mandato y en el fichero.',
             ],

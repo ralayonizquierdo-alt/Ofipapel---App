@@ -270,6 +270,22 @@ export const SECCIONES_PARAMETROS: SeccionParametros[] = [
           { clave: 'gen.pie_documentos', etiqueta: 'Texto al pie de presupuestos, pedidos y facturas', tipo: 'texto', defecto: '' },
         ],
       },
+      {
+        // Avisos por correo (Luis, 01/11/2026): los envía la función del servidor «correo-enviar» con el
+        // correo de Archivo → Datos de Empresa (puerto 465 + SSL; la contraseña es un secreto del servidor).
+        clave: 'avisos_correo',
+        titulo: 'Avisos por correo',
+        parametros: [
+          {
+            clave: 'avisos.correos_devoluciones',
+            etiqueta: 'Correos que reciben los avisos de recibos devueltos',
+            tipo: 'texto',
+            defecto: '',
+            ayuda: 'Uno o varios, separados por comas (p. ej. el del jefe de ventas y el de contabilidad). Llega un correo en cada devolución y un recordatorio cada mañana si queda alguna sin decidir.',
+            usa: 'Remesas SEPA → devoluciones',
+          },
+        ],
+      },
     ],
   },
   {
