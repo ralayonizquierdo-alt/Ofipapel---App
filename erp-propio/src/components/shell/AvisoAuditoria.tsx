@@ -37,7 +37,7 @@ export function AvisoAuditoria() {
   return (
     <button
       type="button"
-      className="fixed right-[90px] top-[2px] z-[250] border border-[#8c1d12] bg-[#c42b1c] px-3 py-[2px] text-[13px] font-bold text-white shadow"
+      className="fixed right-[340px] top-[2px] z-[250] border border-[#8c1d12] bg-[#c42b1c] px-3 py-[2px] text-[13px] font-bold text-white shadow"
       onClick={() => navigate('/archivo/auditoria?avisos=1')}
       title="Borrados, precios por debajo del coste, cambios de permisos, contraseñas incorrectas…"
     >

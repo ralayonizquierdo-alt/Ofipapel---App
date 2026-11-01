@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -19,6 +19,9 @@ import { NexaAsistente } from '../nexa/NexaAsistente'
 import { AcercaDeDialog } from './shell/AcercaDeDialog'
 import { EdicionHerramientas, IndicadorVerComo, lanzarEdicion } from './shell/EdicionHerramientas'
 import { SinPermiso, usePermisos } from '../lib/PermisosContext'
+import { areaActual, areaElegida, cambiarAreaYRecargar, opcionesPropias, rutaEnArea, ultimaArea, type Area } from '../lib/areaTrabajo'
+import { BotonesAreaCabecera, SelectorArea, tituloArea } from './shell/SelectorArea'
+import { CierreInactividad } from './shell/CierreInactividad'
 import { comboDeEvento, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
 
 /** Atajos de menú que no gestiona Layout: los de edición los hace el navegador en el campo;
@@ -137,10 +140,26 @@ export function Layout() {
   const permisosRef = useRef(permisos)
   permisosRef.current = permisos
   const dialogoSuelto = (pathname === '/caja/entrada' || pathname === '/caja/salida') && !permisos.cargando && permisos.puedeRuta(pathname)
+  // Área de trabajo (Gestión, Contabilidad, Web o AVATAR): se elige al entrar, antes de la clave.
+  const area = areaActual()
+  const [elegirArea, setElegirArea] = useState(() => areaElegida() == null)
+  const areasDisponibles = useMemo<Record<Area, boolean>>(() => {
+    const tiene = (a: Area) => opcionesPropias(a).some((i) => permisos.puedeOpcion(i))
+    return { gestion: tiene('gestion'), contabilidad: tiene('contabilidad'), web: tiene('web'), avatar: true }
+  }, [permisos])
+  const sinAccesoArea = !permisos.cargando && !areasDisponibles[area]
+  const cambiarArea = (a: Area) => (a === area && areaElegida() != null ? setElegirArea(false) : cambiarAreaYRecargar(a))
   const contenido = permisos.cargando ? (
     <div className="p-4 text-[13px]">Cargando permisos…</div>
-  ) : permisos.puedeRuta(pathname) ? (
+  ) : permisos.puedeRuta(pathname) && rutaEnArea(area, pathname) ? (
     <Outlet />
+  ) : !rutaEnArea(area, pathname) ? (
+    <div className="flex flex-col items-start gap-2 p-4 text-[13px]">
+      <b>Esta pantalla no es del área {tituloArea(area)}.</b>
+      <button type="button" className="gw-btn" onClick={() => setElegirArea(true)}>
+        Cambiar de área
+      </button>
+    </div>
   ) : (
     <SinPermiso />
   )
@@ -148,7 +167,10 @@ export function Layout() {
   // Al entrar (iniciar sesión o abrir la aplicación en «/») se abre el Panel de Control. Solo al
   // montar: cerrar la ventana deja el escritorio vacío y «/» ya no lo vuelve a abrir.
   useEffect(() => {
-    if (pathname === '/') navigate('/resumen', { replace: true })
+    if (pathname !== '/') return
+    // Contabilidad y Web empiezan en su primera pantalla; Gestión y AVATAR en el Panel de Control.
+    const primera = area === 'contabilidad' || area === 'web' ? opcionesPropias(area).find((i) => i.to)?.to : null
+    navigate(primera ?? '/resumen', { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -170,6 +192,7 @@ export function Layout() {
     else if (i.action === 'show-all') mostrarTodo()
     else if (i.action === 'cycle-window') recorrer()
     else if (i.action === 'about') setAcercaDe(true)
+    else if (i.action === 'cambiar-area') setElegirArea(true)
     // Compras → Generar Petición: lo abre GenerarPeticionHost (App.tsx), que también recoge CTRL+P.
     else if (i.action === 'generar-peticion') window.dispatchEvent(new Event('gw:generar-peticion'))
     // Utilidades (Cambio de Tienda/Fecha, Seleccionar Periodo, Copia…): los abre UtilidadesHost (App.tsx).
@@ -265,6 +288,8 @@ export function Layout() {
         <span className="truncate">
           Ofipapel ERP, Periodo: {ejercicioTrabajo().descripcion ?? `Periodo ${ejercicioTrabajo().anio}`} Empresa: {empresa}
         </span>
+        {/* Las 3 áreas siempre a mano: un clic y se cambia (Luis, 01/11/2026). */}
+        <BotonesAreaCabecera actual={area} disponibles={areasDisponibles} onElegir={cambiarArea} />
       </div>
       <AvisoVersion />
       <AvisoConformidad uid={session?.user.id ?? null} />
@@ -282,6 +307,7 @@ export function Layout() {
       )}
       <MenuBar onRun={runMenu} onHover={setHint} activeWindow={title} windows={ventanas.map((v) => ({ label: v.title, to: v.to }))} />
       <div className={`flex min-h-0 flex-1 ${{ izquierda: 'flex-row', derecha: 'flex-row-reverse', arriba: 'flex-col', abajo: 'flex-col-reverse' }[ladoBarra]}`}>
+        {(area === 'gestion' || area === 'avatar') && (
         <QuickBar
           lado={ladoBarra}
           onLado={setLadoBarra}
@@ -292,6 +318,7 @@ export function Layout() {
             else if (q.action) runMenu({ label: q.label, action: q.action })
           }}
         />
+        )}
         <div className="relative min-h-0 min-w-0 flex-1 bg-[var(--gw-mdi)]">
           <Watermark />
           {/* Entrada / Salida en caja: diálogo suelto sobre el escritorio, sin ventana detrás (como GeminisWin). */}
@@ -315,6 +342,29 @@ export function Layout() {
           <NexaAsistente />
         </div>
       </div>
+      {(elegirArea || sinAccesoArea) && !permisos.cargando && (
+        <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center gap-4 bg-[var(--gw-mdi)]/95 p-4">
+          <div className="text-[15px] font-bold text-[#1d3a8a]">¿Dónde quieres entrar?</div>
+          <SelectorArea
+            onElegir={cambiarArea}
+            disponibles={areasDisponibles}
+            marcada={areaElegida() ?? ultimaArea()}
+            mensaje={sinAccesoArea ? `Tu grupo de acceso no tiene ${tituloArea(area)}. Elige otra área.` : null}
+          />
+          <div className="flex gap-2">
+            {!sinAccesoArea && areaElegida() != null && (
+              <button type="button" className="gw-btn" onClick={() => setElegirArea(false)}>
+                Seguir en {tituloArea(area)}
+              </button>
+            )}
+            <button type="button" className="gw-btn" onClick={() => salir()}>
+              Salir
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Cierre de sesión por inactividad (Parámetros → Locales → Inicio y Finalización) */}
+      <CierreInactividad />
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
       <EdicionHerramientas />
       {fueraDeHorario && (

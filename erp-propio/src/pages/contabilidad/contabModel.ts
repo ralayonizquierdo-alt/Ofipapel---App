@@ -80,8 +80,27 @@ export const eur0 = (n: number | null | undefined) => formatGw(Number(n ?? 0), 2
 const pad2 = (n: number) => String(n).padStart(2, '0')
 export const isoDe = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 export const hoy = () => isoDe(new Date())
-export const inicioAnio = (y = new Date().getFullYear()) => `${y}-01-01`
-export const finAnio = (y = new Date().getFullYear()) => `${y}-12-31`
+// Ejercicio contable elegido arriba a la izquierda (como CONTANET): las pantallas de contabilidad
+// empiezan con sus fechas. Se recuerda en este navegador.
+const CLAVE_EJERCICIO = 'erp.contab.ejercicio'
+export function ejercicioContable(): number {
+  try {
+    const v = Number(localStorage.getItem(CLAVE_EJERCICIO))
+    if (v > 1990 && v < 2200) return v
+  } catch {
+    /* sin almacenamiento: el año en curso */
+  }
+  return new Date().getFullYear()
+}
+export function fijarEjercicioContable(anio: number) {
+  try {
+    localStorage.setItem(CLAVE_EJERCICIO, String(anio))
+  } catch {
+    /* solo para esta sesión */
+  }
+}
+export const inicioAnio = (y = ejercicioContable()) => `${y}-01-01`
+export const finAnio = (y = ejercicioContable()) => `${y}-12-31`
 export const inicioMes = () => {
   const d = new Date()
   return isoDe(new Date(d.getFullYear(), d.getMonth(), 1))

@@ -1,7 +1,12 @@
 // Árbol de menús de la ventana principal, copiado del mapa funcional de GeminisWin
 // (págs. 1-3). Las opciones con `to` o `action` funcionan; el resto sale en gris.
 
-export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | AccionUtilidad
+import type { LucideIcon } from 'lucide-react'
+import { Banknote, BookOpenText, FileDown, Landmark, NotebookText, ShieldCheck, ShoppingBasket, Wrench } from 'lucide-react'
+import { COLOR_SECCION } from './secciones'
+import { ponerIconos } from './iconosMenu'
+
+export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | 'cambiar-area' | AccionUtilidad
 
 /** Diálogos de Utilidades (y Seleccionar Periodo) que abre UtilidadesHost con el evento «gw:utilidad». */
 export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales', 'preparar-pagina', 'presentacion-preliminar', 'elegir-impresora'] as const
@@ -22,6 +27,9 @@ export interface MenuItem {
   letra?: string
   /** Solo para super administradores (para el resto sale apagada), p. ej. Archivo → Auditoría. */
   soloSuperAdmin?: boolean
+  /** Icono a la izquierda en el menú desplegable, como GeminisWin en las opciones importantes. */
+  icono?: LucideIcon
+  colorIcono?: string
 }
 
 export type MenuEntry = MenuItem | 'sep'
@@ -55,6 +63,8 @@ export const MENUS: TopMenu[] = [
       }),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
+      // Áreas de trabajo (Luis, 01/11/2026): Gestión, Contabilidad, Web o AVATAR (todo).
+      item('Cambiar de Área', { action: 'cambiar-area', description: 'Volver a la ventana de entrada: Gestión, Contabilidad, Web o AVATAR' }),
       item('Cambiar Grupo de Acceso', { action: 'cambiar-grupo', shortcut: 'CTRL+O', description: 'Ver el programa como otro grupo de acceso (solo administradores)' }),
       item('Cambiar Contraseña', { to: '/cambiar-clave', description: 'Cambiar la contraseña del empleado conectado' }),
       'sep',
@@ -130,10 +140,11 @@ export const MENUS: TopMenu[] = [
       item('Técnicos', { to: '/tecnicos', description: 'Ficha de Técnicos' }),
       item('Nº Serie', { to: '/numeros-serie', description: 'Números de Serie' }),
       'sep',
-      item('Pedidos', { to: '/pedidos', description: 'Pedidos de Clientes' }),
-      item('TPV / Ventas', { to: '/tpv', shortcut: 'CTRL+F12', description: 'TPV / Ventas' }),
-      item('Ventas / Facturas', { to: '/ventas', description: 'Ventas / Facturas' }),
-      item('Reparaciones', { to: '/reparaciones', shortcut: 'CTRL+F11', description: 'Reparaciones' }),
+      // Con icono, como en GeminisWin (Luis, 31/10/2026).
+      item('Pedidos', { to: '/pedidos', description: 'Pedidos de Clientes', icono: ShoppingBasket, colorIcono: COLOR_SECCION.pedidos }),
+      item('TPV / Ventas', { to: '/tpv', shortcut: 'CTRL+F12', description: 'TPV / Ventas', icono: Banknote, colorIcono: COLOR_SECCION.ventas }),
+      item('Ventas / Facturas', { to: '/ventas', description: 'Ventas / Facturas', icono: NotebookText, colorIcono: COLOR_SECCION.facturacion }),
+      item('Reparaciones', { to: '/reparaciones', shortcut: 'CTRL+F11', description: 'Reparaciones', icono: Wrench, colorIcono: '#6b4f9e' }),
       item('Presupuestos', { to: '/presupuestos', description: 'Presupuestos' }),
       item('Gestor de Pedidos', { to: '/gestor-pedidos', shortcut: 'ALT+F6', description: 'Gestor de Pedidos' }),
       item('Gestor de Presupuestos', { to: '/gestor-presupuestos', description: 'Gestor de Presupuestos' }),
@@ -203,28 +214,31 @@ export const MENUS: TopMenu[] = [
     // Menú nuevo, no existe en GeminisWin (petición de Rober, 27/10/2026). En gris: Retenciones,
     // Remesas SEPA y Cierre de ejercicio (pendientes).
     items: [
+      // Diario el primero (Luis, 31/10/2026).
+      item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual', icono: BookOpenText, colorIcono: '#1d3a8a' }),
       item('Generar Asientos Automáticos', { to: '/contabilidad/generar', description: 'Genera los asientos de ventas, facturas, cobros, pagos y caja' }),
       item('Asientos Pendientes / con Errores', { to: '/contabilidad/pendientes', description: 'Asientos que no cuadran o sin cuenta contable' }),
-      item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual' }),
       'sep',
+      item('Empresas de la Contabilidad', { to: '/contabilidad/empresas', description: 'Empresas del grupo con contabilidad: elegir con cuál se trabaja y dar de alta otras' }),
       item('Plan de Cuentas', { to: '/contabilidad/plan-cuentas', description: 'Plan de cuentas (PGC PYMES) y subcuentas' }),
       item('Mayor / Extracto de Cuenta', { to: '/contabilidad/mayor', description: 'Mayor de una cuenta con saldo acumulado' }),
       item('Sumas y Saldos', { to: '/contabilidad/sumas-saldos', description: 'Balance de sumas y saldos' }),
       item('Pérdidas y Ganancias', { to: '/contabilidad/perdidas-ganancias', description: 'Cuenta de pérdidas y ganancias (grupos 6 y 7)' }),
+      item('Balance de Situación', { to: '/contabilidad/balance-situacion', description: 'Activo, patrimonio neto y pasivo (PGC PYMES), del año y del anterior' }),
       item('Libros Registro de IGIC', { to: '/contabilidad/libros-igic', description: 'Libros registro de facturas emitidas y recibidas' }),
       'sep',
       item('Modelo 420 (IGIC Trimestral)', { to: '/contabilidad/modelo-420', description: 'Autoliquidación trimestral de IGIC' }),
       item('Modelo 425 (IGIC Anual)', { to: '/contabilidad/modelo-425', description: 'Resumen anual de IGIC' }),
       item('Modelo 347', { to: '/contabilidad/modelo-347', description: 'Operaciones con terceros de más de 3.005,06 €' }),
       ...off(['Retenciones 111 / 115']),
-      item('Verifactu (Registro y Envío)', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados' }),
+      item('Verifactu (Registro y Envío)', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados', icono: ShieldCheck, colorIcono: '#127a12' }),
       'sep',
-      item('Conciliación Bancaria', { to: '/contabilidad/conciliacion', description: 'Importar extractos Norma 43 y casarlos con la contabilidad' }),
+      item('Conciliación Bancaria', { to: '/contabilidad/conciliacion', description: 'Importar extractos Norma 43 y casarlos con la contabilidad', icono: Landmark, colorIcono: '#b07d0a' }),
       ...off(['Remesas SEPA']),
       item('Previsión de Tesorería', { to: '/contabilidad/tesoreria', description: 'Cobros y pagos pendientes por vencimiento' }),
       'sep',
       ...off(['Cierre y Apertura de Ejercicio']),
-      item('Exportar a Gestoría', { to: '/contabilidad/exportar', description: 'Diario y libros de IGIC en CSV para la gestoría' }),
+      item('Exportar a Gestoría', { to: '/contabilidad/exportar', description: 'Diario y libros de IGIC en CSV para la gestoría', icono: FileDown, colorIcono: '#2b5ea8' }),
       item('Configuración Contable', { to: '/contabilidad/configuracion', description: 'Cuentas por defecto de los asientos automáticos' }),
     ],
   },
@@ -390,6 +404,9 @@ export const MENUS: TopMenu[] = [
   },
 ]
 
+// Iconos de todas las opciones (iconosMenu.ts), como GeminisWin.
+ponerIconos(MENUS)
+
 /** Descripción de cada ventana para la barra de título de la ventana hija y la barra de estado. */
 export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/listados-ventas/ventas', title: 'Listados de Ventas' },
@@ -492,10 +509,12 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad/generar', title: 'Generar Asientos Automáticos' },
   { prefix: '/contabilidad/pendientes', title: 'Asientos Pendientes / con Errores' },
   { prefix: '/contabilidad/diario', title: 'Diario de Asientos' },
+  { prefix: '/contabilidad/empresas', title: 'Empresas de la Contabilidad' },
   { prefix: '/contabilidad/plan-cuentas', title: 'Plan de Cuentas' },
   { prefix: '/contabilidad/mayor', title: 'Mayor / Extracto de Cuenta' },
   { prefix: '/contabilidad/sumas-saldos', title: 'Sumas y Saldos' },
   { prefix: '/contabilidad/perdidas-ganancias', title: 'Pérdidas y Ganancias' },
+  { prefix: '/contabilidad/balance-situacion', title: 'Balance de Situación' },
   { prefix: '/contabilidad/libros-igic', title: 'Libros Registro de IGIC' },
   { prefix: '/contabilidad/modelo-420', title: 'Modelo 420 - IGIC Trimestral' },
   { prefix: '/contabilidad/modelo-425', title: 'Modelo 425 - IGIC Resumen Anual' },
