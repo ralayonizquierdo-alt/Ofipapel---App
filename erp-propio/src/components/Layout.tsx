@@ -21,6 +21,7 @@ import { EdicionHerramientas, IndicadorVerComo, lanzarEdicion } from './shell/Ed
 import { SinPermiso, usePermisos } from '../lib/PermisosContext'
 import { areaActual, areaElegida, cambiarAreaYRecargar, opcionesPropias, rutaEnArea, ultimaArea, type Area } from '../lib/areaTrabajo'
 import { BotonesAreaCabecera, SelectorArea, tituloArea } from './shell/SelectorArea'
+import { CierreInactividad } from './shell/CierreInactividad'
 import { comboDeEvento, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
 
 /** Atajos de menú que no gestiona Layout: los de edición los hace el navegador en el campo;
@@ -362,6 +363,8 @@ export function Layout() {
           </div>
         </div>
       )}
+      {/* Cierre de sesión por inactividad (Parámetros → Locales → Inicio y Finalización) */}
+      <CierreInactividad />
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
       <EdicionHerramientas />
       {fueraDeHorario && (
