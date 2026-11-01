@@ -1,8 +1,93 @@
 # Guion del vídeo: «NEXA, el cerebro del software»
 
+# PARTE A · BRIEFING PARA LA INTELIGENCIA ARTIFICIAL QUE CREA EL VÍDEO
+
+*Lee esta parte antes de nada: explica de qué va el vídeo, para quién es y cómo debe verse. La Parte B es el guion.*
+
+## A.1 De qué va el vídeo
+
+Es un **vídeo explicativo de una visión**: cómo podría ser el nuevo software de gestión (ERP) de **Ofipapel**, una empresa de
+papelería y material de oficina de Canarias (tiendas, reparto a empresas, venta por web y por WhatsApp). Hoy la empresa trabaja con un
+programa de gestión llamado **GeminisWin** (un programa clásico, de menús y pantallas). El vídeo cuenta cómo sería trabajar con un
+**nuevo software dirigido por un asistente de inteligencia artificial llamado NEXA**, que actúa como **cerebro único**: todo pasa por NEXA.
+
+**No es** un tutorial de funciones, ni un vídeo técnico, ni una lista de problemas. **Es** una visión, contada con ejemplos de la
+empresa, que contrasta **cómo se trabaja hoy** con **cómo se podría trabajar con NEXA**, área por área.
+
+## A.2 El mensaje (tres ideas que el espectador debe llevarse)
+
+1. **Una sola puerta de entrada.** En vez de buscar la pantalla correcta entre decenas de menús, se le pide a NEXA lo que se quiere, con frases normales.
+2. **NEXA prepara, la persona decide.** NEXA hace el trabajo pesado (buscar, calcular, preparar, proponer) y la persona revisa y aprueba. NEXA nunca hace algo importante sin que se vea antes.
+3. **El tiempo se dedica a lo que vale.** Lo que hoy se va en teclear, buscar y revisar se dedica a atender, vender y decidir. No se trata de quitar trabajo, sino de cambiar de qué trabaja cada persona.
+
+## A.3 A quién va dirigido
+
+La **dirección** de la empresa (en especial el director, que hoy revisa cientos de cifras e informes) y **el equipo** (compras, almacén, caja, comerciales, administración). Son personas **no técnicas**: nada de jerga informática. Si hace falta nombrar algo técnico, se explica con una comparación sencilla.
+
+## A.4 Tono y estilo
+
+- Cercano, claro y positivo; **voz en off en español de España**, ritmo ágil, frases cortas. Subtítulos en español.
+- Optimista pero **honesto**: es una **visión de futuro** («podría», «sería»), no se presenta nada como ya terminado.
+- Cada capítulo sigue el mismo patrón, para que se entienda rápido: primero **HOY** (corto, 2-3 frases e imágenes del programa actual, tono más apagado o gris) y después **CON NEXA** (más color y dinamismo: se escribe una frase en el panel de NEXA y aparece el resultado).
+
+## A.5 Estilo visual
+
+- Formato **16:9**, limpio y moderno, sin saturar la pantalla.
+- **Colores de Ofipapel:** verde oscuro `#1A5C1A`, verde medio `#237523`, verde claro `#3DAF3D`, lima `#8DC41E`, fondo pálido `#F2F8F2`; acento naranja `#F5A623` (con moderación).
+- **El panel de NEXA** es el protagonista visual: una ventana de chat sencilla donde se **escribe** la petición y NEXA responde con tablas, resúmenes y tarjetas de «antes → después» con un botón para confirmar. Las frases entre «comillas» del guion son lo que **se escribe en ese panel**, tal cual, en pantalla.
+- Para «HOY» se pueden usar imágenes genéricas de un programa de gestión antiguo (menús, tablas, listados); no hace falta reproducir el programa real.
+
+## A.6 Cómo leer el guion (Parte B)
+
+- Cada capítulo (`## 0 … ## 20`) tiene su **Locución** (lo que dice la voz en off), indicaciones de **Pantalla** y, cuando toca, las **frases para el panel de NEXA**.
+- La duración total es de **unos 15-20 minutos**. Cada capítulo funciona solo, así que también se pueden entregar **recortes por capítulo** (útiles para enseñarlos por separado).
+- Lo que está entre *(paréntesis y cursiva)* es una nota para producción, **no se locuta**.
+
+## A.7 Reglas importantes
+
+- **Datos siempre ficticios.** No usar nombres, importes ni datos reales de clientes ni de empleados. Los nombres de proveedores del ejemplo (Esselte, etc.) pueden aparecer como ejemplo, pero con cifras inventadas y plausibles.
+- **No mostrar contraseñas ni datos personales.**
+- **No presentar como existente** nada que el guion describa como posibilidad; mantener el tono de visión («podría», «imagina»).
+- No usar logotipos ni marcas de terceros salvo los de Ofipapel; no inventar cifras de ahorro de tiempo o dinero.
+- Mantener **siempre** la idea de control humano: cuando NEXA cambia algo importante, la pantalla muestra la confirmación de la persona.
+
+## A.8 Glosario rápido
+
+| Palabra | Qué significa en el vídeo |
+|---|---|
+| **GeminisWin** | El programa de gestión actual de la empresa. |
+| **El nuevo software / ERP** | El programa nuevo que sustituiría al anterior, dirigido por NEXA. |
+| **NEXA** | El asistente de inteligencia artificial; el «cerebro» por el que pasa todo. |
+| **Gestor de pedidos** | La pantalla actual de compras a proveedores. |
+| **Petición** | Un artículo que un cliente o una tienda pide y hay que encargar al proveedor. |
+| **TPV / caja** | La caja de la tienda. |
+| **Bot de WhatsApp** | El asistente que ya contesta a los clientes por WhatsApp (precios, stock, estado de pedidos). |
+| **Reparto** | La entrega de pedidos a los clientes por rutas y zonas. |
+
+## A.9 Estructura y duración orientativa
+
+| Cap. | Tema | Duración |
+|---|---|---|
+| 0-2 | Apertura · Cómo trabajamos hoy · El nuevo enfoque | 2 min 40 s |
+| 3 | Compras: «prepárame el pedido» | 2-3 min |
+| 4 | Listados: el cerebro de todos los listados | 1 min |
+| 5 | Presupuestos desde WhatsApp o correo (y atención al cliente) | 1 min |
+| 6 | Los comerciales | 1-2 min |
+| 7-8 | Tienda y caja · Facturación | 2 min |
+| 9-11 | Repartos · Cobros · Almacén | 2 min 45 s |
+| 12 | La web: control total | 1-2 min |
+| 13-14 | Precios y márgenes · Contabilidad | 1 min 45 s |
+| 15 | Dirección: dejar de revisar cifras | 1-2 min |
+| 16-17 | Personas · Marketing y redes | 1 min |
+| 18-20 | Control y confianza · Qué cambia para las personas · Cierre | 2 min 05 s |
+
+---
+
+# PARTE B · GUION
+
 **Idea central:** *todo pasa por NEXA.* Hoy el software son menús y pantallas que hay que conocer, buscar y teclear. Mañana,
 una sola puerta: se le pide a NEXA lo que quieres, **NEXA lo prepara y la persona decide**.
-**Para quién:** Luis y el equipo. **Duración aproximada:** 15-18 minutos (se puede cortar por capítulos).
+**Para quién:** Luis y el equipo. **Duración aproximada:** 15-20 minutos (se puede cortar por capítulos).
 **Tono:** cercano, con ejemplos de la empresa. Es una **visión** de cómo podría ser el nuevo software, no una lista de funciones
 ya hechas. Frases entre «comillas» = lo que se le diría a NEXA, tal cual, en pantalla.
 
