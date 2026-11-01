@@ -14,7 +14,7 @@ import { windowTitle } from '../../components/shell/menus'
 
 export interface Incidencia {
   id: number
-  tipo: 'fallo' | 'mejora' | 'duda'
+  tipo: 'fallo' | 'mejora' | 'duda' | 'tarea'
   titulo: string
   descripcion: string | null
   pantalla: string | null
@@ -38,7 +38,7 @@ interface Comentario {
   creado_en: string
 }
 
-export const TIPOS: Record<Incidencia['tipo'], string> = { fallo: '🐞 Fallo', mejora: '💡 Mejora', duda: '❓ Duda' }
+export const TIPOS: Record<Incidencia['tipo'], string> = { fallo: '🐞 Fallo', mejora: '💡 Mejora', duda: '❓ Duda', tarea: '📌 Tarea' }
 export const ESTADOS: Record<Incidencia['estado'], string> = {
   abierta: '🔴 Abierta',
   en_curso: '🟡 En curso',
@@ -46,7 +46,7 @@ export const ESTADOS: Record<Incidencia['estado'], string> = {
   comprobada: '✔ Comprobada',
   descartada: '⚪ Descartada',
 }
-const ASIGNADOS = ['Claude-Luis', 'Claude-Rober', 'Claude-Code', 'Cowork', 'Luis', 'Rober']
+const ASIGNADOS = ['Luis', 'Rober', 'David', 'Claude-Luis', 'Claude-Rober', 'Claude-Code', 'Cowork']
 const fechaHora = (t: string | null) => (t ? new Date(t).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '')
 
 async function aBase64(f: File) {
@@ -149,6 +149,7 @@ export function IncidenciasPage() {
   const [lista, setLista] = useState<Incidencia[]>([])
   const [filtro, setFiltro] = useState<'vivas' | 'todas' | Incidencia['estado']>('vivas')
   const [tipo, setTipo] = useState<'' | Incidencia['tipo']>('')
+  const [quien, setQuien] = useState('')
   const [sel, setSel] = useState<number | null>(null)
   const [nueva, setNueva] = useState(false)
   const [comentarios, setComentarios] = useState<Comentario[]>([])
@@ -190,10 +191,12 @@ export function IncidenciasPage() {
     () =>
       lista.filter(
         (x) =>
-          (filtro === 'todas' || (filtro === 'vivas' ? ['abierta', 'en_curso', 'resuelta'].includes(x.estado) : x.estado === filtro)) &&
+          (filtro === 'todas' ||
+            (filtro === 'vivas' ? ['abierta', 'en_curso'].includes(x.estado) || (x.estado === 'resuelta' && x.tipo !== 'tarea') : x.estado === filtro)) &&
+          (!quien || x.asignado === quien) &&
           (!tipo || x.tipo === tipo),
       ),
-    [lista, filtro, tipo],
+    [lista, filtro, tipo, quien],
   )
   const cuenta = (e: Incidencia['estado']) => lista.filter((x) => x.estado === e).length
 
@@ -253,6 +256,14 @@ export function IncidenciasPage() {
             </option>
           ))}
         </GwSelect>
+        <GwSelect value={quien} onChange={(e) => setQuien(e.target.value)} className="w-[150px]" title="A quién le toca">
+          <option value="">Le toque a quien le toque</option>
+          {ASIGNADOS.map((a) => (
+            <option key={a} value={a}>
+              Le toca a {a}
+            </option>
+          ))}
+        </GwSelect>
         <span className="flex-1" />
         <button type="button" className="gw-btn" onClick={() => setAyuda((a) => !a)}>
           Operativa
@@ -267,7 +278,7 @@ export function IncidenciasPage() {
                 titulo: 'Avisar de algo',
                 pasos: [
                   'Desde cualquier pantalla, pulsa el 🐞 de la cabecera (arriba): se apunta con la pantalla en la que estás. También con «Nueva incidencia» aquí.',
-                  'Elige si es un Fallo (algo no funciona como debe), una Mejora (algo que queréis distinto o nuevo) o una Duda. Cuenta qué hacías y qué pasó; si salió un mensaje de error, cópialo. Puedes adjuntar una captura.',
+                  'Elige si es un Fallo (algo no funciona como debe), una Mejora (algo que queréis distinto o nuevo), una Duda o una 📌 Tarea pendiente (algo que alguien tiene que hacer: configurar, traer datos, preguntar a la asesoría…). Cuenta qué hacías y qué pasó; si salió un mensaje de error, cópialo. Puedes adjuntar una captura.',
                 ],
               },
               {
@@ -276,6 +287,7 @@ export function IncidenciasPage() {
                   'Estados: 🔴 Abierta → 🟡 En curso → 🟢 Resuelta (con la solución) → ✔ Comprobada (cuando quien la apuntó ve que ya va bien).',
                   'Pincha una incidencia para ver el detalle, la solución y los comentarios, y para añadir uno.',
                   'Los administradores cambian el estado, quién la lleva y la solución. Quien la apuntó puede marcarla como comprobada.',
+                  'Tareas: filtra «Le toca a …» para ver lo tuyo. Cuando la hagas, pon el estado 🟢 Resuelta (y en Solución, qué se hizo): desaparece de «Pendientes». Claude revisa las tareas y quita las que ya están hechas.',
                 ],
               },
               {
