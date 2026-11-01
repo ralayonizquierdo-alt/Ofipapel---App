@@ -12,6 +12,8 @@ import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
 import { eur0, fechaEs } from './contabModel'
 import { cargarEmpresas, type EmpresaContable } from './EmpresasContablesPage'
+import { claveContabilidad, OPERATIVAS_CONTABILIDAD } from './operativasContabilidad'
+import { useLocation } from 'react-router-dom'
 
 export interface EjercicioInfo {
   anio: number
@@ -32,6 +34,8 @@ interface Simulacion {
 
 export function EjercicioBar({ anio, onAnio, onEmpresa }: { anio: number; onAnio: (a: number) => void; onEmpresa: () => void }) {
   const { superAdmin } = usePermisos()
+  // La Operativa de la barra explica también la pantalla abierta (las que no tienen la suya).
+  const deLaPantalla = OPERATIVAS_CONTABILIDAD[claveContabilidad(useLocation().pathname)] ?? []
   const [empresas, setEmpresas] = useState<EmpresaContable[]>([])
   const [lista, setLista] = useState<EjercicioInfo[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -157,6 +161,7 @@ export function EjercicioBar({ anio, onAnio, onEmpresa }: { anio: number; onAnio
         <div className="border border-[var(--gw-border)] bg-white p-2">
           <GwOperativa
             bloques={[
+              ...deLaPantalla,
               {
                 titulo: 'Empresa y ejercicio',
                 pasos: [
