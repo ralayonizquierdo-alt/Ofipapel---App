@@ -396,6 +396,8 @@ export function ConciliacionPage() {
       cobro: `Cobro ${m.cobro_tienda_codigo}-${m.cobro_codigo}`,
       pago: `Pago ${m.pago_tienda_codigo}-${m.pago_codigo}`,
       manual: `Sin documento${m.nota ? `: ${m.nota}` : ''}`,
+      remesa: m.nota ?? 'Remesa',
+      devolucion: m.nota ?? 'Devolución de recibo',
     })[m.conciliado_tipo ?? ''] ??
     m.conciliado_tipo ??
     ''
