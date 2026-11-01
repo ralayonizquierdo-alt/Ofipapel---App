@@ -34,5 +34,9 @@ select pe.tienda_terminal_codigo, pe.numero, pe.tipo, pe.estado, pe.fecha_hora, 
 insert into public.listado_guardado (nombre, fuente, descripcion, definicion)
 select 'Peticiones resueltas por proveedor', 'peticiones',
        'Artículos que ya han llegado (petición resuelta), ordenados por proveedor, con el cliente, el pedido a proveedor en el que vinieron y la cantidad pedida. Para imprimir y avisar a los clientes.',
-       '{"orden":[{"col":"proveedor_nombre","desc":false},{"col":"pedido","desc":false},{"col":"cliente_nombre","desc":false}],"sumar":[],"agrupar":[],"filtros":[{"op":"=","col":"estado","valor":"resuelta"}],"columnas":["proveedor_nombre","pedido_ref","cliente_nombre","referencia","articulo_desc","cantidad","fecha_recepcion"]}'::jsonb
+       '{"orden":[{"col":"proveedor_nombre","desc":false},{"col":"pedido","desc":false},{"col":"cliente_nombre","desc":false}],"sumar":[],"agrupar":[],"separar":"proveedor_nombre","filtros":[{"op":"=","col":"estado","valor":"resuelta"}],"columnas":["proveedor_nombre","pedido_ref","cliente_nombre","referencia","articulo_desc","cantidad","fecha_recepcion"]}'::jsonb
  where not exists (select 1 from public.listado_guardado where nombre = 'Peticiones resueltas por proveedor');
+
+-- «separar»: un título y un salto de página por cada proveedor al imprimir (opción nueva del Generador, pestaña Agrupar).
+update public.listado_guardado set definicion = definicion || '{"separar":"proveedor_nombre"}'::jsonb
+ where nombre = 'Peticiones resueltas por proveedor' and not (definicion ? 'separar');

@@ -224,6 +224,8 @@ export interface DefinicionListado {
   agrupar: string[]
   sumar: string[]
   orden: { col: string; desc: boolean }[]
+  /** Columna por la que se separa el listado en bloques: un título y un salto de página al imprimir por cada valor (p. ej. proveedor). */
+  separar?: string
 }
 
 export const OPERADORES: { op: string; texto: string; tipos: TipoColumna[]; valores: 0 | 1 | 2 }[] = [

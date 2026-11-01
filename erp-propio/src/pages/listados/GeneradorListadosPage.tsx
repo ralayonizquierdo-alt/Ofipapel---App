@@ -181,13 +181,15 @@ export function GeneradorListadosPage() {
     if (!def.columnas.length && !def.agrupar.length) return setMensaje({ texto: 'Marca al menos una columna.', error: true })
     setCargando(true)
     const filtros = def.filtros.filter((f) => f.col && f.op)
+    // Separar por una columna: se pide aunque no se muestre y se ordena primero por ella para que cada bloque quede junto.
+    const sep = def.separar && !def.agrupar.length ? def.separar : ''
     const { data, error } = await supabase.rpc('fn_listado_ejecutar', {
       p_fuente: fuente,
-      p_columnas: def.columnas,
+      p_columnas: sep && !def.columnas.includes(sep) ? [...def.columnas, sep] : def.columnas,
       p_filtros: filtros,
       p_agrupar: def.agrupar,
       p_sumar: def.agrupar.length ? def.sumar : [],
-      p_orden: def.orden,
+      p_orden: sep ? [{ col: sep, desc: false }, ...def.orden.filter((o) => o.col !== sep)] : def.orden,
       p_limite: 5000,
     })
     setCargando(false)
@@ -224,6 +226,16 @@ export function GeneradorListadosPage() {
 
   // Columnas del resultado (las de la última ejecución).
   const d = ultimaDef ?? def
+  // Con «separar por»: las filas (ya ordenadas por esa columna) en bloques, uno por valor.
+  const bloques: { valor: string; filas: Fila[] }[] = []
+  if (filas && d.separar && !d.agrupar.length) {
+    for (const r of filas) {
+      const v = r[d.separar] == null ? '' : String(r[d.separar])
+      const ult = bloques[bloques.length - 1]
+      if (ult && ult.valor === v) ult.filas.push(r)
+      else bloques.push({ valor: v, filas: [r] })
+    }
+  }
   const columnasResultado: { clave: string; etiqueta: string; tipo: string; dec?: number }[] = d.agrupar.length
     ? [
         ...d.agrupar.map((c) => ({ clave: c, etiqueta: col(c)?.etiqueta ?? c, tipo: col(c)?.tipo ?? 'texto', dec: col(c)?.dec })),
@@ -287,6 +299,7 @@ export function GeneradorListadosPage() {
       `${dd.columnas.length} columnas`,
       dd.filtros.length ? `filtros: ${dd.filtros.map((f) => `${et(f.col)} ${opTxt(f.op)}${f.valor ? ` ${f.valor}` : ''}${f.valor2 ? ` y ${f.valor2}` : ''}`).join(', ')}` : 'sin filtros',
       dd.agrupar.length ? `agrupado por ${dd.agrupar.map(et).join(', ')}` : '',
+      dd.separar && !dd.agrupar.length ? `un título y una hoja por cada ${et(dd.separar)}` : '',
       dd.orden.length ? `orden: ${dd.orden.map((o) => et(o.col) + (o.desc ? ' ↓' : '')).join(', ')}` : '',
     ]
     return partes.filter(Boolean).join(' · ')
@@ -582,7 +595,7 @@ export function GeneradorListadosPage() {
             [
               { key: 'columnas', label: `Columnas (${def.columnas.length})` },
               { key: 'filtros', label: `Filtros (${def.filtros.length})` },
-              { key: 'agrupar', label: def.agrupar.length ? `Agrupar (${def.agrupar.length})` : 'Agrupar' },
+              { key: 'agrupar', label: def.agrupar.length ? `Agrupar (${def.agrupar.length})` : def.separar ? 'Agrupar · Separar' : 'Agrupar' },
               { key: 'orden', label: 'Orden' },
               { key: 'compartir', label: 'Compartir' },
               // Luis (30/10/2026): aquí, en el sitio de «Operativa» (que pasa a la barra de arriba).
@@ -662,40 +675,75 @@ export function GeneradorListadosPage() {
           </div>
           <style media="print">{`@page { @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 9pt Arial; } @bottom-left { content: "${(actual?.codigo ?? '').replace(/"/g, '')} ${(nombre || F.titulo).replace(/"/g, '')}"; font: 9pt Arial; } }`}</style>
           <div className="informe-scroll min-h-[220px] flex-1 overflow-auto">
-            {filas && (
-              <table className="gw-grid">
-                <thead className="sticky top-0">
-                  <tr>
-                    {columnasResultado.map((c) => (
-                      <th key={c.clave} className={c.tipo === 'num' ? 'text-right!' : ''}>
-                        {c.etiqueta}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filas.map((r, i) => (
-                    <tr key={i}>
-                      {columnasResultado.map((c) => (
-                        <td key={c.clave} className={c.tipo === 'num' ? 'text-right' : ''}>
-                          {mostrar(r[c.clave], c)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-                {filas.length > 0 && Object.keys(totales).length > 0 && (
-                  <tfoot className="sticky bottom-0 bg-[#f0f0f0] font-bold">
+            {filas && d.separar && !d.agrupar.length ? (
+              <>
+                <style media="print">{`html, body, body * { overflow: visible !important; } .informe-grupo + .informe-grupo { break-before: page; page-break-before: always; }`}</style>
+                {bloques.map((g) => (
+                  <section key={g.valor} className="informe-grupo mb-4">
+                    <div className="border-b-2 border-[#1A5C1A] bg-[#F2F8F2] px-2 py-1 text-[15px] font-bold text-[#1A5C1A] print:text-[13pt]">
+                      {col(d.separar!)?.etiqueta ?? d.separar}: {g.valor || '(sin dato)'} <span className="text-[12px] font-normal text-[#555]">· {g.filas.length} líneas</span>
+                    </div>
+                    <table className="gw-grid">
+                      <thead>
+                        <tr>
+                          {columnasResultado.map((c) => (
+                            <th key={c.clave} className={c.tipo === 'num' ? 'text-right!' : ''}>
+                              {c.etiqueta}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.filas.map((r, i) => (
+                          <tr key={i}>
+                            {columnasResultado.map((c) => (
+                              <td key={c.clave} className={c.tipo === 'num' ? 'text-right' : ''}>
+                                {mostrar(r[c.clave], c)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </section>
+                ))}
+              </>
+            ) : (
+              filas && (
+                <table className="gw-grid">
+                  <thead className="sticky top-0">
                     <tr>
-                      {columnasResultado.map((c, i) => (
-                        <td key={c.clave} className={c.tipo === 'num' ? 'text-right' : ''}>
-                          {c.clave in totales ? formatGw(totales[c.clave], c.dec ?? 2) : i === 0 ? 'TOTAL' : ''}
-                        </td>
+                      {columnasResultado.map((c) => (
+                        <th key={c.clave} className={c.tipo === 'num' ? 'text-right!' : ''}>
+                          {c.etiqueta}
+                        </th>
                       ))}
                     </tr>
-                  </tfoot>
-                )}
-              </table>
+                  </thead>
+                  <tbody>
+                    {filas.map((r, i) => (
+                      <tr key={i}>
+                        {columnasResultado.map((c) => (
+                          <td key={c.clave} className={c.tipo === 'num' ? 'text-right' : ''}>
+                            {mostrar(r[c.clave], c)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                  {filas.length > 0 && Object.keys(totales).length > 0 && (
+                    <tfoot className="sticky bottom-0 bg-[#f0f0f0] font-bold">
+                      <tr>
+                        {columnasResultado.map((c, i) => (
+                          <td key={c.clave} className={c.tipo === 'num' ? 'text-right' : ''}>
+                            {c.clave in totales ? formatGw(totales[c.clave], c.dec ?? 2) : i === 0 ? 'TOTAL' : ''}
+                          </td>
+                        ))}
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              )
             )}
           </div>
         </div>
@@ -863,6 +911,23 @@ function Agrupar({ fuente, def, onChange }: { fuente: ColumnaFuente[]; def: Defi
               ))}
           </GwSelect>
         ))}
+        <div className="gw-label mb-1 mt-3">Separar con un título y una hoja por cada (para imprimir):</div>
+        <GwSelect
+          className="w-[260px]"
+          disabled={def.agrupar.length > 0}
+          value={def.separar ?? ''}
+          onChange={(e) => onChange({ separar: e.target.value || undefined })}
+          title="El listado sale en bloques: un título y un salto de página por cada valor de esta columna (p. ej. cada proveedor)"
+        >
+          <option value="">— (todo seguido)</option>
+          {fuente
+            .filter((c) => c.tipo === 'texto')
+            .map((c) => (
+              <option key={c.clave} value={c.clave}>
+                {c.etiqueta}
+              </option>
+            ))}
+        </GwSelect>
       </div>
       <div>
         <div className="gw-label mb-1">Sumar (al agrupar):</div>

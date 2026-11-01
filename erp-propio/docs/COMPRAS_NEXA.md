@@ -29,6 +29,13 @@ tramitan peticiones.
 los de la ficha del artículo (habitual o en `articulo_proveedor`: un artículo puede tener varios proveedores y aparecerá en
 la propuesta de cada uno). Esto vale para sumarlas a la necesidad (`fn_compras_gestor_proveedor`) y para tramitarlas.
 
+## Listado «Peticiones resueltas por proveedor» (PET-0001)
+
+Fuente `peticiones` del Generador, con las columnas de proveedor del pedido, cliente, nº de pedido y recepción. El Generador tiene
+ahora la opción **«Separar con un título y una hoja por cada…»** (pestaña *Agrupar*, campo `separar` de la definición): el listado sale en
+bloques, cada uno con su título, y **al imprimir o sacar el PDF cada bloque empieza en una hoja nueva**. PET-0001 la lleva activada
+por proveedor. Funciona con cualquier columna de texto y con cualquier fuente.
+
 ## Fase 2: el Gestor de Pedidos a Proveedores de Rober hecho función
 
 Migración `20261101_compras_gestor.sql`. **`fn_compras_gestor_proveedor(proveedor, desde)`** (nivel 1, solo lee) copia su método:
