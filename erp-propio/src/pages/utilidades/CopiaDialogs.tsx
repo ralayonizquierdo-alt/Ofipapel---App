@@ -1,6 +1,6 @@
 // SIN CAPTURA de GeminisWin: Utilidades → Copia de Seguridad (Hacer Copia, Testear Copia) y
-// Eliminar Ficheros Temporales. Restaurar Copia queda en gris: la restauración se hace desde
-// Supabase (copias diarias automáticas).
+// Eliminar Ficheros Temporales. Restaurar Copia queda en gris. OJO: el proyecto de Supabase
+// está en el plan gratuito, SIN copias automáticas: las únicas copias son las de «Hacer Copia».
 //
 // La copia es un ZIP con `manifiesto.json` (fecha, usuario, filas por tabla) y un
 // `tablas/<tabla>.json` por tabla, leído con los permisos del usuario, de 1000 en 1000 filas y
@@ -133,7 +133,7 @@ export function HacerCopiaDialog({ onClose }: { onClose: () => void }) {
             contabilidad…), unas {filasEstimadas.toLocaleString('es-ES')} filas. Queda fuera la carga en bruto de GeminisWin (carga_dbf).
           </span>
           <span className="text-[#444]">
-            Supabase hace además copias diarias automáticas de toda la base de datos; esta copia sirve para guardarla aparte o consultarla.
+            El plan actual de Supabase (gratuito) NO hace copias automáticas: esta es la única copia de seguridad, guárdala en un sitio seguro.
           </span>
           {estado && (
             <div className="flex flex-col gap-1">
