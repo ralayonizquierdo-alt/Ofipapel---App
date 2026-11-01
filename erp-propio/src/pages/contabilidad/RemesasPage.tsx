@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Ban, Download, FilePlus2, Save, Send } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { usePermisos } from '../../lib/PermisosContext'
 import { GwDate, GwField, GwGroup, GwInput, GwSelect } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 import { eur0, fechaEs, isoDe } from './contabModel'
@@ -402,8 +403,12 @@ function ListaRemesas({ bancos, avisar }: { bancos: Banco[]; avisar: Avisar }) {
 }
 
 const ACCIONES: { id: string; texto: string; ayuda: string }[] = [
-  { id: 'reremesar', texto: '🔁 Volver a pasarlo al cobro', ayuda: 'Sale otra vez en «Nueva remesa» (puedes cambiar el vencimiento).' },
-  { id: 'otra_via', texto: '💶 Cobrar por otra vía', ayuda: 'Transferencia o caja: deja de ir en las remesas.' },
+  { id: 'otra_via', texto: '💶 El cliente paga por otros medios', ayuda: 'Lo normal: transferencia o caja. El recibo ya no va en las remesas.' },
+  {
+    id: 'reremesar',
+    texto: '🔁 Volver a pasarlo al cobro (excepción)',
+    ayuda: 'Solo lo decide el jefe de ventas (super administradores). Sale otra vez en «Nueva remesa» con el vencimiento que pongas.',
+  },
   { id: 'repercutir_gastos', texto: '➕ Repercutir los gastos al cliente', ayuda: 'Se le cargan los gastos del banco (cuenta del cliente contra 759).' },
   { id: 'bloquear_credito', texto: '⛔ Bloquear el crédito (solo contado)', ayuda: 'Límite de deuda 0, cliente marcado y aviso en cada venta.' },
   { id: 'bloquear_cliente', texto: '🚫 Bloquear el cliente', ayuda: 'No se le podrá vender hasta desbloquearlo en su ficha.' },
@@ -412,6 +417,7 @@ const ACCIONES: { id: string; texto: string; ayuda: string }[] = [
 const textoAccion = (id: string) => ACCIONES.find((a) => a.id === id)?.texto ?? id
 
 function Devoluciones({ avisar }: { avisar: Avisar }) {
+  const { superAdmin } = usePermisos()
   const [lista, setLista] = useState<Devolucion[]>([])
   const [sel, setSel] = useState<number | null>(null)
   const [acciones, setAcciones] = useState<string[]>([])
@@ -430,7 +436,7 @@ function Devoluciones({ avisar }: { avisar: Avisar }) {
   // Al elegir una devolución: a partir de la 2.ª del cliente se propone bloquear el crédito.
   useEffect(() => {
     if (!d || d.decision) return
-    setAcciones(d.veces >= 2 && !d.credito_bloqueado ? ['otra_via', 'bloquear_credito'] : ['reremesar'])
+    setAcciones(d.veces >= 2 && !d.credito_bloqueado ? ['otra_via', 'bloquear_credito'] : ['otra_via'])
     setNota('')
   }, [d])
   const marcar = (id: string) =>
@@ -457,8 +463,8 @@ function Devoluciones({ avisar }: { avisar: Avisar }) {
   return (
     <>
       <div className="text-[12px] text-[#555]">
-        Recibos que el banco ha devuelto. Al conciliar la devolución el recibo vuelve a quedar <b>pendiente</b> (la deuda del cliente sube). Cada devolución hay
-        que
+        Recibos que el banco ha devuelto. Al conciliar la devolución el recibo vuelve a quedar <b>pendiente</b> (la deuda del cliente sube) y{' '}
+        <b>ya no va en las remesas</b>: el cliente lo paga por otros medios. Cada devolución hay que
         <b> decidirla</b>: pincha en ella, llama al cliente y elige qué hacer.{' '}
         {pendientes > 0 && <b className="text-[#c42b1c]">{pendientes} pendientes de decidir.</b>}
       </div>
@@ -526,7 +532,7 @@ function Devoluciones({ avisar }: { avisar: Avisar }) {
                         type="checkbox"
                         className="mt-[3px]"
                         checked={acciones.includes(a.id)}
-                        disabled={a.id === 'repercutir_gastos' && !d.gasto}
+                        disabled={(a.id === 'repercutir_gastos' && !d.gasto) || (a.id === 'reremesar' && !superAdmin)}
                         onChange={() => marcar(a.id)}
                       />
                       <span>
@@ -785,8 +791,8 @@ function OperativaRemesas() {
             titulo: 'Cuando el banco abona',
             pasos: [
               'Importa el Norma 43 en Conciliación Bancaria: el abono de la remesa sale en verde («Remesa REM…»). Al confirmarlo se cobran todos sus recibos y, si el banco se quedó comisión, se hace su asiento.',
-              'Si un cliente devuelve el recibo, el cargo de la devolución sale en Conciliación («Devolución del recibo…»). Al confirmarlo el recibo vuelve a quedar pendiente (la deuda del cliente sube), su cobro se anula en la contabilidad con la fecha del cargo y los gastos van a comisiones.',
-              'Arriba en la cabecera sale el aviso «⚠ N recibos devueltos por decidir». En «Devoluciones» pincha cada uno, llama al cliente y elige qué hacer: volver a pasarlo al cobro (con nuevo vencimiento), cobrar por otra vía, repercutir los gastos, bloquear el crédito (solo contado), bloquear el cliente o pasar a dudoso cobro. Desde la 2.ª devolución del mismo cliente se propone bloquear el crédito.',
+              'Si un cliente devuelve el recibo, el cargo de la devolución sale en Conciliación («Devolución del recibo…»). Al confirmarlo el recibo vuelve a quedar pendiente (la deuda del cliente sube) y deja de ir en las remesas, su cobro se anula en la contabilidad con la fecha del cargo y los gastos van a comisiones.',
+              'Arriba en la cabecera sale el aviso «⚠ N recibos devueltos por decidir». En «Devoluciones» pincha cada uno, llama al cliente y elige qué hacer: que pague por otros medios (lo normal), volver a pasarlo al cobro (excepción, solo el jefe de ventas), repercutir los gastos, bloquear el crédito (solo contado), bloquear el cliente o pasar a dudoso cobro. Desde la 2.ª devolución del mismo cliente se propone bloquear el crédito.',
             ],
           },
           {
