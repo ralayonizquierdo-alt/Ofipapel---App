@@ -1,7 +1,7 @@
 -- Compras con NEXA, fase 2: la forma de comprar de Rober (Gestor de Pedidos a Proveedores) hecha función.
 -- Para un proveedor: lo vendido desde su última compra, el stock, lo que ya viene en pedidos sin recibir y lo
 -- comprometido en pedidos de clientes; y por línea la decisión «pedir / no pedir / dudosa» con el motivo.
--- Regla (la de Rober): si con el stock + lo pendiente de recibir − lo comprometido a clientes aguanto lo vendido
+-- Regla (la de Rober): si con el stock + lo pendiente de recibir − lo comprometido a clientes (pedidos de cliente sin servir y peticiones abiertas) aguanto lo vendido
 -- en el periodo, no pido; si no, pido la diferencia. Los artículos 00003… (pedidos expresos de cliente) se excluyen.
 -- Plazo de entrega: el de la ficha del proveedor (dias_entrega) o, si no lo tiene, 20 días (casi todos tardan 15-20
 -- días hasta Canarias; los 3 de informática, una semana: ya lo tienen en su ficha). La necesidad es lo que hay que
@@ -86,12 +86,20 @@ as $$
      group by 1
   ),
   comp as (
-    select l.articulo_codigo,
-           sum(greatest(0, coalesce(l.total_unidades, l.cantidad, 0) - coalesce(l.unidades_liquidadas, 0))) as uds
-      from pedido_cliente_linea l
-      join pedido_cliente pc on pc.tienda_terminal_codigo = l.tienda_terminal_codigo and pc.numero = l.numero
-     where not coalesce(pc.anulado, false) and not coalesce(pc.entregado, false) and pc.cerrado_en is null
-       and l.articulo_codigo in (select codigo_interno from art)
+    select x.articulo_codigo, sum(x.uds) as uds
+      from (
+        select l.articulo_codigo,
+               greatest(0, coalesce(l.total_unidades, l.cantidad, 0) - coalesce(l.unidades_liquidadas, 0)) as uds
+          from pedido_cliente_linea l
+          join pedido_cliente pc on pc.tienda_terminal_codigo = l.tienda_terminal_codigo and pc.numero = l.numero
+         where not coalesce(pc.anulado, false) and not coalesce(pc.entregado, false) and pc.cerrado_en is null
+           and l.articulo_codigo in (select codigo_interno from art)
+        union all
+        -- peticiones abiertas (pendiente / atendida): lo que falta por tramitar a un proveedor
+        select pt.articulo_codigo, greatest(0, coalesce(pt.cantidad, 0) - coalesce(pt.cantidad_tramitada, 0))
+          from peticion pt
+         where pt.estado in ('pendiente', 'atendida') and pt.articulo_codigo in (select codigo_interno from art)
+      ) x
      group by 1
   ),
   base as (

@@ -2,6 +2,8 @@
 -- Hace lo mismo que «Generar pedidos» del Gestor de Pedidos a Proveedores: número con fn_siguiente_numero, pedido en
 -- estado «pendiente» (sin confirmar ni mover stock), precios y descuentos del proveedor (o del artículo), IGIC y totales
 -- calculados como calcularCompra (src/pages/compras/pedidos/compras.ts) para un pedido sin descuento de pie ni gastos.
+-- Las peticiones abiertas que cubre (pendiente / atendida) pasan a «tramitada» y se anota en qué pedido y línea van
+-- (peticion_tramitacion), igual que hace el Gestor al generar pedidos.
 -- SECURITY INVOKER: con los permisos de quien lo llama. Rober lo revisa en el Gestor y lo confirma él.
 
 create or replace function public.fn_compras_crear_pedido(
@@ -24,6 +26,7 @@ declare
   v_igic numeric := 0;
   v_canon numeric := 0;
   v_sub numeric;
+  v_pet int := 0;
   r record;
 begin
   if jsonb_typeof(p_lineas) is distinct from 'array' or jsonb_array_length(p_lineas) = 0 then
@@ -55,6 +58,9 @@ begin
       v_precio numeric;
       v_dto numeric;
       v_canon_u numeric;
+      v_queda numeric := r.cantidad;
+      v_falta numeric;
+      pt record;
     begin
       select * into a from articulo where codigo_interno = r.articulo;
       if not found then raise exception 'No existe el artículo %.', r.articulo; end if;
@@ -74,6 +80,31 @@ begin
       v_subtotal := v_subtotal + v_sub;
       v_igic := v_igic + v_sub * coalesce(a.igic_pct, 0) / 100;
       v_canon := v_canon + v_canon_u * r.cantidad;
+      -- Las peticiones abiertas de este artículo que la línea cubre (por orden de fecha) quedan tramitadas en ella,
+      -- como hace «Generar pedidos» del Gestor (vincularPeticionesAPedido).
+      for pt in
+        select q.tienda_terminal_codigo as tienda, q.numero, q.cantidad, q.cantidad_tramitada
+          from peticion q
+         where q.articulo_codigo = r.articulo and q.estado in ('pendiente', 'atendida')
+         order by q.fecha_hora, q.tienda_terminal_codigo, q.numero
+      loop
+        v_falta := greatest(0, coalesce(pt.cantidad, 0) - coalesce(pt.cantidad_tramitada, 0));
+        continue when v_falta <= 0;
+        exit when v_falta > v_queda;
+        v_queda := v_queda - v_falta;
+        update peticion
+           set estado = 'tramitada', cantidad_tramitada = coalesce(pt.cantidad, v_falta), proveedor_codigo = p_proveedor,
+               empleado_atencion_codigo = public.fn_empleado_actual(), actualizado_en = now()
+         where tienda_terminal_codigo = pt.tienda and numero = pt.numero;
+        insert into peticion_tramitacion (tienda_terminal_codigo, numero, pedido_proveedor_tienda_codigo, pedido_proveedor_numero,
+                                          pedido_proveedor_linea, fecha_hora, cantidad, proveedor_codigo, almacen_codigo, actualizado_en)
+        values (pt.tienda, pt.numero, p_tienda, v_numero, v_n, now(), v_falta, p_proveedor, v_almacen, now())
+        on conflict (tienda_terminal_codigo, numero) do update
+          set pedido_proveedor_tienda_codigo = excluded.pedido_proveedor_tienda_codigo, pedido_proveedor_numero = excluded.pedido_proveedor_numero,
+              pedido_proveedor_linea = excluded.pedido_proveedor_linea, fecha_hora = excluded.fecha_hora, cantidad = excluded.cantidad,
+              proveedor_codigo = excluded.proveedor_codigo, almacen_codigo = excluded.almacen_codigo, actualizado_en = excluded.actualizado_en;
+        v_pet := v_pet + 1;
+      end loop;
     end;
   end loop;
 
@@ -88,7 +119,8 @@ begin
    where tienda_terminal_codigo = p_tienda and numero = v_numero;
 
   return jsonb_build_object('tienda', p_tienda, 'numero', v_numero, 'proveedor', p_proveedor, 'lineas', v_n,
-                            'subtotal', v_subtotal, 'total', round(v_subtotal + v_canon + v_igic, 2), 'estado', 'pendiente');
+                            'subtotal', v_subtotal, 'total', round(v_subtotal + v_canon + v_igic, 2), 'estado', 'pendiente',
+                            'peticiones_tramitadas', v_pet);
 end;
 $$;
 

@@ -6,14 +6,14 @@ Migración `20261101_compras_crear_pedido.sql`. **`fn_compras_crear_pedido(prove
 (nivel 3 en NEXA): crea el pedido a proveedor en estado «pendiente» (sin confirmar ni mover stock), con el número de
 `fn_siguiente_numero`, los precios/descuentos del proveedor (o del artículo), IGIC y totales calculados igual que
 `calcularCompra` (sin descuento de pie ni gastos). Hace lo mismo que «Generar pedidos» del Gestor; Rober lo revisa y lo
-confirma él en Compras → Gestor de Pedidos a Proveedores. Probado con 2 artículos de Esselte (transacción deshecha):
+confirma él en Compras → Gestor de Pedidos a Proveedores. **Peticiones:** las peticiones abiertas del artículo (`pendiente` / `atendida`) que la línea cubre, por orden de fecha, pasan a `tramitada` y se anota en `peticion_tramitacion` en qué pedido y línea van (igual que `vincularPeticionesAPedido`); el resultado dice cuántas (`peticiones_tramitadas`). Lo que ya está en `tramitada` pasa luego a resuelta/entregada con la recepción y la entrega, como siempre. Probado con 2 artículos de Esselte (transacción deshecha):
 totales cuadrados y auditoría de cabecera y líneas.
 
 ## Fase 2: el Gestor de Pedidos a Proveedores de Rober hecho función
 
 Migración `20261101_compras_gestor.sql`. **`fn_compras_gestor_proveedor(proveedor, desde)`** (nivel 1, solo lee) copia su método:
 lo vendido desde la **última compra al proveedor** (`pedido_proveedor`, o `desde` si se pasa), el stock actual, lo **pendiente de
-recibir** (pedidos a proveedor sin recibir) y lo **comprometido a clientes** (`pedido_cliente` sin anular, entregar ni cerrar).
+recibir** (pedidos a proveedor sin recibir) y lo **comprometido a clientes** (`pedido_cliente` sin anular, entregar ni cerrar, más las **peticiones abiertas**, que se suman a lo que hay que pedir).
 Regla: `disponible = stock + pendiente − comprometido`; `necesidad = venta diaria × (días desde la última compra, máx. 90 + plazo de entrega)`; si `disponible ≥ necesidad` no se pide, si no se pide la diferencia. **Plazo de entrega**: el de la ficha del proveedor (`dias_entrega`) o 20 días si no lo tiene (casi todos tardan 15-20 días hasta Canarias; los 3 de informática, una semana).
 Decisión por línea: `pedir`, `no_pedir` o `dudosa` (llega justo con menos de un 25 % de margen, venta aislada de 1 unidad,
 periodo de menos de 7 días, stock negativo) con el **motivo**. Excluye los artículos `00003…` (pedidos expresos de cliente).
