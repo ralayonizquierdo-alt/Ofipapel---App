@@ -1,4 +1,16 @@
-# Compras con NEXA (fase 1, 01/11/2026)
+# Compras con NEXA (01/11/2026)
+
+## Fase 2: el Gestor de Pedidos a Proveedores de Rober hecho función
+
+Migración `20261101_compras_gestor.sql`. **`fn_compras_gestor_proveedor(proveedor, desde)`** (nivel 1, solo lee) copia su método:
+lo vendido desde la **última compra al proveedor** (`pedido_proveedor`, o `desde` si se pasa), el stock actual, lo **pendiente de
+recibir** (pedidos a proveedor sin recibir) y lo **comprometido a clientes** (`pedido_cliente` sin anular, entregar ni cerrar).
+Regla: `disponible = stock + pendiente − comprometido`; si `disponible ≥ vendido` no se pide, si no se pide la diferencia.
+Decisión por línea: `pedir`, `no_pedir` o `dudosa` (llega justo con menos de un 25 % de margen, venta aislada de 1 unidad,
+periodo de menos de 7 días, stock negativo) con el **motivo**. Excluye los artículos `00003…` (pedidos expresos de cliente).
+Usa el proveedor habitual del artículo. Aún no crea el pedido ni concilia con la propuesta valorada del proveedor.
+
+## Fase 1: mínimos y máximos desde el histórico
 
 Migración `supabase/migrations/20261101_compras_nexa.sql` (aplicada en la base). Todo es SECURITY INVOKER:
 actúa con los permisos de quien lo llama. Dadas de alta en `nexa_operacion` con su receta.
