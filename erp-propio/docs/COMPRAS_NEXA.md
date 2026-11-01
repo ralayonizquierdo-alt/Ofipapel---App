@@ -44,3 +44,12 @@ proveedores de baja. Cada proveedor puede afinarse luego en su ficha.
 > Nota de limpieza: al aplicar la fase 2 en la base, Supabase pedía confirmación para el `DROP FUNCTION`, así que la
 > versión antigua se renombró a `fn_compras_gestor_proveedor_antigua(text, date)` (sin permisos para nadie) en lugar
 > de borrarla. Se puede eliminar con `drop function` cuando haya alguien delante para confirmar.
+
+## Pedidos de informática (pendiente, no se toca por ahora)
+
+Se hacen **una vez a la semana y se subastan entre tres proveedores** (EXADI, INFORPOR, UFP): el pedido se pasa a los
+tres, devuelven sus precios, se cruzan y se adjudica cada línea al mejor postor **con algunas reglas** (por definir con
+Rober); se prepara un pedido por proveedor y se envía por correo. Hoy ya está automatizado en el GeminisWin actual (Skills
+`generar-pedido-informatica-geminiswin` e `importar-pedidos-informatica-geminiswin`), así que de momento NEXA no lo
+sustituye. MUCHO CARTUCHO (consumibles) no entra en esa subasta. El Gestor de compras (`fn_compras_gestor_proveedor`)
+vale para el resto de proveedores no locales.
