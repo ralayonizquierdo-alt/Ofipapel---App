@@ -40,3 +40,7 @@ cambiaron en bloque, por tipo de proveedor (340 fichas, auditadas con su valor a
 (EXADI 04062, INFORPOR 04030, UFP 04075, MUCHO CARTUCHO 04090) → **7 días**; **locales** (código `50…`) → **3 días**;
 **resto** → **20 días** (el punto medio de 15-20). Se dejaron como estaban los acreedores contables (`60…`/`61…`) y los
 proveedores de baja. Cada proveedor puede afinarse luego en su ficha.
+
+> Nota de limpieza: al aplicar la fase 2 en la base, Supabase pedía confirmación para el `DROP FUNCTION`, así que la
+> versión antigua se renombró a `fn_compras_gestor_proveedor_antigua(text, date)` (sin permisos para nadie) en lugar
+> de borrarla. Se puede eliminar con `drop function` cuando haya alguien delante para confirmar.
