@@ -54,7 +54,7 @@ export function LoginPage() {
           {logo}
           <div className="flex items-center gap-2 rounded border-2 px-2 py-1" style={{ background: a.fondo, borderColor: a.borde, color: a.color }}>
             {a.id === 'avatar' ? <img src={`${import.meta.env.BASE_URL}marca/icono-64.png`} alt="" width={22} height={22} /> : <Icono size={22} aria-hidden />}
-            <b className="text-[15px]">Entrar en {a.titulo}</b>
+            <b className="text-[15px]">Entrar en {a.id === 'avatar' ? 'Gestión · Avatar' : a.titulo}</b>
             <button type="button" className="ml-auto flex items-center text-[12px] text-[#555] hover:underline" onClick={() => setArea(null)}>
               <ChevronLeft size={14} /> Cambiar
             </button>
