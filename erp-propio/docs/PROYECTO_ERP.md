@@ -418,13 +418,89 @@ lleve a la pantalla adecuada.
 - **Cómo funciona por dentro:** la conversación va a la Edge Function
   **`nexa`**, que llama a Claude (clave de Anthropic «ERP Ofipapel - NEXA»,
   guardada como secreto en Supabase). Claude tiene estas herramientas:
-  `describir_tablas`, `consultar_bd`, `abrir_pantalla` y las del centro de
-  listados (abajo).
-- **Seguridad:** NEXA **solo puede leer** los datos del negocio (función
-  `fn_nexa_consulta`, de solo lectura y con los permisos del propio usuario).
-  **Nunca puede saltarse el sistema de permisos** ni modificar datos. Lo único
-  que escribe es un listado guardado del Generador, y solo si el usuario lo
-  confirma.
+  `describir_tablas`, `consultar_bd`, `abrir_pantalla`, las del centro de
+  listados y las de cambios (`describir_funciones`, `proponer_cambio`,
+  `ejecutar_cambio`; abajo).
+- **Seguridad:** NEXA trabaja **siempre con la identidad y los permisos del
+  usuario que le habla** (su JWT: RLS, políticas por pantalla, `fn_puede`).
+  Lee con `fn_nexa_consulta` (solo lectura) y, desde el 31/10/2026, también
+  **escribe**, pero solo por el camino proponer → confirmar → ejecutar de
+  abajo. **Nunca puede saltarse el sistema de permisos**: lo que el grupo del
+  usuario no puede hacer en pantalla, tampoco lo hace NEXA por él.
+
+### NEXA con control total (31/10/2026)
+
+Decisión de Rober: NEXA puede leer, escribir y razonar sobre todo el ERP
+(tablas y funciones, las de hoy y las que se creen). Migración
+`supabase/migrations/20261031_nexa_control_total.sql` (aplicada en 6 partes,
+`nexa_control_total_1..6`) y Edge Function `nexa` (versión 8, `verify_jwt`).
+
+- **Cómo cambia algo:** `proponer_cambio` llama a `fn_nexa_proponer`, que
+  **simula** los pasos con los permisos del usuario dentro de un subbloque que
+  se deshace siempre, recoge de la auditoría TODO lo que cambiaría (también lo
+  que hacen los triggers), calcula el **nivel** y guarda la propuesta en
+  `nexa_propuesta` (caduca a los 10 minutos). El panel enseña una tarjeta con
+  lo que cambia (antes → después, registros por tabla). `ejecutar_cambio`
+  comprueba en la Edge Function el **último mensaje del usuario** (no lo que
+  diga la IA), firma la propuesta (HMAC con un secreto que solo conocen la
+  función y la base, en `nexa_privado.secreto`) y `fn_nexa_ejecutar` la repite
+  con el JWT del usuario. Solo ejecuta una propuesta **del mismo usuario,
+  pendiente, sin caducar, creada en una petición anterior** y con firma buena.
+- **Niveles** (color de la tarjeta):
+  1. Consultar: nada (devuelve el resultado).
+  2. Cambio leve (1 registro, ≤2 campos sin importes): antes → después + «sí».
+  3. Cambio normal: qué y cuántos + «sí» + resumen de lo hecho.
+  4. Masivo (>20 registros) o con dinero/stock: vista previa total +
+     **palabra de confirmación** (p. ej. `ADELANTE-998`) + **motivo** + resumen.
+  5. Crítico o legal (anular/rectificar VeriFactu, permisos y usuarios,
+     borrado físico): lo del 4 + **contraseña** verificada en el servidor con
+     Supabase Auth + **solo administradores**. La contraseña va en un campo de
+     la tarjeta, viaja solo en esa petición (`credencial`), no entra en el
+     historial ni se guarda (comprobado: no aparece en `nexa_propuesta`).
+- **VeriFactu** nunca se borra ni se modifica (`registro_facturacion` está
+  bloqueada en el catálogo): solo se anula o rectifica con sus funciones.
+  Contabilidad (`fn_contab_*`, asientos, cuentas) también está bloqueada.
+- **Auditoría:** cada fila tocada lleva en `auditoria.origen`
+  «NEXA · nivel N · propuesta P · motivo: …».
+- **Catálogo `nexa_operacion`:** nivel, permiso y bloqueos por función o tabla
+  (admite `%`), y la **receta** de lo que una pantalla hace en varias tablas
+  sin función SQL (p. ej. regularizar stock = `regularizacion_stock` +
+  `movimiento_stock`; presupuesto = cabecera + líneas). Lo no catalogado
+  recibe el **nivel prudente**: alta 3, modificar 2-3, tablas de dinero/stock 4,
+  configuración/seguridad 5, borrado físico 5; funciones de solo lectura 1, que
+  cambian datos 4, de anular/rectificar/VeriFactu/permisos/usuarios 5.
+  **NORMA: cada función o tabla nueva del ERP se añade a `nexa_operacion` con
+  su nivel (y su receta si hace falta)**; si no, NEXA usa el nivel prudente.
+  `describir_funciones` (`fn_nexa_funciones`) le enseña a NEXA las funciones
+  que el usuario puede ejecutar, con argumentos, nivel y receta.
+- **Modelo:** `claude-sonnet-5-5` por defecto («por ahora algo barato»); el
+  secreto `NEXA_MODEL` manda si existe. Con Sonnet las herramientas de varios
+  niveles funcionan bien en todas las pruebas (propone, para, pide palabra o
+  contraseña, ejecuta solo tras confirmar y resume). Pendiente (solo idea):
+  elegir el modelo según la pregunta (consultas con uno barato, cambios de
+  nivel 4-5 con uno más potente).
+- **Sugerencias de bienvenida:** «Tus listados» (`fn_nexa_sugerencias`): los
+  3 más usados por el empleado → si no, por su grupo → si no, los guardados
+  visibles más recientes (nunca vacío si hay alguno). Sacar un listado
+  guardado por NEXA apunta su uso (`fn_listado_usado`). Debajo, 4-5 frases
+  fijas según el grupo, solo de lo que su grupo tiene: gerencia (resumen,
+  ventas por vendedor, deuda, bajo mínimo, compras) o mostrador (stock,
+  cliente, pedidos, reparaciones, presupuesto — sin dinero).
+- **Los 503:** son `BOOT_ERROR` de Supabase (logs del 31/10 02:08): con 8
+  preguntas a la vez, el plan gratuito no levantó más copias de la función en
+  10 s y dos peticiones fallaron sin llegar a ejecutar nada. No es un fallo del
+  código. Mitigación: el panel reintenta solo ante 503/429 (2 s y 5 s, seguro
+  porque la función no llegó a hacer nada) y, si persiste, avisa «NEXA está muy
+  ocupada».
+- **Pruebas reales (01/11/2026, por la Edge Function con el JWT de `rober`):**
+  nivel 2 (observación de ZZ002, «sí»), nivel 3 (3 clientes ZZ003-5; con «no»
+  no hace nada), nivel 4 (regularizar ZZTEST-001 en almacén 98 de 11 a 12:
+  regularización + movimiento + stock, con palabra y motivo), nivel 5 (anular
+  la venta de prueba 01/66: registro VeriFactu de anulación). Sin palabra, sin
+  contraseña, con contraseña mala, con propuesta caducada o de otro usuario, o
+  con firma inventada por RPC: **no se ejecuta**. `prueba` (DEPENDIENTE) no
+  puede modificar proveedores ni anular ventas por NEXA. Auditoría con origen
+  NEXA en todos.
 
 ### NEXA, centro de listados e informes (31/10/2026)
 
@@ -471,8 +547,7 @@ Generador** y, si no estaba guardado, **Guardar**.
   nombres de `fuentes.ts`, sin sumar números/años, fechas dd/mm/aaaa);
   `crearXlsx` (`src/lib/hojaCalculo.ts`) acepta ahora números y la fila en
   negrita.
-- **Pendiente:** NEXA no apunta «usos» del listado guardado (`listado_uso`)
-  para no escribir nada más que el listado; «Abrir en el Generador» de un
+- **Pendiente:** «Abrir en el Generador» de un
   listado montado al vuelo no lleva sus columnas ni filtros que no sean «igual
   a» (haría falta que la pantalla aceptara la definición entera por URL); las
   conversaciones guardadas conservan las filas solo de los 3 últimos listados.

@@ -436,3 +436,49 @@ Coste añadido: 1–3 ms por sentencia de escritura, independiente del número d
 - Mover los guardados de documentos (TPV, pedidos, compras) a RPC DEFINER que compruebe el
   permiso dejaría las tablas en solo lectura y los arrays más cortos (§4.3); no hace falta para
   la protección actual.
+
+## 9. NEXA con control total: escrituras por la IA (31/10/2026)
+
+Migración `20261031_nexa_control_total.sql` (aplicada como `nexa_control_total_1..6`) y Edge
+Function `nexa` (v8, `verify_jwt`). Detalle funcional en `PROYECTO_ERP.md` §11.
+
+- **Con los permisos del usuario.** La Edge Function usa la clave pública + el JWT del usuario
+  para todo (`fn_nexa_proponer`, `fn_nexa_ejecutar`, consultas): RLS, políticas `permiso_*` de §7
+  y `fn_puede` se aplican igual que en pantalla. La *service role* solo se usa para registrar una
+  vez la clave de firma (`fn_nexa_secreto_registrar`, ejecutable solo por `service_role`).
+- **Propuestas (`nexa_propuesta`).** RLS: cada usuario solo ve las suyas. El trigger
+  `fn_nexa_propuesta_antes` fija dueño (`auth.uid()`), estado, caducidad (10 min) y un nivel
+  nunca menor que el de sus pasos; la palabra de confirmación la pone la base.
+- **Ejecución firmada.** `fn_nexa_ejecutar` (SECURITY INVOKER) solo acepta una propuesta propia,
+  pendiente, sin caducar y con firma HMAC válida (`id:uid:nivel`) con el secreto de
+  `nexa_privado.secreto` (esquema sin acceso para `anon`/`authenticated`). Sin pasar por la Edge
+  Function no hay firma: llamarla por RPC con una firma inventada da `42501`. Repite los pasos con
+  el JWT del usuario y comprueba que el cambio real no supera al propuesto.
+- **Lo que comprueba la Edge Function antes de firmar:** el último mensaje del usuario confirma
+  (y no niega); nivel ≥4 palabra exacta + motivo; nivel 5 administrador + contraseña verificada
+  con `signInWithPassword` en un cliente aparte (sesión cerrada al momento, nada guardado; la
+  contraseña llega en `credencial`, fuera del historial).
+- **Bloqueado para NEXA** (catálogo `nexa_operacion`, `bloqueada`): `registro_facturacion`
+  (VeriFactu: solo anular/rectificar con sus funciones), contabilidad, auditoría,
+  `coordinacion_notas`, `nexa_%`, cargas DBF. Permisos, roles y empleados: nivel 5.
+- **Auditoría:** `auditoria.origen` = «NEXA · nivel N · propuesta P · motivo: …» (variable de
+  sesión `erp.nexa_origen` que lee el trigger de auditoría).
+
+### Pruebas (01/11/2026, reales, por la Edge Function)
+
+| Prueba | Usuario | Resultado |
+|---|---|---|
+| Nivel 2: observación de ZZ002, «sí» | rober | Hecho, auditoría «NEXA · nivel 2 · propuesta 8» |
+| Nivel 3: 3 clientes ZZ003-5; rama «no, déjalo» | rober | «no»: nada; «sí»: 3 filas, auditoría nivel 3 |
+| Nivel 4: regularizar ZZTEST-001 alm. 98 de 11 a 12 | rober | Solo «sí» → no; palabra + motivo → regularización 8 + movimiento + stock 12 |
+| Nivel 5: anular venta 01/66 (VeriFactu) | rober | Sin contraseña → no; contraseña mala → no; buena → registro de anulación, venta anulada |
+| Propuesta caducada (id 5) | rober | No se ejecuta |
+| Propuesta de otro usuario (id 10) | prueba | «No existe la propuesta 10 (o es de otro usuario)» |
+| `fn_nexa_ejecutar` por RPC con firma inventada | prueba | `42501` |
+| Modificar un proveedor | prueba | La simulación da 0 filas por RLS: no se propone |
+| Anular una venta (nivel 5) | prueba | «solo administradores» |
+
+### Pendiente
+
+- `movimiento_stock` y `registro_facturacion` no tienen trigger de auditoría: lo que NEXA cambia
+  ahí se ve en la tarjeta y en el documento, pero no en `auditoria`.
