@@ -297,7 +297,7 @@ end $$;
 
 create or replace function public.fn_concilia_confirmar(p_mov bigint)
 returns void language plpgsql security definer set search_path = public as $$
-declare x record; prop jsonb; re remesa; rc record; v_as bigint; ap contab_apunte_t[];
+declare x record; prop jsonb; re remesa; rc record; v_as bigint; v_orig bigint; ap contab_apunte_t[];
 begin
   select * into x from fn_concilia_mov(p_mov);
   prop := (x.m).propuesta;
@@ -333,11 +333,28 @@ begin
     select r.*, rm.referencia into rc from remesa_recibo r join remesa rm on rm.id = r.remesa_id where r.id = (prop->>'recibo_id')::bigint for update of r;
     if not found or rc.estado <> 'cobrado' then raise exception 'El recibo ya no está cobrado.'; end if;
     -- El recibo vuelve a quedar pendiente (sube la deuda del cliente).
+    -- Si el cobro ya estaba contabilizado: un asiento de devolución (cliente al Debe por el recibo,
+    -- comisiones por los gastos, banco al Haber por el total) y el cobro queda libre para volver a
+    -- contabilizarse cuando se cobre de nuevo. Si no lo estaba, solo los gastos.
+    select a.id into v_orig from asiento_documento ad join asiento a on a.id = ad.asiento_id
+     where ad.activo and ad.doc_tipo = 'cobro' and ad.tienda_codigo = rc.cobro_tienda_codigo and ad.numero = rc.cobro_codigo
+       and a.estado = 'correcto' limit 1;
     perform fn_cobro_cliente_anular(rc.cobro_tienda_codigo, rc.cobro_codigo, 'Devuelto por el banco (' || rc.e2e || ')');
+    ap := '{}';
+    if v_orig is not null then
+      ap := ap || fn_contab_ap(fn_contab_cuenta_cliente(rc.cliente_codigo), rc.importe, 'Devolución recibo ' || rc.e2e, rc.e2e);
+    end if;
     if coalesce((prop->>'gasto')::numeric, 0) > 0 then
-      ap := array[fn_contab_ap((x.b).cuenta_comisiones, (prop->>'gasto')::numeric, 'Gastos devolución ' || rc.e2e, rc.e2e),
-                  fn_contab_ap((x.b).cuenta_contable, -(prop->>'gasto')::numeric, 'Gastos devolución ' || rc.e2e, rc.e2e)];
-      v_as := fn_contab_crear_asiento((x.m).fecha_operacion, 'Gastos devolución recibo ' || rc.e2e, 'manual', null, null, 'banco:' || p_mov, ap, '[]', null, false, null, null);
+      ap := ap || fn_contab_ap((x.b).cuenta_comisiones, (prop->>'gasto')::numeric, 'Gastos devolución ' || rc.e2e, rc.e2e);
+    end if;
+    if cardinality(ap) > 0 then
+      ap := ap || fn_contab_ap((x.b).cuenta_contable, -(case when v_orig is not null then rc.importe else 0 end + coalesce((prop->>'gasto')::numeric, 0)),
+                               'Devolución recibo ' || rc.e2e, rc.e2e);
+      v_as := fn_contab_crear_asiento((x.m).fecha_operacion, 'Devolución recibo ' || rc.e2e, 'manual', null, null, 'banco:' || p_mov, ap, '[]', null, false, null, null);
+    end if;
+    if v_orig is not null then
+      update asiento_documento set activo = false
+       where asiento_id = v_orig and doc_tipo = 'cobro' and tienda_codigo = rc.cobro_tienda_codigo and numero = rc.cobro_codigo;
     end if;
     update remesa_recibo set estado = 'devuelto', devuelto_en = (x.m).fecha_operacion, devolucion_movimiento_id = p_mov,
                              gasto_devolucion = (prop->>'gasto')::numeric where id = rc.id;
