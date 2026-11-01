@@ -86,6 +86,13 @@ interface Devolucion {
   devuelto_en: string
   gasto: number | null
   referencia: string
+  veces: number
+  decision: string[] | null
+  decision_por: string | null
+  decision_en: string | null
+  decision_nota: string | null
+  bloqueado: boolean
+  credito_bloqueado: boolean
 }
 
 const ESTADO: Record<string, string> = {
@@ -103,7 +110,7 @@ const sumarDias = (d: number) => {
 const ibanOculto = (iban: string) => (iban.length > 8 ? `${iban.slice(0, 4)} •••• ${iban.slice(-4)}` : iban)
 
 export function RemesasPage() {
-  const [pestana, setPestana] = useState<Pestana>('nueva')
+  const [pestana, setPestana] = useState<Pestana>(() => (new URLSearchParams(window.location.search).get('pestana') as Pestana) || 'nueva')
   const [bancos, setBancos] = useState<Banco[]>([])
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
@@ -394,49 +401,159 @@ function ListaRemesas({ bancos, avisar }: { bancos: Banco[]; avisar: Avisar }) {
   )
 }
 
+const ACCIONES: { id: string; texto: string; ayuda: string }[] = [
+  { id: 'reremesar', texto: '🔁 Volver a pasarlo al cobro', ayuda: 'Sale otra vez en «Nueva remesa» (puedes cambiar el vencimiento).' },
+  { id: 'otra_via', texto: '💶 Cobrar por otra vía', ayuda: 'Transferencia o caja: deja de ir en las remesas.' },
+  { id: 'repercutir_gastos', texto: '➕ Repercutir los gastos al cliente', ayuda: 'Se le cargan los gastos del banco (cuenta del cliente contra 759).' },
+  { id: 'bloquear_credito', texto: '⛔ Bloquear el crédito (solo contado)', ayuda: 'Límite de deuda 0, cliente marcado y aviso en cada venta.' },
+  { id: 'bloquear_cliente', texto: '🚫 Bloquear el cliente', ayuda: 'No se le podrá vender hasta desbloquearlo en su ficha.' },
+  { id: 'dudoso_cobro', texto: '⚠️ Pasar a dudoso cobro', ayuda: 'Asiento 436 / cliente, para la asesoría (y, si llega el caso, rectificativa por impago).' },
+]
+const textoAccion = (id: string) => ACCIONES.find((a) => a.id === id)?.texto ?? id
+
 function Devoluciones({ avisar }: { avisar: Avisar }) {
   const [lista, setLista] = useState<Devolucion[]>([])
-  useEffect(() => {
+  const [sel, setSel] = useState<number | null>(null)
+  const [acciones, setAcciones] = useState<string[]>([])
+  const [nota, setNota] = useState('')
+  const [vence, setVence] = useState(sumarDias(10))
+  const cargar = useCallback(() => {
     supabase.rpc('fn_remesa_devoluciones').then(({ data, error: e }) => {
       if (e) return avisar(e.message)
       setLista((data ?? []) as Devolucion[])
     })
   }, [avisar])
+  useEffect(() => {
+    cargar()
+  }, [cargar])
+  const d = lista.find((x) => x.id === sel) ?? null
+  // Al elegir una devolución: a partir de la 2.ª del cliente se propone bloquear el crédito.
+  useEffect(() => {
+    if (!d || d.decision) return
+    setAcciones(d.veces >= 2 && !d.credito_bloqueado ? ['otra_via', 'bloquear_credito'] : ['reremesar'])
+    setNota('')
+  }, [d])
+  const marcar = (id: string) =>
+    setAcciones((a) => {
+      if (a.includes(id)) return a.filter((x) => x !== id)
+      const sin = id === 'reremesar' ? a.filter((x) => x !== 'otra_via') : id === 'otra_via' ? a.filter((x) => x !== 'reremesar') : a
+      return [...sin, id]
+    })
+  const decidir = async () => {
+    if (!d) return
+    const { error: e } = await supabase.rpc('fn_remesa_devolucion_decidir', {
+      p_recibo: d.id,
+      p_acciones: acciones,
+      p_nota: nota || null,
+      p_vencimiento: acciones.includes('reremesar') ? vence : null,
+    })
+    if (e) return avisar(e.message)
+    avisar(null, `Decisión guardada para el recibo ${d.e2e}.`)
+    setSel(null)
+    cargar()
+  }
+  const pendientes = lista.filter((x) => !x.decision).length
+
   return (
     <>
       <div className="text-[12px] text-[#555]">
-        Recibos que el banco ha devuelto. Al conciliar la devolución, el recibo vuelve a quedar <b>pendiente</b> (la deuda del cliente sube) y puede ir en otra
-        remesa o cobrarse por otra vía. Llama al cliente.
+        Recibos que el banco ha devuelto. Al conciliar la devolución el recibo vuelve a quedar <b>pendiente</b> (la deuda del cliente sube). Cada devolución hay
+        que
+        <b> decidirla</b>: pincha en ella, llama al cliente y elige qué hacer.{' '}
+        {pendientes > 0 && <b className="text-[#c42b1c]">{pendientes} pendientes de decidir.</b>}
       </div>
-      <Rejilla alto="calc(100vh - 280px)">
-        <table className="gw-grid">
-          <thead className="sticky top-0">
-            <tr>
-              <th className="w-[85px]">Devuelto</th>
-              <th>Cliente</th>
-              <th className="w-[110px]">Teléfono</th>
-              <th className="w-[150px]">Recibo</th>
-              <th className="w-[85px] text-right!">Importe</th>
-              <th className="w-[70px] text-right!">Gastos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.length === 0 && <Vacio cols={6} texto="No hay recibos devueltos." />}
-            {lista.map((d) => (
-              <tr key={d.id} className="text-[#8a1c12]">
-                <td>{fechaEs(d.devuelto_en)}</td>
-                <td className="truncate">
-                  {d.cliente_codigo} · {d.cliente_nombre}
-                </td>
-                <td>{d.telefono}</td>
-                <td className="font-mono text-[12px]">{d.e2e}</td>
-                <td className="text-right">{eur0(d.importe)}</td>
-                <td className="text-right">{d.gasto ? eur0(d.gasto) : ''}</td>
+      <div className="grid grid-cols-[minmax(0,1fr)_400px] gap-2 max-lg:grid-cols-1">
+        <Rejilla alto="calc(100vh - 290px)">
+          <table className="gw-grid">
+            <thead className="sticky top-0">
+              <tr>
+                <th className="w-[80px]">Devuelto</th>
+                <th>Cliente</th>
+                <th className="w-[45px] text-right!" title="Devoluciones de este cliente">
+                  Veces
+                </th>
+                <th className="w-[80px] text-right!">Importe</th>
+                <th className="w-[160px]">Decisión</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Rejilla>
+            </thead>
+            <tbody>
+              {lista.length === 0 && <Vacio cols={5} texto="No hay recibos devueltos." />}
+              {lista.map((x) => (
+                <tr
+                  key={x.id}
+                  className={`${sel === x.id ? 'gw-selected' : ''} ${x.decision ? 'text-[#555]' : 'font-bold text-[#8a1c12]'}`}
+                  onClick={() => setSel(x.id)}
+                >
+                  <td>{fechaEs(x.devuelto_en)}</td>
+                  <td className="truncate">
+                    {x.cliente_codigo} · {x.cliente_nombre}
+                  </td>
+                  <td className={`text-right ${x.veces >= 2 ? 'text-[#c42b1c]' : ''}`}>{x.veces}</td>
+                  <td className="text-right">{eur0(x.importe)}</td>
+                  <td className="truncate">{x.decision ? `✔ ${x.decision.map(textoAccion).join(', ')}` : '⏳ Pendiente de decidir'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Rejilla>
+        {d ? (
+          <GwGroup title={`Recibo ${d.e2e}`}>
+            <div className="flex flex-col gap-1.5 text-[13px]">
+              <div>
+                <b>
+                  {d.cliente_codigo} · {d.cliente_nombre}
+                </b>
+                {d.telefono && <span> · ☎ {d.telefono}</span>}
+              </div>
+              <div>
+                Devuelto el {fechaEs(d.devuelto_en)} · {eur0(d.importe)} €{d.gasto ? ` + ${eur0(d.gasto)} € de gastos` : ''} · remesa {d.referencia}
+              </div>
+              {d.veces >= 2 && <div className="font-bold text-[#c42b1c]">⚠ Es la {d.veces}.ª devolución de este cliente: se propone bloquear el crédito.</div>}
+              {(d.credito_bloqueado || d.bloqueado) && (
+                <div className="text-[#8a5a00]">Ya está {d.bloqueado ? 'bloqueado' : 'con el crédito bloqueado (solo contado)'}.</div>
+              )}
+              {d.decision ? (
+                <div className="border border-[#6cbf6c] bg-[#eef8ee] p-1.5">
+                  ✔ Decidido por {d.decision_por ?? '?'} el {fechaEs(d.decision_en?.slice(0, 10))}: {d.decision.map(textoAccion).join(', ')}
+                  {d.decision_nota ? ` · «${d.decision_nota}»` : ''}
+                </div>
+              ) : (
+                <>
+                  <b>¿Qué se hace?</b>
+                  {ACCIONES.map((a) => (
+                    <label key={a.id} className="flex cursor-pointer items-start gap-1.5" title={a.ayuda}>
+                      <input
+                        type="checkbox"
+                        className="mt-[3px]"
+                        checked={acciones.includes(a.id)}
+                        disabled={a.id === 'repercutir_gastos' && !d.gasto}
+                        onChange={() => marcar(a.id)}
+                      />
+                      <span>
+                        {a.texto}
+                        <span className="block text-[11px] text-[#666]">{a.ayuda}</span>
+                      </span>
+                    </label>
+                  ))}
+                  {acciones.includes('reremesar') && (
+                    <GwField label="Nuevo vencimiento (para la próxima remesa)">
+                      <GwDate value={vence} onChange={(v) => v && setVence(v)} className="w-[100px]" />
+                    </GwField>
+                  )}
+                  <GwField label="Nota (qué ha dicho el cliente…)">
+                    <GwInput value={nota} onChange={(e) => setNota(e.target.value)} maxLength={300} />
+                  </GwField>
+                  <button type="button" className="gw-btn self-end font-bold" disabled={!acciones.length} onClick={() => void decidir()}>
+                    <Save size={14} /> Guardar decisión
+                  </button>
+                </>
+              )}
+            </div>
+          </GwGroup>
+        ) : (
+          <div className="p-2 text-[#555]">Pincha una devolución para decidir qué hacer.</div>
+        )}
+      </div>
     </>
   )
 }
@@ -668,7 +785,8 @@ function OperativaRemesas() {
             titulo: 'Cuando el banco abona',
             pasos: [
               'Importa el Norma 43 en Conciliación Bancaria: el abono de la remesa sale en verde («Remesa REM…»). Al confirmarlo se cobran todos sus recibos y, si el banco se quedó comisión, se hace su asiento.',
-              'Si un cliente devuelve el recibo, el cargo de la devolución sale en Conciliación («Devolución del recibo…»). Al confirmarlo el recibo vuelve a quedar pendiente, los gastos van a comisiones y aparece en «Devoluciones» para llamar al cliente.',
+              'Si un cliente devuelve el recibo, el cargo de la devolución sale en Conciliación («Devolución del recibo…»). Al confirmarlo el recibo vuelve a quedar pendiente (la deuda del cliente sube), su cobro se anula en la contabilidad con la fecha del cargo y los gastos van a comisiones.',
+              'Arriba en la cabecera sale el aviso «⚠ N recibos devueltos por decidir». En «Devoluciones» pincha cada uno, llama al cliente y elige qué hacer: volver a pasarlo al cobro (con nuevo vencimiento), cobrar por otra vía, repercutir los gastos, bloquear el crédito (solo contado), bloquear el cliente o pasar a dudoso cobro. Desde la 2.ª devolución del mismo cliente se propone bloquear el crédito.',
             ],
           },
           {

@@ -5,6 +5,7 @@ import { CargaCotizacionPage } from './CargaCotizacionPage'
 import { ImportarPage } from './ImportarPage'
 import { AuditoriaPage } from './AuditoriaPage'
 import { TextosLegalesPage } from './TextosLegalesPage'
+import { IncidenciasPage } from './IncidenciasPage'
 
 /** Ventanas de Archivo sin captura bajo /archivo/…: Parámetros, Zonas de servicio, Carga Cotización, Importar, Auditoría y Textos legales. */
 export function ArchivoRoutes() {
@@ -16,6 +17,7 @@ export function ArchivoRoutes() {
       <Route path="importar" element={<ImportarPage />} />
       <Route path="auditoria" element={<AuditoriaPage />} />
       <Route path="textos-legales" element={<TextosLegalesPage />} />
+      <Route path="incidencias" element={<IncidenciasPage />} />
       <Route path="*" element={<Navigate to="/archivo/parametros" replace />} />
     </Routes>
   )

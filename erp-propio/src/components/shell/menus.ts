@@ -61,6 +61,8 @@ export const MENUS: TopMenu[] = [
         soloSuperAdmin: true,
         description: 'Aviso legal a empleados: autorizados y denegados, y documentos (solo super administradores)',
       }),
+      // Fallos de programación, mejoras y dudas (Luis, 01/11/2026): todos los grupos.
+      item('Registro de incidencias', { to: '/archivo/incidencias', description: 'Fallos, mejoras y dudas: apuntarlos y ver cómo van' }),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
       // Áreas de trabajo (Luis, 01/11/2026): Gestión, Contabilidad, Web o AVATAR (todo).
@@ -526,6 +528,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad/configuracion', title: 'Configuración Contable' },
   { prefix: '/contabilidad/remesas', title: 'Remesas SEPA' },
   { prefix: '/contabilidad/resultados-tiendas', title: 'Resultados por Tienda' },
+  { prefix: '/archivo/incidencias', title: 'Registro de incidencias' },
   { prefix: '/contabilidad', title: 'Contabilidad' },
   { prefix: '/cambiar-clave', title: 'Cambiar Contraseña' },
   { prefix: '/utilidades/examinar', title: 'Examinar' },
