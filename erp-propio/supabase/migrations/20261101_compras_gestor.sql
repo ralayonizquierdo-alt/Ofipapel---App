@@ -6,6 +6,8 @@
 -- Plazo de entrega: el de la ficha del proveedor (dias_entrega) o, si no lo tiene, 18 días (casi todos tardan 15-20
 -- días hasta Canarias; los 3 de informática, una semana: ya lo tienen en su ficha). La necesidad es lo que hay que
 -- tener para aguantar el plazo y hasta el siguiente pedido: venta diaria × (días desde la última compra + plazo).
+-- Los proveedores locales (código 50…) quedan fuera: se piden casi cada semana, a demanda, y llegan en 2-3 días.
+-- Los de informática y consumibles (EXADI 04062, INFORPOR 04030, UFP 04075, MUCHO CARTUCHO 04090) tardan una semana.
 -- Solo lee (SECURITY INVOKER): no crea pedidos.
 
 drop function if exists public.fn_compras_gestor_proveedor(text, date, int, int);
@@ -51,7 +53,12 @@ as $$
   art as (
     select ar.codigo_interno, ar.descripcion
       from articulo ar
-     where ar.proveedor_habitual_codigo = p_proveedor
+     where (ar.proveedor_habitual_codigo = p_proveedor
+            -- artículos que siguen apuntando a un proveedor de baja que «Pasa a» este (p. ej. EXADI 04060 → 04062)
+            or ar.proveedor_habitual_codigo in (select pb.codigo from proveedor pb
+                                                 where not coalesce(pb.activo, true) and pb.nombre ilike '%Pasa a ' || p_proveedor || '%'))
+       -- los proveedores locales (código 50…) se gestionan aparte: pedidos semanales a demanda
+       and p_proveedor not like '50%'
        and ar.codigo_interno not like '00003%'
        and ar.fecha_baja is null and coalesce(ar.activo, true) and not coalesce(ar.sin_control_stock, false)
   ),
@@ -141,3 +148,6 @@ insert into public.nexa_operacion (codigo, descripcion, tipo, objeto, accion, ni
    'Para preparar el pedido a un proveedor (es como compra Rober): select * from fn_compras_gestor_proveedor(''CODIGO_PROVEEDOR''). Es su Gestor de Pedidos hecho función: ventas desde la última compra, stock, lo pendiente de recibir y lo comprometido a clientes; decisión pedir / no pedir / dudosa con motivo. Cuenta el plazo de entrega del proveedor (casi todos 15-20 días hasta Canarias, 18 por defecto; los de informática ~1 semana; plazo_supuesto indica que no está en su ficha): la necesidad es lo que hay que tener para aguantar el plazo y hasta el siguiente pedido. Enséñale primero un resumen (cuántas líneas en cada decisión y el total de unidades a pedir), después las líneas «pedir» y «dudosa» con su motivo; las «no pedir» solo si las pide. Los artículos 00003… (pedidos expresos de cliente) ya van excluidos. Avisa si el total no llega a la compra mínima del proveedor. Es una propuesta: no crees ningún pedido sin que Rober lo confirme.')
 on conflict (codigo) do update set descripcion = excluded.descripcion, nivel = excluded.nivel, permiso = excluded.permiso,
                                     notas = excluded.notas, receta = excluded.receta, actualizado_en = now();
+
+-- Mucho Cartucho no tenía plazo en su ficha y, como los otros tres de informática, tarda una semana (dicho por Rober).
+update public.proveedor set dias_entrega = 7 where codigo = '04090' and coalesce(dias_entrega, 0) = 0;
