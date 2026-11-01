@@ -50,13 +50,19 @@ as $$
            coalesce((select nullif(pr.dias_entrega, 0) from proveedor pr where pr.codigo = p_proveedor and pr.dias_entrega > 0), p_plazo_defecto) as plazo,
            not exists (select 1 from proveedor pr where pr.codigo = p_proveedor and pr.dias_entrega > 0) as supuesto
   ),
+  provs as (
+    -- el proveedor y, si lo sustituyó, los antiguos de baja que «Pasan a» él (EXADI 04060 → 04062)
+    select p_proveedor as codigo
+    union
+    select pb.codigo from proveedor pb where not coalesce(pb.activo, true) and pb.nombre ilike '%Pasa a ' || p_proveedor || '%'
+  ),
   art as (
+    -- artículos que tienen a este proveedor en su ficha: como habitual o entre sus proveedores (un artículo puede tener varios)
     select ar.codigo_interno, ar.descripcion
       from articulo ar
-     where (ar.proveedor_habitual_codigo = p_proveedor
-            -- artículos que siguen apuntando a un proveedor de baja que «Pasa a» este (p. ej. EXADI 04060 → 04062)
-            or ar.proveedor_habitual_codigo in (select pb.codigo from proveedor pb
-                                                 where not coalesce(pb.activo, true) and pb.nombre ilike '%Pasa a ' || p_proveedor || '%'))
+     where (ar.proveedor_habitual_codigo in (select codigo from provs)
+            or exists (select 1 from articulo_proveedor ap where ap.articulo_codigo = ar.codigo_interno
+                                                            and ap.proveedor_codigo in (select codigo from provs)))
        -- los proveedores locales (código 50…) se gestionan aparte: pedidos semanales a demanda
        and p_proveedor not like '50%'
        and ar.codigo_interno not like '00003%'
@@ -99,6 +105,8 @@ as $$
         select pt.articulo_codigo, greatest(0, coalesce(pt.cantidad, 0) - coalesce(pt.cantidad_tramitada, 0))
           from peticion pt
          where pt.estado in ('pendiente', 'atendida') and pt.articulo_codigo in (select codigo_interno from art)
+           -- solo las asociadas a este proveedor (la petición sin proveedor vale: el artículo ya lo tiene en su ficha)
+           and (coalesce(nullif(pt.proveedor_codigo, ''), p_proveedor) in (select codigo from provs))
       ) x
      group by 1
   ),

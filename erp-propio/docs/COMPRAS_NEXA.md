@@ -6,8 +6,23 @@ Migración `20261101_compras_crear_pedido.sql`. **`fn_compras_crear_pedido(prove
 (nivel 3 en NEXA): crea el pedido a proveedor en estado «pendiente» (sin confirmar ni mover stock), con el número de
 `fn_siguiente_numero`, los precios/descuentos del proveedor (o del artículo), IGIC y totales calculados igual que
 `calcularCompra` (sin descuento de pie ni gastos). Hace lo mismo que «Generar pedidos» del Gestor; Rober lo revisa y lo
-confirma él en Compras → Gestor de Pedidos a Proveedores. **Peticiones:** las peticiones abiertas del artículo (`pendiente` / `atendida`) que la línea cubre, por orden de fecha, pasan a `tramitada` y se anota en `peticion_tramitacion` en qué pedido y línea van (igual que `vincularPeticionesAPedido`); el resultado dice cuántas (`peticiones_tramitadas`). Lo que ya está en `tramitada` pasa luego a resuelta/entregada con la recepción y la entrega, como siempre. Probado con 2 artículos de Esselte (transacción deshecha):
+confirma él en Compras → Gestor de Pedidos a Proveedores. **Peticiones:** el borrador NO las toca (solo informa de cuántas abiertas incluye, `peticiones_abiertas_incluidas`). Ver «Estados» más abajo. Probado con 2 artículos de Esselte (transacción deshecha):
 totales cuadrados y auditoría de cabecera y líneas.
+
+## Estados: del borrador a la petición resuelta (flujo de Rober)
+
+| Paso | Pedido a proveedor | Peticiones de clientes |
+|---|---|---|
+| NEXA genera el pedido (`fn_compras_crear_pedido`) | `pendiente`: se edita y se manda al proveedor como **propuesta** | siguen `pendiente` (su cantidad ya cuenta como «pendiente de recibir» del borrador, así que NEXA no las vuelve a pedir) |
+| Se compara con la propuesta valorada del proveedor, se edita y se graba como pedido **aceptado** | `confirmado` | `tramitada` — con `fn_compras_tramitar_peticiones(tienda, numero)` (nivel 3, se niega si el pedido sigue pendiente) |
+| Se recibe y se **liquida** el albarán (chequeo de almacén, venta y contabilidad; entra el stock) | `liquidado` | `resuelta`, lista para la facturación — **pendiente de automatizar** |
+
+**Qué peticiones entran en un pedido:** solo las del proveedor de ese pedido, o sin proveedor si el proveedor está entre
+los de la ficha del artículo (habitual o en `articulo_proveedor`: un artículo puede tener varios proveedores y aparecerá en
+la propuesta de cada uno). Esto vale para sumarlas a la necesidad (`fn_compras_gestor_proveedor`) y para tramitarlas.
+
+> Ojo: «Generar pedidos» del Gestor de la pantalla sí marca las peticiones como `tramitada` al generar el pedido, no al
+> aceptarlo. Es el comportamiento anterior del ERP; no se ha tocado.
 
 ## Fase 2: el Gestor de Pedidos a Proveedores de Rober hecho función
 
