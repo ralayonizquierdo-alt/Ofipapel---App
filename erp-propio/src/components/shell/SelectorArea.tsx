@@ -75,7 +75,7 @@ export function SelectorArea({
               disabled={apagada}
               onClick={() => onElegir(a.id)}
               title={apagada ? 'Tu grupo de acceso no tiene esta área' : `${a.titulo} (tecla ${i + 1})`}
-              className={`group relative flex h-[165px] w-[250px] flex-col items-center justify-center gap-1.5 rounded-xl border-2 shadow-sm transition ${
+              className={`group relative flex h-[150px] w-[230px] flex-col items-center justify-center gap-1.5 rounded-xl border-2 shadow-sm transition ${
                 apagada ? 'cursor-not-allowed opacity-40 grayscale' : 'hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-2'
               } ${marcada === a.id && !apagada ? 'ring-2 ring-offset-2' : ''}`}
               style={{ background: a.fondo, borderColor: a.borde, color: a.color, ['--tw-ring-color' as string]: a.borde }}
@@ -89,7 +89,6 @@ export function SelectorArea({
               )}
               <span className="text-[20px] font-bold leading-tight">{a.titulo}</span>
               {a.id === 'avatar' && <span className="-mt-1 text-[15px] font-bold">Avatar</span>}
-              <span className="px-3 text-center text-[12px] text-[#555]">{a.texto}</span>
             </button>
           )
         })}
