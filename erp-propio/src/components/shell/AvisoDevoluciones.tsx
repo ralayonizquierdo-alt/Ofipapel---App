@@ -25,14 +25,19 @@ export function AvisoDevoluciones() {
     }
   }, [])
   if (!n) return null
+  // Globo pequeño y escueto (Luis): icono de recibo con el número en rojo; el detalle, al pasar el ratón.
   return (
     <button
       type="button"
-      className="flex-none rounded border border-[#c9a400] bg-[#fff1c2] px-1.5 text-[11px] font-bold leading-[17px] text-[#8a5a00]"
+      className="relative flex h-[18px] flex-none items-center rounded border border-[#d0d7e2] bg-white px-1 text-[12px] leading-none hover:bg-[#fdecea]"
       onClick={() => navigate('/contabilidad/remesas?pestana=devoluciones')}
-      title="Recibos devueltos por el banco que nadie ha decidido todavía qué hacer"
+      title={`${n} recibo${n === 1 ? '' : 's'} devuelto${n === 1 ? '' : 's'} por el banco pendiente${n === 1 ? '' : 's'} de decidir qué hacer`}
+      aria-label={`${n} recibos devueltos por decidir`}
     >
-      ⚠ {n} recibo{n === 1 ? '' : 's'} devuelto{n === 1 ? '' : 's'} por decidir
+      🧾
+      <span className="absolute -right-1.5 -top-1.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-[#c42b1c] px-[3px] text-[9px] font-bold text-white">
+        {n}
+      </span>
     </button>
   )
 }
