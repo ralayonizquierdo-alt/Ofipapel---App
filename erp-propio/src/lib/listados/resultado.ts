@@ -76,7 +76,7 @@ export function valorTexto(fuente: string, c: ColumnaResultado, v: unknown) {
 
 export const esSumable = (c: ColumnaResultado) => c.tipo === 'num' && !NO_SUMAR.includes(c.clave)
 
-export type Resalte = 'mes' | 'anio' | 'max'
+export type Resalte = 'mes' | 'anio' | 'max' | 'sube' | 'baja'
 
 /**
  * Resaltado que piden las reglas de Luis/Rober para los listados de ventas: con una columna
@@ -87,6 +87,10 @@ export type Resalte = 'mes' | 'anio' | 'max'
  */
 export function resaltesResultado(r: ResultadoListado): Map<string, Resalte> {
   const out = new Map<string, Resalte>()
+  // Columnas de % / variación: azul si sube, rojo si baja.
+  r.columnas.forEach((c) => {
+    if (c.tipo === 'num' && /pct|porc|variaci|crec|dif_?pct/i.test(c.clave)) r.filas.forEach((f, i) => { const v = Number(f[c.clave]); if (v > 0) out.set(`${i}:${c.clave}`, 'sube'); else if (v < 0) out.set(`${i}:${c.clave}`, 'baja') })
+  })
   const medidas = r.columnas.filter((c) => esSumable(c) && !['registros'].includes(c.clave))
   if (!medidas.length || r.filas.length < 2) return out
   const principal = medidas.find((c) => /importe|total|venta|base|facturaci/i.test(c.clave)) ?? medidas[0]
@@ -122,6 +126,8 @@ export const ESTILO_RESALTE: Record<Resalte, string> = {
   mes: 'background:#cfe4fb;font-weight:bold',
   anio: 'background:#fff3b0;font-weight:bold',
   max: 'font-weight:bold',
+  sube: 'color:#1f4e9c;font-weight:bold',
+  baja: 'color:#c00000;font-weight:bold',
 }
 
 export function totalesResultado(r: ResultadoListado) {
@@ -182,7 +188,14 @@ export async function excelResultado(r: ResultadoListado, sacadoPor = '') {
   const tot = totalesResultado(r)
   if (r.filas.length && Object.keys(tot).length) filas.push(r.columnas.map((c, i) => (c.clave in tot ? Math.round(tot[c.clave] * 1000) / 1000 : i === 0 ? 'TOTAL' : null)))
   const anchos = r.columnas.map((c) => Math.min(50, Math.max(10, etiquetaColumna(r.fuente, c).length + 2, ...r.filas.slice(0, 200).map((f) => valorTexto(r.fuente, c, f[c.clave]).length + 1))))
-  const blob = await crearXlsx(r.codigo ?? 'Listado', filas, anchos, id.length + 1)
+  const est = new Map<string, number>()
+  const cod = { mes: 2, anio: 3, max: 4, sube: 5, baja: 6 } as const
+  const base = id.length + 2 // filas de identificación + hueco + cabecera
+  resaltesResultado(r).forEach((z, k) => {
+    const [i, clave] = k.split(':')
+    est.set(`${base + Number(i)}:${r.columnas.findIndex((c) => c.clave === clave)}`, cod[z])
+  })
+  const blob = await crearXlsx(r.codigo ?? 'Listado', filas, anchos, id.length + 1, est)
   descargar(blob, `${nombreFichero(r)}.xlsx`)
 }
 

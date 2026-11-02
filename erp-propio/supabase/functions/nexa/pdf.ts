@@ -29,6 +29,9 @@ export interface EntradaPdf {
 /** Mismo criterio que src/lib/listados/resultado.ts (resaltesResultado): mes azul, año amarillo, mejor cifra en negrita. */
 function resaltes(columnas: ColumnaPdf[], filas: Record<string, unknown>[]): Map<string, string> {
   const out = new Map<string, string>()
+  for (const c of columnas) {
+    if (c.tipo === 'num' && /pct|porc|variaci|crec/i.test(c.clave)) filas.forEach((f, i) => { const v = Number(f[c.clave]); if (v > 0) out.set(`${i}:${c.clave}`, 'sube'); else if (v < 0) out.set(`${i}:${c.clave}`, 'baja') })
+  }
   const medidas = columnas.filter((c) => c.tipo === 'num' && !['numero', 'n_factura', 'anio', 'tarifa', 'registros'].includes(c.clave))
   if (!medidas.length || filas.length < 2) return out
   const principal = medidas.find((c) => /importe|total|venta|base|facturaci/i.test(c.clave)) ?? medidas[0]
@@ -187,7 +190,7 @@ export async function crearPdf(e: EntradaPdf): Promise<Uint8Array> {
       if (z === 'anio') pag.drawRectangle({ x, y: y - alto, width: anchos[i], height: alto, color: rgb(1, 0.95, 0.69) })
       celdas[i].forEach((ln, k) => {
         const w = normal.widthOfTextAtSize(ln, TAM)
-        pag.drawText(ln, { x: c.tipo === 'num' ? x + anchos[i] - INT - w : x + INT, y: y - 9 - k * (TAM + 2), size: TAM, font: forzarTotal || z ? negrita : normal, color: rgb(0.1, 0.1, 0.1) })
+        pag.drawText(ln, { x: c.tipo === 'num' ? x + anchos[i] - INT - w : x + INT, y: y - 9 - k * (TAM + 2), size: TAM, font: forzarTotal || z ? negrita : normal, color: z === 'sube' ? rgb(0.12, 0.31, 0.61) : z === 'baja' ? rgb(0.75, 0, 0) : rgb(0.1, 0.1, 0.1) })
       })
       x += anchos[i]
     })

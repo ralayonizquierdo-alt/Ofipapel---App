@@ -132,15 +132,24 @@ function refCol(i: number): string {
  * Los textos van como texto; los `number` (opcional, p. ej. listados de NEXA) como número de
  * Excel, para que se puedan sumar.
  */
-export async function crearXlsx(nombreHoja: string, filas: (string | number | null)[][], anchos: number[] = [], filaNegrita = 0): Promise<Blob> {
+export async function crearXlsx(
+  nombreHoja: string,
+  filas: (string | number | null)[][],
+  anchos: number[] = [],
+  filaNegrita = 0,
+  /** Estilo por celda («fila:columna», 0-based sobre `filas`): 2 mes azul, 3 año amarillo, 4 negrita, 5 % sube (azul), 6 % baja (rojo). */
+  estilos?: Map<string, number>,
+): Promise<Blob> {
+  const est = (r: number, c: number) => (r === filaNegrita ? 1 : (estilos?.get(`${r}:${c}`) ?? 0))
+  const sa = (r: number, c: number) => (est(r, c) ? ` s="${est(r, c)}"` : '')
   const filasXml = filas
     .map(
       (f, r) =>
         `<row r="${r + 1}">${f
           .map((v, c) =>
             typeof v === 'number' && Number.isFinite(v)
-              ? `<c r="${refCol(c)}${r + 1}"${r === filaNegrita ? ' s="1"' : ''}><v>${v}</v></c>`
-              : `<c r="${refCol(c)}${r + 1}" t="inlineStr"${r === filaNegrita ? ' s="1"' : ''}><is><t xml:space="preserve">${esc(v == null ? '' : String(v))}</t></is></c>`,
+              ? `<c r="${refCol(c)}${r + 1}"${sa(r, c)}><v>${v}</v></c>`
+              : `<c r="${refCol(c)}${r + 1}" t="inlineStr"${sa(r, c)}><is><t xml:space="preserve">${esc(v == null ? '' : String(v))}</t></is></c>`,
           )
           .join('')}</row>`,
     )
@@ -178,9 +187,9 @@ export async function crearXlsx(nombreHoja: string, filas: (string | number | nu
     {
       nombre: 'xl/styles.xml',
       contenido:
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${ns}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
-        '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders>' +
-        '<cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf/><xf fontId="1" applyFont="1"/></cellXfs></styleSheet>',
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${ns}"><fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FF1F4E9C"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFC00000"/><name val="Calibri"/></font></fonts>` +
+        '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFCFE4FB"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFF3B0"/></patternFill></fill></fills><borders count="1"><border/></borders>' +
+        '<cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="7"><xf/><xf fontId="1" applyFont="1"/><xf fontId="1" fillId="2" applyFont="1" applyFill="1"/><xf fontId="1" fillId="3" applyFont="1" applyFill="1"/><xf fontId="1" applyFont="1"/><xf fontId="2" applyFont="1"/><xf fontId="3" applyFont="1"/></cellXfs></styleSheet>',
     },
     {
       nombre: 'xl/worksheets/sheet1.xml',

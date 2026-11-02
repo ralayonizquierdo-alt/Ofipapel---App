@@ -620,7 +620,7 @@ function BotonListado({ titulo, onClick, children, deshabilitado }: { titulo: st
   )
 }
 
-const CLASE_RESALTE: Record<string, string> = { mes: 'bg-[#cfe4fb] font-bold', anio: 'bg-[#fff3b0] font-bold', max: 'font-bold', ninguno: '' }
+const CLASE_RESALTE: Record<string, string> = { mes: 'bg-[#cfe4fb] font-bold', anio: 'bg-[#fff3b0] font-bold', max: 'font-bold', sube: 'font-bold text-[#1f4e9c]', baja: 'font-bold text-[#c00000]', ninguno: '' }
 
 function TablaListado({ l, onAbrir, onEnviar, pensando }: { l: ResultadoListado; onAbrir: (ruta: string) => void; onEnviar: (texto: string) => void; pensando: boolean }) {
   const { puedeRuta } = usePermisos()

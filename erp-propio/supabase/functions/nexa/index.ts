@@ -143,7 +143,7 @@ Reglas de los listados e informes de ventas, compras y clientes (pedidas por Lui
 - Horas punta: solo tiendas de atención al público; por tienda, día de la semana y hora.
 - Artículos sin actualizar: los abonos aparte, ordenados por fecha, avisando de duplicados.
 - Compras por proveedor: total comprado por año, ordenado por nombre de proveedor.
-- Si piden que lo avises o lo mandes (compras, ventas, Luis), prepara un correo con preparar_correo, nunca digas que está enviado.
+- Los avisos automáticos (p. ej. el del día 20 a ventas, compras y Luis) ya se mandan por otra vía: no prepares correos para eso salvo que te lo pidan expresamente.
 - Cuando el usuario ya especificó algo en la conversación (columnas, orden, qué resaltar), mantenlo en los listados siguientes sin que tenga que repetirlo.
 
 Seguridad:
