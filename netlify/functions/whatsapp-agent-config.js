@@ -538,6 +538,193 @@ function isUnverifiedStockClaim(text) {
   return STOCK_SIN_DATOS_PATTERN.test(text || '');
 }
 
+// QUIEN LLAMA A ALGUIEN POR SU NOMBRE YA CONOCE LA CASA.
+//
+// «Buenos días Rober!!» — así empezaba la conversación del 29/10/2026 que
+// acabó con el bot quedando en recibir film negro. Palabras del propietario:
+// «si de entrada me llama Rober es que es alguien conocido».
+//
+// Y tiene razón: a un bot de atención al cliente no se le saluda por el nombre
+// de pila del dueño. Quien lo hace es un proveedor, un comercial, un vecino o
+// un amigo — gente cuya conversación no va de precios ni de pedidos, que es lo
+// único que el bot sabe hacer. Esta señal llega ANTES de que haya nada que
+// corregir, al revés que la red de los compromisos.
+//
+// Los nombres se añaden aquí cuando entre alguien nuevo al equipo.
+const NOMBRES_DEL_EQUIPO = ['rober', 'roberto', 'luis', 'miguel', 'm[óo]nica', 'david'];
+const _NOMBRE = `(?:${NOMBRES_DEL_EQUIPO.join('|')})`;
+const _SALUDO = '(?:hola|buenas|buenos\\s*d[íi]as|buenas\\s*tardes|buenas\\s*noches|hey|qu[ée]\\s+tal|oye|perdona|disculpa)';
+
+// «soy Luis», «me llamo Miguel», «aquí David»: quien escribe se está
+// presentando, no preguntando por nadie. Un cliente que se llame como alguien
+// del equipo no puede acabar en una persona por eso.
+const _SE_PRESENTA = new RegExp(`\\b(soy|me\\s+llamo|aqu[íi]|habla|les\\s+habla)\\s+${_NOMBRE}\\b`, 'i');
+
+const _PREGUNTA_POR_ALGUIEN = [
+  // «Buenos días Rober», «Hola, Luis!»
+  new RegExp(`\\b${_SALUDO}[\\s,!¡.·\\-]*${_NOMBRE}\\b`, 'i'),
+  // «¿está Rober?», «me pasas con Luis», «quería hablar con Miguel»
+  new RegExp(`\\b(est[áa]|se\\s+encuentra|me\\s+pasas\\s+con|p[áa]same\\s+con|hablar\\s+con|preguntar\\s+por)\\s+${_NOMBRE}\\b`, 'i'),
+  // «Rober, …» abriendo el mensaje
+  new RegExp(`^\\s*${_NOMBRE}\\s*[,:!]`, 'i'),
+];
+
+// Devuelve el nombre al que llaman, o null. Se devuelve el nombre para poder
+// decirle la verdad a quien escribe: que esa persona no está en este chat.
+function preguntaPorAlguienDelEquipo(texto) {
+  const t = String(texto || '');
+  if (!t.trim() || _SE_PRESENTA.test(t)) return null;
+  for (const patron of _PREGUNTA_POR_ALGUIEN) {
+    const encontrado = t.match(patron);
+    if (encontrado) {
+      // El \b final importa: sin él, «Roberto» se extrae como «Rober», porque
+      // la alternancia prueba «rober» primero y sin frontera se la queda.
+      const nombre = encontrado[0].match(new RegExp(`${_NOMBRE}\\b`, 'i'))[0].toLowerCase();
+      return nombre.charAt(0).toUpperCase() + nombre.slice(1);
+    }
+  }
+  return null;
+}
+
+function llamaPorSuNombreInfo(nombre, idioma = 'es') {
+  return idioma === 'en'
+    ? `I'm Ofipapel's virtual assistant — ${nombre} doesn't see this chat. `
+    : `Soy el asistente virtual de Ofipapel, y ${nombre} no ve este chat. `;
+}
+
+// LO QUE EL BOT NO PUEDE COMPROMETER.
+//
+// Visto en real el 29/10/2026. Alguien escribió «Buenos días Rober!!» y, acto
+// seguido, «Film negro te mando?». El bot contestó:
+//
+//   «Claro, mándamelo y vemos qué es 👍»
+//   «Vale, sin problema. Cuando lo tengas, me lo pasas y te digo si lo vendemos 👍»
+//
+// No era un cliente preguntando: era alguien OFRECIENDO mercancía — un
+// comercial o un proveedor —, y el bot lo aceptó en nombre de Ofipapel. Quedó
+// citado para recibir un material que nadie espera y prometió una decisión
+// («te digo si lo vendemos») que no puede tomar ni trasladar a nadie. Quien
+// escribió se queda esperando una respuesta que no va a llegar nunca.
+//
+// Por qué no basta con pedírselo al prompt: TODAS las reglas de ahí dan por
+// hecho que quien escribe es un cliente que PREGUNTA. Cuando quien escribe
+// OFRECE, no hay ninguna regla que le aplique, y la IA hace lo que hace por
+// defecto — ser simpática y decir que sí. Así que se comprueba en la respuesta,
+// como con los precios y el stock.
+//
+// Lo que se busca es muy concreto, a propósito: que el bot se cite para
+// recibir algo o prometa una decisión comercial. Nada de «mándame una foto» ni
+// «pásame el número de pedido», que son su trabajo de todos los días y tienen
+// su prueba para que no se los lleve esta red por delante.
+const COMPROMISO_PATTERNS = [
+  // «te digo si lo vendemos», «te confirmo si nos interesa».
+  //
+  // OJO: nada de \b justo detrás del verbo. En JavaScript «é» no es carácter de
+  // palabra, así que \b detrás de «comentaré» no casa donde uno cree y la red
+  // se saltaba media lista de futuros.
+  /\bte\s+(digo|dir[ée]|confirmo|confirmar[ée]|aviso|avisar[ée]|comento|comentar[ée]|contesto|contestar[ée]|respondo|responder[ée])(?![a-z])[^.!?]{0,40}\bsi\b[^.!?]{0,40}\b(vendemos|compramos|cogemos|interesa|interesar[íi]a|encaja|nos\s+sirve|nos\s+vale)\b/i,
+
+  // «vemos qué es», «valoramos si nos interesa», «estudiamos tu propuesta»
+  /\b(vemos|veremos|miramos|miraremos|valoramos|valoraremos|estudiamos|estudiaremos)\b[^.!?]{0,30}\b(qu[ée]\s+es|si\s+nos\s+interesa|si\s+lo\s+vendemos|tu\s+(producto|propuesta|muestra|oferta))\b/i,
+
+  // Citarse para recibir género: «mándame una muestra», «enséñame tu tarifa».
+  // Ojo con "material", que aquí NO entra: «mándame la lista del material» es
+  // un presupuesto escolar de verdad.
+  /\b(m[áa]ndame|env[íi]ame|tr[áa]eme|ens[ée]ñame|pas[áa]me)\b[^.!?]{0,25}\b(muestra|muestras|tarifa|tarifas|mercanc[íi]a|cat[áa]logo\s+de\s+precios)\b/i,
+];
+
+function prometeUnCompromiso(texto) {
+  const t = String(texto || '');
+  return COMPROMISO_PATTERNS.some((p) => p.test(t));
+}
+
+// Lo que se contesta en su lugar. No disimula que el bot no es quien decide, y
+// de ahí se sigue con los botones de hablar con una persona.
+// Sin «una persona del equipo» dentro: la pregunta del escalado que va justo
+// detrás ya lo dice, y juntas quedaba «...una persona del equipo. ¿Quieres que
+// te ponga en contacto con una persona del equipo?».
+const COMPROMISO_INFO = 'Eso no lo llevo yo. ';
+const COMPROMISO_INFO_EN = "That's not something I handle. ";
+
+function compromisoInfo(idioma = 'es') {
+  return idioma === 'en' ? COMPROMISO_INFO_EN : COMPROMISO_INFO;
+}
+
+// UNA MEDIDA QUE NO SALE DE NINGÚN SITIO.
+//
+// Visto en real el 1/11/2026. Karin preguntó «¿Tenéis papel pluma?» y el bot,
+// con unos cuantos cartones pluma de verdad en los resultados, contestó:
+//
+//   «Sí, tenemos láminas de cartón pluma en varios tamaños y grosores.
+//    ¿Qué medida necesitas: A4, A3 o 70x100? ¿Y qué grosor prefieres: 3mm o 5mm?»
+//
+// Ninguna de esas medidas ni grosores estaba en el catálogo que se le pasó. Se
+// las inventó enteras, y a partir de ahí la conversación fue cuesta abajo: le
+// confirmó un 70x100 que nadie había visto y acabó diciendo que le daría el
+// precio «cuando abramos y tenga acceso al catálogo completo», que es falso.
+//
+// Es exactamente el mismo fallo que el de los precios inventados, y se
+// comprueba igual: cada medida que diga tiene que aparecer en lo que le hemos
+// dado de comer o en lo que ha escrito el cliente. Si no aparece, es suya.
+//
+// Se comparan normalizadas, porque el catálogo escribe «A-4» y la IA «A4», y
+// el cliente «70 x 100» y la IA «70x100».
+const MEDIDA_A = /\b(?:din\s*)?a-?([2-6])\b/gi;        // A4, A-4, DIN A3
+const MEDIDA_POR = /\b(\d{1,3})\s*[x×]\s*(\d{1,4})\b/gi; // 70x100, 70 x 100
+const MEDIDA_MM = /\b(\d{1,3})\s*mm\b/gi;               // 3mm, 5 mm
+const MEDIDA_GR = /\b(\d{2,3})\s*(?:gr|grs|gramos|g)\b/gi; // 80gr, 100 gramos
+
+function medidasDe(texto) {
+  const t = String(texto || '').toLowerCase();
+  const encontradas = new Set();
+  for (const m of t.matchAll(MEDIDA_A)) encontradas.add(`a${m[1]}`);
+  for (const m of t.matchAll(MEDIDA_POR)) encontradas.add(`${m[1]}x${m[2]}`);
+  for (const m of t.matchAll(MEDIDA_MM)) encontradas.add(`${m[1]}mm`);
+  for (const m of t.matchAll(MEDIDA_GR)) encontradas.add(`${m[1]}gr`);
+  return [...encontradas];
+}
+
+// Las medidas de la respuesta que no están en `respaldo` (el prompt con los
+// resultados del catálogo dentro, más lo que haya escrito el cliente).
+function medidasSinRespaldo(respuesta, respaldo) {
+  const dichas = medidasDe(respuesta);
+  if (dichas.length === 0) return [];
+  const respaldadas = new Set(medidasDe(respaldo));
+  return dichas.filter((m) => !respaldadas.has(m));
+}
+
+// «DÉJAME CONSULTARLO» — UNA CITA QUE NO VA A CUMPLIR.
+//
+// De la misma conversación: «Déjame consultar si tenemos ese tamaño exacto en
+// stock» y «déjame verificar si lo tenemos en blanco». No hay ningún después:
+// el bot no vuelve, no consulta nada y nadie se entera. El cliente se queda
+// esperando.
+//
+// Y la peor de todas: «El precio te lo puedo ver cuando abramos y tenga acceso
+// al catálogo completo». El catálogo no depende del horario — se consulta
+// igual a las cuatro de la mañana. Eso es decirle al cliente una cosa que no
+// es, para ganar tiempo.
+const MIRARLO_LUEGO_PATTERNS = [
+  /\bd[ée]jame\s+(?:que\s+)?(consultar|consulte|verificar|verifique|comprobar|compruebe|mirar|mire|revisar|revise|confirmar|confirme)\b/i,
+  /\bvoy\s+a\s+(consultar|verificar|comprobar|mirar|revisar|confirmar)\b/i,
+  // La mentira del catálogo que «se abre» con la tienda.
+  /\b(tenga|tengamos|tener|tenemos)\s+acceso\s+al\s+cat[áa]logo\b/i,
+  /\bte\s+(?:lo\s+)?(confirmo|digo|aviso)\s+(?:en\s+cuanto|cuando)\s+(?:lo\s+)?(mire|consulte|compruebe|revise|verifique)\b/i,
+];
+
+function prometeMirarloLuego(texto) {
+  const t = String(texto || '');
+  return MIRARLO_LUEGO_PATTERNS.some((p) => p.test(t));
+}
+
+// Lo que se contesta en su lugar: la búsqueda de la web, ya hecha.
+function respuestaConEnlace(enlace, idioma = 'es') {
+  if (!enlace) return null;
+  return idioma === 'en'
+    ? `Here's everything we have of that, with its sizes, colours and prices: ${enlace}`
+    : `Aquí tienes todo lo que tenemos de eso, con sus medidas, colores y precios: ${enlace}`;
+}
+
 // UN PRECIO QUE NO SALE DE NINGÚN SITIO.
 //
 // El 16/10/2026 un cliente preguntó por folios A-4 y se le dijo que costaban
@@ -799,6 +986,56 @@ function pideLaFotoOtraVez(respuesta) {
   return PIDE_LA_FOTO_OTRA_VEZ_RE.some((re) => re.test(texto));
 }
 
+// ¿EL MENSAJE NOMBRA ALGO MÁS QUE LA FAMILIA?
+//
+// «Agendas» es una familia; «agendas ingraf roma espiral» es un artículo que
+// está en la web con su precio. Para distinguirlos se quitan del mensaje la
+// palabra de la familia y el relleno con el que se pide cualquier cosa
+// («me gustaría comprar tres… del año 2027»): lo que quede es la marca, el
+// modelo o el tipo — y eso se busca en el catálogo, no se contesta de memoria.
+const RELLENO_AL_PEDIR = new Set([
+  // Saludos y cortesía: «Buenas, me gustaría…» no dice nada del artículo.
+  'hola', 'buenas', 'buenos', 'dias', 'días', 'tardes', 'noches', 'hey',
+  'gracias', 'favor', 'porfa', 'porfavor', 'saludos',
+  // Lo que une cualquier frase.
+  'que', 'qué', 'para', 'con', 'los', 'las', 'del', 'de', 'el', 'la',
+  'un', 'una', 'unos', 'unas', 'en', 'al', 'se', 'es', 'son', 'hay',
+  'teneis', 'tenéis', 'tienen', 'quiero', 'necesito', 'puedo', 'podeis', 'podéis',
+  'alguna', 'alguno', 'algun', 'algún', 'esta', 'este', 'esto', 'eso', 'esa',
+  'me', 'mi', 'te', 'le', 'nos', 'su', 'sus', 'yo',
+  'gustaria', 'gustaría', 'queria', 'quería', 'quisiera', 'querria', 'querría',
+  'comprar', 'compro', 'comprarme', 'llevar', 'pedir', 'encargar', 'coger',
+  'busco', 'buscar', 'buscando', 'necesitaria', 'necesitaría', 'tendrian', 'tendrían',
+  'precio', 'precios', 'cuanto', 'cuánto', 'cuesta', 'cuestan', 'vale', 'valen',
+  'tienes', 'tiene', 'tenia', 'tenía', 'disponible', 'disponibles', 'stock',
+  'ano', 'año', 'anio', 'temporada', 'modelo', 'modelos', 'tipo', 'tipos',
+  'viene', 'proximo', 'próximo', 'proxima', 'próxima', 'siguiente', 'nuevo', 'nueva',
+  'unidades', 'unidad', 'uds', 'ud', 'por', 'sin', 'mas', 'más',
+  'si', 'no', 'ok', 'vale',
+]);
+
+function palabrasPropias(normalizedText, keywords = []) {
+  let texto = String(normalizedText || '').toLowerCase();
+  // Primero fuera la palabra de la familia, la más larga antes ("agendas"
+  // antes que "agenda", para no dejar una "s" suelta).
+  for (const k of [...keywords].sort((a, b) => b.length - a.length)) {
+    texto = texto.split(k.toLowerCase()).join(' ');
+  }
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((p) => p.length > 1)
+    .filter((p) => !RELLENO_AL_PEDIR.has(p))
+    .filter((p) => !/^\d+$/.test(p)); // "3", "2027": cantidades y años, no el artículo
+}
+
+// Si queda algo, el cliente ya sabe lo que quiere y toca buscarlo.
+function nombraAlgoConcreto(normalizedText, keywords) {
+  return palabrasPropias(normalizedText, keywords).length > 0;
+}
+
 const FAQ_RULES = [
   {
     name: 'mandar una foto',
@@ -813,6 +1050,19 @@ const FAQ_RULES = [
     // 'agenda' (el producto) coincide con "agendar"/"agendarme" (pedir cita), así
     // que si el mensaje usa el verbo se deja pasar en vez de hablar de cuadernos.
     keywords: ['agenda', 'agendas'],
+    // Y SI NOMBRA UN MODELO CONCRETO, ESTA RESPUESTA NO VALE.
+    //
+    // Visto en real el 2/11/2026: «Me gustaría comprar 3 agendas ingraf roma
+    // espiral del año 2027» se llevó la parrafada de «pásate por la tienda» —
+    // y esa agenda está en la web, con foto, precio (3,87 €) y existencias. Se
+    // encuentra buscando en ofipapel.net justo lo que escribió el cliente.
+    //
+    // «El bot existe para ayudar o asesorar a nuestros clientes en compras a
+    // través de nuestra web principalmente» (propietario). Una respuesta fija
+    // que corta el turno antes de mirar el catálogo va justo en contra: la
+    // parrafada sigue valiendo para «¿tenéis agendas?», pero no para quien ya
+    // sabe lo que quiere.
+    familiaDeProducto: true,
     reply: (normalizedText) => (/agendar/.test(normalizedText) ? null : AGENDAS_INFO),
   },
   {
@@ -1246,6 +1496,8 @@ Instrucciones:
 - Si preguntan por el estado de un pedido ya hecho, lo PRIMERO es pedirles el número de pedido (lo tienen en el email de confirmación): el sistema sí puede consultarlo de verdad y decirles en qué estado está. NUNCA digas que no tienes acceso a sus pedidos ni que no puedes consultarlos desde aquí — es falso y les hace llamar para nada. Si ya te han dado el número y aun así no tienes el dato delante, pídeselo otra vez por si venía mal escrito. Solo cuando se trate de algo que el número no resuelve (una incidencia, una devolución, un cambio en el pedido) indícales que contacten con Pedidos al ${STORES[0].phone} (extensión 2) o pedidos@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - Si es un tema administrativo (facturas, pagos, cuentas) que no puedas resolver, indícales que contacten con Administración al ${STORES[0].phone} (extensión 1) o administracion@ofipapelsl.com (si es fuera de horario, aclara que la respuesta será cuando abramos).
 - IMPORTANTE: nunca prometas cosas que no puedes cumplir tú sola, como "le paso tu consulta al equipo", "he anotado tu nombre y teléfono para que te llamen" o "el equipo te contactará mañana". No tienes forma de avisar a nadie ni de guardar esos datos para un seguimiento real — si dices eso, el cliente se queda esperando una llamada que nunca llega. Si el cliente pide que le devuelvan la llamada, le contacten, o le pasen un mensaje al equipo, no lo gestiones tú: dile que puede escribir directamente a pedidos@ofipapelsl.com con su nombre y teléfono, o (si estamos en horario) llamar al ${STORES[0].phone}.
+- NUNCA TE INVENTES UNA MEDIDA, UN COLOR NI UN GROSOR, y no los ofrezcas como lista de opciones si no los has visto en los resultados. Visto en real el 1/11/2026: a quien preguntó por cartón pluma se le contestó «¿qué medida necesitas: A4, A3 o 70x100? ¿y qué grosor: 3mm o 5mm?», y ninguna de esas medidas estaba en el catálogo — se las inventó, y después le confirmó un 70x100 que no existía. Si te preguntan por una variante que no puedes confirmar con los resultados que tienes arriba, **dale el enlace de la BÚSQUEDA COMPLETA EN LA WEB**: esa página las enseña todas con sus precios, y es la respuesta buena. Y NUNCA digas «déjame consultarlo», «voy a verificarlo» ni «te lo confirmo cuando abramos»: no hay ningún después, no vuelves a escribir y el cliente se queda esperando. El catálogo tampoco depende del horario de la tienda — se consulta igual a cualquier hora, así que jamás digas que tendrás acceso a él «cuando abramos».
+- NO ERES QUIEN DECIDE NADA DE LA TIENDA, y hay gente que no escribe para preguntar sino para OFRECER: comerciales y proveedores que quieren vendernos, mandarnos muestras, enseñarnos su tarifa o pasarse por la tienda. Eso NO lo lleva el bot. No aceptes nada ("claro, mándamelo"), no quedes en recibir nada ("cuando lo tengas me lo pasas") y no prometas ninguna decisión ("te digo si lo vendemos", "lo vemos y te cuento"): nadie va a recibir ese material ni va a tomar esa decisión, y esa persona se queda esperando una respuesta que no llega. Visto en real el 29/10/2026 — alguien ofreció mandar film negro y el bot quedó en recibirlo y en decirle si lo vendíamos. Di que de eso se encarga una persona del equipo y añade la frase exacta de "no sé la respuesta".
 - Si el mensaje parece una queja, un pedido complejo, o el cliente muestra que no está satisfecho con tu respuesta, ofrécele amablemente hablar con una persona del equipo. Si estamos en horario, facilita el teléfono directo: ${STORES[0].phone}. Si estamos fuera de horario, no des el teléfono para llamar ahora: dile que un agente atenderá su petición en cuanto retomemos la actividad.
 - NUNCA le mandes al cliente a buscar él en ofipapel.net ("busca 'Epson 604' en la web y ahí lo ves"). Buscar es tu trabajo, no el suyo: si te ha escrito por WhatsApp es justamente para no tener que hacerlo. Puedes dar el enlace directo de un producto o de una categoría concreta cuando lo tengas en los resultados de búsqueda, pero no la instrucción de que se ponga a buscar. Si no tienes los datos, dile lo que sí sabes y ofrécele el contacto del equipo.
 - LAS FOTOS SÍ LAS VES, pero no directamente. Cuando un cliente manda una foto, el sistema la lee aparte y te pasa esa lectura en un mensaje que empieza por "${MARCA_FOTO}". Lo que viene detrás NO son sus palabras: es una descripción automática de su foto, y PUEDE ESTAR MAL (una referencia mal leída, una marca que no es). Úsala como pista para buscar, nunca como un hecho: que la lectura diga "HP 305XL" no significa que lo tengamos ni que sea de verdad ese modelo — eso solo lo dicen los resultados de búsqueda. Háblale con naturalidad de lo que se ve ("por la foto parece un 305XL, ¿me lo confirmas?"), sin mencionar lecturas, descripciones ni sistemas, y sin dar por hecho que te lo describió él. Si de la lectura no queda claro qué necesita, pregúntaselo. Lo que NO puedes ver es ni un audio, ni un vídeo, ni un PDF: de esos se encarga una persona del equipo.
@@ -1284,6 +1536,16 @@ module.exports = {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  prometeUnCompromiso,
+  compromisoInfo,
+  COMPROMISO_INFO,
+  preguntaPorAlguienDelEquipo,
+  llamaPorSuNombreInfo,
+  NOMBRES_DEL_EQUIPO,
+  medidasDe,
+  medidasSinRespaldo,
+  prometeMirarloLuego,
+  respuestaConEnlace,
   preciosDe,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
@@ -1298,5 +1560,7 @@ module.exports = {
   FACTURA_INFO,
   isPresupuestoEscolar,
   FAQ_RULES,
+  palabrasPropias,
+  nombraAlgoConcreto,
   buildAiSystemPrompt,
 };

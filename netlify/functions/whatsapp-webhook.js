@@ -82,6 +82,14 @@ const {
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  prometeUnCompromiso,
+  compromisoInfo,
+  preguntaPorAlguienDelEquipo,
+  llamaPorSuNombreInfo,
+  medidasSinRespaldo,
+  prometeMirarloLuego,
+  respuestaConEnlace,
+  buildAiSystemPrompt,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
   PRODUCTO_NO_VERIFICADO_INFO,
@@ -1086,6 +1094,25 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   const debePresentarse = !fichaCliente?.presentado;
   if (debePresentarse) await conversationStore.marcarPresentado(message.from);
 
+  // LE LLAMA POR SU NOMBRE: NO ES UN CLIENTE CUALQUIERA.
+  //
+  // «Buenos días Rober!!», y detrás «Film negro te mando?» (29/10/2026). A un
+  // asistente de atención al cliente no se le saluda por el nombre de pila del
+  // dueño: quien lo hace ya conoce la casa — un proveedor, un comercial, un
+  // amigo — y su conversación no va de precios ni de pedidos, que es lo único
+  // que el bot sabe hacer.
+  //
+  // Esto llega ANTES de que haya nada que corregir, al revés que la red de los
+  // compromisos, que actúa cuando la IA ya ha metido la pata. Las dos se
+  // quedan: esta ataja el caso de entrada y aquella recoge lo que se escape.
+  const alQuienLlama = preguntaPorAlguienDelEquipo(text);
+  if (alQuienLlama) {
+    const prefijo = llamaPorSuNombreInfo(alQuienLlama, idioma);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
+  }
+
   const history = historialParaLaIA(await getHistory(message.from));
 
   // LAS REGLAS FIJAS SOLO VALEN EN ESPAÑOL.
@@ -1316,6 +1343,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     impresoras,
     fallo: falloCatalogo,
     consultado,
+    enlaceBusqueda,
   } = await construirContextoCatalogo({ from: message.from, text, history });
 
   // La web no contestó (lenta, caída, o su protección anti-bots nos bloqueó) y
@@ -1444,6 +1472,63 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       await appendToHistory(message.from, text, enviado);
       return;
     }
+  }
+
+  // UNA MEDIDA INVENTADA, O UN «DÉJAME CONSULTARLO».
+  //
+  // Visto en real el 1/11/2026 (ver medidasSinRespaldo): con cartones pluma de
+  // verdad en los resultados, la IA se inventó los tamaños y los grosores —
+  // «¿A4, A3 o 70x100? ¿3mm o 5mm?»—, confirmó un 70x100 que no existía y
+  // acabó prometiendo el precio «cuando abramos y tenga acceso al catálogo».
+  //
+  // Las redes de abajo no lo veían porque SÍ había catálogo: el fallo no era
+  // confirmar el producto, era adornarlo. Así que se comprueba aparte, y la
+  // respuesta honesta ya la tenemos hecha: la búsqueda de la web, que sí sabe
+  // qué medidas y colores hay («debería de haberle pasado el link», propietario).
+  const respaldoDeMedidas = [
+    buildAiSystemPrompt(unirContexto(contextoConsumibles, datosDeCatalogo), fichaCliente, notas, text),
+    text,
+    history.map((h) => h.content).join(' '),
+  ].join(' ');
+
+  const medidasInventadas = medidasSinRespaldo(respuesta, respaldoDeMedidas);
+  if (medidasInventadas.length > 0 || prometeMirarloLuego(respuesta)) {
+    const conEnlace = respuestaConEnlace(enlaceBusqueda, idioma);
+    console.error(
+      `whatsapp: respuesta descartada (${medidasInventadas.length ? `medidas sin respaldo: ${medidasInventadas.join(', ')}` : 'promete mirarlo luego'}).`
+    );
+    if (conEnlace) {
+      const reply = greeting + conEnlace;
+      await appendToHistory(message.from, text, reply);
+      await sendWhatsappMessage(message.from, reply);
+      return;
+    }
+    // Sin enlace que dar (la búsqueda no encontró nada), no se improvisa: se
+    // ofrece una persona, que es lo que de verdad resuelve.
+    await sendEscalateButtons(message.from, `${greeting}No quiero decirte una medida por otra. `, idioma);
+    await appendToHistory(
+      message.from,
+      text,
+      `${greeting}No quiero decirte una medida por otra. ${escalateQuestion(idioma)}`
+    );
+    return;
+  }
+
+  // EL BOT NO COMPROMETE A LA TIENDA.
+  //
+  // Un comercial ofreció mandar film negro y el bot quedó en recibirlo y en
+  // decirle si lo vendíamos (29/10/2026, ver prometeUnCompromiso). Eso no lo
+  // decide él, y nadie va a ver ese material: lo único honesto es decir que de
+  // eso se encarga una persona y ofrecerla de verdad, con sus botones.
+  //
+  // Va antes que las demás redes a propósito: no importa si había catálogo ni
+  // si la respuesta traía precios. Una cita que no vamos a cumplir es un
+  // problema en sí misma.
+  if (prometeUnCompromiso(respuesta)) {
+    const prefijo = greeting + compromisoInfo(idioma);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
   }
 
   // Red de seguridad: si la IA confirma con un "sí, vendemos/tenemos..." SIN que

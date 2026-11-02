@@ -16,6 +16,7 @@ const {
   isNoSeLaRespuesta,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  prometeUnCompromiso,
   preciosSinRespaldo,
 } = require('./whatsapp-agent-config');
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
@@ -63,6 +64,12 @@ async function contestarAUnaFoto({ from, lecturas, pregunta = '', history = [], 
   );
 
   if (isNoSeLaRespuesta(respuesta)) return null;
+
+  // Una foto también puede ser la de un comercial enseñando su producto. Si la
+  // respuesta queda en recibirlo o en decidir si lo vendemos, no se manda: eso
+  // lo ve una persona (ver prometeUnCompromiso).
+  if (prometeUnCompromiso(respuesta)) return null;
+
   if (
     !productContext &&
     (isUnverifiedConfirmation(respuesta) ||

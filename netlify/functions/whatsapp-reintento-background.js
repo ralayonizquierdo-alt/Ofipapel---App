@@ -23,6 +23,8 @@ const {
   NO_SE_LA_RESPUESTA,
   isUnverifiedConfirmation,
   isUnverifiedStockClaim,
+  prometeUnCompromiso,
+  compromisoInfo,
   PRODUCTO_NO_VERIFICADO_INFO,
 } = require('./whatsapp-agent-config');
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
@@ -120,6 +122,11 @@ exports.handler = async (event) => {
       reply = respuestaSinCatalogo(impresoras) || PRODUCTO_NO_VERIFICADO_INFO;
     }
     if (isNoSeLaRespuesta(reply)) reply = NO_SE_LA_RESPUESTA;
+
+    // Y la del 29/10: el bot no queda en recibir mercancía ni promete decidir
+    // si la vendemos (ver prometeUnCompromiso). Aquí no hay botones, así que se
+    // deja la frase-sentinela, que el panel ya trata como «esto lo ve alguien».
+    if (prometeUnCompromiso(reply)) reply = compromisoInfo() + NO_SE_LA_RESPUESTA;
 
     await sendWhatsappMessage(from, reply);
     await conversationStore.appendBotReply(from, reply);
