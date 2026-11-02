@@ -5,7 +5,7 @@ import { supabase } from './supabase'
 interface AuthState {
   session: Session | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (email: string, password: string, captchaToken?: string | null) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -27,8 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Entradas, salidas y contraseñas incorrectas quedan en la auditoría (fn_registrar_acceso).
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+  async function signIn(email: string, password: string, captchaToken?: string | null) {
+    // captchaToken: «No soy un robot» (solo si está puesto, ver components/claves/NoSoyRobot.tsx).
+    const { error } = await supabase.auth.signInWithPassword({ email, password, options: captchaToken ? { captchaToken } : undefined })
     if (error) void supabase.rpc('fn_registrar_acceso', { p_tipo: 'FALLO_CLAVE', p_tienda: null, p_usuario: email })
     else void supabase.rpc('fn_registrar_acceso', { p_tipo: 'ENTRADA', p_tienda: null, p_usuario: email })
     return { error: error?.message ?? null }

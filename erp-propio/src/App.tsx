@@ -65,6 +65,7 @@ import { FacturaClienteFichaPage } from './pages/facturacion/FacturaClienteFicha
 import { GenerarFacturasPage } from './pages/facturacion/GenerarFacturasPage'
 import { ListadoFacturasPage } from './pages/facturacion/ListadoFacturasPage'
 import { CambiarClavePage } from './pages/CambiarClavePage'
+import { PuertaSeguridad } from './components/claves/PuertaSeguridad'
 import { RegistrosVerifactuPage } from './pages/RegistrosVerifactuPage'
 import { ContabilidadRoutes } from './pages/contabilidad/ContabilidadRoutes'
 import { ConfiguracionWebPage } from './pages/web/ConfiguracionWebPage'
@@ -111,7 +112,9 @@ function ProtectedArea() {
   if (loading) return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Cargando…</div>
   if (!session) return <Navigate to="/login" replace />
   return (
-    // Permisos por grupo de acceso: opciones en gris y rutas bloqueadas (src/lib/permisos.ts).
+    // Doble verificación y clave provisional antes de entrar (components/claves/PuertaSeguridad.tsx).
+    <PuertaSeguridad key={session.user.id}>
+    {/* Permisos por grupo de acceso: opciones en gris y rutas bloqueadas (src/lib/permisos.ts). */}
     <PermisosProvider>
       <Layout />
       {/* Compras → Generar Petición: CTRL+P desde cualquier pantalla */}
@@ -119,6 +122,7 @@ function ProtectedArea() {
       {/* Utilidades: Cambio de Tienda/Fecha, Seleccionar Periodo, Copia de Seguridad, Temporales */}
       <UtilidadesHost />
     </PermisosProvider>
+    </PuertaSeguridad>
   )
 }
 

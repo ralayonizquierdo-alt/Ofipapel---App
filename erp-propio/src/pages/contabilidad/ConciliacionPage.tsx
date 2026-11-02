@@ -6,13 +6,14 @@
 // Datos: migración 20261101_conciliacion_inteligente (fn_concilia_*).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BookPlus, Check, CheckCheck, Link2, Link2Off, ListChecks, RefreshCw, Settings2, Upload, Wand2, X } from 'lucide-react'
+import { BookPlus, Check, CheckCheck, ClipboardList, Link2, Link2Off, ListChecks, RefreshCw, Settings2, Upload, Wand2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { GwDate, GwField, GwGroup, GwInput, GwNumber, GwSelect, GwWindow } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 import { eur0, fechaEs, isoDe, leerTodo } from './contabModel'
 import { CONCEPTOS_COMUNES, parseNorma43, type CuentaN43 } from './norma43'
 import { Aviso, Barra, Rejilla, Vacio } from './ui'
+import { ImportarHojaBanco, PartidasPendientes } from './ConciliacionExtras'
 
 const ENTIDADES: Record<string, string> = { '0049': 'Santander', '0182': 'BBVA', '2100': 'CaixaBank', '3076': 'Cajasiete' }
 
@@ -93,7 +94,8 @@ const luzDe = (m: Mov): Luz => (m.conciliado ? 'hecho' : (m.propuesta?.confianza
 const PUNTO: Record<Luz, string> = { verde: '🟢', amarillo: '🟡', rojo: '🔴', hecho: '✔' }
 const TITULO_LUZ: Record<Luz, string> = { verde: 'Seguros', amarillo: 'Revisar', rojo: 'Sin casar', hecho: 'Conciliados' }
 
-const textoMov = (m: Mov) => [m.concepto_propio, m.conceptos].filter((x) => x && x.trim()).join(' · ')
+// concepto_propio del Norma 43 suele ser un código del banco («099»): fuera si es solo un número.
+const textoMov = (m: Mov) => [m.concepto_propio, m.conceptos].filter((x) => x && x.trim() && !/^\d+$/.test(x.trim())).join(' · ')
 const mesActual = () => {
   const d = new Date()
   return [isoDe(new Date(d.getFullYear(), d.getMonth(), 1)), isoDe(new Date(d.getFullYear(), d.getMonth() + 1, 0))]
@@ -132,6 +134,9 @@ export function ConciliacionPage() {
   const [ayuda, setAyuda] = useState(false)
   const [verBancos, setVerBancos] = useState(false)
   const [verReglas, setVerReglas] = useState(false)
+  const [verPendientes, setVerPendientes] = useState(false)
+  // Extractos en Excel/CSV que esperan a que se elija cuenta y columnas (uno detrás de otro).
+  const [hojas, setHojas] = useState<File[]>([])
   const [asiento, setAsiento] = useState({ cuenta: '', concepto: '' })
   const [regla, setRegla] = useState<{ nombre: string; texto: string; cuenta: string; sentido: string } | null>(null)
   const ficheroRef = useRef<HTMLInputElement>(null)
@@ -203,7 +208,13 @@ export function ConciliacionPage() {
     await cargarMovs()
   }
 
-  async function importarFicheros(files: FileList | File[]) {
+  async function importarFicheros(todos: FileList | File[]) {
+    // Excel / CSV: van a su ventana (cuenta y columnas); el resto se lee como Norma 43.
+    const lista0 = Array.from(todos)
+    const esHoja = (f: File) => /\.(xlsx|xls|csv)$/i.test(f.name)
+    if (lista0.some(esHoja)) setHojas((h) => [...h, ...lista0.filter(esHoja)])
+    const files = lista0.filter((f) => !esHoja(f))
+    if (!files.length) return
     setError(null)
     setOk(null)
     setTrabajando(true)
@@ -396,6 +407,8 @@ export function ConciliacionPage() {
       cobro: `Cobro ${m.cobro_tienda_codigo}-${m.cobro_codigo}`,
       pago: `Pago ${m.pago_tienda_codigo}-${m.pago_codigo}`,
       manual: `Sin documento${m.nota ? `: ${m.nota}` : ''}`,
+      remesa: m.nota ?? 'Remesa',
+      devolucion: m.nota ?? 'Devolución de recibo',
     })[m.conciliado_tipo ?? ''] ??
     m.conciliado_tipo ??
     ''
@@ -422,13 +435,13 @@ export function ConciliacionPage() {
           disabled={trabajando}
           title="Arrastra aquí los ficheros Norma 43 de los bancos (varios a la vez) o pulsa para elegirlos"
         >
-          <Upload size={18} /> {arrastrando ? 'Suelta aquí los ficheros' : 'Arrastra aquí los Norma 43 (o pulsa)'}
+          <Upload size={18} /> {arrastrando ? 'Suelta aquí los ficheros' : 'Arrastra aquí los extractos: Norma 43, Excel o CSV (o pulsa)'}
         </button>
         <input
           ref={ficheroRef}
           type="file"
           multiple
-          accept=".txt,.n43,.aeb,.csb,.dat,.q43,text/plain"
+          accept=".txt,.n43,.aeb,.csb,.dat,.q43,.xlsx,.xls,.csv,text/plain"
           className="hidden"
           onChange={(e) => {
             if (e.target.files?.length) void importarFicheros(e.target.files)
@@ -465,6 +478,9 @@ export function ConciliacionPage() {
           <RefreshCw size={14} />
         </button>
         <span className="flex-1" />
+        <button type="button" className="gw-btn" onClick={() => setVerPendientes(true)} disabled={!bancos.length}>
+          <ClipboardList size={14} /> Partidas pendientes
+        </button>
         <button type="button" className="gw-btn" onClick={() => setVerReglas(true)}>
           <ListChecks size={14} /> Reglas
         </button>
@@ -704,6 +720,23 @@ export function ConciliacionPage() {
 
       {verBancos && <CuentasBancarias onCerrar={() => setVerBancos(false)} onCambio={cargarBancos} />}
       {verReglas && <Reglas onCerrar={() => setVerReglas(false)} />}
+      {verPendientes && <PartidasPendientes bancos={bancos} bancoInicial={bancoId} onCerrar={() => setVerPendientes(false)} />}
+      {hojas[0] && (
+        <ImportarHojaBanco
+          key={hojas[0].name + hojas.length}
+          fichero={hojas[0]}
+          bancos={bancos}
+          bancoInicial={bancoId}
+          onCerrar={() => setHojas((h) => h.slice(1))}
+          onImportado={(b, d, h, msg) => {
+            setHojas((x) => x.slice(1))
+            setBancoId(b)
+            setRango([d, h])
+            setOk(msg)
+            void proponer(b, d, h)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -859,6 +892,7 @@ function OperativaConciliacion() {
               'Arrastra los ficheros al recuadro «Arrastra aquí los Norma 43» (puedes soltar los de los cuatro bancos a la vez) o pulsa en él para elegirlos.',
               'Cada fichero va solo a su cuenta bancaria. Si una cuenta es nueva, se crea: entra en «Cuentas bancarias» y pon su subcuenta 572 (p. ej. Santander 57205740).',
               'No pasa nada por importar dos veces el mismo periodo o fechas que se solapan: un movimiento nunca entra repetido.',
+              'Si un banco o un mes no tiene Norma 43, descarga los movimientos en Excel (.xlsx) o CSV y arrástralos igual: sale una ventana para elegir la cuenta y qué columna es la fecha, el concepto y el importe (casi siempre lo adivina sola). Revisa la vista previa y pulsa «Importar». Si el banco da .xls antiguo, ábrelo en Excel y guárdalo como .xlsx.',
             ],
           },
           {
@@ -886,6 +920,8 @@ function OperativaConciliacion() {
             notas: [
               'Arriba a la derecha: saldo del banco y saldo contable de la cuenta. Si cuadran sale ✔ Cuadra.',
               '«Apuntes sin casar»: lo que está en la contabilidad y no ha salido todavía en el banco (cheques, remesas pendientes…).',
+              '«Partidas pendientes»: informe por cuenta y antigüedad de lo que está en el banco y no en la contabilidad, y al revés. En rojo lo que lleva más de 30 días. Se saca a Excel o se imprime.',
+              'Remesas: el abono de una remesa SEPA y las devoluciones de recibos salen solos (ver Contabilidad → Remesas SEPA).',
               'Todo queda en la auditoría (quién casó qué y cuándo).',
             ],
           },

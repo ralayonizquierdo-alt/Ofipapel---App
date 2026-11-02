@@ -22,6 +22,8 @@ import { SinPermiso, usePermisos } from '../lib/PermisosContext'
 import { areaActual, areaElegida, cambiarAreaYRecargar, opcionesPropias, rutaEnArea, ultimaArea, type Area } from '../lib/areaTrabajo'
 import { BotonesAreaCabecera, SelectorArea, tituloArea } from './shell/SelectorArea'
 import { CierreInactividad } from './shell/CierreInactividad'
+import { AvisoDevoluciones } from './shell/AvisoDevoluciones'
+import { NuevaIncidencia } from '../pages/archivo/IncidenciasPage'
 import { comboDeEvento, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
 
 /** Atajos de menú que no gestiona Layout: los de edición los hace el navegador en el campo;
@@ -41,6 +43,7 @@ export function Layout() {
   const [ladoBarra, setLadoBarra] = useLadoBarra()
   const { search } = useLocation()
   const [acercaDe, setAcercaDe] = useState(false)
+  const [avisarFallo, setAvisarFallo] = useState(false)
   const sesion = useSesionTrabajo()
   const coloresSeccion = useParametro<boolean>('local.colores_seccion') !== false
   const mapaColores = useParametro<MapaColores | null>('apariencia.colores') ?? COLORES_DEFECTO
@@ -290,6 +293,16 @@ export function Layout() {
         </span>
         {/* Las 3 áreas siempre a mano: un clic y se cambia (Luis, 01/11/2026). */}
         <BotonesAreaCabecera actual={area} disponibles={areasDisponibles} onElegir={cambiarArea} />
+        <AvisoDevoluciones />
+        {/* Avisar de un fallo, una mejora o una duda desde cualquier pantalla (Registro de incidencias). */}
+        <button
+          type="button"
+          className="flex-none rounded border border-[#d0d7e2] bg-white px-1 text-[12px] leading-[17px] hover:bg-[#fdecea]"
+          onClick={() => setAvisarFallo(true)}
+          title="Avisar de un fallo, una mejora o una duda (Registro de incidencias)"
+        >
+          🐞
+        </button>
       </div>
       <AvisoVersion />
       <AvisoConformidad uid={session?.user.id ?? null} />
@@ -365,6 +378,7 @@ export function Layout() {
       )}
       {/* Cierre de sesión por inactividad (Parámetros → Locales → Inicio y Finalización) */}
       <CierreInactividad />
+      {avisarFallo && <NuevaIncidencia pantalla={pathname} onCerrar={() => setAvisarFallo(false)} />}
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
       <EdicionHerramientas />
       {fueraDeHorario && (

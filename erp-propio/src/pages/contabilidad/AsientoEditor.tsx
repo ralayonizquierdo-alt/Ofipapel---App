@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Save, Trash2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { GwDate, GwField, GwGroup, GwInput, GwNumber } from '../../components/gw'
+import { GwDate, GwField, GwGroup, GwInput, GwNumber, GwSelect } from '../../components/gw'
 import { eur0, hoy, r2, type Apunte, type Asiento } from './contabModel'
 import { Aviso } from './ui'
 
@@ -48,6 +48,16 @@ export function AsientoEditor({
   )
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
+  // Tienda del asiento (para «Resultados por Tienda»); los automáticos ya traen la suya.
+  const [tienda, setTienda] = useState(asiento?.origen_tienda_codigo ?? '')
+  const [tiendas, setTiendas] = useState<{ codigo: string; descripcion: string | null }[]>([])
+  useEffect(() => {
+    supabase
+      .from('tienda_terminal')
+      .select('codigo, descripcion')
+      .order('codigo')
+      .then(({ data }) => setTiendas(data ?? []))
+  }, [])
 
   // Descripciones de las cuentas
   const codigos = lineas.map((l) => l.cuenta).join(',')
@@ -78,6 +88,7 @@ export function AsientoEditor({
       p_id: asiento?.id ?? null,
       p_fecha: fecha,
       p_concepto: concepto,
+      p_tienda: tienda || null,
       p_apuntes: lineas
         .filter((l) => l.cuenta || l.debe || l.haber)
         .map((l) => ({ cuenta: l.cuenta, debe: l.debe ?? 0, haber: l.haber ?? 0, concepto: l.concepto, documento: l.documento })),
@@ -93,6 +104,16 @@ export function AsientoEditor({
       <div className="flex items-end gap-2">
         <GwField label="Fecha">
           <GwDate value={fecha} onChange={(v) => v && setFecha(v)} className="w-[100px]" />
+        </GwField>
+        <GwField label="Tienda">
+          <GwSelect value={tienda} onChange={(e) => setTienda(e.target.value)} className="w-[150px]" title="Tienda a la que se imputa (Resultados por Tienda)">
+            <option value="">(ninguna)</option>
+            {tiendas.map((t) => (
+              <option key={t.codigo} value={t.codigo}>
+                {t.codigo} {t.descripcion ?? ''}
+              </option>
+            ))}
+          </GwSelect>
         </GwField>
         <GwField label="Concepto" className="flex-1">
           <GwInput value={concepto} onChange={(e) => setConcepto(e.target.value)} maxLength={200} />

@@ -9,6 +9,8 @@ import { PerdidasGananciasPage, SumasSaldosPage } from './BalancesPage'
 import { LibrosIgicPage, Modelo347Page, Modelo420Page, Modelo425Page } from './ImpuestosPage'
 import { ExportarGestoriaPage } from './ExportarGestoriaPage'
 import { ConciliacionPage } from './ConciliacionPage'
+import { RemesasPage } from './RemesasPage'
+import { ResultadosTiendasPage } from './ResultadosTiendasPage'
 import { PrevisionTesoreriaPage } from './PrevisionTesoreriaPage'
 import { BalanceSituacionPage } from './BalanceSituacionPage'
 import { EjercicioBar } from './EjercicioBar'
@@ -56,6 +58,8 @@ function ContabilidadPantallas({ onEmpresa }: { onEmpresa: () => void }) {
       <Route path="modelo-425" element={<Modelo425Page />} />
       <Route path="modelo-347" element={<Modelo347Page />} />
       <Route path="conciliacion" element={<ConciliacionPage />} />
+      <Route path="remesas" element={<RemesasPage />} />
+      <Route path="resultados-tiendas" element={<ResultadosTiendasPage />} />
       <Route path="tesoreria" element={<PrevisionTesoreriaPage />} />
       <Route path="exportar" element={<ExportarGestoriaPage />} />
       <Route path="configuracion" element={<ConfiguracionContablePage />} />
