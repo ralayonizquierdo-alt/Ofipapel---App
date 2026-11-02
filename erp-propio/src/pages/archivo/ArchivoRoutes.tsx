@@ -8,6 +8,7 @@ import { TextosLegalesPage } from './TextosLegalesPage'
 import { IncidenciasPage } from './IncidenciasPage'
 import { UsoOperarioPage } from './UsoOperarioPage'
 import { AcuerdosPage } from './AcuerdosPage'
+import { DiccionarioTextosPage } from './DiccionarioTextosPage'
 
 /** Ventanas de Archivo sin captura bajo /archivo/…: Parámetros, Zonas de servicio, Carga Cotización, Importar, Auditoría y Textos legales. */
 export function ArchivoRoutes() {
@@ -22,6 +23,7 @@ export function ArchivoRoutes() {
       <Route path="incidencias" element={<IncidenciasPage />} />
       <Route path="uso" element={<UsoOperarioPage />} />
       <Route path="acuerdos" element={<AcuerdosPage />} />
+      <Route path="diccionario" element={<DiccionarioTextosPage />} />
       <Route path="*" element={<Navigate to="/archivo/parametros" replace />} />
     </Routes>
   )
