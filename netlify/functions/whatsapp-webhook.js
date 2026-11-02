@@ -88,6 +88,8 @@ const {
   llamaPorSuNombreInfo,
   medidasSinRespaldo,
   prometeMirarloLuego,
+  confirmaLoQueNoHay,
+  noConstaInfo,
   respuestaConEnlace,
   buildAiSystemPrompt,
   preciosSinRespaldo,
@@ -1536,6 +1538,33 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     text,
     history.map((h) => h.content).join(' '),
   ].join(' ');
+
+  // CONFIRMAR UN PRODUCTO QUE NO ESTÁ EN LOS RESULTADOS (2/11/2026).
+  //
+  // «Sí, tenemos tornillos de rosca chapa», con resultados en la mano que no
+  // eran tornillos, y un enlace que al abrirlo decía «No se encontraron
+  // resultados». Las redes de abajo no lo veían por lo de siempre: SÍ había
+  // catálogo. Pero tener catálogo no es tener ESO.
+  //
+  // Se comprueba contra lo que devolvió la búsqueda Y NADA MÁS: ni el mensaje
+  // del cliente ni el historial, que es donde están sus propias palabras — si
+  // entraran, siempre habría «respaldo» y esto no saltaría nunca.
+  //
+  // Y aquí no vale el enlace de «aquí tienes todo lo que tenemos de eso»: si no
+  // hay nada, ese enlace abre una página vacía, que es justo lo que el cliente
+  // vio y lo que le hizo escribir «el link no muestra ningún resultado». Lo
+  // honesto es decir que no aparece y ofrecer una persona.
+  const loQueDevolvioLaBusqueda = unirContexto(contextoConsumibles, datosDeCatalogo) || '';
+  const confirmaSinRespaldo = confirmaLoQueNoHay(respuesta, loQueDevolvioLaBusqueda, text);
+  if (confirmaSinRespaldo.length > 0) {
+    console.error(
+      `whatsapp: respuesta descartada (confirma algo que no está en los resultados: ${confirmaSinRespaldo.join(', ')}).`
+    );
+    const noConsta = noConstaInfo(idioma);
+    await sendEscalateButtons(message.from, greeting + noConsta, idioma);
+    await appendToHistory(message.from, text, `${greeting}${noConsta}${escalateQuestion(idioma)}`);
+    return;
+  }
 
   const medidasInventadas = medidasSinRespaldo(respuesta, respaldoDeMedidas);
   if (medidasInventadas.length > 0 || prometeMirarloLuego(respuesta)) {

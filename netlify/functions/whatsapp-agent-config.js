@@ -496,8 +496,73 @@ function isNoSeLaRespuesta(text) {
 // mira cuando NO hay resultados de catálogo, así que una confirmación aquí es
 // inventada por definición, y lo que dispara ahora es buscar de verdad antes de
 // contestar (ver whatsapp-webhook.js).
+//
+// OJO CON EL \b DETRÁS DE «Sí». En JavaScript la «í» NO es carácter de palabra,
+// así que un \b detrás de «sí» no casa donde uno cree: con «Sí, tenemos» el
+// patrón fallaba y la confirmación se le colaba entera al cliente. Solo saltaba
+// escrito sin tilde («Si, tenemos»), que es justo lo que la IA no escribe.
+// Comprobado el 2/11/2026 con «Sí, tenemos tornillos de rosca chapa»: esta red
+// llevaba ciega desde que se escribió para el caso que la motivó. Es el mismo
+// fallo que ya se corrigió en los verbos en futuro («comentaré»), y por eso
+// aquí va (?![a-z]) en vez de \b.
 const FALSE_CONFIDENCE_PATTERN =
-  /\b(s[ií]|claro|por supuesto|desde luego|efectivamente)\b[,!]?\s+(?:que\s+)?(vendemos|tenemos|disponemos|contamos)\b/i;
+  /\b(s[ií]|claro|por supuesto|desde luego|efectivamente)(?![a-z])[,!]?\s+(?:que\s+)?(vendemos|tenemos|disponemos|contamos)\b/i;
+
+// CONFIRMAR UN PRODUCTO QUE NO ESTÁ EN LOS RESULTADOS.
+//
+// La red de arriba solo se mira cuando la búsqueda vuelve VACÍA. Pero el
+// 2/11/2026, con resultados en la mano —ninguno un tornillo—, la IA contestó
+// «Sí, tenemos tornillos de rosca chapa» y el enlace que mandó daba «No se
+// encontraron resultados». O sea: tener catálogo no es tener ESO.
+//
+// Es la lección del cartón pluma a medio aplicar. Entonces se tapó que no se
+// inventara las MEDIDAS teniendo catálogo; faltaba que no confirmara el
+// PRODUCTO. La comprobación es la misma de siempre y no depende de que la IA
+// se porte bien: lo que el cliente pidió tiene que aparecer en lo que la
+// búsqueda devolvió. Si no aparece por ningún lado, la confirmación es suya.
+const CONFIRMA_TENER = /\b(tenemos|vendemos|disponemos|contamos|trabajamos)\b/gi;
+
+// «NO tenemos», «no lo vendemos»: negar no es confirmar. Se mira lo que hay
+// justo delante del verbo, no toda la frase, para no tragarse un «no» que
+// pertenece a otra oración.
+function esNegacion(texto, posicion) {
+  return /\bno\b[\s\w]{0,12}$/i.test(texto.slice(Math.max(0, posicion - 20), posicion));
+}
+
+function afirmaTenerAlgo(texto) {
+  const t = String(texto || '');
+  CONFIRMA_TENER.lastIndex = 0;
+  let m;
+  while ((m = CONFIRMA_TENER.exec(t)) !== null) {
+    // «tenemos que pedirlo», «tenemos previsto»: no es tener el artículo.
+    if (/^\s+(que|previsto|pensado)\b/i.test(t.slice(m.index + m[0].length))) continue;
+    if (!esNegacion(t, m.index)) return true;
+  }
+  return false;
+}
+
+function sinAcentos(texto) {
+  return String(texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+// Devuelve las palabras del cliente que NO aparecen en los resultados, o []
+// si la respuesta no confirma nada o sí hay respaldo. Con el mensaje vacío de
+// contenido propio («¿tenéis de eso?») devuelve [] a propósito: sin saber qué
+// pidió, no se puede decir que falte.
+function confirmaLoQueNoHay(respuesta, contexto, textoCliente) {
+  if (!afirmaTenerAlgo(respuesta)) return [];
+  const pedidas = palabrasPropias(sinAcentos(textoCliente));
+  if (pedidas.length === 0) return [];
+  const hay = sinAcentos(contexto);
+  const sinRespaldo = pedidas.filter((p) => !hay.includes(p));
+  // Basta con que UNA de las palabras del cliente esté en los resultados para
+  // dar la confirmación por respaldada: quien pide «tornillos de rosca chapa»
+  // y recibe tornillos está servido aunque no diga «chapa» en ninguna ficha.
+  return sinRespaldo.length === pedidas.length ? sinRespaldo : [];
+}
 
 // ¿El mensaje trae una referencia de producto? ("305XL", "TN-248", "nº305",
 // "XP-4200"...). Sirve para no dejar que una regla de contexto se coma una
@@ -650,6 +715,18 @@ function compromisoInfo(idioma = 'es') {
   return idioma === 'en' ? COMPROMISO_INFO_EN : COMPROMISO_INFO;
 }
 
+// Lo que se contesta cuando la IA confirma algo que no está en los resultados.
+//
+// No dice «no lo tenemos» —eso tampoco lo sabemos: puede estar en la tienda y
+// no en la web— sino lo único que consta de verdad: que no aparece. Y se
+// ofrece una persona, que es quien puede mirarlo.
+const NO_CONSTA_INFO = 'No me aparece en nuestro catálogo, así que no te lo puedo confirmar yo. ';
+const NO_CONSTA_INFO_EN = "I can't find it in our catalogue, so I can't confirm it myself. ";
+
+function noConstaInfo(idioma = 'es') {
+  return idioma === 'en' ? NO_CONSTA_INFO_EN : NO_CONSTA_INFO;
+}
+
 // UNA MEDIDA QUE NO SALE DE NINGÚN SITIO.
 //
 // Visto en real el 1/11/2026. Karin preguntó «¿Tenéis papel pluma?» y el bot,
@@ -709,6 +786,11 @@ const MIRARLO_LUEGO_PATTERNS = [
   /\bvoy\s+a\s+(consultar|verificar|comprobar|mirar|revisar|confirmar)\b/i,
   // La mentira del catálogo que «se abre» con la tienda.
   /\b(tenga|tengamos|tener|tenemos)\s+acceso\s+al\s+cat[áa]logo\b/i,
+  // Y su hermana, vista el 2/11/2026 a las 19:58: «no tengo acceso al catálogo
+  // en tiempo real». También es falso — el catálogo se consulta en ese mismo
+  // turno, a cualquier hora. El cliente se queda pensando que el bot está
+  // ciego cuando no lo está.
+  /\bno\s+tengo\s+acceso\s+al\s+cat[áa]logo\b/i,
   /\bte\s+(?:lo\s+)?(confirmo|digo|aviso)\s+(?:en\s+cuanto|cuando)\s+(?:lo\s+)?(mire|consulte|compruebe|revise|verifique)\b/i,
 ];
 
@@ -975,7 +1057,9 @@ function fotoReply(normalizedText) {
 // la busca en el historial). Si de verdad no llegó ninguna, la respuesta es
 // correcta y se deja pasar.
 const PIDE_LA_FOTO_OTRA_VEZ_RE = [
-  /\bno\s+(me\s+)?(ha\s+)?(llega|llego|llegado|lleg[oó])\b[^.]{0,30}\b(foto|imagen|archivo|adjunto)/i,
+  // (?![a-z]) y no \b: con \b, «llegó» no casaba — la «ó» no es carácter de
+  // palabra en JavaScript. Mismo fallo que en «Sí, tenemos».
+  /\bno\s+(me\s+)?(ha\s+)?(llega|llego|llegado|lleg[oó])(?![a-z])[^.]{0,30}\b(foto|imagen|archivo|adjunto)/i,
   /\bno\s+(veo|me\s+aparece|puedo\s+ver|consigo\s+ver)\b[^.]{0,30}\b(foto|imagen|adjunt)/i,
   /\b(foto|imagen)\b[^.]{0,30}\bno\s+(me\s+)?(ha\s+)?(llegado|llega)\b/i,
   /\b(env[ií]a(la|mela)?|m[áa]nda(la|mela)?|reenv[ií]a(la|mela)?|intenta\s+enviarla)\b[^.]{0,30}\b(de\s+nuevo|otra\s+vez)\b/i,
@@ -1545,6 +1629,9 @@ module.exports = {
   medidasDe,
   medidasSinRespaldo,
   prometeMirarloLuego,
+  confirmaLoQueNoHay,
+  afirmaTenerAlgo,
+  noConstaInfo,
   respuestaConEnlace,
   preciosDe,
   preciosSinRespaldo,
