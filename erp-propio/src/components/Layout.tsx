@@ -22,6 +22,7 @@ import { areaActual, areaElegida, cambiarAreaYRecargar, opcionesPropias, rutaEnA
 import { BotonesAreaCabecera, SelectorArea, tituloArea } from './shell/SelectorArea'
 import { CierreInactividad } from './shell/CierreInactividad'
 import { AvisoDevoluciones } from './shell/AvisoDevoluciones'
+import { GloboTareas } from './shell/MisTareas'
 import { ControlAcceso } from './shell/ControlAcceso'
 import { apuntarPantalla, instalarRegistroUso } from '../lib/registroUso'
 import { NuevaIncidencia } from '../pages/archivo/IncidenciasPage'
@@ -281,6 +282,8 @@ export function Layout() {
         </span>
         {/* Las 3 áreas siempre a mano: un clic y se cambia (Luis, 01/11/2026). */}
         <BotonesAreaCabecera actual={area} disponibles={areasDisponibles} onElegir={cambiarArea} />
+        {/* Mis tareas pendientes del Registro de incidencias. */}
+        <GloboTareas />
         <AvisoDevoluciones />
         {/* Globo 🛡️ de la auditoría (solo super administradores). */}
         <AvisoAuditoria />

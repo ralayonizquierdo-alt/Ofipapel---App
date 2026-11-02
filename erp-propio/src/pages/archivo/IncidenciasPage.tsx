@@ -5,6 +5,7 @@
 // 20261101_devoluciones_e_incidencias).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Bug, MessageSquarePlus, Paperclip, Plus, Save } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
@@ -150,9 +151,11 @@ export function IncidenciasPage() {
   const { superAdmin, realAdmin } = usePermisos()
   const [lista, setLista] = useState<Incidencia[]>([])
   const [filtro, setFiltro] = useState<'vivas' | 'todas' | Incidencia['estado']>('vivas')
-  const [tipo, setTipo] = useState<'' | Incidencia['tipo']>('')
-  const [quien, setQuien] = useState('')
-  const [sel, setSel] = useState<number | null>(null)
+  // Desde el globo 📌 y el Panel de Control llega ya filtrado: ?tipo=tarea&quien=Luis(&id=…).
+  const [params] = useSearchParams()
+  const [tipo, setTipo] = useState<'' | Incidencia['tipo']>(() => (params.get('tipo') as Incidencia['tipo'] | null) ?? '')
+  const [quien, setQuien] = useState(() => params.get('quien') ?? '')
+  const [sel, setSel] = useState<number | null>(() => Number(params.get('id')) || null)
   const [nueva, setNueva] = useState(false)
   const [comentarios, setComentarios] = useState<Comentario[]>([])
   const [comentario, setComentario] = useState('')
