@@ -617,3 +617,7 @@ begin
   perform cron.unschedule('erp_sellar_auditoria') where exists (select 1 from cron.job where jobname = 'erp_sellar_auditoria');
   perform cron.schedule('erp_sellar_auditoria', '7 * * * *', 'select public.fn_auditoria_sellar(); select public.fn_acuerdos_aplicar_pendientes();');
 end $$;
+
+-- Luis (02/11/2026): la copia de la huella por correo, SEMANAL (domingo a las 23 h), no diaria.
+-- Aplicada como migración «auditoria_huella_semanal»: fn_auditoria_sellar solo manda el correo si
+-- extract(isodow …) = 7 y la hora es 23, con origen 'auditoria-sello-semana-<fecha>'.
