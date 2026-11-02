@@ -137,6 +137,11 @@ const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostil
 const { todasLasNotas, notasQueAplican, notaDeFicha } = require('./whatsapp-notas');
 const { guardarAdjuntoDeCliente, MARCA_ADJUNTO, marcaDeAdjunto, adjuntoDelHistorial } = require('./whatsapp-media');
 const {
+  sePuedeEscuchar,
+  transcribir,
+  paraElPanel: vozParaElPanel,
+} = require('./whatsapp-voz');
+const {
   leerFoto,
   sePuedeLeer: sePuedeLeerLaFoto,
   paraElPanel: lecturaParaElPanel,
@@ -952,6 +957,42 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // Es para el equipo: si el bot contesta algo raro, con esto se ve de un
     // vistazo si fue porque leyó mal la foto o porque buscó mal.
     if (lectura) registro = `${registro}\n${lecturaParaElPanel(lectura)}`;
+
+    // LA NOTA DE VOZ SE ESCUCHA (2/11/2026).
+    //
+    // «El robot tampoco», dijo el propietario cuando se le contó que ya se
+    // podían escuchar en el panel. Y es verdad: que la oiga una persona
+    // arregla la mitad; de madrugada sigue siendo un cliente esperando.
+    //
+    // Claude NO oye —la API de Anthropic no admite audio—, así que la nota se
+    // convierte en texto aparte y, a partir de ahí, ES un mensaje escrito como
+    // cualquier otro: se vuelve a entrar por la puerta principal con ese texto.
+    //
+    // Eso es lo importante del diseño. No se contesta «desde el audio»: se
+    // contesta desde las palabras, y por el camino de siempre — las respuestas
+    // fijas, el estado del pedido, la búsqueda en el catálogo y todas las redes
+    // de seguridad. Una transcripción equivocada acaba en «no encuentro eso»,
+    // que es recuperable, y nunca en un precio inventado.
+    //
+    // El audio queda archivado antes, con lo que se oyó debajo: si el bot
+    // contesta algo raro se ve de un vistazo si oyó mal o buscó mal.
+    if (message.type === 'audio' && adjunto?.buffer && sePuedeEscuchar(adjunto.tipo, adjunto.bytes)) {
+      const oido = await transcribir({ buffer: adjunto.buffer, tipo: adjunto.tipo });
+      if (oido) {
+        await conversationStore.appendCustomerMessage(
+          message.from,
+          `${registro}\n${vozParaElPanel(oido)}`,
+          message.id
+        );
+        // El mensaje ya está reservado contra duplicados (alreadyProcessed, que
+        // corre antes de llegar aquí), así que volver a entrar no lo reenvía.
+        return handleIncomingMessage(
+          event,
+          { ...message, type: 'text', text: { body: oido } },
+          nombreWhatsapp
+        );
+      }
+    }
 
     if (lectura?.buscar) {
       // LA FOTO ESPERA A SU PREGUNTA.
