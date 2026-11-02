@@ -16,4 +16,24 @@
    */
   html, body, #root { height: auto !important; overflow: visible !important; }
   main, section, div, table { overflow: visible !important; max-height: none !important; }
+
+  /*
+   * Una ficha que se imprime sola.
+   *
+   * La ficha de cuadre de una estancia se manda a la agencia como recibo
+   * (propietario, 02/11/2026), y detrás de ella está la pantalla entera de
+   * Cobros. Marcada con esta clase, al imprimir se oculta todo lo demás y la
+   * ficha sube al origen de la hoja. Se oculta con `visibility` y no con
+   * `display` para no deshacer la maquetación de lo que la contiene.
+   */
+  body:has(.solo-esto-al-imprimir) * { visibility: hidden; }
+  body:has(.solo-esto-al-imprimir) .solo-esto-al-imprimir,
+  body:has(.solo-esto-al-imprimir) .solo-esto-al-imprimir * { visibility: visible; }
+  .solo-esto-al-imprimir {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: 100% !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
 }

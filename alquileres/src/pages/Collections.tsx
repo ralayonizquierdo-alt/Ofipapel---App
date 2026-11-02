@@ -10,6 +10,7 @@ import { ordenaApartamentos } from '../lib/apartamentos'
 import { partesDeAlojamiento, devengoAcumulado, nochesEnMes, mesSiguiente, desglosePorMeses } from '../lib/devengo'
 import { ofertaDeReserva } from '../lib/oferta'
 import { useRecordado } from '../lib/recordado'
+import FichaCuadre from '../components/FichaCuadre'
 import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
 import { num, numSuelto } from '../lib/formato'
 
@@ -44,6 +45,8 @@ function esEfectivo(p: Payment, canalDirecto: boolean): boolean {
 export default function Collections() {
   const { reservations, payments, apartments: allApartments } = useData()
   const [nuevoCobro, setNuevoCobro] = useState(false)
+  /** La estancia cuya ficha de cuadre se está mirando (propietario, 02/11/2026). */
+  const [cuadre, setCuadre] = useState<Reservation | null>(null)
   /** Cómo se agrupa el listado por reserva: por mes o por apartamento. */
   const [agrupaPor, setAgrupaPor] = useRecordado<'mes' | 'apartamento'>('cobros.agrupaPor', 'mes')
   const [year, setYear] = useState(new Date().getFullYear())
@@ -509,7 +512,7 @@ export default function Collections() {
               Falta por cobrar de estancias ya terminadas: {eur(totalVencido)}
             </p>
           </div>
-          <TablaSaldos filas={vencidas} nombreApt={nombreApt} eur={eur} vencidas />
+          <TablaSaldos filas={vencidas} nombreApt={nombreApt} eur={eur} vencidas onAbrir={setCuadre} />
         </div>
       )}
 
@@ -521,11 +524,12 @@ export default function Collections() {
             <b className="text-slate-800">{eur(totalPorVenir)}</b>
             <span className="text-slate-400"> · no es un descubierto</span>
           </summary>
-          <TablaSaldos filas={porVenir} nombreApt={nombreApt} eur={eur} />
+          <TablaSaldos filas={porVenir} nombreApt={nombreApt} eur={eur} onAbrir={setCuadre} />
         </details>
       )}
 
       {nuevoCobro && <NuevoCobro onClose={() => setNuevoCobro(false)} />}
+      {cuadre && <FichaCuadre reserva={cuadre} onClose={() => setCuadre(null)} />}
 
       {aFavor.length > 0 && (
         <div className="mb-6 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden print:hidden">
@@ -541,10 +545,13 @@ export default function Collections() {
           <table className="w-full text-sm" translate="no">
             <tbody className="tabular-nums">
               {aFavor.map(({ r, cobrado, falta }) => (
-                <tr key={r.id} className="border-b border-slate-100 last:border-0">
+                <tr key={r.id} onClick={() => setCuadre(r)}
+                  title="Ver el cuadre de esta estancia: de dónde sale el importe y cómo se ha cobrado"
+                  className="border-b border-slate-100 last:border-0 cursor-pointer hover:bg-slate-50">
                   <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
                   <td className="py-2 px-4 text-slate-500 text-xs">
                     {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
+                    <span className="ml-2 text-blue-600">ver el cuadre</span>
                   </td>
                   <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
                   <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
@@ -568,7 +575,7 @@ export default function Collections() {
           <CobrosPorReserva
             year={year} filterApt={filterApt} apartments={apartments}
             reservations={reservations} payments={payments}
-            eur={eur} mesDe={mesDe} aptDe={aptDe} agrupaPor={agrupaPor}
+            eur={eur} mesDe={mesDe} aptDe={aptDe} agrupaPor={agrupaPor} onCuadre={setCuadre}
           />
         )}
 
@@ -779,11 +786,13 @@ export default function Collections() {
  * corresponde a una reserva identificable.
  */
 /** La tabla de saldos: la misma para las vencidas y para las que están por venir. */
-function TablaSaldos({ filas, nombreApt, eur, vencidas }: {
+function TablaSaldos({ filas, nombreApt, eur, vencidas, onAbrir }: {
   filas: { r: Reservation; cobrado: number; falta: number }[]
   nombreApt: (id: string) => string
   eur: (n: number) => string
   vencidas?: boolean
+  /** Pinchar una fila abre su ficha de cuadre (propietario, 02/11/2026). */
+  onAbrir?: (r: Reservation) => void
 }) {
   return (
     <table className="w-full text-sm" translate="no">
@@ -798,11 +807,14 @@ function TablaSaldos({ filas, nombreApt, eur, vencidas }: {
       </thead>
       <tbody className="tabular-nums">
         {filas.map(({ r, cobrado, falta }) => (
-          <tr key={r.id} className="border-b border-slate-100 last:border-0">
+          <tr key={r.id} onClick={() => onAbrir?.(r)}
+            title={onAbrir ? 'Ver el cuadre de esta estancia: de dónde sale el importe y cómo se ha cobrado' : undefined}
+            className={`border-b border-slate-100 last:border-0 ${onAbrir ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
             <td className="py-2 px-5 font-medium text-slate-700">{nombreApt(r.apartmentId)}</td>
             <td className="py-2 px-4 text-slate-500 text-xs">
               {formatDate(r.checkIn)} → {formatDate(r.checkOut)}
               {vencidas && <span className="ml-2 text-red-600 font-semibold">ya terminó</span>}
+              {onAbrir && <span className="ml-2 text-blue-600">ver el cuadre</span>}
             </td>
             <td className="py-2 px-4 text-right text-slate-700">{eur(r.total)}</td>
             <td className="py-2 px-4 text-right text-slate-500">{eur(cobrado)}</td>
@@ -958,7 +970,7 @@ const eurLargo = (n: number) =>
  * o por apartamento (y dentro, los meses). Es la misma tabla mirada por sus dos
  * lados: una sirve para cuadrar el mes, la otra para seguir un piso.
  */
-function CobrosPorReserva({ year, filterApt, apartments, reservations, payments, eur, mesDe, aptDe, agrupaPor }: {
+function CobrosPorReserva({ year, filterApt, apartments, reservations, payments, eur, mesDe, aptDe, agrupaPor, onCuadre }: {
   year: number
   filterApt: string
   apartments: Apartment[]
@@ -968,6 +980,8 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   mesDe: (p: Payment) => string | undefined
   aptDe: (p: Payment) => string | undefined
   agrupaPor: 'mes' | 'apartamento'
+  /** Pinchar las noches o el importe abre la ficha de cuadre de esa estancia. */
+  onCuadre: (r: Reservation) => void
 }) {
   // Las tarifas, para poder marcar las estancias que van a precio de oferta.
   const { prices: precios, offerPrices: ofertas } = useData()
@@ -1129,8 +1143,15 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
         </td>
       )
     }
+    // Cobrada entera: el rombo sobra. Una estancia que se paga de una vez el
+    // primer mes tenía más cobrado que devengado a fin de mes y salía ◆ todos
+    // los meses, como si quedara algo por cuadrar («se han cobrado según las
+    // reservas y el precio coincide, ¿por qué el rombo?», propietario,
+    // 02/11/2026). El rombo es para lo que va por delante y AÚN no está
+    // pagado del todo; lo pagado entero es ✓.
+    const pagadaEntera = cobradoTodo + 0.005 >= r.total
     const porDelante = Math.round((cobradoHasta - devengado) * 100) / 100
-    if (porDelante > 0.005) {
+    if (porDelante > 0.005 && !pagadaEntera) {
       return (
         <td className={`${celda} text-right text-sky-600 font-semibold`}
           title={`Prepago: ${imp(porDelante)} € pagados por encima de lo devengado a ${MONTH_NAMES_ES[mes - 1].toLowerCase()}`}>
@@ -1140,9 +1161,11 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     }
     return (
       <td className={`${celda} text-right`}
-        title={cobradoHasta + 0.005 < devengado
-          ? `Cubierto: lo devengado hasta ${MONTH_NAMES_ES[mes - 1].toLowerCase()} se cobró después`
-          : 'Cubierto: lo devengado hasta este mes está cobrado'}>
+        title={pagadaEntera
+          ? `Cobrada entera: los ${imp(r.total)} € de la estancia están cobrados`
+          : cobradoHasta + 0.005 < devengado
+            ? `Cubierto: lo devengado hasta ${MONTH_NAMES_ES[mes - 1].toLowerCase()} se cobró después`
+            : 'Cubierto: lo devengado hasta este mes está cobrado'}>
         <Check size={15} className="inline text-green-600" strokeWidth={3} />
       </td>
     )
@@ -1359,8 +1382,9 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                             al 03/11 son 11 noches, no las 9 de octubre). Lo
                             que cae en este mes va debajo, en pequeño, igual
                             que el importe. */}
-                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
-                          title={desgloseTexto(r, l.mes)}>
+                        <td onClick={() => onCuadre(r)}
+                          className={`${celda} text-right cursor-pointer hover:bg-blue-50 ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
+                          title={`${desgloseTexto(r, l.mes)}\n\n(pincha para ver el cuadre entero)`}>
                           {r.nights}-N
                           <span className="block text-[10px] text-slate-400 font-normal">
                             mes {nochesEnMes(r, mm(l.mes))}-N
@@ -1372,8 +1396,9 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                             a este mes por sus noches, que es lo que tiene que
                             cuadrar con lo declarado. La limpieza no se parte:
                             se cobra una vez, en el mes de entrada. */}
-                        <td className={`${celda} text-right ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
-                          title={desgloseTexto(r, l.mes)}>
+                        <td onClick={() => onCuadre(r)}
+                          className={`${celda} text-right cursor-pointer hover:bg-blue-50 ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}
+                          title={`${desgloseTexto(r, l.mes)}\n\n(pincha para ver el cuadre entero)`}>
                           {imp(r.total)}
                           {ofertaDeReserva(r, precios, ofertas) && (
                             <span className="ml-1 text-[10px] text-violet-700" title="Precio de una tarifa de oferta">🏷️</span>
