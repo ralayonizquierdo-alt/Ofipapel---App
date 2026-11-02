@@ -49,6 +49,27 @@ export interface EjecucionNexa {
   por_tabla: { tabla: string; operacion: string; filas: number }[]
 }
 
+/** PDF que NEXA ha creado y guardado (tarjeta con «Descargar»). */
+export interface DocumentoNexa {
+  id: number
+  nombre: string
+  url: string | null
+  bytes: number
+}
+
+/** Correo que NEXA ha PREPARADO. Solo se envía con el botón de su tarjeta. */
+export interface CorreoNexa {
+  id: number
+  para: string[]
+  cc: string[]
+  asunto: string
+  cuerpo: string
+  adjuntos: { id: number; nombre: string }[]
+  estado: 'borrador' | 'enviado' | 'cancelado'
+  enviando?: boolean
+  error?: string
+}
+
 export interface MensajeNexa {
   id: string
   rol: 'usuario' | 'nexa' | 'error'
@@ -60,6 +81,10 @@ export interface MensajeNexa {
   propuesta?: PropuestaNexa
   /** Cambio hecho. */
   ejecucion?: EjecucionNexa
+  /** PDFs creados. */
+  documentos?: DocumentoNexa[]
+  /** Correos preparados (sin enviar hasta pulsar «Enviar»). */
+  correos?: CorreoNexa[]
   hora: number
 }
 
@@ -286,6 +311,8 @@ interface RespuestaFuncion {
   listados?: ResultadoListado[]
   propuestas?: PropuestaNexa[]
   ejecuciones?: EjecucionNexa[]
+  documentos?: DocumentoNexa[]
+  correos?: CorreoNexa[]
   codigo?: string
   error?: string
 }
@@ -303,12 +330,12 @@ const espera = (ms: number) => new Promise((r) => window.setTimeout(r, ms))
  * 429 (límite). En esos casos la función no ha hecho nada, así que repetir es seguro. Dos
  * reintentos, con 2 y 5 segundos de espera.
  */
-async function invocarNexa(body: Record<string, unknown>) {
+async function invocarNexa(body: Record<string, unknown>, signal?: AbortSignal) {
   const esperas = [2000, 5000]
   for (let intento = 0; ; intento++) {
-    const r = await supabase.functions.invoke<RespuestaFuncion>('nexa', { body })
+    const r = await supabase.functions.invoke<RespuestaFuncion>('nexa', { body, signal })
     const st = r.error ? estadoHttp(r.error) : null
-    if (!r.error || (st !== 503 && st !== 429) || intento >= esperas.length) return r
+    if (!r.error || signal?.aborted || (st !== 503 && st !== 429) || intento >= esperas.length) return r
     await espera(esperas[intento])
   }
 }
@@ -354,6 +381,10 @@ function textoParaHistorial(m: MensajeNexa, mensajes: MensajeNexa[]) {
     t += `\n\n<propuesta_mostrada>${JSON.stringify({ id: p.id, nivel: p.nivel, palabra: p.palabra, resumen: p.resumen, estado: estadoPropuesta(p, mensajes) })}</propuesta_mostrada>`
   }
   if (m.ejecucion) t += `\n\n<cambio_ejecutado>${JSON.stringify({ id: m.ejecucion.id, nivel: m.ejecucion.nivel, registros: m.ejecucion.filas })}</cambio_ejecutado>`
+  for (const d of m.documentos ?? []) t += `\n\n<pdf_creado>${JSON.stringify({ documento: d.id, nombre: d.nombre })}</pdf_creado>`
+  for (const c of m.correos ?? []) {
+    t += `\n\n<correo_preparado>${JSON.stringify({ correo: c.id, para: c.para, asunto: c.asunto, adjuntos: c.adjuntos.map((a) => a.id), estado: c.estado })}</correo_preparado>`
+  }
   return t
 }
 
@@ -362,6 +393,68 @@ export async function cancelarPropuesta(id: number) {
   await supabase.rpc('fn_nexa_propuesta_cancelar', { p_id: id })
   const mensajes = estado.mensajes.map((m) => (m.propuesta?.id === id ? { ...m, propuesta: { ...m.propuesta, cancelada: true } } : m))
   cambiar({ mensajes: [...mensajes, { id: nuevoId(), rol: 'nexa', texto: 'Cancelado: no he cambiado nada.', hora: Date.now() }] })
+}
+
+function parchearCorreo(id: number, parche: Partial<CorreoNexa>, extra?: MensajeNexa) {
+  const mensajes = estado.mensajes.map((m) => (m.correos?.some((c) => c.id === id) ? { ...m, correos: m.correos.map((c) => (c.id === id ? { ...c, ...parche } : c)) } : m))
+  cambiar({ mensajes: extra ? [...mensajes, extra] : mensajes })
+}
+
+/** Botón «Enviar» de la tarjeta de un correo: lo envía la persona (la IA no puede). */
+export async function enviarCorreoNexa(id: number) {
+  const c = estado.mensajes.flatMap((m) => m.correos ?? []).find((x) => x.id === id)
+  if (!c || c.estado !== 'borrador' || c.enviando) return
+  parchearCorreo(id, { enviando: true, error: undefined })
+  try {
+    const { data, error } = await supabase.functions.invoke<RespuestaFuncion & { estado?: string }>('nexa', { body: { accion: 'enviar_correo', correo: id } })
+    if (error) throw error
+    if (!data?.ok) {
+      parchearCorreo(id, { enviando: false, error: data?.error ?? 'No se ha podido enviar.' })
+      return
+    }
+    parchearCorreo(id, { enviando: false, estado: 'enviado' }, { id: nuevoId(), rol: 'nexa', texto: `Correo enviado a ${c.para.join(', ')}.`, hora: Date.now() })
+  } catch (e) {
+    parchearCorreo(id, { enviando: false, error: await mensajeDeError(e) })
+  }
+}
+
+/** «Cancelar» en la tarjeta de un correo: queda cancelado y no se puede enviar. */
+export async function cancelarCorreoNexa(id: number) {
+  const { error } = await supabase.from('nexa_correo').update({ estado: 'cancelado' }).eq('id', id).eq('estado', 'borrador')
+  if (error) return parchearCorreo(id, { error: error.message })
+  parchearCorreo(id, { estado: 'cancelado' }, { id: nuevoId(), rol: 'nexa', texto: 'Correo cancelado: no se ha enviado nada.', hora: Date.now() })
+}
+
+/** La petición en curso a NEXA, para poder pararla con el botón «Parar». */
+let controlador: AbortController | null = null
+
+/**
+ * Para a NEXA: corta la espera de la respuesta, la voz y deja el panel libre. NEXA solo cambia datos tras una
+ * confirmación expresa; si se para justo después de confirmar un cambio, la petición ya pudo haber salido,
+ * así que se avisa de que lo compruebe.
+ */
+export function pararNexa() {
+  callar()
+  if (!controlador || !estado.pensando) return
+  const habiaCambioPendiente = estado.mensajes.some((m) => m.propuesta && estadoPropuesta(m.propuesta) === 'pendiente')
+  controlador.abort()
+  controlador = null
+  window.clearTimeout(temporizador)
+  setNexaState('idle')
+  cambiar({
+    pensando: false,
+    mensajes: [
+      ...estado.mensajes,
+      {
+        id: nuevoId(),
+        rol: 'nexa',
+        texto: habiaCambioPendiente
+          ? 'He parado. Si acababas de confirmar un cambio, la orden ya pudo haber salido: compruébalo antes de repetirlo (la propuesta o la auditoría dicen si se hizo).'
+          : 'He parado. No he cambiado nada.',
+        hora: Date.now(),
+      },
+    ],
+  })
 }
 
 export interface OpcionesEnvio {
@@ -385,9 +478,12 @@ export async function enviarMensaje(texto: string, contexto: ContextoNexa, opcio
   // De los listados enseñados va su definición, para que NEXA pueda guardarlo si se lo piden.
   const historial = mensajes.filter((m) => m.rol !== 'error').map((m) => ({ rol: m.rol, texto: textoParaHistorial(m, mensajes) }))
 
+  const control = new AbortController()
+  controlador = control
   let respuesta: MensajeNexa
   try {
-    const { data, error } = await invocarNexa({ mensajes: historial, contexto, ...(opciones.credencial ? { credencial: opciones.credencial } : {}) })
+    const { data, error } = await invocarNexa({ mensajes: historial, contexto, ...(opciones.credencial ? { credencial: opciones.credencial } : {}) }, control.signal)
+    if (control.signal.aborted) return // parado con el botón: pararNexa ya dejó el panel libre
     if (error) throw error
     if (!data?.ok) {
       respuesta = { id: nuevoId(), rol: 'error', texto: data?.error ?? 'NEXA no ha podido responder.', hora: Date.now() }
@@ -403,12 +499,16 @@ export async function enviarMensaje(texto: string, contexto: ContextoNexa, opcio
         listado,
         propuesta,
         ejecucion,
+        documentos: data.documentos?.length ? data.documentos : undefined,
+        correos: data.correos?.length ? data.correos : undefined,
         hora: Date.now(),
       }
     }
   } catch (e) {
+    if (control.signal.aborted) return
     respuesta = { id: nuevoId(), rol: 'error', texto: await mensajeDeError(e), hora: Date.now() }
   }
+  if (controlador === control) controlador = null
 
   // Un listado se ve mejor con el panel ampliado.
   cambiar({ mensajes: [...estado.mensajes, respuesta], pensando: false, sinLeer: !estado.abierto, ...(respuesta.listado ? { ampliado: true } : {}) })

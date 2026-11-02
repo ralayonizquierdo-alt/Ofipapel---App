@@ -40,12 +40,18 @@
 //   del usuario es una confirmación. Al sacar un listado guardado se apunta su
 //   uso (fn_listado_usado) para las sugerencias de NEXA.
 //
+// - PDF y correo (01/11/2026): crear_pdf guarda un PDF (bucket nexa-documentos) de un listado o de un texto; preparar_correo
+//   deja un borrador (nexa_correo) que NUNCA envía la IA: lo envía el botón de la tarjeta con { accion: 'enviar_correo', correo: id }
+//   (permiso accion:nexa-enviar-correo; API de correo Resend: secrets RESEND_API_KEY y EMAIL_FROM). Ver correo.ts y pdf.ts.
+//
 // Respuesta (siempre HTTP 200): { ok: true, texto, rutas: [{ ruta, etiqueta }], listados: [ListadoPanel],
 //                                 propuestas: [PropuestaPanel], ejecuciones: [EjecucionPanel], consultas }
 //                               { ok: false, codigo, error }
 
 import Anthropic from 'npm:@anthropic-ai/sdk@1.3.0'
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
+import { crearPdf, type ColumnaPdf } from './pdf.ts'
+import { enviarCorreo, prepararCorreo, type CorreoPanel } from './correo.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -146,6 +152,10 @@ Negocio:
 Base de datos (PostgreSQL, esquema public). consultar_bd admite UNA sentencia SELECT o WITH de solo lectura; devuelve como mucho 200 filas y el total. Selecciona solo las columnas que necesites, filtra y agrega en SQL (sum, count, group by) en vez de traer filas sueltas, y usa limit en listados. Para fechas de hoy usa la fecha de Canarias del contexto (current_date del servidor va en UTC). Si dudas de una columna, usa describir_tablas.
 
 Rutas del programa para abrir_pantalla: /clientes/<codigo>, /articulos/<codigo_interno>, /proveedores/<codigo>, /pedidos/<tienda>/<numero> (pedido de cliente), /ventas/<tienda>/<numero>, /pedidos-proveedor/<tienda>/<numero>, /facturas-proveedor/<tienda>/<id>, /presupuestos, /tpv, /stock, /gestor-pedidos, /gestor-pedidos-proveedor, /caja, /facturacion, /resumen (Panel de Control), /clientes/lista, /articulos/lista, /proveedores/lista.
+
+Documentos y correo:
+- crear_pdf crea un PDF guardado en la cuenta del usuario: de un listado que acabas de sacar con ejecutar_listado en esta misma respuesta (si piden el PDF de uno anterior, vuelve a sacarlo antes) o de un texto que redactas tú. Pasa siempre etiquetas en español para las columnas; separar_por corta con un título y una hoja por cada valor (p. ej. proveedor). El panel enseña la tarjeta con «Descargar».
+- preparar_correo PREPARA un correo: NO lo envía y tú NO puedes enviarlo; la persona lo revisa en la tarjeta y lo envía con su botón «Enviar». No digas nunca que ya se ha enviado. Necesita destinatario real: si no lo tienes, pregúntalo, no lo inventes. Redáctalo tú en español, claro y educado, firmado como «Ofipapel». Adjunta PDFs con documentos: [ids de crear_pdf]. No incluyas en un correo a un tercero datos de otros clientes o de empleados.
 
 Fuentes de listados para ejecutar_listado (vista v_lst_<fuente>; mismos sufijos de tipo):
 ${FUENTES}
@@ -367,6 +377,52 @@ const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'crear_pdf',
+    description:
+      'Crea y GUARDA un PDF en la cuenta del usuario (el panel enseña una tarjeta con «Descargar»). origen «ultimo_listado»: el listado que acabas de sacar con ejecutar_listado EN ESTA MISMA respuesta (si piden el PDF de un listado anterior, vuelve a sacarlo antes; ojo: el panel guarda como máximo 500 filas). origen «texto»: un informe o resumen que redactas tú (líneas; «# » = título, «- » = viñeta). Devuelve el id del documento, que se usa para adjuntarlo con preparar_correo.',
+    // sin strict: las herramientas estrictas suman gramática y la API rechaza pasarse (400 «compiled grammar is too large»)
+        input_schema: {
+      type: 'object',
+      properties: {
+        nombre: { type: 'string', description: 'Nombre del archivo sin extensión, p. ej. «peticiones-resueltas-por-proveedor».' },
+        titulo: { type: 'string', description: 'Título que sale en la primera línea del PDF.' },
+        origen: { type: 'string', enum: ['ultimo_listado', 'texto'] },
+        texto: { type: ['string', 'null'], description: 'Contenido si origen = texto; null si es un listado.' },
+        separar_por: { type: ['string', 'null'], description: 'Solo listados sin agrupar: columna (de las que salen en la tabla) por la que cortar con un título y una hoja nueva por cada valor, p. ej. proveedor_nombre. null = todo seguido.' },
+        etiquetas: {
+          type: 'array',
+          description: 'Nombre en español para cada columna de la tabla (clave y etiqueta). Pásalas siempre que sea un listado.',
+          items: {
+            type: 'object',
+            properties: { clave: { type: 'string' }, etiqueta: { type: 'string' } },
+            required: ['clave', 'etiqueta'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['nombre', 'titulo', 'origen', 'texto', 'separar_por', 'etiquetas'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'preparar_correo',
+    description:
+      'PREPARA un correo electrónico y lo deja como borrador en el panel. NO lo envía y tú NO puedes enviarlo: la persona lo revisa en la tarjeta y lo envía ella con su botón «Enviar». Nunca digas que se ha enviado. Necesita destinatarios reales (si no los tienes, pregunta; no los inventes). Redacta tú el asunto y el texto, en español, claro y educado. Para adjuntar PDFs, crea antes cada uno con crear_pdf y pasa sus ids.',
+    // sin strict: las herramientas estrictas suman gramática y la API rechaza pasarse (400 «compiled grammar is too large»)
+        input_schema: {
+      type: 'object',
+      properties: {
+        para: { type: 'array', items: { type: 'string' }, description: 'Direcciones de correo de los destinatarios (máximo 5 entre para y cc).' },
+        cc: { type: 'array', items: { type: 'string' }, description: 'Direcciones en copia (puede ir vacío).' },
+        asunto: { type: 'string' },
+        cuerpo: { type: 'string', description: 'Texto del correo (sin firma: el programa añade «Enviado desde el ERP de Ofipapel por …»).' },
+        documentos: { type: 'array', items: { type: 'integer' }, description: 'Ids de documentos creados con crear_pdf (máximo 3; puede ir vacío).' },
+      },
+      required: ['para', 'cc', 'asunto', 'cuerpo', 'documentos'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 interface Ruta {
@@ -443,6 +499,14 @@ interface ListadoPanel {
   total: number
   total_mas: boolean
   truncado: boolean
+}
+
+/** PDF creado por NEXA: la tarjeta del panel lo enseña con su botón de descarga. */
+interface DocumentoPanel {
+  id: number
+  nombre: string
+  url: string | null
+  bytes: number
 }
 
 const MAX_FILAS_PANEL = 500
@@ -534,6 +598,8 @@ interface Sesion {
   listados: ListadoPanel[]
   propuestas: PropuestaPanel[]
   ejecuciones: EjecucionPanel[]
+  documentos: DocumentoPanel[]
+  correos: CorreoPanel[]
   ultimoUsuario: string
   permisos: () => Promise<Permisos>
   uid: string
@@ -682,6 +748,68 @@ async function ejecutarCambio(sb: SupabaseClient, entrada: Record<string, unknow
   }
 }
 
+const etiquetaClave = (c: string) => {
+  const t = c.replace(/_desc$/, ' (desc.)').replace(/_nombre$/, ' (nombre)').replace(/_/g, ' ')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+async function herramientaPdf(sb: SupabaseClient, entrada: Record<string, unknown>, sesion: Sesion): Promise<{ texto: string; error: boolean }> {
+  const nombre = (typeof entrada.nombre === 'string' ? entrada.nombre : 'documento').trim().replace(/\.pdf$/i, '').replace(/[^A-Za-z0-9áéíóúüñÁÉÍÓÚÜÑ _.-]/g, '').trim().slice(0, 60) || 'documento'
+  const titulo = typeof entrada.titulo === 'string' && entrada.titulo.trim() ? entrada.titulo.trim().slice(0, 120) : nombre
+  const firma = `Sacado por ${sesion.email} · ${ahoraCanarias()}`
+  let pdf: Uint8Array
+  let aviso = ''
+  if (entrada.origen === 'texto') {
+    const texto = typeof entrada.texto === 'string' ? entrada.texto.trim().slice(0, 30000) : ''
+    if (!texto) return { texto: 'Falta el texto del PDF.', error: true }
+    pdf = await crearPdf({ titulo, firma, texto })
+  } else {
+    const l = sesion.listados[sesion.listados.length - 1]
+    if (!l) return { texto: 'No hay ningún listado en esta respuesta: sácalo primero con ejecutar_listado y luego crea el PDF.', error: true }
+    const etiquetas = new Map<string, string>()
+    for (const e of Array.isArray(entrada.etiquetas) ? entrada.etiquetas : []) {
+      const x = e as { clave?: unknown; etiqueta?: unknown }
+      if (typeof x.clave === 'string' && typeof x.etiqueta === 'string') etiquetas.set(x.clave, x.etiqueta.slice(0, 60))
+    }
+    const agrupado = l.definicion.agrupar.length > 0
+    const columnas: ColumnaPdf[] = l.columnas.map((c) => ({
+      clave: c.clave,
+      etiqueta: etiquetas.get(c.clave) ?? etiquetaClave(c.clave),
+      tipo: c.tipo,
+      dec: c.tipo === 'num' ? (l.filas.every((f) => Number.isInteger(Number(f[c.clave] ?? 0))) ? 0 : 2) : undefined,
+      suma: agrupado && c.suma,
+    }))
+    const separar = typeof entrada.separar_por === 'string' && entrada.separar_por.trim() ? entrada.separar_por.trim() : undefined
+    if (separar && (agrupado || !columnas.some((c) => c.clave === separar))) {
+      return { texto: `No puedo separar por «${separar}»: tiene que ser una columna de la tabla y el listado no puede ir agrupado. Saca el listado incluyendo esa columna.`, error: true }
+    }
+    const parcial = l.truncado || l.total_mas || l.total > l.filas.length
+    if (parcial) aviso = ' AVISA al usuario de que el PDF lleva solo las primeras filas del listado.'
+    pdf = await crearPdf({
+      titulo,
+      subtitulo: [l.codigo ? `Listado ${l.codigo}` : '', parcial ? `Muestra las primeras ${l.filas.length} de ${l.total_mas ? 'más de 50.000' : l.total} filas` : `${l.filas.length} filas`].filter(Boolean).join(' · '),
+      firma,
+      columnas,
+      filas: l.filas,
+      separar,
+      etiquetaSeparar: separar ? (etiquetas.get(separar) ?? etiquetaClave(separar)) : undefined,
+    })
+  }
+  const archivo = `${nombre}.pdf`
+  const ruta = `${sesion.uid}/${Date.now()}-${nombre.replace(/ /g, '_')}.pdf`
+  const { error: eSube } = await sb.storage.from('nexa-documentos').upload(ruta, pdf, { contentType: 'application/pdf', upsert: false })
+  if (eSube) return { texto: `No he podido guardar el PDF: ${eSube.message}`, error: true }
+  const { data, error } = await sb.from('nexa_documento').insert({ nombre: archivo, ruta, bytes: pdf.length }).select('id').single()
+  if (error || !data) return { texto: `PDF subido pero no registrado: ${error?.message ?? 'sin respuesta'}`, error: true }
+  const { data: firmada } = await sb.storage.from('nexa-documentos').createSignedUrl(ruta, 7 * 24 * 3600, { download: archivo })
+  const id = (data as { id: number }).id
+  sesion.documentos.push({ id, nombre: archivo, url: firmada?.signedUrl ?? null, bytes: pdf.length })
+  return {
+    texto: `PDF guardado: documento nº ${id} «${archivo}». El panel enseña la tarjeta con «Descargar». Para mandarlo por correo: preparar_correo con documentos: [${id}].${aviso}`,
+    error: false,
+  }
+}
+
 async function ejecutarHerramienta(
   sb: SupabaseClient,
   nombre: string,
@@ -691,6 +819,12 @@ async function ejecutarHerramienta(
   const { rutas, permisos } = sesion
   if (nombre === 'proponer_cambio') return await proponerCambio(sb, entrada, sesion)
   if (nombre === 'ejecutar_cambio') return await ejecutarCambio(sb, entrada, sesion)
+  if (nombre === 'crear_pdf') return await herramientaPdf(sb, entrada, sesion)
+  if (nombre === 'preparar_correo') {
+    const r = await prepararCorreo(sb, entrada)
+    if (r.correo) sesion.correos.push(r.correo)
+    return { texto: r.texto, error: r.error }
+  }
   if (nombre === 'describir_funciones') {
     const { data, error } = await sb.rpc('fn_nexa_funciones', { p_texto: typeof entrada.texto === 'string' ? entrada.texto.slice(0, 200) : '' })
     if (error) return { texto: `Error: ${error.message}`, error: true }
@@ -877,7 +1011,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return fallo('metodo', 'Usa POST.')
 
-  let cuerpo: { mensajes?: MensajeEntrada[]; contexto?: ContextoEntrada; credencial?: Credencial }
+  let cuerpo: { mensajes?: MensajeEntrada[]; contexto?: ContextoEntrada; credencial?: Credencial; accion?: string; correo?: number }
   try {
     cuerpo = await req.json()
   } catch {
@@ -886,8 +1020,10 @@ Deno.serve(async (req) => {
   const entrada = (Array.isArray(cuerpo.mensajes) ? cuerpo.mensajes : [])
     .filter((m) => m && (m.rol === 'usuario' || m.rol === 'nexa') && typeof m.texto === 'string' && m.texto.trim())
     .slice(-MAX_MENSAJES)
-  if (!entrada.length || entrada[entrada.length - 1].rol !== 'usuario') return fallo('peticion', 'No hay pregunta.')
-  if (entrada.some((m) => m.texto.length > MAX_TEXTO)) return fallo('peticion', 'El mensaje es demasiado largo.')
+  if (cuerpo.accion !== 'enviar_correo') {
+    if (!entrada.length || entrada[entrada.length - 1].rol !== 'usuario') return fallo('peticion', 'No hay pregunta.')
+    if (entrada.some((m) => m.texto.length > MAX_TEXTO)) return fallo('peticion', 'El mensaje es demasiado largo.')
+  }
 
   // Cliente de Supabase COMO EL USUARIO (clave pública + su JWT): mismos permisos y RLS.
   const authorization = req.headers.get('Authorization') ?? ''
@@ -907,6 +1043,14 @@ Deno.serve(async (req) => {
     })
   }
   const usuario = usuarioData.user.email ?? usuarioData.user.id
+
+  // Botón «Enviar» de la tarjeta de un correo: lo envía la persona, no la IA.
+  if (cuerpo.accion === 'enviar_correo') {
+    const idCorreo = Number(cuerpo.correo)
+    if (!Number.isInteger(idCorreo) || idCorreo <= 0) return fallo('peticion', 'Falta el correo.')
+    const r = await enviarCorreo(sb, idCorreo, { uid: usuarioData.user.id, email: usuario })
+    return json(r.ok ? { ok: true, estado: r.estado } : { ok: false, codigo: 'correo', error: r.error })
+  }
 
   const apiKey = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim().replace(/^["']+|["']+$/g, '')
   if (!apiKey) {
@@ -959,6 +1103,8 @@ Deno.serve(async (req) => {
     listados,
     propuestas: [],
     ejecuciones: [],
+    documentos: [],
+    correos: [],
     ultimoUsuario: entrada[entrada.length - 1].texto,
     permisos,
     uid: usuarioData.user.id,
@@ -1005,7 +1151,7 @@ Deno.serve(async (req) => {
       const usos = respuesta.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use')
       if (respuesta.stop_reason !== 'tool_use' || !usos.length || ultimaVuelta) {
         const aviso = respuesta.stop_reason === 'max_tokens' ? '\n\n_(Respuesta cortada por longitud.)_' : ''
-        const porDefecto = sesion.propuestas.length ? 'Revisa la propuesta y confírmala si está bien.' : sesion.ejecuciones.length ? 'Hecho.' : listados.length ? 'Aquí lo tienes.' : 'No tengo una respuesta para eso.'
+        const porDefecto = sesion.propuestas.length ? 'Revisa la propuesta y confírmala si está bien.' : sesion.ejecuciones.length ? 'Hecho.' : sesion.correos.length ? 'Te he preparado el correo: revísalo y envíalo con el botón.' : sesion.documentos.length ? 'Aquí tienes el PDF.' : listados.length ? 'Aquí lo tienes.' : 'No tengo una respuesta para eso.'
         return json({
           ok: true,
           texto: ([...textoAntes, texto].filter(Boolean).join('\n\n') || porDefecto) + aviso,
@@ -1013,6 +1159,8 @@ Deno.serve(async (req) => {
           listados,
           propuestas: sesion.propuestas,
           ejecuciones: sesion.ejecuciones,
+          documentos: sesion.documentos,
+          correos: sesion.correos,
           consultas,
           modelo: respuesta.model,
         })

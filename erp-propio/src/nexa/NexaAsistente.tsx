@@ -6,16 +6,19 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as Key
 import { useLocation, useNavigate } from 'react-router-dom'
 import { usePermisos } from '../lib/PermisosContext'
 import { supabase } from '../lib/supabase'
-import { AlertTriangle, ArrowUpRight, CheckCircle2, FileSpreadsheet, KeyRound, Maximize2, Mic, Minimize2, Minus, PenLine, Printer, RotateCcw, Save, SendHorizontal, Square, Table2, Volume2, VolumeX, X } from 'lucide-react'
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Download, FileSpreadsheet, FileText, KeyRound, Maximize2, Mail, Mic, Minimize2, Minus, PenLine, Printer, RotateCcw, Save, SendHorizontal, Square, Table2, Volume2, VolumeX, X } from 'lucide-react'
 import { NexaAvatar } from './NexaAvatar'
 import { getNexaState, onNexaState, type EstadoNexa } from './estado'
 import { contextoActual } from './contexto'
 import {
   abrirPanel,
   alternarPanel,
+  cancelarCorreoNexa,
   cancelarPropuesta,
   cerrarPanel,
+  enviarCorreoNexa,
   enviarMensaje,
+  pararNexa,
   estadoPropuesta,
   getConversacion,
   nuevaConversacion,
@@ -24,6 +27,8 @@ import {
   useConversacion,
   vozDisponible,
   type CambioNexa,
+  type CorreoNexa,
+  type DocumentoNexa,
   type EjecucionNexa,
   type MensajeNexa,
   type OpcionesEnvio,
@@ -219,6 +224,11 @@ function NexaPanel() {
   }
 
   function onTecla(e: KeyboardEventReact<HTMLTextAreaElement>) {
+    if (e.key === 'Escape' && conv.pensando) {
+      e.preventDefault()
+      pararNexa()
+      return
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       enviar()
@@ -372,15 +382,27 @@ function NexaPanel() {
           >
             {dictado ? <Square size={11} fill="currentColor" /> : <Mic size={16} />}
           </button>
-          <button
-            type="button"
-            onClick={() => enviar()}
-            disabled={!texto.trim() || conv.pensando}
-            title="Enviar (Intro) · Mayús+Intro: nueva línea"
-            className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-full bg-[#1f4e9c] text-white disabled:bg-slate-300"
-          >
-            <SendHorizontal size={15} />
-          </button>
+          {conv.pensando ? (
+            <button
+              type="button"
+              onClick={pararNexa}
+              title="Parar: NEXA deja lo que está haciendo (Esc)"
+              aria-label="Parar a NEXA"
+              className="flex h-[28px] flex-none items-center justify-center gap-1 rounded-full bg-[#c62828] px-2.5 text-[11px] font-bold text-white hover:bg-[#a31f1f]"
+            >
+              <Square size={10} fill="currentColor" /> Parar
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => enviar()}
+              disabled={!texto.trim()}
+              title="Enviar (Intro) · Mayús+Intro: nueva línea"
+              className="flex h-[28px] w-[28px] flex-none items-center justify-center rounded-full bg-[#1f4e9c] text-white disabled:bg-slate-300"
+            >
+              <SendHorizontal size={15} />
+            </button>
+          )}
         </div>
         <div className="mt-1 flex justify-between px-0.5 text-[10px] text-slate-500">
           <span>Con tus permisos · todo cambio se confirma antes</span>
@@ -547,6 +569,8 @@ function Mensaje({
       {m.listado && <TablaListado l={m.listado} onAbrir={onAbrir} onEnviar={onEnviar} pensando={pensando} />}
       {m.propuesta && <TarjetaPropuesta p={m.propuesta} mensajes={mensajes} onEnviar={onEnviar} pensando={pensando} />}
       {m.ejecucion && <TarjetaEjecucion e={m.ejecucion} />}
+      {m.documentos?.map((d) => <TarjetaDocumento key={d.id} d={d} />)}
+      {m.correos?.map((c) => <TarjetaCorreo key={c.id} c={c} />)}
       {rutas.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {rutas.map((r) => (
@@ -909,6 +933,83 @@ function TarjetaPropuesta({
       ) : (
         <div className="px-2 pb-1.5 pt-1 text-[11.5px] font-semibold text-slate-600">
           {estado === 'ejecutada' ? 'Hecho (mira el resultado abajo).' : estado === 'cancelada' ? 'Cancelada: no se ha cambiado nada.' : 'Caducada: pídeselo otra vez a NEXA.'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const tamano = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
+
+/** PDF que NEXA ha creado y guardado: descarga (el enlace dura 7 días; el archivo queda guardado). */
+function TarjetaDocumento({ d }: { d: DocumentoNexa }) {
+  return (
+    <div className="mt-2 flex items-center gap-2 rounded border border-[#1A5C1A]/30 bg-[#F2F8F2] px-2 py-1.5" data-nexa="documento">
+      <FileText size={18} className="flex-none text-[#1A5C1A]" />
+      <div className="min-w-0 flex-1">
+        <div className="gw-seleccionable truncate text-[12.5px] font-semibold text-slate-800" title={d.nombre}>
+          {d.nombre}
+        </div>
+        <div className="text-[11px] text-slate-500">PDF guardado · {tamano(d.bytes)} · nº {d.id}</div>
+      </div>
+      {d.url ? (
+        <a href={d.url} target="_blank" rel="noreferrer" download={d.nombre} className="flex flex-none items-center gap-1 rounded bg-[#1A5C1A] px-2 py-1 text-[11.5px] font-bold text-white hover:bg-[#237523]">
+          <Download size={13} /> Descargar
+        </a>
+      ) : (
+        <span className="text-[11px] text-slate-500">Sin enlace</span>
+      )}
+    </div>
+  )
+}
+
+/** Correo preparado por NEXA: NO se ha enviado; lo envía la persona con el botón (la IA no puede). */
+function TarjetaCorreo({ c }: { c: CorreoNexa }) {
+  const listo = c.estado === 'borrador' && !c.enviando
+  return (
+    <div className="mt-2 rounded border border-[#1f4e9c]/30 bg-[#eef3fb]" data-nexa="correo" data-estado={c.estado}>
+      <div className="flex items-center gap-1.5 border-b border-black/5 px-2 py-1">
+        <Mail size={14} className="text-[#1f4e9c]" />
+        <span className="text-[11.5px] font-bold text-[#1f4e9c]">Correo {c.estado === 'borrador' ? 'preparado (sin enviar)' : c.estado === 'enviado' ? 'enviado' : 'cancelado'}</span>
+      </div>
+      <div className="gw-seleccionable space-y-0.5 px-2 py-1.5 text-[12px] text-slate-700">
+        <div>
+          <b>Para:</b> {c.para.join(', ')}
+        </div>
+        {c.cc.length > 0 && (
+          <div>
+            <b>Cc:</b> {c.cc.join(', ')}
+          </div>
+        )}
+        <div>
+          <b>Asunto:</b> {c.asunto}
+        </div>
+        {c.adjuntos.length > 0 && (
+          <div>
+            <b>Adjuntos:</b> {c.adjuntos.map((a) => a.nombre).join(', ')}
+          </div>
+        )}
+        <div className="mt-1 max-h-[140px] overflow-auto whitespace-pre-wrap rounded bg-white/80 p-1.5 text-[12px] leading-[17px]">{c.cuerpo}</div>
+      </div>
+      {c.error && (
+        <div className="mx-2 mb-1 rounded bg-red-50 px-2 py-1 text-[11.5px] text-red-800" role="alert">
+          {c.error}
+        </div>
+      )}
+      {c.estado === 'borrador' && (
+        <div className="flex items-center gap-2 border-t border-black/5 px-2 py-1.5">
+          <button
+            type="button"
+            disabled={!listo}
+            onClick={() => void enviarCorreoNexa(c.id)}
+            className="flex items-center gap-1 rounded bg-[#1f4e9c] px-2.5 py-1 text-[12px] font-bold text-white hover:bg-[#173d7a] disabled:bg-slate-300"
+          >
+            <SendHorizontal size={13} /> {c.enviando ? 'Enviando…' : 'Enviar'}
+          </button>
+          <button type="button" disabled={!listo} onClick={() => void cancelarCorreoNexa(c.id)} className="rounded border border-slate-300 bg-white px-2.5 py-1 text-[12px] text-slate-700 hover:bg-slate-100 disabled:opacity-50">
+            Cancelar
+          </button>
+          <span className="text-[10.5px] text-slate-500">Se envía solo si pulsas «Enviar».</span>
         </div>
       )}
     </div>
