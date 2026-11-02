@@ -26,6 +26,34 @@ export interface EntradaPdf {
   texto?: string
 }
 
+/** Mismo criterio que src/lib/listados/resultado.ts (resaltesResultado): mes azul, año amarillo, mejor cifra en negrita. */
+function resaltes(columnas: ColumnaPdf[], filas: Record<string, unknown>[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const c of columnas) {
+    if (c.tipo === 'num' && /pct|porc|variaci|crec/i.test(c.clave)) filas.forEach((f, i) => { const v = Number(f[c.clave]); if (v > 0) out.set(`${i}:${c.clave}`, 'sube'); else if (v < 0) out.set(`${i}:${c.clave}`, 'baja') })
+  }
+  const medidas = columnas.filter((c) => c.tipo === 'num' && !['numero', 'n_factura', 'anio', 'tarifa', 'registros'].includes(c.clave))
+  if (!medidas.length || filas.length < 2) return out
+  const principal = medidas.find((c) => /importe|total|venta|base|facturaci/i.test(c.clave)) ?? medidas[0]
+  const tiempos = columnas.filter((c) => c.clave === 'mes' || c.clave === 'anio')
+  const dims = columnas.filter((c) => c.tipo !== 'num' && c.clave !== 'mes' && c.clave !== 'anio')
+  const num = (v: unknown) => Number(v) || 0
+  for (const t of tiempos) {
+    const grupos = new Map<string, number[]>()
+    filas.forEach((f, i) => {
+      const k = dims.map((d) => String(f[d.clave] ?? '')).join('|')
+      grupos.set(k, [...(grupos.get(k) ?? []), i])
+    })
+    for (const idx of grupos.values()) {
+      if (idx.length < 2) continue
+      const mejor = idx.reduce((a, b) => (num(filas[b][principal.clave]) > num(filas[a][principal.clave]) ? b : a))
+      out.set(`${mejor}:${t.clave}`, t.clave === 'mes' ? 'mes' : 'anio')
+      out.set(`${mejor}:${principal.clave}`, 'max')
+    }
+  }
+  return out
+}
+
 const VERDE = rgb(0.102, 0.361, 0.102)
 const VERDE_CLARO = rgb(0.949, 0.973, 0.949)
 const GRIS = rgb(0.35, 0.35, 0.35)
@@ -155,10 +183,14 @@ export async function crearPdf(e: EntradaPdf): Promise<Uint8Array> {
     }
     if (par || forzarTotal) pag.drawRectangle({ x: MARGEN, y: y - alto, width: util, height: alto, color: VERDE_CLARO })
     let x = MARGEN
+    const marca = marcas.get(f)
     columnas.forEach((c, i) => {
+      const z = marca?.get(c.clave)
+      if (z === 'mes') pag.drawRectangle({ x, y: y - alto, width: anchos[i], height: alto, color: rgb(0.81, 0.89, 0.98) })
+      if (z === 'anio') pag.drawRectangle({ x, y: y - alto, width: anchos[i], height: alto, color: rgb(1, 0.95, 0.69) })
       celdas[i].forEach((ln, k) => {
         const w = normal.widthOfTextAtSize(ln, TAM)
-        pag.drawText(ln, { x: c.tipo === 'num' ? x + anchos[i] - INT - w : x + INT, y: y - 9 - k * (TAM + 2), size: TAM, font: forzarTotal ? negrita : normal, color: rgb(0.1, 0.1, 0.1) })
+        pag.drawText(ln, { x: c.tipo === 'num' ? x + anchos[i] - INT - w : x + INT, y: y - 9 - k * (TAM + 2), size: TAM, font: forzarTotal || z ? negrita : normal, color: z === 'sube' ? rgb(0.12, 0.31, 0.61) : z === 'baja' ? rgb(0.75, 0, 0) : rgb(0.1, 0.1, 0.1) })
       })
       x += anchos[i]
     })
@@ -166,8 +198,15 @@ export async function crearPdf(e: EntradaPdf): Promise<Uint8Array> {
     y -= alto
   }
 
+  const marcas = new Map<Record<string, unknown>, Map<string, string>>()
   const tabla = (filas: Record<string, unknown>[]) => {
     filaCabecera()
+    const r = resaltes(columnas, filas)
+    filas.forEach((f, i) => {
+      const m = new Map<string, string>()
+      for (const c of columnas) { const z = r.get(`${i}:${c.clave}`); if (z) m.set(c.clave, z) }
+      marcas.set(f, m)
+    })
     filas.forEach((f, i) => dibujarFila(f, i % 2 === 1))
     const sumas = columnas.filter((c) => c.suma && c.tipo === 'num')
     if (sumas.length && filas.length) {
