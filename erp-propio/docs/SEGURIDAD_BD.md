@@ -492,3 +492,14 @@ esas tablas llevan un trigger `trg_auditoria_nexa_*` con `WHEN (erp.nexa_origen 
 `auditoria` cuando el cambio lo hace NEXA, con su origen «NEXA · nivel N · propuesta P · motivo». El uso normal del
 ERP no cambia. `empresa_contable` y `usuario_empresa_contable` (contabilidad multiempresa) no tenían auditoría y ya
 la tienen. `fn_nexa_tablas_sin_rastro()` devuelve las tablas de negocio sin trigger de auditoría: debe salir vacía.
+
+## NEXA: PDF, correo y botón Parar (01/11/2026)
+
+- `crear_pdf` guarda PDFs en el bucket privado `nexa-documentos` (carpeta = uid del usuario) y los registra en `nexa_documento`.
+- `preparar_correo` solo deja un borrador en `nexa_correo`. **La IA nunca envía**: lo envía el botón «Enviar» de la tarjeta
+  (`accion: enviar_correo`), con el permiso `accion:nexa-enviar-correo` (GERENCIA lo tiene), máx. 5 destinatarios y 30 envíos/24 h.
+- Para que el envío funcione hay que poner en Supabase → Edge Functions → Secrets: `RESEND_API_KEY` y `EMAIL_FROM`
+  (opcional `EMAIL_REPLY_TO`). Sin ellos el botón avisa «El envío de correo aún no está configurado».
+- Botón **Parar** (o Esc) en el panel: aborta la petición en curso y no cambia nada.
+- Las herramientas `crear_pdf` y `preparar_correo` van sin `strict`: con más de ~9 herramientas estrictas la API rechaza la
+  petición (400 «compiled grammar is too large»).
