@@ -16,6 +16,8 @@ import ImportarReservas from '../components/ImportarReservas'
 import ImportarAirbnb from '../components/ImportarAirbnb'
 import { nombreDe, personasDe } from '../lib/huesped'
 import { num, numSuelto } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_RESERVAS } from '../lib/operativas'
 
 const STAY_LABELS: Record<StayType, string> = {
   '1semana': '1 Semana', '2semanas': '2 Semanas', '3semanas': '3 Semanas',
@@ -144,6 +146,7 @@ export default function Reservations() {
           </div>
         }
       />
+      <Operativa titulo="Reservas" reglas={OPERATIVA_RESERVAS} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-5">

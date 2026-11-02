@@ -8,6 +8,8 @@ import { redondea } from '../lib/deducible'
 import { cuentasDe, EJERCICIO_APP, mesesDe, TRIMESTRES, type Periodo } from '../lib/cuentas'
 import PageHeader from '../components/ui/PageHeader'
 import { num, numSuelto } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_ANALITICA } from '../lib/operativas'
 
 function etiquetaPeriodo(periodo: Periodo, year: number): string {
   if (periodo === 'anual') return String(year)
@@ -124,6 +126,7 @@ export default function Analytics() {
           </div>
         }
       />
+      <Operativa titulo="Analítica" reglas={OPERATIVA_ANALITICA} />
 
       {/* Ejercicio viejo del que solo se guardaron las estancias: se dice, en vez
           de enseñar ceros que parecen un error de la aplicación. */}
