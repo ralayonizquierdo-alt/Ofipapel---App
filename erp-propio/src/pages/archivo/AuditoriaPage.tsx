@@ -45,6 +45,16 @@ export function AuditoriaPage() {
     }
   })
   const [ventanas, setVentanas] = useState<Fila[]>([])
+  // Comprobar que nadie ha tocado la auditoría por fuera del programa (sellos encadenados).
+  const [integridad, setIntegridad] = useState<Integridad | null>(null)
+  const [comprobando, setComprobando] = useState(false)
+  async function comprobarIntegridad() {
+    setComprobando(true)
+    const { data, error: e } = await supabase.rpc('fn_auditoria_comprobar_integridad')
+    setComprobando(false)
+    if (e) return setError(e.message)
+    setIntegridad(data as Integridad)
+  }
   const cambiarModoDetalle = () =>
     setDetalleEnVentana((v) => {
       try {
@@ -203,6 +213,15 @@ export function AuditoriaPage() {
             🔍 Ver detalle
           </button>
         )}
+        <button
+          type="button"
+          className="gw-btn h-[28px]"
+          disabled={comprobando}
+          onClick={() => void comprobarIntegridad()}
+          title="Comprueba que nadie ha borrado, cambiado o metido apuntes por fuera del programa"
+        >
+          {comprobando ? 'Comprobando…' : '🔐 Comprobar integridad'}
+        </button>
         <button type="button" className="gw-btn h-[28px]" onClick={() => setAyuda((a) => !a)}>
           Operativa
         </button>
@@ -284,6 +303,40 @@ export function AuditoriaPage() {
           </div>
         )}
       </div>
+      {integridad && (
+        <GwVentanaFlotante titulo="Integridad de la auditoría" onCerrar={() => setIntegridad(null)} ancho={480}>
+          <div className="flex flex-col gap-1.5 p-2 text-[13px]">
+            {integridad.correcto ? (
+              <div className="border border-[#1a7f37] bg-[#eaf6ec] p-2 font-bold text-[#1a7f37]">
+                ✅ Todo correcto: nadie ha tocado la auditoría por fuera del programa.
+              </div>
+            ) : (
+              <div className="border border-[#8c1d12] bg-[#fdecea] p-2 font-bold text-[#8c1d12]">⚠ ¡ATENCIÓN! La auditoría se ha tocado por fuera del programa.</div>
+            )}
+            <div>
+              {integridad.sellos} sello(s) comprobados, hasta el apunte nº {integridad.hasta_id ?? '—'}
+              {integridad.ultimo_sello ? ` (último sello: ${fechaHora(integridad.ultimo_sello)})` : ''}.
+            </div>
+            {integridad.fallos.map((f, i) => (
+              <div key={i} className="text-[#8c1d12]">
+                Apuntes nº {f.desde + 1} a {f.hasta}: {f.motivo}
+              </div>
+            ))}
+            {integridad.tablas_sin_registro.length > 0 && (
+              <div className="text-[#8c1d12]">Han dejado de registrarse en la auditoría: {integridad.tablas_sin_registro.map(pantalla).join(', ')}.</div>
+            )}
+            {integridad.permisos_abiertos.length > 0 && (
+              <div className="text-[#8c1d12]">Alguien ha abierto permisos para escribir en la auditoría: {integridad.permisos_abiertos.join(', ')}.</div>
+            )}
+            {!integridad.correcto && (
+              <div className="text-[12px]">Qué hacer: no toques nada y avisa a los demás super administradores. El detalle de cuándo pasó está en las fechas de los sellos.</div>
+            )}
+            <div className="text-[11px] text-[#777]">
+              Cada hora se sella lo nuevo con una huella encadenada con la anterior. Los últimos 10 minutos todavía no están sellados.
+            </div>
+          </div>
+        </GwVentanaFlotante>
+      )}
       {ventanas.map((f, i) => (
         <GwVentanaFlotante
           key={f.id}
@@ -296,4 +349,14 @@ export function AuditoriaPage() {
       ))}
     </div>
   )
+}
+
+interface Integridad {
+  correcto: boolean
+  sellos: number
+  hasta_id: number | null
+  ultimo_sello: string | null
+  fallos: { tramo: number; desde: number; hasta: number; motivo: string }[]
+  tablas_sin_registro: string[]
+  permisos_abiertos: string[]
 }

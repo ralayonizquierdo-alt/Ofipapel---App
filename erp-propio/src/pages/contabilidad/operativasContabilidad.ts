@@ -45,7 +45,7 @@ export const OPERATIVAS_CONTABILIDAD: Record<string, BloqueOperativa[]> = {
       ],
       notas: [
         'Nadie puede aprobar un asiento suyo, tampoco los super administradores: lo aprueba otro.',
-        'El importe se cambia en Archivo → Parámetros → Contabilidad (cambiarlo avisa a los super administradores).',
+        'El importe solo se cambia con un Acuerdo de Dirección (Archivo → Acuerdos de Dirección).',
       ],
     },
     {

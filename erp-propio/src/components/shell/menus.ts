@@ -56,6 +56,11 @@ export const MENUS: TopMenu[] = [
       item('Parámetros', { to: '/archivo/parametros', description: 'Parámetros generales del programa (sin captura)' }),
       // Propio del ERP: registro de todos los cambios (solo super administradores).
       item('Auditoría', { to: '/archivo/auditoria', soloSuperAdmin: true, description: 'Quién cambió qué y cuándo (solo super administradores)' }),
+      item('Acuerdos de Dirección', {
+        to: '/archivo/acuerdos',
+        soloSuperAdmin: true,
+        description: 'Reglas de control de la empresa: solo cambian con un acuerdo firmado (de momento, solo la gerencia)',
+      }),
       item('Uso por Operario', {
         to: '/archivo/uso',
         soloSuperAdmin: true,
@@ -536,6 +541,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad/resultados-tiendas', title: 'Resultados por Tienda' },
   { prefix: '/archivo/incidencias', title: 'Registro de incidencias' },
   { prefix: '/archivo/uso', title: 'Uso por Operario' },
+  { prefix: '/archivo/acuerdos', title: 'Acuerdos de Dirección' },
   { prefix: '/contabilidad/control', title: 'Control y Firmas' },
   { prefix: '/contabilidad', title: 'Contabilidad' },
   { prefix: '/cambiar-clave', title: 'Cambiar Contraseña' },

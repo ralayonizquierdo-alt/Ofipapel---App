@@ -355,21 +355,6 @@ function Redes() {
     void cargar()
   }
 
-  async function cambiarControl(activar: boolean) {
-    if (activar && !redes.length) return setMsg({ texto: 'Antes da de alta al menos la red de una tienda: si no, todos contarían como remotos.', error: true })
-    if (
-      activar &&
-      !confirm(
-        'Desde ahora, quien entre desde fuera de las tiendas sin permiso de teletrabajo NO podrá trabajar (también administradores).\n\n¿Has dado ya el permiso de teletrabajo a quien lo necesita (Archivo → Parámetros → Control de Accesos → Teletrabajo)?',
-      )
-    )
-      return
-    const { error } = await supabase.from('parametro').upsert({ clave: 'acceso.control_remoto', valor: activar })
-    if (error) return setMsg({ texto: `No se pudo cambiar: ${error.message}`, error: true })
-    setControlActivo(activar)
-    setMsg({ texto: activar ? 'Control de teletrabajo activado.' : 'Control de teletrabajo desactivado: solo se apunta, no se bloquea.', error: false })
-  }
-
   return (
     <div className="flex flex-col gap-3">
       <GwGroup title="Esta conexión">
@@ -439,10 +424,9 @@ function Redes() {
           <div>
             Ahora: <b>{controlActivo ? '🔒 Activado: quien entra desde fuera sin permiso no puede trabajar' : '👁 Solo se apunta (no se bloquea)'}</b>
           </div>
-          <div className="flex gap-2">
-            <button type="button" className="gw-btn" onClick={() => void cambiarControl(!controlActivo)}>
-              {controlActivo ? 'Desactivar' : 'Activar'}
-            </button>
+          <div className="text-[12px]">
+            Activarlo o desactivarlo es un protocolo de la empresa: se hace con un Acuerdo de Dirección (Archivo → Acuerdos de Dirección → Nuevo acuerdo → «Doble firma
+            o control de teletrabajo»). Antes, da de alta las redes de las tiendas y el permiso de teletrabajo de quien lo necesite.
           </div>
           <div className="text-[12px] text-[#555]">
             Quién puede teletrabajar y en qué horario se decide en Archivo → Parámetros → Control de Accesos → Teletrabajo. Vale para todos, también los
@@ -478,7 +462,7 @@ function Operativa() {
           pasos: [
             'Entra en el programa desde cada tienda y desde la oficina, abre esta pestaña y pulsa «Esta es la red de aquí» (ponle nombre).',
             'En Archivo → Parámetros → Control de Accesos → Teletrabajo, marca quién puede trabajar desde fuera y, si quieres, su horario de teletrabajo.',
-            'Cuando estén todas las redes y los permisos, pulsa «Activar» en «Control de teletrabajo».',
+            'Cuando estén todas las redes y los permisos, se activa el control con un Acuerdo de Dirección.',
           ],
           notas: [
             'Mientras no se active, solo se apunta quién entra desde fuera; no se bloquea a nadie.',

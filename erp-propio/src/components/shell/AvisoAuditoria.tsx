@@ -48,6 +48,8 @@ const ICONO: Record<string, string> = {
   'Asiento manual en caja, bancos o clientes': '🏦',
   'Cambio en el plan de cuentas': '📒',
   'Asiento pendiente de segunda firma': '✍️',
+  'Acuerdo de Dirección': '🤝',
+  'Propuesta de sucesión en la gerencia': '🚨',
   'Cambio de parámetros de control': '⚙️',
   'Cambio en las redes de las tiendas': '📶',
   Borrado: '🗑️',
@@ -67,6 +69,7 @@ export function AvisoAuditoria() {
   const navigate = useNavigate()
   const [n, setN] = useState(0)
   const [porFirmar, setPorFirmar] = useState(0)
+  const [acuerdos, setAcuerdos] = useState(0)
   const [urgentes, setUrgentes] = useState(0)
   const [horas, setHoras] = useState<string[]>(['12:00', '18:00'])
   const [vistoHasta, setVistoHasta] = useState<number>(0)
@@ -85,6 +88,7 @@ export function AvisoAuditoria() {
           pendientes?: number
           urgentes?: number
           por_firmar?: number
+          acuerdos_por_firmar?: number
           resumen?: Resumen[]
           horas?: string[]
           visto_hasta?: string | null
@@ -92,6 +96,7 @@ export function AvisoAuditoria() {
         setN(Number(d?.pendientes ?? 0))
         setUrgentes(Number(d?.urgentes ?? 0))
         setPorFirmar(Number(d?.por_firmar ?? 0))
+        setAcuerdos(Number(d?.acuerdos_por_firmar ?? 0))
         setResumen(d?.resumen ?? [])
         if (d?.horas) setHoras(d.horas)
         setVistoHasta(d?.visto_hasta ? new Date(d.visto_hasta).getTime() : 0)
@@ -130,7 +135,7 @@ export function AvisoAuditoria() {
 
   // Se ve si hay algo urgente o por firmar, o si hay avisos y ya ha llegado una de sus horas desde el último «Visto».
   const tocaHora = n > 0 && vistoHasta < ultimoHito(horas)
-  if (!superAdmin || (!urgentes && !porFirmar && !tocaHora)) return null
+  if (!superAdmin || (!urgentes && !porFirmar && !acuerdos && !tocaHora)) return null
   const nuevos = resumen.filter((r) => r.nuevos > 0)
   return (
     <div ref={caja} className="relative flex-none">
@@ -143,7 +148,7 @@ export function AvisoAuditoria() {
       >
         🛡️
         <span className="absolute -right-1.5 -top-1.5 flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-[#c42b1c] px-[3px] text-[9px] font-bold text-white">
-          {n + porFirmar}
+          {n + porFirmar + acuerdos}
         </span>
       </button>
       {abierto && (
@@ -159,6 +164,18 @@ export function AvisoAuditoria() {
               }}
             >
               ✍️ {porFirmar} asiento{porFirmar === 1 ? '' : 's'} esperando tu firma
+            </button>
+          )}
+          {acuerdos > 0 && (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded bg-[#fff4ce] px-1 py-0.5 text-left font-bold hover:bg-[#ffe9a0]"
+              onClick={() => {
+                setAbierto(false)
+                navigate('/archivo/acuerdos')
+              }}
+            >
+              🤝 {acuerdos} Acuerdo{acuerdos === 1 ? '' : 's'} de Dirección por firmar
             </button>
           )}
           {nuevos.length ? (

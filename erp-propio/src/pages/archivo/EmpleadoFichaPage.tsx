@@ -8,7 +8,7 @@ import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwOperativa } from '../../components/gw/GwOperativa'
 import { useFichaMaestro } from '../almacen/useFichaMaestro'
 import { PieEstado } from '../almacen/piezas'
-import { BloqueDireccion, CampoEnlace, ObservacionesImagen, PestanaPendiente, hoy, useEsAdministrador, useEsSuperAdministrador } from './comun'
+import { BloqueDireccion, CampoEnlace, ObservacionesImagen, PestanaPendiente, hoy, useEsAdministrador } from './comun'
 
 interface Empleado {
   codigo: string
@@ -339,7 +339,6 @@ function Seguridad({
   }, [d.auth_user_id, d.codigo])
 
   const puede = admin && !alta
-  const superAdmin = useEsSuperAdministrador()
   const tieneUsuario = Boolean(d.auth_user_id)
 
   async function enviar() {
@@ -386,10 +385,12 @@ function Seguridad({
           className="mt-2"
           label={<span className="text-[16px]">Super administrador (consulta periodos cerrados y gestiona Archivo → Periodos)</span>}
           checked={d.super_administrador}
-          disabled={!editando || superAdmin !== true}
+          // Protocolo de la empresa: solo cambia con un Acuerdo de Dirección (Archivo → Acuerdos de Dirección).
+          disabled
           onChange={(v) => onChange({ super_administrador: v })}
         />
-        {d.super_administrador && <AvisosAuditoria d={d} onChange={onChange} puede={editando && superAdmin === true} />}
+        {d.super_administrador && <AvisosAuditoria d={d} onChange={onChange} puede={false} />}
+        <span className="text-[12px] text-[#777]">Ser super administrador y sus avisos solo se cambian con un Acuerdo de Dirección (Archivo → Acuerdos de Dirección).</span>
       </GwGroup>
 
       <GwGroup title={<span className="text-[17px]">Clave de acceso</span>} className="grid grid-cols-[290px_545px_minmax(0,1fr)] gap-x-3 gap-y-1">

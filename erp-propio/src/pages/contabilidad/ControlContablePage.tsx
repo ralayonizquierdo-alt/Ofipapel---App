@@ -1,6 +1,6 @@
 // Contabilidad → Control y Firmas (Luis, 01/11/2026: «lo que más me preocupa es que alguien pueda falsear
 // las cuentas»). Tres controles, que cumplen todos, también los super administradores:
-//  · Por firmar: un asiento manual de 3.000 € o más (Parámetros → contab.importe_doble_firma) no se
+//  · Por firmar: un asiento manual de 3.000 € o más (importe fijado por Acuerdo de Dirección) no se
 //    graba hasta que lo aprueba OTRO super administrador (asiento_propuesta).
 //  · Meses: un mes cerrado no admite asientos manuales ni anulaciones con fecha de ese mes; reabrirlo
 //    pide motivo y queda en la auditoría (contab_mes_cerrado).
