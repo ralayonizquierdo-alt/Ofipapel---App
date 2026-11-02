@@ -56,6 +56,11 @@ export const MENUS: TopMenu[] = [
       item('Parámetros', { to: '/archivo/parametros', description: 'Parámetros generales del programa (sin captura)' }),
       // Propio del ERP: registro de todos los cambios (solo super administradores).
       item('Auditoría', { to: '/archivo/auditoria', soloSuperAdmin: true, description: 'Quién cambió qué y cuándo (solo super administradores)' }),
+      item('Uso por Operario', {
+        to: '/archivo/uso',
+        soloSuperAdmin: true,
+        description: 'Entradas, minutos de uso, pantallas, descargas, teletrabajo y redes de las tiendas (solo super administradores)',
+      }),
       item('Textos legales', {
         to: '/archivo/textos-legales',
         soloSuperAdmin: true,
@@ -243,6 +248,7 @@ export const MENUS: TopMenu[] = [
       ...off(['Cierre y Apertura de Ejercicio']),
       item('Exportar a Gestoría', { to: '/contabilidad/exportar', description: 'Diario y libros de IGIC en CSV para la gestoría', icono: FileDown, colorIcono: '#2b5ea8' }),
       item('Configuración Contable', { to: '/contabilidad/configuracion', description: 'Cuentas por defecto de los asientos automáticos' }),
+      item('Control y Firmas', { to: '/contabilidad/control', description: 'Asientos por firmar, cierre de meses y comprobación de que nadie ha tocado los asientos' }),
     ],
   },
   {
@@ -529,6 +535,8 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad/remesas', title: 'Remesas SEPA' },
   { prefix: '/contabilidad/resultados-tiendas', title: 'Resultados por Tienda' },
   { prefix: '/archivo/incidencias', title: 'Registro de incidencias' },
+  { prefix: '/archivo/uso', title: 'Uso por Operario' },
+  { prefix: '/contabilidad/control', title: 'Control y Firmas' },
   { prefix: '/contabilidad', title: 'Contabilidad' },
   { prefix: '/cambiar-clave', title: 'Cambiar Contraseña' },
   { prefix: '/utilidades/examinar', title: 'Examinar' },

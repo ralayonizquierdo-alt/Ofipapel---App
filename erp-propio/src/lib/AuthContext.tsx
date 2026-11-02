@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { areaElegida } from './areaTrabajo'
 
 interface AuthState {
   session: Session | null
@@ -31,12 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // captchaToken: «No soy un robot» (solo si está puesto, ver components/claves/NoSoyRobot.tsx).
     const { error } = await supabase.auth.signInWithPassword({ email, password, options: captchaToken ? { captchaToken } : undefined })
     if (error) void supabase.rpc('fn_registrar_acceso', { p_tipo: 'FALLO_CLAVE', p_tienda: null, p_usuario: email })
-    else void supabase.rpc('fn_registrar_acceso', { p_tipo: 'ENTRADA', p_tienda: null, p_usuario: email })
+    else void supabase.rpc('fn_registrar_acceso', { p_tipo: 'ENTRADA', p_tienda: null, p_usuario: email, p_area: areaElegida() })
     return { error: error?.message ?? null }
   }
 
   async function signOut() {
-    await supabase.rpc('fn_registrar_acceso', { p_tipo: 'SALIDA', p_tienda: null, p_usuario: null })
+    await supabase.rpc('fn_registrar_acceso', { p_tipo: 'SALIDA', p_tienda: null, p_usuario: null, p_area: areaElegida() })
     await supabase.auth.signOut()
   }
 

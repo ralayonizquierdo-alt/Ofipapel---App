@@ -286,6 +286,32 @@ export const SECCIONES_PARAMETROS: SeccionParametros[] = [
           },
         ],
       },
+      {
+        // Controles contra el falseo de las cuentas (Luis, 01/11/2026). Cambiarlos avisa a los super
+        // administradores (globo 🛡️). Valen para todos, también los super administradores.
+        clave: 'control',
+        titulo: 'Control y auditoría',
+        parametros: [
+          {
+            clave: 'contab.importe_doble_firma',
+            etiqueta: 'Importe a partir del cual un asiento manual necesita segunda firma (€)',
+            tipo: 'num',
+            defecto: 3000,
+            min: 0,
+            max: 1000000,
+            ayuda: 'Un asiento manual de este importe o más no se graba hasta que lo aprueba otro super administrador (Contabilidad → Control y Firmas). 0 = sin segunda firma.',
+            usa: 'Contabilidad → Diario de Asientos',
+          },
+          {
+            clave: 'acceso.control_remoto',
+            etiqueta: 'Bloquear el trabajo desde fuera de las tiendas a quien no tenga permiso de teletrabajo',
+            tipo: 'bool',
+            defecto: false,
+            ayuda: 'Antes, da de alta las redes de las tiendas (Archivo → Uso por Operario) y el permiso de teletrabajo de cada uno (Control de Accesos). Vale también para administradores.',
+            usa: 'Entrada al programa',
+          },
+        ],
+      },
     ],
   },
   {

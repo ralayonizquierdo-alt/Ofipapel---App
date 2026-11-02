@@ -16,6 +16,7 @@ import { BalanceSituacionPage } from './BalanceSituacionPage'
 import { EjercicioBar } from './EjercicioBar'
 import { ContabilidadNav } from './ContabilidadNav'
 import { EmpresasContablesPage } from './EmpresasContablesPage'
+import { ControlContablePage } from './ControlContablePage'
 import { ejercicioContable, fijarEjercicioContable } from './contabModel'
 
 /** Rutas del menú Contabilidad (todas bajo /contabilidad/…), con la barra del ejercicio arriba. */
@@ -63,6 +64,7 @@ function ContabilidadPantallas({ onEmpresa }: { onEmpresa: () => void }) {
       <Route path="tesoreria" element={<PrevisionTesoreriaPage />} />
       <Route path="exportar" element={<ExportarGestoriaPage />} />
       <Route path="configuracion" element={<ConfiguracionContablePage />} />
+      <Route path="control" element={<ControlContablePage />} />
       <Route path="*" element={<Navigate to="/contabilidad/diario" replace />} />
     </Routes>
   )

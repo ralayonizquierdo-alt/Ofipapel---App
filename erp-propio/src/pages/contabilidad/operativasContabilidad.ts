@@ -24,6 +24,45 @@ export const OPERATIVAS_CONTABILIDAD: Record<string, BloqueOperativa[]> = {
         'En un ejercicio cerrado (🔒) solo se puede consultar.',
       ],
     },
+    {
+      titulo: 'Lo que el programa no deja hacer (y cómo hacerlo bien)',
+      notas: [
+        'Modificar a mano un asiento automático (de una venta, factura, cobro…): corrige el documento de origen y el asiento se rehace solo; o anúlalo para que se vuelva a generar; o haz un asiento manual de ajuste con la diferencia.',
+        'Grabar o anular con fecha de un mes cerrado: pon la fecha de hoy y en el concepto a qué mes corresponde; si tiene que ir en ese mes, un super administrador lo reabre (Control y Firmas → Meses) con el motivo.',
+        'Cambiar o anular un asiento conciliado con el banco: primero deshaz la conciliación en Conciliación Bancaria.',
+        'Asiento manual de 3.000 € o más: no se graba en el momento; queda «pendiente de segunda firma» hasta que lo aprueba otro super administrador (Control y Firmas). Vale para todos, también los super administradores.',
+        'Todo queda en la auditoría: los asientos con fecha atrasada, los manuales en caja, bancos o clientes y las anulaciones avisan a los super administradores (globo 🛡️).',
+      ],
+    },
+  ],
+  control: [
+    {
+      titulo: 'Asientos por firmar',
+      pasos: [
+        'Aquí salen los asientos manuales de 3.000 € o más que esperan la segunda firma. Pulsa uno para ver sus apuntes.',
+        '«Aprobar» lo graba en el Diario. «Rechazar» pide el motivo, que verá quien lo hizo.',
+        'Quien lo hizo puede «Retirar» el suyo mientras esté pendiente.',
+      ],
+      notas: [
+        'Nadie puede aprobar un asiento suyo, tampoco los super administradores: lo aprueba otro.',
+        'El importe se cambia en Archivo → Parámetros → Contabilidad (cambiarlo avisa a los super administradores).',
+      ],
+    },
+    {
+      titulo: 'Meses',
+      pasos: [
+        'Cuando un mes esté revisado (IGIC presentado, banco cuadrado), pulsa «Cerrar».',
+        'Si hay que tocarlo, «Reabrir…» pide el motivo. Ciérralo otra vez al terminar.',
+      ],
+      notas: ['Los asientos automáticos de un mes cerrado se siguen generando, pero salen en el globo 🛡️ para revisarlos.'],
+    },
+    {
+      titulo: 'Integridad',
+      pasos: ['Pulsa «Comprobar integridad» de vez en cuando (por ejemplo, cada mes al cerrar).'],
+      notas: [
+        'Cada asiento lleva una huella encadenada con la del anterior, como VeriFactu. Si alguien toca la base de datos por fuera del programa, aquí sale el asiento afectado.',
+      ],
+    },
   ],
   pendientes: [
     {

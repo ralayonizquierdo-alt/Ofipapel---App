@@ -658,3 +658,8 @@ Finalidad: proteger la información de la empresa y de sus clientes, evitar erro
 Solo pueden consultar este registro los super administradores de la empresa. No se usa para ninguna otra finalidad, se conserva el tiempo necesario para esos fines y las obligaciones legales, y el empleado puede ejercer sus derechos de acceso, rectificación, supresión, limitación y oposición dirigiéndose a la empresa. Este registro se aplica a todos los usuarios del programa, incluidos los administradores.$t$,
   true, true, 'LUIS'
 where not exists (select 1 from public.auditoria_documento where titulo like 'Información a los empleados sobre el registro de uso%');
+
+-- Operaciones nuevas de la auditoría.
+alter table public.auditoria drop constraint if exists auditoria_operacion_check;
+alter table public.auditoria add constraint auditoria_operacion_check check (operacion = any (array['INSERT', 'UPDATE', 'DELETE', 'CONSULTA', 'DEPURACION',
+  'ENTRADA', 'SALIDA', 'FALLO_CLAVE', 'FUERA_HORARIO', 'PANTALLA', 'EXPORTA', 'IMPRIME', 'REMOTO_DENEGADO', 'USO_RARO']));

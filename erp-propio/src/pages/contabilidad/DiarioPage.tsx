@@ -146,6 +146,11 @@ export function DiarioPage({ modo = 'diario' }: { modo?: 'diario' | 'errores' })
           onClose={() => setEditando(null)}
           onSaved={(id) => {
             setEditando(null)
+            // Negativo: asiento grande, queda pendiente de la segunda firma (Contabilidad → Control y Firmas).
+            if (id < 0) {
+              setOk('Asiento de importe alto: NO se ha grabado todavía. Queda pendiente de que lo apruebe otro super administrador (Contabilidad → Control y Firmas).')
+              return
+            }
             setSel(id)
             setOk('Asiento guardado.')
             if (estado === 'error') setEstado('vigentes')
