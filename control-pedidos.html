@@ -598,7 +598,9 @@ function chipsQueFalta(g) {
   }
   const ids = new Set(g.pedidos.map((p) => p.id));
   const enRestos = E.restos.filter((r) => ids.has(r.pedidoId) && r.pendiente > 0 && !r.anulado).reduce((s, r) => s + r.pendiente, 0);
-  const restos = enRestos ? `<span class="chip aviso">${enRestos} ud. en restos</span>` : '';
+  const porCambiar = new Set(g.pedidos.flatMap((p) => refsQueCambian(p).map((x) => x.nuestra))).size;
+  const restos = (enRestos ? `<span class="chip aviso">${enRestos} ud. en restos</span>` : '') +
+    (porCambiar ? `<span class="chip aviso" title="Ábrelo en el pedido: «Referencias que el proveedor da con otro código»">🔗 ${porCambiar} ref. por cambiar en Géminis</span>` : '');
   if (!por.size) return `<span class="chip ok">✅ Terminada</span>${restos}`;
   const lista = (xs) => xs.length > 6 ? xs.slice(0, 6).join(', ') + '…' : xs.join(', ');
   // El Excel y la guía, uno por factura y pulsables: si ya se hizo fuera de la app, se da por hecho.
@@ -985,6 +987,56 @@ function correoReclamacion(clave, proveedor, asunto) {
   location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto || 'Reclamación de pedido')}&body=${encodeURIComponent(reclamaciones[clave] || '')}`;
 }
 /** Reclamación de UN pedido (dentro del pedido): sus faltas y sobras marcadas «Reclamar». */
+// ── Referencias que el proveedor da con otro código: para cambiarlas en Géminis ──
+/** [{ nuestra, suya, desc, descSuya, ean }] de un pedido con propuesta, sin las ya cambiadas. */
+function refsQueCambian(p, conCambiadas) {
+  if (!p.propuesta) return [];
+  const cambiadas = (E.catalogos[prov(p.proveedor)] || {}).cambiadas || {};
+  const nuestras = new Map(p.lineas.map((l) => [CP.claveRef(l.ref), l]));
+  const suyas = new Map(p.propuesta.lineas.map((l) => [l.ref, l]));
+  return Object.entries(equivalenciasDe(p))
+    .filter(([suya, nuestra]) => CP.claveRef(suya) !== CP.claveRef(nuestra) && nuestras.has(CP.claveRef(nuestra)))
+    .map(([suya, nuestra]) => ({ nuestra, suya, desc: nuestras.get(CP.claveRef(nuestra)).desc || '',
+      descSuya: (suyas.get(suya) || {}).desc || '', ean: (suyas.get(suya) || {}).ean || '', hecha: cambiadas[nuestra] === suya }))
+    .filter((x) => conCambiadas || !x.hecha);
+}
+function bloqueRefsCambian(p) {
+  const todas = refsQueCambian(p, true);
+  if (!todas.length) return '';
+  const pend = todas.filter((x) => !x.hecha);
+  const fila = (x) => `<tr${x.hecha ? ' style="opacity:.55"' : ''}><td><b>${h(x.nuestra)}</b><div class="pequeno">${h(x.desc)}</div></td><td>→</td>
+    <td><b>${h(x.suya)}</b><div class="pequeno">${h(x.descSuya)}${x.ean ? ' · EAN ' + h(x.ean) : ''}</div></td>
+    <td class="no-imprimir">${x.hecha ? `✅ <button class="btn peque" onclick="marcarRefCambiada('${p.id}', ${js(x.nuestra)}, ${js(x.suya)}, false)">deshacer</button>`
+      : `<button class="btn peque" onclick="marcarRefCambiada('${p.id}', ${js(x.nuestra)}, ${js(x.suya)}, true)">✓ Ya cambiada</button>`}</td></tr>`;
+  return `<details class="aviso-caja ${pend.length ? 'mal' : 'info'}" style="margin-top:12px" ${pend.length ? 'open' : ''}>
+    <summary><b>🔗 Referencias que el proveedor da con otro código</b> · ${pend.length ? pend.length + ' por cambiar en Géminis' : 'todas cambiadas'}</summary>
+    <div class="tabla-scroll"><table style="margin-top:6px"><tr><th>Nuestra</th><th></th><th>Del proveedor</th><th class="no-imprimir"></th></tr>${todas.map(fila).join('')}</table></div>
+    <div class="fila no-imprimir" style="margin-top:6px">
+      ${pend.length > 1 ? `<button class="btn peque" onclick="marcarRefCambiada('${p.id}', null, null, true)">✓ Todas cambiadas</button>` : ''}
+      <button class="btn peque" onclick="imprimirRefsCambian('${p.id}')">🖨️ Imprimir</button></div></details>`;
+}
+/** Apunta (por proveedor, para todos los pedidos) que esa referencia ya se cambió en Géminis. */
+function marcarRefCambiada(id, nuestra, suya, si) {
+  const p = pedidoPorId(id);
+  const k = prov(p.proveedor);
+  const c = E.catalogos[k] = E.catalogos[k] || { fecha: hoy(), archivo: '', items: {} };
+  c.cambiadas = Object.assign({}, c.cambiadas);
+  for (const x of nuestra ? [{ nuestra, suya }] : refsQueCambian(p)) {
+    if (si) c.cambiadas[x.nuestra] = x.suya; else delete c.cambiadas[x.nuestra];
+  }
+  guardar(); pintar();
+}
+function imprimirRefsCambian(id) {
+  const p = pedidoPorId(id);
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Referencias a cambiar · ${h(p.proveedor)}</title>
+  <style>${CSS_HOJA}body{font-family:system-ui,sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:4px;text-align:left;vertical-align:top}small{color:#555}</style></head><body>
+  <h1 style="font-size:17px">Referencias a cambiar en Géminis · ${h(p.proveedor)}${p.numero ? ' · pedido ' + h(p.numero) : ''} · ${h(fmtFecha(hoy()))}</h1>
+  <table><tr><th>Nuestra referencia</th><th>Nueva del proveedor</th><th>EAN</th></tr>
+  ${refsQueCambian(p).map((x) => `<tr><td><b>${h(x.nuestra)}</b><br><small>${h(x.desc)}</small></td><td><b>${h(x.suya)}</b><br><small>${h(x.descSuya)}</small></td><td>${h(x.ean)}</td></tr>`).join('')}</table>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
 function bloqueReclamacionPedido(p, filas) {
   const r = CP.aReclamar(filas, p.decisiones);
   if (!r.faltan.length && !r.sobran.length && !r.precios.length) return '';
@@ -1609,6 +1661,7 @@ function vistaComparacion(p, filas) {
     <h2>3 · Comparación y decisiones</h2>
     ${bloqueFaltasSobras(p, filas)}
     ${bloqueReclamacionPedido(p, filas)}
+    ${bloqueRefsCambian(p)}
     <h3 style="margin-top:16px">Todas las diferencias</h3>
     <div class="resumen">
       <span class="chip ok">${n.ok} cuadran</span>
@@ -2603,6 +2656,12 @@ function avisoControl(doc) {
     (doc.cabecera && doc.cabecera.observaciones ? `<div class="pequeno">Notas del documento: ${h(doc.cabecera.observaciones)}</div>` : '');
 }
 
+/** Al sustituir la tarifa o el catálogo de un proveedor se conservan su ajuste,
+ *  los emparejamientos recordados y las referencias ya cambiadas en Géminis. */
+function loQueSeConserva(antes) {
+  const c = antes || {};
+  return Object.fromEntries(['ajuste', 'equivalencias', 'cambiadas'].filter((k) => c[k]).map((k) => [k, c[k]]));
+}
 function guardarCatalogo(proveedor, archivo, catalogo) {
   if (!catalogo) return;
   const n = Object.keys(catalogo).length;
@@ -2611,8 +2670,7 @@ function guardarCatalogo(proveedor, archivo, catalogo) {
   if (n < 50) return;
   // Manda lo más reciente: una propuesta con la tarifa completa sustituye a la
   // tarifa subida antes en «Datos» (los proveedores cambian de tarifa a menudo).
-  const ajuste = (E.catalogos[prov(proveedor)] || {}).ajuste;
-  E.catalogos[prov(proveedor)] = Object.assign({ fecha: hoy(), archivo, items: catalogo }, ajuste ? { ajuste } : {});
+  E.catalogos[prov(proveedor)] = Object.assign({ fecha: hoy(), archivo, items: catalogo }, loQueSeConserva(E.catalogos[prov(proveedor)]));
 }
 /** Pone la propuesta del proveedor en el pedido. Si ya tenía una, la nueva la
  *  sustituye: se mantienen las decisiones de lo que no cambia y se quitan las
@@ -3421,7 +3479,7 @@ async function subirTarifa(file) {
     const conPrecio = Object.values(items).filter((x) => x.p != null).length;
     const antes = E.catalogos[proveedor];
     if (!confirm(`${proveedor}: ${n} artículos (${conPrecio} con precio) en ${file.name}.` + (antes ? `\nSustituye al catálogo actual (${Object.keys(antes.items || {}).length} referencias).` : '') + '\n\n¿Guardar la tarifa?')) return;
-    E.catalogos[proveedor] = Object.assign({ fecha: hoy(), archivo: file.name, items, tarifa: true }, antes && antes.ajuste ? { ajuste: antes.ajuste } : {});
+    E.catalogos[proveedor] = Object.assign({ fecha: hoy(), archivo: file.name, items, tarifa: true }, loQueSeConserva(antes));
     guardar(); pintar();
     if (errores.length && errores.length < wb.SheetNames.length) alert(`Hojas sin artículos reconocibles (no se han usado): ${errores.join(', ')}`);
   } catch (err) {
