@@ -1572,18 +1572,31 @@
     // inglés traducidos (Fabriano: «GIALLO» = amarillo, «BANANA» = amarillo claro).
     // Solo se empareja la pareja que se elige mutuamente y sin empate; se repite
     // porque al casar una, la siguiente puede quedar sin empate.
+    const mayus = (d) => String(d || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const palabras = (d) => {
-      const t = String(d || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const ws = new Set((t.match(/[A-Z]{3,}/g) || []).filter((w) => !VACIAS_DESC.has(w)));
+      const ws = new Set((mayus(d).match(/[A-Z]{3,}/g) || []).filter((w) => !VACIAS_DESC.has(w)));
       for (const w of [...ws]) for (const x of (COLORES[w] || '').split(' ').filter(Boolean)) ws.add(x);
+      // La misma sigla con las letras en otro orden (Posca «GSWB» = «BWSG»).
+      for (const w of [...ws]) if (w.length <= 5) ws.add('#' + [...w].sort().join(''));
       return ws;
     };
+    // El modelo (UM-120SP, PC-1MR, PC5M, PIN04-200) y las piezas del estuche
+    // («4-Colores» = «4P» = «/4C»): si los dos los traen y no coinciden, no es el mismo artículo.
+    const modelos = (d) => new Set((mayus(d).match(/\b[A-Z]{1,4}-?\d{1,4}(?:-\d{1,4})?[A-Z]{0,3}\b/g) || []).map((x) => x.replace(/-/g, '')));
+    const piezas = (d) => new Set((mayus(d).match(/\b\d{1,2}\s*-?\s*(?:COLORES|C|P)\b/g) || []).map((x) => parseInt(x, 10) + 'C'));
+    const colores = (ws) => new Set([...ws].filter((w) => COLORES_ES.has(w)));
+    const choca = (x, y) => x.size && y.size && ![...x].some((v) => y.has(v));
     const parecido = (a, b) => {
       if (a.cant !== b.cant) return 0;
       const ma = medidas(a.desc), mb = medidas(b.desc);
       if (ma && mb && ma !== mb) return 0;
-      const pa = palabras(a.desc); let n = 0;
-      for (const w of palabras(b.desc)) if (pa.has(w)) n++;
+      const pa = palabras(a.desc), pb = palabras(b.desc);
+      const moa = modelos(a.desc), mob = modelos(b.desc);
+      if (choca(moa, mob) || choca(piezas(a.desc), piezas(b.desc)) || choca(colores(pa), colores(pb))) return 0;
+      let n = 0;
+      for (const w of pb) if (pa.has(w)) n++;
+      for (const m of mob) if (moa.has(m)) n += 2;
+      for (const c of piezas(b.desc)) if (piezas(a.desc).has(c)) n++;
       return n >= (ma && mb ? 1 : 2) ? n : 0;
     };
     const mejor = (x, lista, f) => {
@@ -1605,6 +1618,7 @@
   }
   // Palabras que no dicen qué artículo es.
   const VACIAS_DESC = new Set(['CON', 'PARA', 'SIN', 'LOS', 'LAS', 'DEL', 'UDS', 'UNIDADES', 'PACK', 'CAJA', 'HOJAS', 'FSC', 'PVP', 'COL', 'COLOR', 'COLORES', 'THE', 'AND']);
+  const COLORES_ES = new Set(['AMARILLO', 'NARANJA', 'ROJO', 'ROSA', 'VERDE', 'AZUL', 'NEGRO', 'BLANCO', 'ORO', 'PLATA', 'GRIS', 'VIOLETA', 'LILA', 'MARRON', 'VINO', 'MORADO', 'BEIGE', 'TURQUESA', 'FUCSIA', 'SALMON', 'MARFIL']);
   // Colores de los proveedores italianos e ingleses → los nuestros.
   const COLORES = {
     GIALLO: 'AMARILLO', YELLOW: 'AMARILLO', BANANA: 'AMARILLO CLARO', CANARIO: 'AMARILLO', ALBICOCA: 'ALBARICOQUE SALMON', ALBICOCCA: 'ALBARICOQUE SALMON',
