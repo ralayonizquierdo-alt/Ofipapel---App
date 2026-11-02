@@ -10,6 +10,8 @@ import PageHeader from '../components/ui/PageHeader'
 import ImportarExcel from '../components/ImportarExcel'
 import Repairs from './Repairs'
 import { numSuelto } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_GASTOS } from '../lib/operativas'
 
 const EXPENSE_TYPE_LABELS = EXPENSE_LABELS
 
@@ -155,6 +157,7 @@ export default function Costos() {
           </div>
         }
       />
+      <Operativa titulo="Gastos" reglas={OPERATIVA_GASTOS} />
 
       {/* Filters */}
       <div className="flex gap-3 mb-5 flex-wrap">

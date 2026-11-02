@@ -8,6 +8,8 @@ import { MONTH_NAMES_ES, DAY_NAMES_ES, getDaysInMonth, getSeason } from '../lib/
 import { num } from '../lib/formato'
 import { huespedYPersonas, nombreDe, personasDe } from '../lib/huesped'
 import { ofertaDeReserva, nombreOferta } from '../lib/oferta'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_PLANNING } from '../lib/operativas'
 
 const APT_COLORS = [
   'bg-blue-400', 'bg-emerald-400', 'bg-violet-400', 'bg-amber-400',
@@ -156,6 +158,7 @@ export default function Planning() {
 
   return (
     <div className="p-6">
+      <Operativa titulo="Planning" reglas={OPERATIVA_PLANNING} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

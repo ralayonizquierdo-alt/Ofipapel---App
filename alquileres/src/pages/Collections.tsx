@@ -13,6 +13,8 @@ import { useRecordado } from '../lib/recordado'
 import FichaCuadre from '../components/FichaCuadre'
 import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
 import { num, numSuelto } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_COBROS } from '../lib/operativas'
 
 const QUARTERS = [
   { q: 1, months: [1, 2, 3], label: '1T (Ene–Mar)' },
@@ -499,6 +501,7 @@ export default function Collections() {
           </div>
         }
       />
+      <Operativa titulo="Cobros" reglas={OPERATIVA_COBROS} />
 
       {/* Un descubierto es una estancia TERMINADA y sin cobrar del todo. Lo
           que está en marcha o por venir no es un descubierto —lo normal es
@@ -529,7 +532,21 @@ export default function Collections() {
       )}
 
       {nuevoCobro && <NuevoCobro onClose={() => setNuevoCobro(false)} />}
-      {cuadre && <FichaCuadre reserva={cuadre} onClose={() => setCuadre(null)} />}
+      {cuadre && (
+        <FichaCuadre
+          reserva={cuadre}
+          onClose={() => setCuadre(null)}
+          onVerCobros={(apt, anio) => {
+            // Deja la pantalla puesta en ese apartamento y ese año, con el
+            // listado por reserva: la relación de cobros que pidió ver cuando
+            // hay un descuadre.
+            setFilterApt(apt)
+            setYear(anio)
+            setFilterMes(0)
+            setFilterQ(POR_RESERVA)
+          }}
+        />
+      )}
 
       {aFavor.length > 0 && (
         <div className="mb-6 bg-white rounded-xl shadow-sm border border-blue-200 overflow-hidden print:hidden">

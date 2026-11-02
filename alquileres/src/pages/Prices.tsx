@@ -8,6 +8,8 @@ import { Pencil, Info, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'luc
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { num, numSuelto } from '../lib/formato'
 import AplicarOferta from '../components/AplicarOferta'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_PRECIOS } from '../lib/operativas'
 
 const APT_TYPE_LABELS: Record<ApartmentType, string> = {
   '1BR': '1 Dormitorio (104, 105)',
@@ -160,6 +162,7 @@ export default function Prices() {
           </button>
         }
       />
+      <Operativa titulo="Precios" reglas={OPERATIVA_PRECIOS} />
 
       <div className={`print:hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3 ${
         soloOferta ? 'hidden' : ''}`}>

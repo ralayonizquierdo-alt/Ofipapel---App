@@ -7,6 +7,8 @@ import { creaXlsx, descarga, ESTILO, type Celda } from '../lib/exportaExcel'
 import PageHeader from '../components/ui/PageHeader'
 import CompararGestor from '../components/CompararGestor'
 import { num } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_ASESORIA } from '../lib/operativas'
 
 /**
  * La hoja que se le manda a la asesoría, con la forma del Excel de siempre.
@@ -77,6 +79,7 @@ export default function Asesoria() {
             </div>
           }
         />
+        <Operativa titulo="Asesoría" reglas={OPERATIVA_ASESORIA} />
       </div>
 
       {/* Cabecera que solo sale en el papel */}

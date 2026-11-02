@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Printer, Mail, Pencil } from 'lucide-react'
+import { Printer, Mail, Pencil, ListFilter } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { buscaTarifa, TRAMO_LABEL } from '../lib/priceCalc'
@@ -51,7 +51,18 @@ interface LineaMes {
   resto: number
 }
 
-export default function FichaCuadre({ reserva, onClose }: { reserva: Reservation; onClose: () => void }) {
+export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
+  reserva: Reservation
+  onClose: () => void
+  /**
+   * Enseñar todos los cobros de ese apartamento en ese año. Lo pidió el
+   * propietario con el descuadre delante: «que me muestre la relación de
+   * cobros de este apartamento del año en que se produce el descuadre»,
+   * porque un cobro de otra estancia del mismo piso puede explicar la
+   * diferencia.
+   */
+  onVerCobros?: (apartmentId: string, year: number) => void
+}) {
   const { apartments, payments, prices, offerPrices } = useData()
   const navigate = useNavigate()
   const r = reserva
@@ -317,6 +328,13 @@ export default function FichaCuadre({ reserva, onClose }: { reserva: Reservation
             className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
             <Pencil size={15} /> Abrir la reserva
           </button>
+          {onVerCobros && (
+            <button onClick={() => { onClose(); onVerCobros(r.apartmentId, Number(r.checkIn.slice(0, 4))) }}
+              title="Ver en la tabla todos los cobros de este apartamento en ese año"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
+              <ListFilter size={15} /> Todos los cobros del {r.apartmentId} en {r.checkIn.slice(0, 4)}
+            </button>
+          )}
           <button onClick={porCorreo}
             title="Abre tu programa de correo con el cuadre escrito, para mandárselo a la agencia"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
