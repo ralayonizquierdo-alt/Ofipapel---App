@@ -217,11 +217,30 @@ async function construirContextoCatalogo({ from, text, history, forzar = false }
     );
   }
 
+  // LA BÚSQUEDA DE LA WEB, HECHA, PARA CUANDO NO SE PUEDA CONCRETAR.
+  //
+  // Arriba van como mucho 8 productos; la web los tiene todos, con sus medidas,
+  // colores y precios. Cuando el cliente pregunta por una variante que no está
+  // en esos 8 —«¿lo hay de 70x100?», «¿lo hay en blanco?»—, lo honesto es
+  // darle esta página, no inventarse la respuesta.
+  const enlaceBusqueda = productos.length > 0 ? woocommerce.urlDeBusqueda(text) : null;
+  if (enlaceBusqueda) {
+    bloques.push(
+      `BÚSQUEDA COMPLETA EN LA WEB de lo que ha preguntado: ${enlaceBusqueda}\n` +
+      'Este enlace enseña TODO lo que tenemos de eso, con sus medidas, colores y precios — no solo los de arriba. ' +
+      'Dáselo cuando pregunte por una medida, un color, un grosor o una variante que no puedas confirmar con la lista de arriba. ' +
+      'No es mandarle a buscar: es la búsqueda ya hecha.'
+    );
+  }
+
   return {
     productContext: bloques.length > 0 ? bloques.join('\n\n') : null,
     contextoConsumibles,
     impresoras,
     fallo,
+    // Para las redes de seguridad: si hay que descartar lo que dijo la IA,
+    // esta es la respuesta honesta que se le da en su lugar.
+    enlaceBusqueda,
     // Si se llegó hasta aquí, al catálogo SÍ se le preguntó. No es lo mismo
     // "hemos mirado y no está" que "ni siquiera hemos mirado": el webhook usa
     // esta diferencia para no soltar un "¿qué estás buscando?" sin haber

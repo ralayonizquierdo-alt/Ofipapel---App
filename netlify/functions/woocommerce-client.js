@@ -808,6 +808,26 @@ function categoryUrl(slug) {
   return `https://ofipapel.net/categoria-producto/${slug}/`;
 }
 
+// LA BÚSQUEDA DE LA WEB, HECHA.
+//
+// «Una vez que entra la IA nunca acaba bien, se lía sola. Debería de haberle
+// pasado el link del cartón pluma de nuestra web» (propietario, 2/11/2026,
+// sobre la conversación en la que la IA se inventó tamaños y grosores de
+// cartón pluma que nadie había visto).
+//
+// Y es la salida correcta: la web SÍ sabe qué medidas y colores hay, y los
+// enseña todos con sus precios. Darle ese enlace no es mandarle a buscar —eso
+// sigue prohibido—: es entregarle la búsqueda ya hecha.
+//
+// El formato es el que usa el buscador de ofipapel.net (`dgwt_wcas`), tal cual
+// lo pasó el propietario.
+function urlDeBusqueda(texto) {
+  const limpio = sanitizeQuery(texto);
+  if (!limpio) return null;
+  const params = new URLSearchParams({ s: limpio, post_type: 'product', dgwt_wcas: '1' });
+  return `https://ofipapel.net/?${params.toString()}`;
+}
+
 // Busca categorías de producto por texto libre — útil cuando una búsqueda genérica
 // ("grapadoras") tiene demasiados artículos distintos como para adivinar cuál
 // quiere el cliente, y es mejor preguntar por el tipo (Tenaza, Eléctricas...) y
@@ -1036,6 +1056,7 @@ module.exports = {
   usarTiemposLargos,
   searchCategories,
   getOrder,
+  urlDeBusqueda,
   phoneMatches,
   nombreCoincide,
   formatOrderStatus,

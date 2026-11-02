@@ -3,6 +3,7 @@
 
 const {
   FAQ_RULES,
+  nombraAlgoConcreto,
   FACTURA_INFO,
   isPedidoEstadoQuestion,
   buildAiSystemPrompt,
@@ -114,7 +115,7 @@ function matchFaqRule(text) {
   // cliente que "envio" (5), que aquí aparecía de pasada. Esto ataca de raíz
   // toda una familia de choques entre palabras que veníamos parcheando uno a
   // uno.
-  const candidatas = [];
+  let candidatas = [];
   FAQ_RULES.forEach((rule, orden) => {
     let longitud = 0;
     for (const keyword of rule.keywords) {
@@ -145,6 +146,23 @@ function matchFaqRule(text) {
   // Las dos salieron de la misma conversación real, en la que un cliente
   // preguntó dos veces por una tinta HP 305XL y se llevó dos veces la lista de
   // direcciones, hasta que pidió hablar con una persona.
+  // UNA RESPUESTA DE FAMILIA NO PUEDE TAPAR UN ARTÍCULO CONCRETO.
+  //
+  // Visto en real el 2/11/2026: «Me gustaría comprar 3 agendas ingraf roma
+  // espiral del año 2027» se llevó la respuesta fija de agendas («pásate por
+  // la tienda»), y esa agenda está en la web con foto, precio y existencias.
+  //
+  // Las reglas marcadas con `familiaDeProducto` se apartan en cuanto el
+  // mensaje nombra algo más que la familia — una marca, un modelo, un tipo —,
+  // y entonces contesta el catálogo, que es quien lo sabe. «¿Tenéis agendas?»
+  // sigue llevándose la respuesta de siempre.
+  const apartadas = candidatas.filter(
+    (c) => c.rule.familiaDeProducto && nombraAlgoConcreto(normalized, c.rule.keywords)
+  );
+  if (apartadas.length > 0) {
+    candidatas = candidatas.filter((c) => !apartadas.includes(c));
+  }
+
   const deContexto = (candidata) => Boolean(candidata.rule.contexto);
   const concretas = candidatas.filter((c) => !deContexto(c));
   const contextuales = candidatas.filter(deContexto);

@@ -300,7 +300,12 @@ async function caso(etiqueta, mensajeDelCliente, respuestaDeLaIA, revisar) {
     () => {
       assert.ok(!/m[áa]ndamelo/i.test(loDicho()), 'LE LLEGÓ LA PROMESA AL CLIENTE');
       assert.ok(log.some((l) => l.t === 'botones'), 'tenía que ofrecerle una persona');
-      assert.ok(/persona del equipo/i.test(loDicho()), loDicho());
+      // Ojo con lo que se comprueba aquí: la pregunta del escalado cambia
+      // según el horario («¿quieres que te ponga en contacto…?» dentro,
+      // «…igualmente te pongamos en contacto?» fuera), así que mirar esa
+      // frase hacía que la prueba pasara o fallara según la hora del día.
+      // Lo que no cambia es lo que pone el bot por delante.
+      assert.ok(/no lo llevo yo/i.test(loDicho()), loDicho());
     }
   );
 

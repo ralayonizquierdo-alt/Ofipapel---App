@@ -86,6 +86,10 @@ const {
   compromisoInfo,
   preguntaPorAlguienDelEquipo,
   llamaPorSuNombreInfo,
+  medidasSinRespaldo,
+  prometeMirarloLuego,
+  respuestaConEnlace,
+  buildAiSystemPrompt,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
   PRODUCTO_NO_VERIFICADO_INFO,
@@ -1339,6 +1343,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     impresoras,
     fallo: falloCatalogo,
     consultado,
+    enlaceBusqueda,
   } = await construirContextoCatalogo({ from: message.from, text, history });
 
   // La web no contestó (lenta, caída, o su protección anti-bots nos bloqueó) y
@@ -1467,6 +1472,46 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       await appendToHistory(message.from, text, enviado);
       return;
     }
+  }
+
+  // UNA MEDIDA INVENTADA, O UN «DÉJAME CONSULTARLO».
+  //
+  // Visto en real el 1/11/2026 (ver medidasSinRespaldo): con cartones pluma de
+  // verdad en los resultados, la IA se inventó los tamaños y los grosores —
+  // «¿A4, A3 o 70x100? ¿3mm o 5mm?»—, confirmó un 70x100 que no existía y
+  // acabó prometiendo el precio «cuando abramos y tenga acceso al catálogo».
+  //
+  // Las redes de abajo no lo veían porque SÍ había catálogo: el fallo no era
+  // confirmar el producto, era adornarlo. Así que se comprueba aparte, y la
+  // respuesta honesta ya la tenemos hecha: la búsqueda de la web, que sí sabe
+  // qué medidas y colores hay («debería de haberle pasado el link», propietario).
+  const respaldoDeMedidas = [
+    buildAiSystemPrompt(unirContexto(contextoConsumibles, datosDeCatalogo), fichaCliente, notas, text),
+    text,
+    history.map((h) => h.content).join(' '),
+  ].join(' ');
+
+  const medidasInventadas = medidasSinRespaldo(respuesta, respaldoDeMedidas);
+  if (medidasInventadas.length > 0 || prometeMirarloLuego(respuesta)) {
+    const conEnlace = respuestaConEnlace(enlaceBusqueda, idioma);
+    console.error(
+      `whatsapp: respuesta descartada (${medidasInventadas.length ? `medidas sin respaldo: ${medidasInventadas.join(', ')}` : 'promete mirarlo luego'}).`
+    );
+    if (conEnlace) {
+      const reply = greeting + conEnlace;
+      await appendToHistory(message.from, text, reply);
+      await sendWhatsappMessage(message.from, reply);
+      return;
+    }
+    // Sin enlace que dar (la búsqueda no encontró nada), no se improvisa: se
+    // ofrece una persona, que es lo que de verdad resuelve.
+    await sendEscalateButtons(message.from, `${greeting}No quiero decirte una medida por otra. `, idioma);
+    await appendToHistory(
+      message.from,
+      text,
+      `${greeting}No quiero decirte una medida por otra. ${escalateQuestion(idioma)}`
+    );
+    return;
   }
 
   // EL BOT NO COMPROMETE A LA TIENDA.
