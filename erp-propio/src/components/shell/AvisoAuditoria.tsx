@@ -10,8 +10,27 @@ import { usePermisos } from '../../lib/PermisosContext'
 // cierre y reapertura de ejercicio o mes, cambios en el plan de cuentas o en los parámetros de control,
 // borrados, permisos, precios por debajo del coste… y los asientos que esperan su segunda firma.
 // Al pulsarlo se ve el resumen; «Ver en Auditoría» abre la lista y los da por vistos.
+// Por responsable y a sus horas (Luis, 02/11/2026): a cada super administrador solo le llegan los avisos
+// de sus departamentos (empleado.avisos_grupos) y el globo solo aparece al entrar y a sus horas
+// (empleado.avisos_horas, 12:00 y 18:00); entre medias se van juntando. Lo urgente (usuario bloqueado,
+// remoto sin permiso, asientos por firmar) sale en el momento. «Visto» lo apaga hasta la siguiente hora.
 
 const CADA_MS = 5 * 60 * 1000
+// Cuándo se abrió el programa: «al entrar» cuenta como una de las horas del globo.
+const INICIO = Date.now()
+
+/** Última hora del globo que ya ha pasado: la de entrada o una de las horas de hoy. */
+function ultimoHito(horas: string[], ahora = new Date()): number {
+  let h = INICIO
+  for (const t of horas) {
+    const [hh, mm] = t.split(':').map(Number)
+    if (Number.isNaN(hh)) continue
+    const d = new Date(ahora)
+    d.setHours(hh, mm || 0, 0, 0)
+    if (d.getTime() <= ahora.getTime() && d.getTime() > h) h = d.getTime()
+  }
+  return h
+}
 
 const ICONO: Record<string, string> = {
   'Contraseña incorrecta': '🔑',
@@ -19,8 +38,11 @@ const ICONO: Record<string, string> = {
   'Entrada remota sin permiso': '🏠',
   'Uso fuera de lo normal': '⏱️',
   'Datos de Contabilidad sacados fuera': '📤',
-  'Cierre / reapertura de ejercicio': '📕',
-  'Cierre / reapertura de mes': '📅',
+  'Usuario bloqueado por claves incorrectas': '⛔',
+  'Reapertura de ejercicio': '📕',
+  'Reapertura de mes': '📅',
+  'Cambio de cuenta bancaria': '💳',
+  'Regularización de stock': '📦',
   'Asiento anulado o modificado': '✏️',
   'Asiento con fecha atrasada': '⏪',
   'Asiento manual en caja, bancos o clientes': '🏦',
@@ -36,8 +58,8 @@ const ICONO: Record<string, string> = {
 
 interface Resumen {
   motivo: string
-  total: number
   nuevos: number
+  urgente?: boolean
 }
 
 export function AvisoAuditoria() {
@@ -45,6 +67,10 @@ export function AvisoAuditoria() {
   const navigate = useNavigate()
   const [n, setN] = useState(0)
   const [porFirmar, setPorFirmar] = useState(0)
+  const [urgentes, setUrgentes] = useState(0)
+  const [horas, setHoras] = useState<string[]>(['12:00', '18:00'])
+  const [vistoHasta, setVistoHasta] = useState<number>(0)
+  const [, setMinuto] = useState(0)
   const [resumen, setResumen] = useState<Resumen[]>([])
   const [abierto, setAbierto] = useState(false)
   const caja = useRef<HTMLDivElement>(null)
@@ -55,21 +81,36 @@ export function AvisoAuditoria() {
     const mirar = () =>
       supabase.rpc('fn_auditoria_avisos', { p_dias: 30 }).then(({ data }) => {
         if (!vivo) return
-        const d = data as { pendientes?: number; por_firmar?: number; resumen?: Resumen[] } | null
+        const d = data as {
+          pendientes?: number
+          urgentes?: number
+          por_firmar?: number
+          resumen?: Resumen[]
+          horas?: string[]
+          visto_hasta?: string | null
+        } | null
         setN(Number(d?.pendientes ?? 0))
+        setUrgentes(Number(d?.urgentes ?? 0))
         setPorFirmar(Number(d?.por_firmar ?? 0))
         setResumen(d?.resumen ?? [])
+        if (d?.horas) setHoras(d.horas)
+        setVistoHasta(d?.visto_hasta ? new Date(d.visto_hasta).getTime() : 0)
       })
     void mirar()
     const t = setInterval(() => document.visibilityState === 'visible' && void mirar(), CADA_MS)
+    // Cada minuto se mira si ha llegado una de las horas del globo.
+    const m = setInterval(() => setMinuto((x) => x + 1), 60_000)
     const vistos = () => {
       setN(0)
-      setResumen((r) => r.map((x) => ({ ...x, nuevos: 0 })))
+      setUrgentes(0)
+      setVistoHasta(Date.now())
+      setResumen([])
     }
     window.addEventListener('erp:avisos-auditoria-vistos', vistos)
     return () => {
       vivo = false
       clearInterval(t)
+      clearInterval(m)
       window.removeEventListener('erp:avisos-auditoria-vistos', vistos)
     }
   }, [superAdmin])
@@ -81,7 +122,15 @@ export function AvisoAuditoria() {
     return () => document.removeEventListener('mousedown', fuera)
   }, [abierto])
 
-  if (!superAdmin || (!n && !porFirmar)) return null
+  async function visto() {
+    await supabase.rpc('fn_auditoria_avisos_vistos')
+    window.dispatchEvent(new Event('erp:avisos-auditoria-vistos'))
+    setAbierto(false)
+  }
+
+  // Se ve si hay algo urgente o por firmar, o si hay avisos y ya ha llegado una de sus horas desde el último «Visto».
+  const tocaHora = n > 0 && vistoHasta < ultimoHito(horas)
+  if (!superAdmin || (!urgentes && !porFirmar && !tocaHora)) return null
   const nuevos = resumen.filter((r) => r.nuevos > 0)
   return (
     <div ref={caja} className="relative flex-none">
@@ -117,22 +166,31 @@ export function AvisoAuditoria() {
               <div key={r.motivo} className="flex items-center gap-1.5">
                 <span className="w-[18px] text-center">{ICONO[r.motivo] ?? '•'}</span>
                 <span className="flex-1">{r.motivo}</span>
-                <b className="text-[#c42b1c]">{r.nuevos}</b>
+                <b className="text-[#c42b1c]">
+                  {r.urgente ? '¡' : ''}
+                  {r.nuevos}
+                </b>
               </div>
             ))
           ) : (
             <div className="text-[#555]">Nada nuevo desde la última vez.</div>
           )}
-          <button
-            type="button"
-            className="gw-btn mt-1 self-end"
-            onClick={() => {
-              setAbierto(false)
-              navigate('/archivo/auditoria?avisos=1')
-            }}
-          >
-            Ver en Auditoría
-          </button>
+          <div className="mt-1 flex justify-end gap-1">
+            <button type="button" className="gw-btn" onClick={() => void visto()} title="Apagar el globo hasta la siguiente hora de avisos">
+              Visto
+            </button>
+            <button
+              type="button"
+              className="gw-btn"
+              onClick={() => {
+                setAbierto(false)
+                navigate('/archivo/auditoria?avisos=1')
+              }}
+            >
+              Ver en Auditoría
+            </button>
+          </div>
+          <div className="text-[10px] text-[#777]">Sale al entrar y a las {horas.join(' y ')}; lo urgente, en el momento.</div>
         </div>
       )}
     </div>

@@ -31,6 +31,12 @@ interface Empleado {
   rol_id: number | null
   /** Consulta periodos cerrados y gestiona Archivo → Periodos (solo lo cambia otro super administrador). */
   super_administrador: boolean
+  /** Avisos de auditoría que recibe (super administradores): todo, ventas, compras, contabilidad, seguridad. */
+  avisos_grupos: string[]
+  /** Horas a las que le sale el globo 🛡️ (además de al entrar). */
+  avisos_horas: string[]
+  /** Resumen de avisos por correo a las 18:00. */
+  avisos_correo: boolean
   /** Número de operario que se ve en listados y consultas (GeminisWin: 410…). */
   numero_operario: string | null
   auth_user_id: string | null
@@ -64,6 +70,9 @@ const VACIO: Empleado = {
   activo: true,
   rol_id: null,
   super_administrador: false,
+  avisos_grupos: [],
+  avisos_horas: ['12:00', '18:00'],
+  avisos_correo: false,
   numero_operario: null,
   auth_user_id: null,
   sugerencia_clave: null,
@@ -380,6 +389,7 @@ function Seguridad({
           disabled={!editando || superAdmin !== true}
           onChange={(v) => onChange({ super_administrador: v })}
         />
+        {d.super_administrador && <AvisosAuditoria d={d} onChange={onChange} puede={editando && superAdmin === true} />}
       </GwGroup>
 
       <GwGroup title={<span className="text-[17px]">Clave de acceso</span>} className="grid grid-cols-[290px_545px_minmax(0,1fr)] gap-x-3 gap-y-1">
@@ -457,6 +467,59 @@ function Enlaces({ d, ro, onChange }: { d: Empleado; ro: boolean; onChange: Patc
       <GwGroup title={<span className="text-[17px]">Cliente predeterminado asignado a este empleado.</span>} className="w-[66%]">
         <CampoEnlace tabla="cliente" campoNombre="nombre" titulo="Clientes" anchoCodigo={130} title="CLIENTE" value={d.cliente_codigo} disabled={ro} onChange={(v) => onChange({ cliente_codigo: v })} />
       </GwGroup>
+    </div>
+  )
+}
+
+const GRUPOS_AVISOS = [
+  { id: 'todo', texto: 'Todo (gerente)' },
+  { id: 'ventas', texto: 'Ventas' },
+  { id: 'compras', texto: 'Compras' },
+  { id: 'contabilidad', texto: 'Contabilidad' },
+  { id: 'seguridad', texto: 'Seguridad (claves, accesos, permisos)' },
+]
+
+/** Avisos de auditoría que recibe un super administrador (Luis, 02/11/2026). Solo lo cambia un super administrador. */
+function AvisosAuditoria({ d, onChange, puede }: { d: Empleado; onChange: (p: Partial<Empleado>) => void; puede: boolean }) {
+  const grupos = d.avisos_grupos ?? []
+  const marcar = (id: string, on: boolean) => onChange({ avisos_grupos: on ? [...grupos.filter((g) => g !== id), id] : grupos.filter((g) => g !== id) })
+  return (
+    <div className="mt-2 flex flex-col gap-1 border-t border-[var(--gw-border)] pt-1 text-[14px]">
+      <b>🛡️ Avisos de auditoría que recibe</b>
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {GRUPOS_AVISOS.map((g) => (
+          <label key={g.id} className="flex items-center gap-1">
+            <input type="checkbox" disabled={!puede} checked={grupos.includes(g.id)} onChange={(e) => marcar(g.id, e.target.checked)} />
+            {g.texto}
+          </label>
+        ))}
+      </div>
+      <label className="flex items-center gap-2">
+        Horas del globo (además de al entrar):
+        <GwInput
+          key={(d.avisos_horas ?? []).join(',')}
+          className="w-[140px]"
+          disabled={!puede}
+          defaultValue={(d.avisos_horas ?? []).join(', ')}
+          placeholder="12:00, 18:00"
+          title="Separadas por comas. Se guarda al salir del campo."
+          onBlur={(e) =>
+            onChange({
+              avisos_horas: e.target.value
+                .split(/[,; ]+/)
+                .map((x) => x.trim())
+                .filter((x) => /^\d{1,2}:\d{2}$/.test(x)),
+            })
+          }
+        />
+      </label>
+      <label className="flex items-center gap-1">
+        <input type="checkbox" disabled={!puede} checked={d.avisos_correo ?? false} onChange={(e) => onChange({ avisos_correo: e.target.checked })} />
+        Resumen de los avisos del día por correo a las 18:00 (al correo de su ficha)
+      </label>
+      <span className="text-[12px] text-[#777]">
+        Sin ninguno marcado recibe todos. Seguridad y Contabilidad conviene dejarlas solo al gerente. Lo urgente sale en el momento.
+      </span>
     </div>
   )
 }

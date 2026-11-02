@@ -280,12 +280,15 @@ export function TablaAuditoria({
   filas,
   sel,
   onSel,
+  onAbrir,
   conMotivo = false,
   className = 'h-[52vh]',
 }: {
   filas: Fila[]
   sel: Fila | null
   onSel: (f: Fila) => void
+  /** Doble clic en una línea: abrir el detalle aparte (ventana flotante). */
+  onAbrir?: (f: Fila) => void
   conMotivo?: boolean
   className?: string
 }) {
@@ -323,7 +326,7 @@ export function TablaAuditoria({
             const n = nombreRegistro(f)
             const fondo = sel?.id === f.id ? '#fff3c4' : i % 2 ? '#f6f9fd' : '#fff'
             return (
-              <tr key={l.clave} className="cursor-pointer" onClick={() => onSel(f)} style={{ background: fondo }}>
+              <tr key={l.clave} className="cursor-pointer" onClick={() => onSel(f)} onDoubleClick={() => onAbrir?.(f)} style={{ background: fondo }}>
                 <td className={`${td} whitespace-nowrap tabular-nums`}>{fechaHora(f.ocurrido_en)}</td>
                 <td className={`${td} whitespace-nowrap`}>{f.empleado ? quien(f) : <i className="text-[#666]">{quien(f)}</i>}</td>
                 <td className={td}>
