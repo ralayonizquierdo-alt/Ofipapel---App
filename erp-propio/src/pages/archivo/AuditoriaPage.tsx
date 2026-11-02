@@ -227,8 +227,10 @@ export function AuditoriaPage() {
         </button>
       </div>
 
+      {/* La Operativa sale aparte, en una ventana que se mueve, sin empujar la lista hacia abajo. */}
       {ayuda && (
-        <div className="border border-[var(--gw-border)] bg-white p-2">
+        <GwVentanaFlotante titulo="Auditoría · Operativa" onCerrar={() => setAyuda(false)} ancho={640}>
+          <div className="p-2">
           <GwOperativa
             bloques={[
               {
@@ -273,7 +275,8 @@ export function AuditoriaPage() {
               },
             ]}
           />
-        </div>
+          </div>
+        </GwVentanaFlotante>
       )}
       {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
 
