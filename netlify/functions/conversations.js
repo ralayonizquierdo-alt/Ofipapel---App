@@ -729,6 +729,10 @@ function pageShell(title, body) {
   .pie-sitio { text-align: center; padding: 18px 12px 26px; color: var(--text-muted); font-size: 11.5px; font-family: 'IBM Plex Mono', monospace; opacity: .7; }
   .adjunto-enlace { display: inline-block; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 14px; }
   .adjunto-pie { white-space: pre-wrap; }
+  /* La nota de voz del cliente. Ancho completo de la burbuja para que los
+     controles del navegador se vean bien también en el móvil. */
+  .adjunto-audio { display: block; width: 100%; min-width: 220px; max-width: 320px; margin: 2px 0 6px; }
+  .adjunto-audio + .adjunto-enlace { padding: 4px 10px; font-size: 13px; }
   .bubble .time { white-space: normal; }
   .bubble.customer { background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px; }
   .bubble.bot { background: var(--bg-soft); border: 1px solid #cdeacd; border-bottom-right-radius: 4px; }
@@ -1740,6 +1744,9 @@ function sinMarcasInternas(contenido) {
   return String(contenido || '').replace(MARCAS_INTERNAS, '');
 }
 
+// Se exporta solo para poder probarlo: es lo que decide si un adjunto se pinta
+// como imagen o como reproductor de audio, y eso conviene tenerlo comprobado
+// (scripts/probar-fotos.js).
 function cuerpoDeBurbuja(phone, contenidoBruto) {
   const contenido = sinMarcasInternas(contenidoBruto);
   const adjunto = adjuntoDelHistorial(contenido);
@@ -1748,6 +1755,19 @@ function cuerpoDeBurbuja(phone, contenidoBruto) {
   const src = `?vista=media&phone=${encodeURIComponent(phone)}&id=${encodeURIComponent(adjunto.mediaId)}`;
   // El texto que acompaña ya viene con el pie de foto si lo había.
   const pie = adjunto.texto ? `<div class="adjunto-pie">${conEnlaces(escapeHtml(adjunto.texto))}</div>` : '';
+
+  // UNA NOTA DE VOZ SE ESCUCHA AQUÍ (2/11/2026).
+  //
+  // Antes solo llegaba el aviso de que el cliente había mandado un audio y
+  // había que abrir WhatsApp en el móvil para oírlo. El fichero ya se guarda
+  // como las fotos, así que basta con un reproductor.
+  //
+  // `preload="none"`: en una conversación con varios audios, precargarlos
+  // todos al abrirla sería bajarse megas que casi nunca se van a escuchar.
+  if (adjunto.clase === 'audio') {
+    return `<audio class="adjunto-audio" controls preload="none" src="${src}"></audio>
+    <a class="adjunto-enlace" href="${src}" target="_blank" rel="noopener">⬇️ Descargar el audio</a>${pie}`;
+  }
   // Se pinta como imagen porque casi siempre lo es (una foto o un sticker),
   // pero por aquí también pasan PDF, y un PDF dentro de un <img> sale como
   // icono roto. Si el navegador no puede pintarlo, la imagen se cambia sola por
@@ -2647,3 +2667,5 @@ const manejarPanel = async (event) => {
     body: renderList(entries.filter(Boolean), diagnostic, pausaGlobal, consulta, falloDelBot),
   };
 };
+
+module.exports.cuerpoDeBurbuja = cuerpoDeBurbuja;

@@ -39,8 +39,19 @@ Module.prototype.require=orig;
 global.fetch=async(url,opts)=>{
   try{ const b=JSON.parse(opts?.body||'{}');
        if(b.type==='interactive') log.push({t:'botones',m:b.interactive?.body?.text}); }catch{}
-  if(String(url).includes('graph.facebook.com/v20.0/')) return {ok:true,json:async()=>({url:'https://lookaside.meta/x',mime_type:'image/jpeg',file_size:PNG.length})};
+  // El tipo depende del adjunto que se pida: los ids 3, 7 y 8 son notas de voz,
+  // y tienen que viajar como audio para que el panel las pinte con reproductor.
+  if(String(url).includes('graph.facebook.com/v20.0/')){
+    const id=String(url).split('/v20.0/')[1].split(/[?#]/)[0];
+    const mime = ['3','7','8'].includes(id) ? 'audio/ogg; codecs=opus' : 'image/jpeg';
+    return {ok:true,json:async()=>({url:'https://lookaside.meta/x',mime_type:mime,file_size:PNG.length})};
+  }
   if(String(url).includes('lookaside')) return {ok:true,arrayBuffer:async()=>PNG.buffer.slice(PNG.byteOffset,PNG.byteOffset+PNG.length)};
+  // El transcriptor de las notas de voz (whatsapp-voz.js).
+  if(String(url).includes('api.openai.com/v1/audio/transcriptions')){
+    log.push({t:'transcrito',m:TRANSCRIPCION});
+    return {ok:true,json:async()=>({text:TRANSCRIPCION})};
+  }
   return {ok:true,json:async()=>({}),text:async()=>'{}'};
 };
 
@@ -70,7 +81,14 @@ global.PAUSADO=false;
     for(const obligatorio of ['botones','guardado en el panel']){
       if(!tiene(obligatorio)){ fallos++; console.log(`   ✗ FALTA: ${obligatorio}`); }
     }
-    if(msg.type==='image' && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
+    // Desde el 2/11/2026 el AUDIO también se guarda: "cuando un cliente envía
+    // una nota de voz yo no puedo escucharla, solo llega un aviso".
+    if((msg.type==='image'||msg.type==='audio') && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
+    if(msg.type==='audio'){
+      const guardado=(log.find(l=>l.t==='guardado en el panel')||{}).m||'';
+      if(!/\[ADJUNTO:3\|audio\]/.test(guardado)){ fallos++; console.log('   ✗ la marca no dice que es audio: el panel lo pintaría como imagen'); }
+      else console.log('    ✔ queda marcado como audio para el panel');
+    }
     for(const prohibido of ['bot en pausa','email al dueño']){
       if(tiene(prohibido)){ fallos++; console.log(`   ✗ NO debería: ${prohibido} (se pregunta antes)`); }
     }
@@ -88,6 +106,72 @@ global.PAUSADO=false;
   if(!/asistente virtual/i.test(botones)){ fallos++; console.log('   ✗ NO se presenta como bot'); }
   else console.log('    ✔ se presenta como bot');
   console.log();
+
+  // CÓMO SE PINTA EN EL PANEL.
+  //
+  // Guardar el audio no sirve de nada si el panel lo mete en un <img>: saldría
+  // un icono roto. Y lo que ya está guardado de antes NO lleva la clase en la
+  // marca, así que tiene que seguir pintándose como imagen.
+  {
+    const conv = require(require('path').join(__dirname,'..','netlify/functions/conversations.js'));
+    const pintar = conv.cuerpoDeBurbuja;
+    const audio = pintar('34600777222', '[ADJUNTO:3|audio][El cliente envió un audio]');
+    const foto  = pintar('34600777222', '[ADJUNTO:1][El cliente envió una foto]');
+    console.log('=== Cómo lo pinta el panel');
+    if(!/<audio[^>]+controls/.test(audio)){ fallos++; console.log('   ✗ el audio no sale con reproductor'); }
+    else console.log('    ✔ el audio sale con reproductor');
+    if(/<img/.test(audio)){ fallos++; console.log('   ✗ el audio sale como imagen: icono roto'); }
+    if(!/<img/.test(foto)){ fallos++; console.log('   ✗ una foto guardada ANTES ya no se ve'); }
+    else console.log('    ✔ las fotos de antes se siguen viendo igual');
+    if(/<audio/.test(foto)){ fallos++; console.log('   ✗ una foto sale como audio'); }
+    console.log();
+  }
+
+  // LA NOTA DE VOZ, ESCUCHADA.
+  //
+  // "El robot tampoco" (propietario, 2/11/2026): que la oiga una persona
+  // arregla la mitad. Claude no oye —la API no admite audio—, así que se
+  // transcribe aparte y a partir de ahí ES un mensaje escrito: entra por el
+  // mismo camino, con sus respuestas fijas, su catálogo y sus redes.
+  //
+  // Lo que se comprueba aquí es justo eso: que NO se queda en "no puedo leer
+  // un audio", y que lo oído queda escrito en el panel debajo del audio.
+  {
+    global.TRANSCRIPCION = '¿a qué hora abrís los sábados?';
+    process.env.OPENAI_API_KEY = 'clave-de-prueba';
+    log=[];
+    await wh.handler(ev({type:'audio', audio:{id:'7'}}));
+    console.log('=== Nota de voz (con transcriptor)');
+    log.forEach(l=>console.log(`   [${l.t}] ${String(l.m).slice(0,120)}`));
+    const texto=(t)=>(log.find(l=>l.t===t)||{}).m||'';
+    if(!log.some(l=>l.t==='transcrito')){ fallos++; console.log('   ✗ no se transcribió'); }
+    if(!/🎙️ el bot oye/.test(texto('guardado sin contestar'))){ fallos++; console.log('   ✗ lo oído no queda en el panel'); }
+    else console.log('    ✔ lo oído queda en el panel, debajo del audio');
+    const dicho = log.filter(l=>l.t==='respuesta'||l.t==='botones').map(l=>String(l.m)).join(' | ');
+    if(/no puedo leer un audio/i.test(dicho)){ fallos++; console.log('   ✗ sigue diciendo que no puede leer el audio'); }
+    else console.log('    ✔ ya no se excusa: contesta a lo que dijo');
+    // Y lo que se contesta sale del CAMINO DE SIEMPRE, no de un contestador
+    // aparte: el horario es una respuesta fija, así que si aparece es que la
+    // transcripción entró por la puerta principal.
+    if(!/s[áa]bado/i.test(dicho)){ fallos++; console.log('   ✗ no contestó el horario: no pasó por las respuestas fijas'); }
+    else console.log('    ✔ entra por el camino de siempre (contestó la respuesta fija del horario)');
+    console.log();
+
+    // Y SIN CLAVE, COMO SIEMPRE. El transcriptor es opcional: si no está
+    // configurado en el sitio del bot, el audio se guarda para escucharlo y se
+    // le ofrece una persona, exactamente como antes.
+    delete process.env.OPENAI_API_KEY;
+    log=[];
+    await wh.handler(ev({type:'audio', audio:{id:'8'}}));
+    console.log('=== Nota de voz (sin transcriptor)');
+    log.forEach(l=>console.log(`   [${l.t}] ${String(l.m).slice(0,120)}`));
+    if(log.some(l=>l.t==='transcrito')){ fallos++; console.log('   ✗ transcribió sin clave'); }
+    if(!log.some(l=>l.t==='foto guardada')){ fallos++; console.log('   ✗ ni siquiera se guardó para escucharlo'); }
+    const dicho2 = log.filter(l=>l.t==='respuesta'||l.t==='botones').map(l=>String(l.m)).join(' | ');
+    if(!/no puedo leer un audio/i.test(dicho2)){ fallos++; console.log('   ✗ debería seguir ofreciendo una persona'); }
+    else console.log('    ✔ sin clave, el camino de siempre');
+    console.log();
+  }
 
   // UNA REACCIÓN NO ES UNA PREGUNTA.
   //
@@ -157,7 +241,7 @@ global.PAUSADO=false;
   // alguien. Visto en real el 30/9/2026.
   global.PAUSADO=true;
   log=[];
-  await wh.handler(ev({type:'image', image:{id:'7', caption:'la máquina es ésta'}}));
+  await wh.handler(ev({type:'image', image:{id:'9', caption:'la máquina es ésta'}}));
   console.log('=== Foto con el bot en pausa (contesta una persona)');
   log.forEach(l=>console.log(`   [${l.t}] ${l.m}`));
   const tieneP=(t)=>log.some(l=>l.t===t);
