@@ -628,3 +628,12 @@ empleados con sus permisos y elegir el día del cambio.
    se las puedes dictar tal cual y que las apunte.
 4. Para encargar algo, pídeselo a tu Claude en una sesión nueva sobre la rama
    `erp`, con la captura de GeminisWin si es una pantalla.
+
+### Memoria de NEXA (02/11/2026)
+
+- Tabla `nexa_memoria` (migración `20261102_nexa_memoria.sql`): memoria **global** (todo el equipo, la ve cualquiera, la
+  escribe quien tenga `accion:nexa-memoria-global`: administradores y GERENCIA) y **personal** (solo de cada persona).
+- NEXA la lee en cada conversación (va en sus instrucciones, bloque `<memoria>`), no solo dentro de una charla.
+- Herramientas `recordar` / `olvidar`: solo cuando la persona lo pide o lo confirma. «Olvidar» desactiva, no borra, y todo
+  queda en la auditoría. No guardar en ella datos personales, claves ni nada confidencial.
+- Límite conocido: «olvidar» pide confirmación si el mensaje lleva un «no» (p. ej. «ya no hace falta»).
