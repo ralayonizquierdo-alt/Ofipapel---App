@@ -1117,3 +1117,52 @@ test('Géminis: el descuento equivalente nunca sale negativo ni ≥ 100 %', () =
   assert.equal(eq.descuento, 33.5);
   assert.ok(eq.residuo !== 0);
 });
+
+test('Referencias: el mismo modelo, color y piezas con otro código (Uni/Posca 95262)', () => {
+  const nuestras = [
+    { ref: '182634905', cant: 24, desc: 'BOLIGRAFO UNI-Mitsu. UM-120SP' },
+    { ref: '289876000', cant: 12, desc: 'ROTULADOR Posca PC-1MR (Oro)' },
+    { ref: '289884000', cant: 12, desc: 'ROTULADOR Posca PC-1MR (Plata)' },
+    { ref: '148809000', cant: 6, desc: 'ROTULADOR Posca PC-8K (Amarillo)' },
+    { ref: '148858000', cant: 6, desc: 'ROTULADOR Posca PC-8K (Azul-Claro)' },
+    { ref: '148825000', cant: 6, desc: 'ROTULADOR Posca PC-8K (Naranja)' },
+    { ref: '148833000', cant: 6, desc: 'ROTULADOR Posca PC-8K (Verde-Claro)' },
+    { ref: '300608000', cant: 6, desc: 'ROTULADOR Posca PC-8K (Vino)' },
+    { ref: '182634669', cant: 5, desc: 'ROTULADOR Posca PC1M (4-Colores) Estuche GSWB' },
+    { ref: '182634667', cant: 5, desc: 'ROTULADOR Posca PC1M (8-Colores) Estuche BASIC' },
+    { ref: '182634673', cant: 5, desc: 'ROTULADOR Posca PC3M (4-Colores) Estuche GSWB' },
+    { ref: '182634681', cant: 3, desc: 'ROTULADOR Posca PC5M (4-Colores) Estuche' },
+    { ref: '182634809', cant: 3, desc: 'ROTULADOR Posca PC5M (8-Colores) Estuche OSCURO' },
+    { ref: '182634855', cant: 2, desc: 'ROTULADOR Posca PC5M/4C (4-Colores) Colores AZULES' },
+    { ref: '302422326', cant: 10, desc: 'ROTULADOR Posca PC5M/8C (8-Colores) BASIC' },
+    { ref: '182634969', cant: 144, desc: 'BOLIGRAFO UNI-Mitsu. SXN-150 JetStream Pastel' },
+  ];
+  const suyas = [
+    { ref: '788877000', cant: 24, desc: 'UM-120SP AZUL' },
+    { ref: '317891000', cant: 12, desc: 'PC-1MR ORO (EA)' },
+    { ref: '317909000', cant: 12, desc: 'PC-1MR PLATA (EA)' },
+    { ref: '300434000', cant: 6, desc: 'PC-8K AMARILLO' },
+    { ref: '300483000', cant: 6, desc: 'PC-8K AZUL CLARO' },
+    { ref: '300442000', cant: 6, desc: 'PC-8K NARANJA MEDIO' },
+    { ref: '300467000', cant: 6, desc: 'PC-8K VERDE CLARO' },
+    { ref: '300608000', cant: 6, desc: 'PC-8K ROJO VINO' },
+    { ref: '302422307', cant: 5, desc: 'PC-1M 4P SET BWSG COLOR' },
+    { ref: '302422308', cant: 5, desc: 'PC-1M 8P SET BASIC COLOR' },
+    { ref: '302422314', cant: 5, desc: 'PC-3M 4P SET BWSG COLOR' },
+    { ref: '302422322', cant: 3, desc: 'PC-5M 4P SET BASIC COLOR' },
+    { ref: '302422327', cant: 3, desc: 'PC-5M 8P SET COOL COLOR' },
+    { ref: '182634855', cant: 1, desc: 'PC-5M/4C ESTUCHE COLORES AZULES' },
+    { ref: '302422326', cant: 10, desc: 'PC-5M 8P SET BASIC COLOR' },
+    { ref: '182634969', cant: 3, desc: 'SXN-150 PASTEL EXPOSITOR 48P - 4C' },
+    { ref: '980698057', cant: 1, desc: 'VINILO POSCA BRUSH REDONDO 32 mm' },
+  ];
+  const r = CP.emparejarReferencias(nuestras, suyas);
+  assert.equal(r['788877000'], '182634905'); // UM-120SP
+  assert.equal(r['317891000'], '289876000'); // PC-1MR oro
+  assert.equal(r['300442000'], '148825000'); // PC-8K naranja, no el amarillo
+  assert.equal(r['302422307'], '182634669'); // PC-1M 4 colores GSWB = 4P BWSG
+  assert.equal(r['302422314'], '182634673'); // PC-3M, no el PC-1M
+  assert.equal(r['302422327'], '182634809'); // PC-5M 8 colores, no el de 4
+  assert.equal(r['980698057'], undefined); // el vinilo de regalo no es de nadie
+  assert.equal(Object.keys(r).length, 12);
+});
