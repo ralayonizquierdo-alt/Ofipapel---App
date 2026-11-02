@@ -42,7 +42,7 @@
 //
 // - PDF y correo (01/11/2026): crear_pdf guarda un PDF (bucket nexa-documentos) de un listado o de un texto; preparar_correo
 //   deja un borrador (nexa_correo) que NUNCA envía la IA: lo envía el botón de la tarjeta con { accion: 'enviar_correo', correo: id }
-//   (permiso accion:nexa-enviar-correo; API de correo Resend: secrets RESEND_API_KEY y EMAIL_FROM). Ver correo.ts y pdf.ts.
+//   (permiso accion:nexa-enviar-correo; correo de la empresa por SMTP: Datos de Empresa + secreto SMTP_PASSWORD). Ver correo.ts y pdf.ts.
 //
 // Respuesta (siempre HTTP 200): { ok: true, texto, rutas: [{ ruta, etiqueta }], listados: [ListadoPanel],
 //                                 propuestas: [PropuestaPanel], ejecuciones: [EjecucionPanel], consultas }

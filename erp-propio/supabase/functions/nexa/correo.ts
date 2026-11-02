@@ -1,13 +1,11 @@
 // Correos de NEXA. NEXA solo PREPARA el correo (fila «borrador» en nexa_correo); lo envía el botón «Enviar» de la
-// tarjeta, que llama a la función con accion = enviar_correo. Aquí: validar lo que prepara la IA y mandarlo por la API
-// de correo (Resend). Los puertos SMTP están cerrados en las Edge Functions de Supabase, por eso se usa una API HTTP.
-//
-// Secrets de la función (Supabase → Edge Functions → Secrets):
-//   RESEND_API_KEY   clave de resend.com
-//   EMAIL_FROM       remitente verificado, p. ej. «Ofipapel <pedidos@ofipapel.net>»
-//   EMAIL_REPLY_TO   (opcional) a dónde llegan las respuestas; si no, al correo de quien envía
+// tarjeta, que llama a la función con accion = enviar_correo. Aquí: validar lo que prepara la IA y mandarlo por el
+// MISMO correo de la empresa que usa el resto del ERP (función correo-enviar): servidor, usuario y puerto en
+// Archivo → Datos de Empresa, y la contraseña en el secreto SMTP_PASSWORD de Supabase. Puerto 465 con SSL: las Edge
+// Functions de Supabase no dejan salir por el 25 ni el 587.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
+import nodemailer from 'npm:nodemailer@6.9.16'
 
 const EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/
 const MAX_DESTINATARIOS = 5
@@ -89,11 +87,13 @@ export async function enviarCorreo(
   const { data: puede } = await sb.rpc('fn_puede', { p_codigo: PERMISO_CORREO })
   if (puede !== true) return { ok: false, error: 'No tienes permiso para enviar correos desde NEXA (Grupos de acceso → «NEXA: enviar correos»).' }
 
-  const clave = (Deno.env.get('RESEND_API_KEY') ?? '').trim()
-  const remitente = (Deno.env.get('EMAIL_FROM') ?? '').trim()
-  if (!clave || !remitente) {
-    return { ok: false, error: 'El envío de correo aún no está configurado: faltan RESEND_API_KEY y EMAIL_FROM en Supabase → Edge Functions → Secrets.' }
+  const { data: emp } = await sb.from('empresa').select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl').order('codigo').limit(1).maybeSingle()
+  const clave = Deno.env.get('SMTP_PASSWORD') ?? ''
+  if (!emp?.smtp_servidor || !emp?.smtp_usuario || !clave) {
+    return { ok: false, error: 'El correo de la empresa aún no está configurado: faltan servidor y usuario en Archivo → Datos de Empresa y/o la contraseña (secreto SMTP_PASSWORD en Supabase).' }
   }
+  const puerto = Number(emp.smtp_puerto) || 465
+  if (puerto === 25 || puerto === 587) return { ok: false, error: `El puerto ${puerto} no está permitido desde el servidor: usad el 465 con SSL.` }
 
   const { data: c, error } = await sb.from('nexa_correo').select('*').eq('id', id).maybeSingle()
   if (error || !c) return { ok: false, error: 'No encuentro ese correo (¿es de otra persona?).' }
@@ -115,26 +115,28 @@ export async function enviarCorreo(
   }
 
   const pie = `\n\n—\nEnviado desde el ERP de Ofipapel por ${usuario.email}.`
-  const respuesta = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${clave}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: remitente,
+  const transporte = nodemailer.createTransport({
+    host: emp.smtp_servidor,
+    port: puerto,
+    secure: emp.smtp_ssl ?? puerto === 465,
+    auth: { user: emp.smtp_usuario, pass: clave },
+  })
+  try {
+    await transporte.sendMail({
+      from: `"${String(emp.nombre ?? 'Ofipapel').replace(/"/g, '')}" <${emp.email || emp.smtp_usuario}>`,
       to: c.para,
       ...(c.cc?.length ? { cc: c.cc } : {}),
-      reply_to: (Deno.env.get('EMAIL_REPLY_TO') ?? '').trim() || usuario.email,
+      replyTo: (Deno.env.get('EMAIL_REPLY_TO') ?? '').trim() || usuario.email,
       subject: c.asunto,
       text: c.cuerpo + pie,
       html: aHtml(c.cuerpo + pie),
-      ...(adjuntos.length ? { attachments: adjuntos } : {}),
-    }),
-  })
-  const cuerpo = (await respuesta.json().catch(() => ({}))) as { id?: string; message?: string; name?: string }
-  if (!respuesta.ok) {
-    const msg = cuerpo.message ?? `error ${respuesta.status}`
+      attachments: adjuntos.map((a) => ({ filename: a.filename, content: a.content, encoding: 'base64' as const })),
+    })
+  } catch (e) {
+    const msg = String((e as Error).message ?? e)
     await sb.from('nexa_correo').update({ error: msg.slice(0, 500) }).eq('id', id)
-    return { ok: false, error: `El servicio de correo lo ha rechazado: ${msg}` }
+    return { ok: false, error: `El servidor de correo lo ha rechazado: ${msg}` }
   }
-  await sb.from('nexa_correo').update({ estado: 'enviado', enviado_en: new Date().toISOString(), proveedor_id: cuerpo.id ?? null, error: null }).eq('id', id)
+  await sb.from('nexa_correo').update({ estado: 'enviado', enviado_en: new Date().toISOString(), proveedor_id: null, error: null }).eq('id', id)
   return { ok: true, estado: 'enviado' }
 }
