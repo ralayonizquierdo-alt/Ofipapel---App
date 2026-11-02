@@ -286,6 +286,8 @@ export const SECCIONES_PARAMETROS: SeccionParametros[] = [
           },
         ],
       },
+      // La doble firma (contab.importe_doble_firma) y el control de teletrabajo (acceso.control_remoto) ya no
+      // están aquí: son protocolos de la empresa y solo cambian con un Acuerdo de Dirección (02/11/2026).
     ],
   },
   {

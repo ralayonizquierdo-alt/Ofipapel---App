@@ -24,9 +24,15 @@ export interface Acceso {
   puede_vender_sin_caja: boolean
   puede_anular: boolean
   puede_ver_costes: boolean
-  horario: { dias: number[]; desde: string; hasta: string } | null
+  horario: Horario | null
+  /** Teletrabajo (Luis, 01/11/2026): vale para todos, también administradores. */
+  remoto_permitido: boolean
+  horario_remoto: Horario | null
+  horario_contabilidad: Horario | null
   observaciones: string | null
 }
+
+type Horario = { dias: number[]; desde: string; hasta: string }
 
 const sinLimites = (codigo: string): Acceso => ({
   empleado_codigo: codigo,
@@ -39,6 +45,9 @@ const sinLimites = (codigo: string): Acceso => ({
   puede_anular: true,
   puede_ver_costes: true,
   horario: null,
+  remoto_permitido: false,
+  horario_remoto: null,
+  horario_contabilidad: null,
   observaciones: null,
 })
 
@@ -137,6 +146,43 @@ export function AreaAccesos({
   const esAdmin = grupo?.es_administrador === true
   const ro = !admin
   const set = (p: Partial<Acceso>) => setBAcceso((a) => (a ? { ...a, ...p } : a))
+  // Días y horas (lo usan el horario general, el de teletrabajo y el de Contabilidad).
+  const editorHorario = (h: Horario | null, cambiar: (h: Horario | null) => void, sinLimite: string, nota: string) => (
+    <div className="flex flex-col gap-1.5">
+      <label className="flex items-center gap-1.5">
+        <input type="checkbox" disabled={ro} checked={h == null} onChange={(e) => cambiar(e.target.checked ? null : { dias: [1, 2, 3, 4, 5, 6], desde: '08:00', hasta: '21:00' })} />
+        {sinLimite}
+      </label>
+      {h && (
+        <>
+          <div className="flex gap-1">
+            {DIAS.map((d, i) => {
+              const n = i + 1
+              const on = h.dias.includes(n)
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  disabled={ro}
+                  onClick={() => cambiar({ ...h, dias: on ? h.dias.filter((x) => x !== n) : [...h.dias, n].sort() })}
+                  className={`h-[28px] w-[34px] border border-[var(--gw-border)] font-bold ${on ? 'bg-[#0078d7] text-white' : 'bg-white text-[#777]'}`}
+                >
+                  {d}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            de
+            <GwInput type="time" className="w-[100px]" disabled={ro} value={h.desde} onChange={(e) => cambiar({ ...h, desde: e.target.value })} />
+            a
+            <GwInput type="time" className="w-[100px]" disabled={ro} value={h.hasta} onChange={(e) => cambiar({ ...h, hasta: e.target.value })} />
+          </div>
+          <span className="text-[12px] text-[#777]">{nota}</span>
+        </>
+      )}
+    </div>
+  )
   const lista = (sel: string[] | null, todos: Opcion[], onChange: (v: string[] | null) => void) => (
     <div className="flex flex-col gap-1">
       <label className="flex items-center gap-1.5 font-bold">
@@ -202,7 +248,11 @@ export function AreaAccesos({
         onChange={setTab}
       >
         <div className="min-h-[380px] overflow-y-auto p-2">
-          {esAdmin && <div className="mb-2 text-[13px] text-[#8a5a00]">Su grupo es administrador: estos límites y excepciones no se le aplican.</div>}
+          {esAdmin && (
+            <div className="mb-2 text-[13px] text-[#8a5a00]">
+              Su grupo es administrador: estos límites y excepciones no se le aplican, salvo los horarios y el teletrabajo, que los cumplen todos.
+            </div>
+          )}
           {tab === 'limites' && (
             <div className="grid grid-cols-2 gap-2">
               <GwGroup title="Tiendas / terminales donde puede trabajar">{lista(bAcceso.tiendas, tiendas, (v) => set({ tiendas: v }))}</GwGroup>
@@ -224,45 +274,33 @@ export function AreaAccesos({
                 </div>
               </GwGroup>
               <GwGroup title="Horario de acceso">
+                {editorHorario(bAcceso.horario, (h) => set({ horario: h }), 'Sin límite de horario', 'Fuera de ese horario no puede entrar en el programa.')}
+              </GwGroup>
+              <GwGroup title="Teletrabajo (desde fuera de las tiendas)">
                 <div className="flex flex-col gap-1.5">
                   <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      disabled={ro}
-                      checked={bAcceso.horario == null}
-                      onChange={(e) => set({ horario: e.target.checked ? null : { dias: [1, 2, 3, 4, 5, 6], desde: '08:00', hasta: '21:00' } })}
-                    />
-                    Sin límite de horario
+                    <input type="checkbox" disabled={ro} checked={bAcceso.remoto_permitido} onChange={(e) => set({ remoto_permitido: e.target.checked })} />
+                    Puede trabajar desde fuera de las tiendas
                   </label>
-                  {bAcceso.horario && (
-                    <>
-                      <div className="flex gap-1">
-                        {DIAS.map((d, i) => {
-                          const n = i + 1
-                          const on = bAcceso.horario!.dias.includes(n)
-                          return (
-                            <button
-                              key={d}
-                              type="button"
-                              disabled={ro}
-                              onClick={() => set({ horario: { ...bAcceso.horario!, dias: on ? bAcceso.horario!.dias.filter((x) => x !== n) : [...bAcceso.horario!.dias, n].sort() } })}
-                              className={`h-[28px] w-[34px] border border-[var(--gw-border)] font-bold ${on ? 'bg-[#0078d7] text-white' : 'bg-white text-[#777]'}`}
-                            >
-                              {d}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        de
-                        <GwInput type="time" className="w-[100px]" disabled={ro} value={bAcceso.horario.desde} onChange={(e) => set({ horario: { ...bAcceso.horario!, desde: e.target.value } })} />
-                        a
-                        <GwInput type="time" className="w-[100px]" disabled={ro} value={bAcceso.horario.hasta} onChange={(e) => set({ horario: { ...bAcceso.horario!, hasta: e.target.value } })} />
-                      </div>
-                      <span className="text-[12px] text-[#777]">Fuera de ese horario no puede entrar en el programa.</span>
-                    </>
-                  )}
+                  {bAcceso.remoto_permitido &&
+                    editorHorario(
+                      bAcceso.horario_remoto,
+                      (h) => set({ horario_remoto: h }),
+                      'Mismo horario que en la tienda',
+                      'Desde fuera de las tiendas solo puede trabajar en este horario.',
+                    )}
+                  <span className="text-[12px] text-[#777]">
+                    Solo se bloquea cuando está activado el control (Archivo → Uso por Operario → Redes de las tiendas). Vale también para administradores.
+                  </span>
                 </div>
+              </GwGroup>
+              <GwGroup title="Horario de Contabilidad">
+                {editorHorario(
+                  bAcceso.horario_contabilidad,
+                  (h) => set({ horario_contabilidad: h }),
+                  'Sin horario propio',
+                  'Fuera de este horario no puede abrir las pantallas de Contabilidad (sí el resto).',
+                )}
               </GwGroup>
               <GwGroup title="Observaciones" className="col-span-2">
                 <GwInput value={bAcceso.observaciones ?? ''} disabled={ro} onChange={(e) => set({ observaciones: e.target.value || null })} />

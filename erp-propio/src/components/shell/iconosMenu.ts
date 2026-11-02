@@ -106,6 +106,9 @@ import {
   Wand2,
   Warehouse,
   Zap,
+  Activity,
+  Stamp,
+  Handshake,
 } from 'lucide-react'
 import { COLOR_SECCION } from './secciones'
 import type { MenuEntry, TopMenu } from './menus'
@@ -140,6 +143,9 @@ const ICONOS: Record<string, Icono> = {
   Auditoría: ShieldCheck,
   'Textos legales': Scale,
   'Registro de incidencias': Bug,
+  'Uso por Operario': Activity,
+  'Acuerdos de Dirección': Handshake,
+  'Control y Firmas': Stamp,
   'Cambiar Empleado': UserRoundPlus,
   'Cambiar de Área': LayoutGrid,
   'Cambiar Grupo de Acceso': Users,

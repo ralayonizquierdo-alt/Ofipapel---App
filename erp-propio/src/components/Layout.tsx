@@ -8,7 +8,6 @@ import { QuickBar, useLadoBarra } from './shell/QuickBar'
 import { COLORES_DEFECTO } from '../lib/catalogoParametros'
 import { colorDePantalla, type MapaColores } from '../lib/coloresPantallas'
 import { useParametro, valorParametro } from '../lib/parametros'
-import { dentroDeHorario, useMiAcceso } from '../lib/accesoEmpleado'
 import { AvisoVersion } from './shell/AvisoVersion'
 import { AvisoConformidad } from './shell/AvisoConformidad'
 import { AvisoAuditoria } from './shell/AvisoAuditoria'
@@ -23,6 +22,8 @@ import { areaActual, areaElegida, cambiarAreaYRecargar, opcionesPropias, rutaEnA
 import { BotonesAreaCabecera, SelectorArea, tituloArea } from './shell/SelectorArea'
 import { CierreInactividad } from './shell/CierreInactividad'
 import { AvisoDevoluciones } from './shell/AvisoDevoluciones'
+import { ControlAcceso } from './shell/ControlAcceso'
+import { apuntarPantalla, instalarRegistroUso } from '../lib/registroUso'
 import { NuevaIncidencia } from '../pages/archivo/IncidenciasPage'
 import { comboDeEvento, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
 
@@ -49,7 +50,6 @@ export function Layout() {
   const mapaColores = useParametro<MapaColores | null>('apariencia.colores') ?? COLORES_DEFECTO
   const tamano = Number(useParametro<string>('local.tamano_letra') ?? '100') || 100
   const pantallaInicio = useParametro<string>('local.pantalla_inicio') ?? '/'
-  const acceso = useMiAcceso()
   // Apariencia: tamaño de las pantallas (Parámetros Locales → Apariencia).
   useEffect(() => {
     document.body.style.zoom = tamano === 100 ? '' : String(tamano / 100)
@@ -66,25 +66,13 @@ export function Layout() {
     navigate(pantallaInicio)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pantallaInicio])
-  // Horario de acceso del empleado (Control de Accesos): se vuelve a mirar cada minuto.
-  const [, setMinuto] = useState(0)
+  // Registro de uso (Archivo → Uso por Operario): minutos con actividad, descargas e impresiones…
+  useEffect(() => instalarRegistroUso(), [])
+  // …y cada pantalla que se abre.
   useEffect(() => {
-    const t = setInterval(() => setMinuto((m) => m + 1), 60000)
-    return () => clearInterval(t)
-  }, [])
-  const fueraDeHorario = !dentroDeHorario(acceso)
-  // Intento de trabajar fuera de horario: queda en la auditoría (una vez por sesión).
-  useEffect(() => {
-    if (!fueraDeHorario || !session) return
-    const clave = `erp.fueraHorario.${session.user.id}`
-    try {
-      if (sessionStorage.getItem(clave)) return
-      sessionStorage.setItem(clave, '1')
-    } catch {
-      /* sin almacenamiento: se apunta igual */
-    }
-    void supabase.rpc('fn_registrar_acceso', { p_tipo: 'FUERA_HORARIO', p_tienda: null, p_usuario: null })
-  }, [fueraDeHorario, session])
+    apuntarPantalla(pathname, title)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
   const salir = () => {
     if (valorParametro('local.confirmar_salir') !== false && !confirm('¿Salir del programa?')) return
     signOut()
@@ -294,6 +282,8 @@ export function Layout() {
         {/* Las 3 áreas siempre a mano: un clic y se cambia (Luis, 01/11/2026). */}
         <BotonesAreaCabecera actual={area} disponibles={areasDisponibles} onElegir={cambiarArea} />
         <AvisoDevoluciones />
+        {/* Globo 🛡️ de la auditoría (solo super administradores). */}
+        <AvisoAuditoria />
         {/* Avisar de un fallo, una mejora o una duda desde cualquier pantalla (Registro de incidencias). */}
         <button
           type="button"
@@ -306,7 +296,6 @@ export function Layout() {
       </div>
       <AvisoVersion />
       <AvisoConformidad uid={session?.user.id ?? null} />
-      <AvisoAuditoria />
       {sesion.consulta && (
         <div className="flex flex-none items-center justify-center gap-3 bg-[#c42b1c] px-2 py-1 text-[13px] font-bold text-white">
           <span>
@@ -381,19 +370,9 @@ export function Layout() {
       {avisarFallo && <NuevaIncidencia pantalla={pathname} onCerrar={() => setAvisarFallo(false)} />}
       {acercaDe && <AcercaDeDialog onClose={() => setAcercaDe(false)} />}
       <EdicionHerramientas />
-      {fueraDeHorario && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50">
-          <div className="flex w-[460px] flex-col gap-3 border border-[#6f6f6f] bg-[var(--gw-face)] p-5 text-[15px] shadow-lg">
-            <b className="text-[17px] text-[#a00]">Fuera de tu horario de acceso</b>
-            <span>
-              Tu horario es {acceso.horario?.dias.map((d) => 'LMXJVSD'[d - 1]).join(' ')} de {acceso.horario?.desde} a {acceso.horario?.hasta}. Si necesitas entrar, pídeselo a
-              un administrador (Archivo → Parámetros → Control de Accesos).
-            </span>
-            <button type="button" className="gw-btn self-end" onClick={() => signOut()}>
-              Salir
-            </button>
-          </div>
-        </div>
+      {/* Horario y teletrabajo: para todos, también administradores (components/shell/ControlAcceso.tsx). */}
+      {!elegirArea && (
+        <ControlAcceso onSalir={() => signOut()} onCambiarArea={() => (area === 'avatar' ? navigate('/resumen') : setElegirArea(true))} />
       )}
       <StatusBar text={hint ?? ayuda ?? title} email={session?.user.email ?? ''} tienda={sesion.tienda} />
     </div>

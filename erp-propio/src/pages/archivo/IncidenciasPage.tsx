@@ -47,6 +47,8 @@ export const ESTADOS: Record<Incidencia['estado'], string> = {
   descartada: '⚪ Descartada',
 }
 const ASIGNADOS = ['Luis', 'Rober', 'David', 'Claude-Luis', 'Claude-Rober', 'Claude-Code', 'Cowork']
+// Tareas compartidas (Luis, 02/11/2026): «Le toca a…» las enseña a cada uno de los dos.
+const COMPARTIDOS = ['Luis / Rober', 'Rober / Cowork', 'Luis / Claude-Luis']
 const fechaHora = (t: string | null) => (t ? new Date(t).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '')
 
 async function aBase64(f: File) {
@@ -193,7 +195,7 @@ export function IncidenciasPage() {
         (x) =>
           (filtro === 'todas' ||
             (filtro === 'vivas' ? ['abierta', 'en_curso'].includes(x.estado) || (x.estado === 'resuelta' && x.tipo !== 'tarea') : x.estado === filtro)) &&
-          (!quien || x.asignado === quien) &&
+          (!quien || (x.asignado ?? '').split(' / ').includes(quien)) &&
           (!tipo || x.tipo === tipo),
       ),
     [lista, filtro, tipo, quien],
@@ -376,7 +378,7 @@ export function IncidenciasPage() {
                     onChange={(e) => setEdicion({ ...edicion, asignado: e.target.value || null })}
                   >
                     <option value="">(sin asignar)</option>
-                    {ASIGNADOS.map((a) => (
+                    {[...ASIGNADOS, ...COMPARTIDOS].map((a) => (
                       <option key={a} value={a}>
                         {a}
                       </option>

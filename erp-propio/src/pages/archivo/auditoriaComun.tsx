@@ -6,7 +6,22 @@ export interface Fila {
   id: number
   ocurrido_en: string
   tabla: string
-  operacion: 'INSERT' | 'UPDATE' | 'DELETE' | 'CONSULTA' | 'DEPURACION' | 'ENTRADA' | 'SALIDA' | 'FALLO_CLAVE' | 'FUERA_HORARIO'
+  operacion:
+    | 'INSERT'
+    | 'UPDATE'
+    | 'DELETE'
+    | 'CONSULTA'
+    | 'DEPURACION'
+    | 'ENTRADA'
+    | 'SALIDA'
+    | 'FALLO_CLAVE'
+    | 'FUERA_HORARIO'
+    // Registro de uso (migración 20261102_registro_uso_y_control).
+    | 'PANTALLA'
+    | 'EXPORTA'
+    | 'IMPRIME'
+    | 'REMOTO_DENEGADO'
+    | 'USO_RARO'
   registro: string | null
   /** Nombre del registro (cliente, artículo, descripción…), si se apuntó. */
   nombre?: string | null
@@ -94,6 +109,11 @@ export const OPERACION: Record<Fila['operacion'], { texto: string; color: string
   SALIDA: { texto: 'Salida', color: '#555' },
   FALLO_CLAVE: { texto: 'Contraseña incorrecta', color: '#c42b1c' },
   FUERA_HORARIO: { texto: 'Fuera de horario', color: '#c42b1c' },
+  PANTALLA: { texto: 'Pantalla abierta', color: '#555' },
+  EXPORTA: { texto: 'Descarga', color: '#8a5a00' },
+  IMPRIME: { texto: 'Impresión', color: '#8a5a00' },
+  REMOTO_DENEGADO: { texto: 'Remoto sin permiso', color: '#c42b1c' },
+  USO_RARO: { texto: 'Uso fuera de lo normal', color: '#c42b1c' },
 }
 
 export const hoy = () => new Date().toLocaleDateString('sv-SE')
@@ -214,8 +234,10 @@ export function resumen(f: Fila): string {
         .map((c) => `${etiqueta(c)}: ${valor(f.antes?.[c])} → ${valor(f.despues?.[c])}`)
         .join(' · ') || 'Sin cambios en los datos'
     )
-  if (['ENTRADA', 'SALIDA', 'FALLO_CLAVE', 'FUERA_HORARIO'].includes(f.operacion))
-    return [nombreRegistro(f), f.despues?.usuario ? `usuario: ${valor(f.despues.usuario)}` : ''].filter(Boolean).join(' · ')
+  if (['ENTRADA', 'SALIDA', 'FALLO_CLAVE', 'FUERA_HORARIO', 'PANTALLA', 'EXPORTA', 'IMPRIME', 'REMOTO_DENEGADO', 'USO_RARO'].includes(f.operacion))
+    return [nombreRegistro(f), f.despues?.detalle ? valor(f.despues.detalle) : '', f.despues?.usuario ? `usuario: ${valor(f.despues.usuario)}` : '']
+      .filter(Boolean)
+      .join(' · ')
   if (f.operacion === 'CONSULTA' || f.operacion === 'DEPURACION')
     return Object.entries(f.despues ?? {})
       .map(([k, v]) => `${k === 'tabla' ? 'pantalla' : k}: ${k === 'tabla' ? pantalla(String(v)) : valor(v)}`)
@@ -258,12 +280,15 @@ export function TablaAuditoria({
   filas,
   sel,
   onSel,
+  onAbrir,
   conMotivo = false,
   className = 'h-[52vh]',
 }: {
   filas: Fila[]
   sel: Fila | null
   onSel: (f: Fila) => void
+  /** Doble clic en una línea: abrir el detalle aparte (ventana flotante). */
+  onAbrir?: (f: Fila) => void
   conMotivo?: boolean
   className?: string
 }) {
@@ -301,7 +326,7 @@ export function TablaAuditoria({
             const n = nombreRegistro(f)
             const fondo = sel?.id === f.id ? '#fff3c4' : i % 2 ? '#f6f9fd' : '#fff'
             return (
-              <tr key={l.clave} className="cursor-pointer" onClick={() => onSel(f)} style={{ background: fondo }}>
+              <tr key={l.clave} className="cursor-pointer" onClick={() => onSel(f)} onDoubleClick={() => onAbrir?.(f)} style={{ background: fondo }}>
                 <td className={`${td} whitespace-nowrap tabular-nums`}>{fechaHora(f.ocurrido_en)}</td>
                 <td className={`${td} whitespace-nowrap`}>{f.empleado ? quien(f) : <i className="text-[#666]">{quien(f)}</i>}</td>
                 <td className={td}>

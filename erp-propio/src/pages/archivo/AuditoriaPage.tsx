@@ -10,9 +10,10 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { GwDate, GwInput, GwSelect } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
+import { GwVentanaFlotante } from '../../components/gw/GwVentanaFlotante'
 import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
-import { DetalleAuditoria, TablaAuditoria, exportarExcel, haceDias, hoy, imprimirAuditoria, pantalla, type Fila } from './auditoriaComun'
+import { DetalleAuditoria, TablaAuditoria, exportarExcel, fechaHora, haceDias, hoy, imprimirAuditoria, pantalla, type Fila } from './auditoriaComun'
 
 const POR_PAGINA = 200
 
@@ -35,6 +36,37 @@ export function AuditoriaPage() {
   const [ayuda, setAyuda] = useState(false)
   const [modoAvisos, setModoAvisos] = useState(params.get('avisos') === '1')
   const [avisosPendientes, setAvisosPendientes] = useState(0)
+  // Detalle a la derecha (como siempre) o en ventanas flotantes con la lista a todo lo ancho (Luis, 02/11/2026).
+  const [detalleEnVentana, setDetalleEnVentana] = useState(() => {
+    try {
+      return localStorage.getItem('auditoria.detalle') === 'ventana'
+    } catch {
+      return false
+    }
+  })
+  const [ventanas, setVentanas] = useState<Fila[]>([])
+  // Comprobar que nadie ha tocado la auditoría por fuera del programa (sellos encadenados).
+  const [integridad, setIntegridad] = useState<Integridad | null>(null)
+  const [comprobando, setComprobando] = useState(false)
+  async function comprobarIntegridad() {
+    setComprobando(true)
+    const { data, error: e } = await supabase.rpc('fn_auditoria_comprobar_integridad')
+    setComprobando(false)
+    if (e) return setError(e.message)
+    setIntegridad(data as Integridad)
+  }
+  const cambiarModoDetalle = () =>
+    setDetalleEnVentana((v) => {
+      try {
+        localStorage.setItem('auditoria.detalle', v ? 'derecha' : 'ventana')
+      } catch {
+        /* sin almacenamiento */
+      }
+      if (v) setVentanas([])
+      return !v
+    })
+  // Abre el detalle aparte (como mucho 4 a la vez; si ya está abierto, no se repite).
+  const abrirVentana = (f: Fila | null) => f && setVentanas((vs) => (vs.some((x) => x.id === f.id) ? vs : [...vs, f].slice(-4)))
 
   useEffect(() => {
     if (!superAdmin) return
@@ -105,7 +137,7 @@ export function AuditoriaPage() {
     : `Auditoría del ${desde.split('-').reverse().join('/')} al ${hasta.split('-').reverse().join('/')}`
 
   return (
-    <div className="flex w-[1500px] max-w-full flex-col gap-2 text-[13px]">
+    <div className={`flex ${detalleEnVentana ? 'w-full' : 'w-[1500px]'} max-w-full flex-col gap-2 text-[13px]`}>
       <div className="flex flex-wrap items-end gap-2.5 border-b border-[#c8c8c8] bg-[#f7f7f7] p-2">
         <label className="flex flex-col">
           <span className="gw-label">Desde</span>
@@ -168,13 +200,37 @@ export function AuditoriaPage() {
         <button type="button" className="gw-btn h-[28px]" disabled={!filas.length} onClick={() => imprimirAuditoria(filas, titulo)}>
           🖨 Imprimir / PDF
         </button>
+        <button
+          type="button"
+          className="gw-btn h-[28px]"
+          onClick={cambiarModoDetalle}
+          title={detalleEnVentana ? 'Volver a ver el detalle a la derecha' : 'Lista a pantalla completa y el detalle en una ventana aparte, que se mueve y cambia de tamaño'}
+        >
+          {detalleEnVentana ? '◧ Detalle a la derecha' : '🗗 Detalle en ventana'}
+        </button>
+        {detalleEnVentana && (
+          <button type="button" className="gw-btn h-[28px]" disabled={!sel} onClick={() => abrirVentana(sel)}>
+            🔍 Ver detalle
+          </button>
+        )}
+        <button
+          type="button"
+          className="gw-btn h-[28px]"
+          disabled={comprobando}
+          onClick={() => void comprobarIntegridad()}
+          title="Comprueba que nadie ha borrado, cambiado o metido apuntes por fuera del programa"
+        >
+          {comprobando ? 'Comprobando…' : '🔐 Comprobar integridad'}
+        </button>
         <button type="button" className="gw-btn h-[28px]" onClick={() => setAyuda((a) => !a)}>
           Operativa
         </button>
       </div>
 
+      {/* La Operativa sale aparte, en una ventana que se mueve, sin empujar la lista hacia abajo. */}
       {ayuda && (
-        <div className="border border-[var(--gw-border)] bg-white p-2">
+        <GwVentanaFlotante titulo="Auditoría · Operativa" onCerrar={() => setAyuda(false)} ancho={640}>
+          <div className="p-2">
           <GwOperativa
             bloques={[
               {
@@ -184,14 +240,18 @@ export function AuditoriaPage() {
                   'Pulsa Buscar (o Intro en el cuadro de buscar). Al bajar por la lista, los títulos se quedan arriba.',
                   'Cada cambio sale en una línea por campo: «Campo modificado» y su valor de antes (tachado, en rojo) y el de ahora (en verde).',
                   'Pulsa una línea: a la derecha sale todo el apunte, con la conexión y el equipo desde el que se hizo.',
+                  '«🗗 Detalle en ventana»: la lista ocupa toda la pantalla y el detalle se abre aparte (doble clic en una línea o «🔍 Ver detalle»). La ventana se mueve por el título, cambia de tamaño por la esquina, se minimiza y se pueden abrir varias para comparar. El programa recuerda cómo lo prefieres.',
                   '📊 Excel descarga la lista; 🖨 Imprimir / PDF la saca en papel o en PDF («Guardar como PDF»).',
                 ],
               },
               {
                 titulo: '🔔 Avisos',
                 pasos: [
-                  'Lo que conviene revisar de los últimos 30 días: borrados, precios por debajo del coste, cambios de permisos, grupos, super administradores o periodos, contraseñas incorrectas e intentos fuera de horario.',
-                  'Cuando hay avisos nuevos, sale arriba un aviso rojo en todo el programa (solo a los super administradores). Al abrirlos, dejan de ser nuevos.',
+                  'Lo que conviene revisar de los últimos 30 días, solo de tus departamentos: el gerente lo ve todo; ventas, lo de ventas; compras, lo de compras (Archivo → Empleados → ficha → Avisos de auditoría).',
+                  'El globo 🛡️ de arriba sale al entrar y a tus horas (12:00 y 18:00 si no cambias nada). Lo urgente (usuario bloqueado por claves, entrada remota sin permiso, asientos por firmar) sale en el momento.',
+                  'En el globo, «Visto» lo apaga hasta la siguiente hora. Al abrir los avisos aquí, también dejan de ser nuevos.',
+                  'Los avisos leves (cambios de permisos, plan de cuentas, redes, cierres de mes) no encienden el globo: solo salen en esta lista.',
+                  'No avisa lo que hace el propio programa (por ejemplo, las opciones de menú nuevas o los movimientos de stock al anular una venta). Sí avisa el cambio de la cuenta bancaria (IBAN) de un cliente o proveedor.',
                 ],
               },
               {
@@ -215,7 +275,8 @@ export function AuditoriaPage() {
               },
             ]}
           />
-        </div>
+          </div>
+        </GwVentanaFlotante>
       )}
       {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
 
@@ -225,17 +286,80 @@ export function AuditoriaPage() {
       </div>
       <div className="flex min-h-0 gap-0">
         <div className="min-w-0 flex-1">
-          <TablaAuditoria filas={filas} sel={sel} onSel={setSel} conMotivo={modoAvisos} className="h-[58vh]" />
+          <TablaAuditoria
+            filas={filas}
+            sel={sel}
+            onSel={setSel}
+            onAbrir={(f) => (detalleEnVentana ? abrirVentana(f) : setSel(f))}
+            conMotivo={modoAvisos}
+            className={detalleEnVentana ? 'h-[70vh]' : 'h-[58vh]'}
+          />
           {!modoAvisos && total != null && filas.length < total && (
             <button type="button" className="gw-btn mt-1" disabled={buscando} onClick={() => void buscar(true)}>
               Ver más
             </button>
           )}
         </div>
-        <div className="h-[58vh] w-[340px] flex-none overflow-auto border border-l-2 border-[var(--gw-border)] border-l-[#1d3a8a] bg-white">
-          <DetalleAuditoria fila={sel} />
-        </div>
+        {!detalleEnVentana && (
+          <div className="h-[58vh] w-[340px] flex-none overflow-auto border border-l-2 border-[var(--gw-border)] border-l-[#1d3a8a] bg-white">
+            <DetalleAuditoria fila={sel} />
+          </div>
+        )}
       </div>
+      {integridad && (
+        <GwVentanaFlotante titulo="Integridad de la auditoría" onCerrar={() => setIntegridad(null)} ancho={480}>
+          <div className="flex flex-col gap-1.5 p-2 text-[13px]">
+            {integridad.correcto ? (
+              <div className="border border-[#1a7f37] bg-[#eaf6ec] p-2 font-bold text-[#1a7f37]">
+                ✅ Todo correcto: nadie ha tocado la auditoría por fuera del programa.
+              </div>
+            ) : (
+              <div className="border border-[#8c1d12] bg-[#fdecea] p-2 font-bold text-[#8c1d12]">⚠ ¡ATENCIÓN! La auditoría se ha tocado por fuera del programa.</div>
+            )}
+            <div>
+              {integridad.sellos} sello(s) comprobados, hasta el apunte nº {integridad.hasta_id ?? '—'}
+              {integridad.ultimo_sello ? ` (último sello: ${fechaHora(integridad.ultimo_sello)})` : ''}.
+            </div>
+            {integridad.fallos.map((f, i) => (
+              <div key={i} className="text-[#8c1d12]">
+                Apuntes nº {f.desde + 1} a {f.hasta}: {f.motivo}
+              </div>
+            ))}
+            {integridad.tablas_sin_registro.length > 0 && (
+              <div className="text-[#8c1d12]">Han dejado de registrarse en la auditoría: {integridad.tablas_sin_registro.map(pantalla).join(', ')}.</div>
+            )}
+            {integridad.permisos_abiertos.length > 0 && (
+              <div className="text-[#8c1d12]">Alguien ha abierto permisos para escribir en la auditoría: {integridad.permisos_abiertos.join(', ')}.</div>
+            )}
+            {!integridad.correcto && (
+              <div className="text-[12px]">Qué hacer: no toques nada y avisa a los demás super administradores. El detalle de cuándo pasó está en las fechas de los sellos.</div>
+            )}
+            <div className="text-[11px] text-[#777]">
+              Cada hora se sella lo nuevo con una huella encadenada con la anterior. Los últimos 10 minutos todavía no están sellados.
+            </div>
+          </div>
+        </GwVentanaFlotante>
+      )}
+      {ventanas.map((f, i) => (
+        <GwVentanaFlotante
+          key={f.id}
+          indice={i}
+          titulo={`Detalle · ${fechaHora(f.ocurrido_en)} · ${f.empleado_nombre ?? f.empleado ?? 'Sistema'}`}
+          onCerrar={() => setVentanas((vs) => vs.filter((x) => x.id !== f.id))}
+        >
+          <DetalleAuditoria fila={f} />
+        </GwVentanaFlotante>
+      ))}
     </div>
   )
+}
+
+interface Integridad {
+  correcto: boolean
+  sellos: number
+  hasta_id: number | null
+  ultimo_sello: string | null
+  fallos: { tramo: number; desde: number; hasta: number; motivo: string }[]
+  tablas_sin_registro: string[]
+  permisos_abiertos: string[]
 }
