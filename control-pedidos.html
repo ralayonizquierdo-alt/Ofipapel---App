@@ -566,14 +566,14 @@ function apuntarHecho(p, que, claves) {
 const hecho = (p, que, k) => ((p.hechos || {})[que] || []).includes(String(k));
 const PASOS = { lineas: 'Sin líneas', propuesta: 'Falta propuesta', validar: 'Falta validar',
   reclamar: 'Reclamación pendiente', factura: 'Falta factura final', excel: 'Falta Excel Géminis',
-  liquidacion: 'Falta liquidación de compra', guia: 'Falta imprimir guía' };
+  liquidacion: 'Falta liquidación de compra', geminis: 'Falta subir a Géminis', guia: 'Falta imprimir guía' };
 const POR_FACTURA = ['excel', 'liquidacion', 'guia'];
 /** Pasos que le quedan al pedido, en orden: [{ paso, fra? }]. */
 function pasosPendientes(p) {
   if (!p.lineas.length) return [{ paso: 'lineas' }];
   if (!p.propuesta) return [{ paso: 'propuesta' }];
-  // En reposición solo se avisa de la propuesta del proveedor (propietario, 30/10/2026).
-  if (esRepo(p)) return [];
+  // Reposición: propuesta, validar y subirlo a Géminis (propietario, 2/11/2026).
+  if (esRepo(p)) return !p.validado ? [{ paso: 'validar' }] : p.subidoGeminis ? [] : [{ paso: 'geminis' }];
   if (!p.validado) return [{ paso: 'validar' }];
   const r = [];
   const rec = CP.aReclamar(comparar(p), p.decisiones);
@@ -606,8 +606,18 @@ function chipsQueFalta(g) {
   // El Excel y la guía, uno por factura y pulsables: si ya se hizo fuera de la app, se da por hecho.
   const porFra = (k) => [...por.get(k)].map((f) => `<span class="chip mal" style="cursor:pointer" title="Pulsa si ya está hecho"
     onclick="event.preventDefault(); event.stopPropagation(); marcarHecho(${js(g.clave)}, '${k}', ${js(f)})">${PASOS[k]}${f === 'validado' ? '' : ' · Fra ' + h(f)}</span>`).join('');
-  return Object.keys(PASOS).filter((k) => por.has(k))
+  // Último paso de la reposición: una casilla por pedido; al marcarla se archiva.
+  const subir = g.pedidos.filter((p) => pasosPendientes(p).some((x) => x.paso === 'geminis')).map((p) =>
+    `<span class="chip mal" style="cursor:pointer" title="Márcalo cuando esté subido a Géminis: el pedido se archiva"
+      onclick="event.preventDefault(); event.stopPropagation(); subidoAGeminis('${p.id}')">☐ Subido a Géminis${p.numero ? ' · nº ' + h(p.numero) : ''}</span>`).join('');
+  return subir + Object.keys(PASOS).filter((k) => por.has(k) && k !== 'geminis')
     .map((k) => POR_FACTURA.includes(k) ? porFra(k) : `<span class="chip ${k === 'reclamar' ? 'aviso' : 'mal'}">${PASOS[k]}: ${h(lista([...por.get(k)]))}</span>`).join('') + restos;
+}
+function subidoAGeminis(id) {
+  const p = pedidoPorId(id);
+  if (!p || !confirm(`¿${p.numero ? 'El pedido ' + p.numero : 'Este pedido'} de ${p.proveedor} ya está subido a Géminis?\nSe archivará.`)) return;
+  p.subidoGeminis = { fecha: new Date().toISOString(), por: nube.usuario || '' };
+  archivarPedido(id, true);
 }
 function marcarHecho(clave, que, fra) {
   const queEs = { excel: 'el Excel de Géminis', liquidacion: 'la liquidación de compra (códigos)', guia: 'la guía de facturación' }[que];
