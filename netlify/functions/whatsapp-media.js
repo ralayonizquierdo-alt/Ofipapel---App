@@ -30,7 +30,29 @@ const MAXIMO_BYTES = 5 * 1024 * 1024;
 // contestar — el aviso al equipo sale igual.
 const TIMEOUT_MS = 4000;
 
-const TIPOS_ACEPTADOS = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+// LAS NOTAS DE VOZ TAMBIÉN SE GUARDAN (2/11/2026).
+//
+// «Cuando un cliente envía una nota de voz yo no puedo escucharla, solo llega
+// un aviso» (propietario). Era verdad: el audio se registraba como «[El cliente
+// envió un audio]» y el fichero se perdía, así que para enterarse había que
+// abrir WhatsApp en el móvil.
+//
+// El bot NO las escucha —no sabe— y eso no cambia: sigue ofreciendo una
+// persona. Lo que cambia es que esa persona ahora puede darle al play en el
+// panel, que es justo lo que faltaba.
+//
+// Las notas de voz de WhatsApp llegan como `audio/ogg; codecs=opus` (el tipo se
+// parte por el «;» más abajo). El resto son audios reenviados desde otra app.
+const TIPOS_ACEPTADOS = [
+  'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+  'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/amr', 'audio/wav', 'audio/webm',
+];
+
+// Para decidir cómo pintarlo en el panel: un audio necesita un reproductor, no
+// una etiqueta de imagen.
+function esAudio(tipo) {
+  return String(tipo || '').startsWith('audio/');
+}
 
 // Baja un adjunto de Meta. Son DOS pasos, y el segundo también necesita el
 // token: la URL que devuelve el primero no es pública.
@@ -121,19 +143,35 @@ async function guardarAdjuntoDeCliente(event, phone, mediaId) {
 // Cómo queda marcado en el historial que un mensaje trae foto. El panel busca
 // esta marca para pintar la imagen; el webhook la escribe. Vive aquí, en un solo
 // sitio, para que los dos no se desincronicen.
+// La clase va detrás de un «|» y es OPCIONAL a propósito: los miles de
+// mensajes ya guardados no la llevan, y tienen que seguir pintándose como
+// hasta ahora. Sin clase = imagen, que es lo que eran todos.
 const MARCA_ADJUNTO = '[ADJUNTO:';
-const RE_ADJUNTO = /^\[ADJUNTO:([A-Za-z0-9_-]+)\]/;
+const RE_ADJUNTO = /^\[ADJUNTO:([A-Za-z0-9_-]+)(?:\|([a-z]+))?\]/;
 
-// Devuelve { mediaId, texto } si el mensaje del historial trae foto, o null.
+// Devuelve { mediaId, clase, texto } si el mensaje del historial trae adjunto,
+// o null. `clase` es 'audio' o 'imagen'.
 function adjuntoDelHistorial(contenido) {
   const m = RE_ADJUNTO.exec(String(contenido || ''));
   if (!m) return null;
-  return { mediaId: m[1], texto: String(contenido).replace(RE_ADJUNTO, '').trim() };
+  return {
+    mediaId: m[1],
+    clase: m[2] === 'audio' ? 'audio' : 'imagen',
+    texto: String(contenido).replace(RE_ADJUNTO, '').trim(),
+  };
+}
+
+// Cómo se escribe la marca al guardar. En un solo sitio, para que quien la
+// escribe y quien la lee no se desincronicen.
+function marcaDeAdjunto(mediaId, tipo) {
+  return `${MARCA_ADJUNTO}${mediaId}${esAudio(tipo) ? '|audio' : ''}]`;
 }
 
 module.exports = {
   guardarAdjuntoDeCliente,
   MARCA_ADJUNTO,
+  marcaDeAdjunto,
+  esAudio,
   adjuntoDelHistorial,
   leer,
   claveDeMedia,

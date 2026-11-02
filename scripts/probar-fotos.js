@@ -39,7 +39,13 @@ Module.prototype.require=orig;
 global.fetch=async(url,opts)=>{
   try{ const b=JSON.parse(opts?.body||'{}');
        if(b.type==='interactive') log.push({t:'botones',m:b.interactive?.body?.text}); }catch{}
-  if(String(url).includes('graph.facebook.com/v20.0/')) return {ok:true,json:async()=>({url:'https://lookaside.meta/x',mime_type:'image/jpeg',file_size:PNG.length})};
+  // El tipo depende del adjunto que se pida: el id '3' es la nota de voz, y
+  // tiene que viajar como audio para que el panel la pinte con reproductor.
+  if(String(url).includes('graph.facebook.com/v20.0/')){
+    const id=String(url).split('/v20.0/')[1].split(/[?#]/)[0];
+    const mime = id==='3' ? 'audio/ogg; codecs=opus' : 'image/jpeg';
+    return {ok:true,json:async()=>({url:'https://lookaside.meta/x',mime_type:mime,file_size:PNG.length})};
+  }
   if(String(url).includes('lookaside')) return {ok:true,arrayBuffer:async()=>PNG.buffer.slice(PNG.byteOffset,PNG.byteOffset+PNG.length)};
   return {ok:true,json:async()=>({}),text:async()=>'{}'};
 };
@@ -70,7 +76,14 @@ global.PAUSADO=false;
     for(const obligatorio of ['botones','guardado en el panel']){
       if(!tiene(obligatorio)){ fallos++; console.log(`   ✗ FALTA: ${obligatorio}`); }
     }
-    if(msg.type==='image' && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
+    // Desde el 2/11/2026 el AUDIO también se guarda: "cuando un cliente envía
+    // una nota de voz yo no puedo escucharla, solo llega un aviso".
+    if((msg.type==='image'||msg.type==='audio') && !tiene('foto guardada')){ fallos++; console.log(`   ✗ FALTA: el adjunto (${msg.type}) no se guardó, no se verá en el panel`); }
+    if(msg.type==='audio'){
+      const guardado=(log.find(l=>l.t==='guardado en el panel')||{}).m||'';
+      if(!/\[ADJUNTO:3\|audio\]/.test(guardado)){ fallos++; console.log('   ✗ la marca no dice que es audio: el panel lo pintaría como imagen'); }
+      else console.log('    ✔ queda marcado como audio para el panel');
+    }
     for(const prohibido of ['bot en pausa','email al dueño']){
       if(tiene(prohibido)){ fallos++; console.log(`   ✗ NO debería: ${prohibido} (se pregunta antes)`); }
     }
@@ -88,6 +101,26 @@ global.PAUSADO=false;
   if(!/asistente virtual/i.test(botones)){ fallos++; console.log('   ✗ NO se presenta como bot'); }
   else console.log('    ✔ se presenta como bot');
   console.log();
+
+  // CÓMO SE PINTA EN EL PANEL.
+  //
+  // Guardar el audio no sirve de nada si el panel lo mete en un <img>: saldría
+  // un icono roto. Y lo que ya está guardado de antes NO lleva la clase en la
+  // marca, así que tiene que seguir pintándose como imagen.
+  {
+    const conv = require(require('path').join(__dirname,'..','netlify/functions/conversations.js'));
+    const pintar = conv.cuerpoDeBurbuja;
+    const audio = pintar('34600777222', '[ADJUNTO:3|audio][El cliente envió un audio]');
+    const foto  = pintar('34600777222', '[ADJUNTO:1][El cliente envió una foto]');
+    console.log('=== Cómo lo pinta el panel');
+    if(!/<audio[^>]+controls/.test(audio)){ fallos++; console.log('   ✗ el audio no sale con reproductor'); }
+    else console.log('    ✔ el audio sale con reproductor');
+    if(/<img/.test(audio)){ fallos++; console.log('   ✗ el audio sale como imagen: icono roto'); }
+    if(!/<img/.test(foto)){ fallos++; console.log('   ✗ una foto guardada ANTES ya no se ve'); }
+    else console.log('    ✔ las fotos de antes se siguen viendo igual');
+    if(/<audio/.test(foto)){ fallos++; console.log('   ✗ una foto sale como audio'); }
+    console.log();
+  }
 
   // UNA REACCIÓN NO ES UNA PREGUNTA.
   //

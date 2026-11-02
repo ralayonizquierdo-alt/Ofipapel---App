@@ -135,7 +135,7 @@ const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { detectarHostilidad, mensajeClienteMolesto } = require('./whatsapp-hostilidad');
 const { todasLasNotas, notasQueAplican, notaDeFicha } = require('./whatsapp-notas');
-const { guardarAdjuntoDeCliente, MARCA_ADJUNTO, adjuntoDelHistorial } = require('./whatsapp-media');
+const { guardarAdjuntoDeCliente, MARCA_ADJUNTO, marcaDeAdjunto, adjuntoDelHistorial } = require('./whatsapp-media');
 const {
   leerFoto,
   sePuedeLeer: sePuedeLeerLaFoto,
@@ -869,9 +869,14 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // igual, solo que sin la foto. Nunca se deja al cliente sin respuesta por
     // culpa de una descarga.
     // Los stickers no llegan aquí: se atienden más arriba, como una reacción.
+    // Los AUDIOS se bajan igual que las fotos desde el 2/11/2026: «cuando un
+    // cliente envía una nota de voz yo no puedo escucharla, solo llega un
+    // aviso» (propietario). El bot sigue sin entenderlas —no sabe— y sigue
+    // ofreciendo una persona; lo que cambia es que esa persona puede darle al
+    // play en el panel en vez de tener que abrir WhatsApp en el móvil.
     const mediaId = message[message.type]?.id;
     let adjunto = null;
-    if (mediaId && (message.type === 'image' || message.type === 'document')) {
+    if (mediaId && (message.type === 'image' || message.type === 'document' || message.type === 'audio')) {
       adjunto = await guardarAdjuntoDeCliente(event, message.from, mediaId);
     }
 
@@ -881,7 +886,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // imagen. En el aviso al dueño sobra: se lee en un email o en WhatsApp, y
     // ahí "[ADJUNTO:1]" no significa nada.
     const legible = `[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
-    const marca = adjunto?.mediaId ? `${MARCA_ADJUNTO}${adjunto.mediaId}]` : '';
+    const marca = adjunto?.mediaId ? marcaDeAdjunto(adjunto.mediaId, adjunto.tipo) : '';
     let registro = `${marca}${legible}`;
 
     // Se PREGUNTA si quiere una persona, no se da por hecho.
