@@ -76,6 +76,54 @@ export function valorTexto(fuente: string, c: ColumnaResultado, v: unknown) {
 
 export const esSumable = (c: ColumnaResultado) => c.tipo === 'num' && !NO_SUMAR.includes(c.clave)
 
+export type Resalte = 'mes' | 'anio' | 'max'
+
+/**
+ * Resaltado que piden las reglas de Luis/Rober para los listados de ventas: con una columna
+ * «mes» (aaaa-mm) o «anio», en cada vendedor/tienda/grupo… el mes (azul) y el año (amarillo) de más
+ * venta, y esa cifra en negrita; sin columna de tiempo y agrupado, el top 15 de cada medida en
+ * negrita (familias: importe, unidades, beneficio). Clave del mapa: «fila:columna».
+ * (Misma regla en supabase/functions/nexa/pdf.ts.)
+ */
+export function resaltesResultado(r: ResultadoListado): Map<string, Resalte> {
+  const out = new Map<string, Resalte>()
+  const medidas = r.columnas.filter((c) => esSumable(c) && !['registros'].includes(c.clave))
+  if (!medidas.length || r.filas.length < 2) return out
+  const principal = medidas.find((c) => /importe|total|venta|base|facturaci/i.test(c.clave)) ?? medidas[0]
+  const tiempos = r.columnas.filter((c) => c.clave === 'mes' || c.clave === 'anio')
+  const dims = r.columnas.filter((c) => c.tipo !== 'num' && c.clave !== 'mes' && c.clave !== 'anio')
+  const num = (v: unknown) => Number(v) || 0
+  if (tiempos.length) {
+    for (const t of tiempos) {
+      const grupos = new Map<string, number[]>()
+      r.filas.forEach((f, i) => {
+        const k = dims.map((d) => String(f[d.clave] ?? '')).join('|')
+        ;(grupos.get(k) ?? grupos.set(k, []).get(k)!).push(i)
+      })
+      for (const idx of grupos.values()) {
+        if (idx.length < 2) continue
+        const mejor = idx.reduce((a, b) => (num(r.filas[b][principal.clave]) > num(r.filas[a][principal.clave]) ? b : a))
+        out.set(`${mejor}:${t.clave}`, t.clave === 'mes' ? 'mes' : 'anio')
+        out.set(`${mejor}:${principal.clave}`, 'max')
+      }
+    }
+    return out
+  }
+  if (r.definicion.agrupar.length && r.filas.length > 15) {
+    for (const m of medidas) {
+      const orden = r.filas.map((f, i) => [i, num(f[m.clave])] as const).sort((a, b) => b[1] - a[1]).slice(0, 15)
+      for (const [i] of orden) out.set(`${i}:${m.clave}`, 'max')
+    }
+  }
+  return out
+}
+
+export const ESTILO_RESALTE: Record<Resalte, string> = {
+  mes: 'background:#cfe4fb;font-weight:bold',
+  anio: 'background:#fff3b0;font-weight:bold',
+  max: 'font-weight:bold',
+}
+
 export function totalesResultado(r: ResultadoListado) {
   const t: Record<string, number> = {}
   for (const c of r.columnas) if (esSumable(c)) t[c.clave] = r.filas.reduce((s, f) => s + (Number(f[c.clave]) || 0), 0)
@@ -143,6 +191,7 @@ const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').re
 /** Imprimir / PDF: abre el listado en una ventana aparte con su identificación y la imprime. */
 export function imprimirResultado(r: ResultadoListado, sacadoPor = '') {
   const tot = totalesResultado(r)
+  const res = resaltesResultado(r)
   const num = (c: ColumnaResultado) => (c.tipo === 'num' ? ' class="n"' : '')
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escHtml(r.titulo)}</title>
 <style>
@@ -162,7 +211,7 @@ tfoot td { font-weight: bold; background: #f3f3f3; }
     .map(([k, v]) => `<div><b>${escHtml(k)}:</b> ${escHtml(v)}</div>`)
     .join('')}</div>
 <table><thead><tr>${r.columnas.map((c) => `<th${num(c)}>${escHtml(etiquetaColumna(r.fuente, c))}</th>`).join('')}</tr></thead>
-<tbody>${r.filas.map((f) => `<tr>${r.columnas.map((c) => `<td${num(c)}>${escHtml(valorTexto(r.fuente, c, f[c.clave]))}</td>`).join('')}</tr>`).join('')}</tbody>
+<tbody>${r.filas.map((f, i) => `<tr>${r.columnas.map((c) => { const z = res.get(`${i}:${c.clave}`); return `<td${num(c)}${z ? ` style="${ESTILO_RESALTE[z]}"` : ''}>${escHtml(valorTexto(r.fuente, c, f[c.clave]))}</td>` }).join('')}</tr>`).join('')}</tbody>
 ${
   r.filas.length && Object.keys(tot).length
     ? `<tfoot><tr>${r.columnas.map((c, i) => `<td${num(c)}>${c.clave in tot ? escHtml(formatGw(tot[c.clave], decimales(r.fuente, c))) : i === 0 ? 'TOTAL' : ''}</td>`).join('')}</tr></tfoot>`

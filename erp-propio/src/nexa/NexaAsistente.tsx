@@ -36,7 +36,7 @@ import {
 } from './conversacion'
 import { dictadoDisponible, empezarDictado, type Dictado } from './dictado'
 import { Markdown } from './Markdown'
-import { esSumable, etiquetaColumna, excelResultado, imprimirResultado, resumenResultado, rutaGenerador, totalesResultado, valorTexto, type ResultadoListado } from '../lib/listados/resultado'
+import { esSumable, etiquetaColumna, excelResultado, imprimirResultado, resaltesResultado, resumenResultado, rutaGenerador, totalesResultado, valorTexto, type ResultadoListado } from '../lib/listados/resultado'
 import { formatGw } from '../components/gw'
 
 export const ATAJO_NEXA = 'Ctrl+Espacio'
@@ -620,10 +620,13 @@ function BotonListado({ titulo, onClick, children, deshabilitado }: { titulo: st
   )
 }
 
+const CLASE_RESALTE: Record<string, string> = { mes: 'bg-[#cfe4fb] font-bold', anio: 'bg-[#fff3b0] font-bold', max: 'font-bold', ninguno: '' }
+
 function TablaListado({ l, onAbrir, onEnviar, pensando }: { l: ResultadoListado; onAbrir: (ruta: string) => void; onEnviar: (texto: string) => void; pensando: boolean }) {
   const { puedeRuta } = usePermisos()
   const [aviso, setAviso] = useState<string | null>(null)
   const totales = totalesResultado(l)
+  const resaltes = resaltesResultado(l)
   const hayTotales = l.filas.length > 0 && Object.keys(totales).length > 0
   const ruta = rutaGenerador(l)
   const sinFilasGuardadas = !l.filas.length && l.total > 0
@@ -683,7 +686,10 @@ function TablaListado({ l, onAbrir, onEnviar, pensando }: { l: ResultadoListado;
               {l.filas.map((f, i) => (
                 <tr key={i} className="odd:bg-white even:bg-slate-50 hover:bg-[#e5f1fb]">
                   {l.columnas.map((c) => (
-                    <td key={c.clave} className={`border-b border-slate-100 px-2 py-[3px] ${c.tipo === 'num' ? 'whitespace-nowrap text-right tabular-nums' : ''}`}>
+                    <td
+                      key={c.clave}
+                      className={`border-b border-slate-100 px-2 py-[3px] ${c.tipo === 'num' ? 'whitespace-nowrap text-right tabular-nums' : ''} ${CLASE_RESALTE[resaltes.get(`${i}:${c.clave}`) ?? 'ninguno']}`}
+                    >
                       {valorTexto(l.fuente, c, f[c.clave])}
                     </td>
                   ))}
