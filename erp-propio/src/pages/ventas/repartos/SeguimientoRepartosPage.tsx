@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { supabase } from '../../../lib/supabase'
 import { Aviso, base, BotonClaro, C, PanelReparto, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
 
-// Seguimiento de repartos (Ventas → Seguimiento de repartos, /repartos/seguimiento).
+// Seguimiento de repartos (Ventas → Repartos → «Seguimiento de hoy», /repartos/seguimiento). Va unido a la ficha de
+// Repartos: desde la ficha se abre el seguimiento y, pulsando el nombre de una ruta, se vuelve a la ficha de ese reparto.
+// Sin ranking ni totales (eso es solo para la TV).
 // Back office del reparto. La TV del departamento de pedidos NO usa esta pantalla: abre /reparto-tv con el enlace que
 // se genera aquí («Enlace para la TV»), sin ERP. Dos vistas
 //  · «Rutas»: una línea por ruta con lo que va quedando, en tiempo real (se refresca cada 20 s).
@@ -21,6 +24,7 @@ export function SeguimientoRepartosPage() {
   const [pines, setPines] = useState(false)
   const [enlaceTv, setEnlaceTv] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const cargar = useCallback(async () => {
     const { data, error: e } = await supabase.rpc('fn_reparto_seguimiento', {})
@@ -56,8 +60,10 @@ export function SeguimientoRepartosPage() {
         setVista={setVista}
         tv={false}
         onCerrar={cerrar}
+        onAbrir={(r) => navigate(`/repartos/${encodeURIComponent(r.tienda)}/${r.numero}`)}
         derecha={
           <>
+            <BotonClaro onClick={() => navigate('/repartos')}>📋 Ficha de Repartos</BotonClaro>
             <BotonClaro onClick={() => setPines(true)}>PIN de la app</BotonClaro>
             <BotonClaro onClick={() => setEnlaceTv(true)}>📺 Enlace para la TV</BotonClaro>
           </>

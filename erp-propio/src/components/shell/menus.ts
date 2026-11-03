@@ -89,6 +89,7 @@ export const MENUS: TopMenu[] = [
       item('Carga Cotización', { to: '/archivo/carga-cotizacion', description: 'Actualizar la cotización de las monedas, a mano o del BCE (sin captura)' }),
       item('Zonas de servicio', { to: '/archivo/zonas-servicio', description: 'Ficha de Zonas de servicio (sin captura)' }),
       item('Empleados', { to: '/empleados', description: 'Ficha de Empleados' }),
+      item('Fichaje', { to: '/fichaje-gestion', description: 'Registro horario del personal: quién ha fichado, correcciones, horarios y exportar' }),
       // Propio del ERP (en GeminisWin los grupos se eligen en Empleados → Seguridad): qué opciones puede usar cada grupo.
       item('Grupos de Acceso', { to: '/grupos-acceso', description: 'Grupos de acceso: opciones de menú permitidas a cada grupo' }),
       'sep',
@@ -150,7 +151,6 @@ export const MENUS: TopMenu[] = [
       item('Zonas Territoriales', { to: '/zonas-territoriales', description: 'Zonas Territoriales' }),
       item('Rutas de Reparto', { to: '/rutas-reparto', description: 'Rutas de Reparto' }),
       item('Repartos', { to: '/repartos', description: 'Repartos' }),
-      item('Seguimiento de Repartos', { to: '/repartos/seguimiento', description: 'Repartos de hoy en tiempo real (pantalla de TV)' }),
       item('Técnicos', { to: '/tecnicos', description: 'Ficha de Técnicos' }),
       item('Nº Serie', { to: '/numeros-serie', description: 'Números de Serie' }),
       'sep',
@@ -452,6 +452,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/almacenes', title: 'Almacenes' },
   { prefix: '/tiendas', title: 'Tiendas' },
   { prefix: '/empleados', title: 'Empleados' },
+  { prefix: '/fichaje-gestion', title: 'Fichaje' },
   { prefix: '/grupos-acceso', title: 'Grupos de Acceso' },
   { prefix: '/empresa', title: 'Empresa' },
   { prefix: '/formas-pago', title: 'Formas de pago' },

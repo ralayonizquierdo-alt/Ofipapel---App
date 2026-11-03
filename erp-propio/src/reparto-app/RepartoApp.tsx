@@ -5,6 +5,7 @@ import {
   encolar,
   enviarCola,
   entrar,
+  entrarDesdeFichaje,
   ErrorApp,
   guardar,
   guardarCache,
@@ -57,8 +58,8 @@ const normal = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-
 const hora = (v: string | null) => (v ? new Date(v).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' }) : '')
 const euros = (n: number | null | undefined) => (n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €')
 const base = import.meta.env.BASE_URL
-// Fichaje (fichaje.html, Firebase): el registro horario legal lo lleva Fichaje y lo gestiona gerencia.
-const FICHAJE_URL = 'https://ofipapel.netlify.app/fichaje.html'
+// Fichaje (/fichaje, en el ERP): el registro horario legal; lo gestiona gerencia en Archivo → Fichaje.
+const FICHAJE_URL = `${base}fichaje`
 
 function useFuentesYManifiesto() {
   useEffect(() => {
@@ -169,6 +170,18 @@ export function RepartoApp() {
   useFuentesYManifiesto()
   const [sesion, setSesion] = useState<Sesion | null>(() => sesionGuardada())
   const [reparto, setReparto] = useState<RepartoApp | null>(() => leer<RepartoApp>('reparto.abierto'))
+
+  // Desde Fichaje («🚚 Mi reparto»): /repartidor?t=<token>, ya identificado con su PIN allí.
+  useEffect(() => {
+    const t = new URLSearchParams(location.search).get('t')
+    if (!t) return
+    history.replaceState(null, '', location.pathname)
+    entrarDesdeFichaje(t)
+      .then(setSesion)
+      .catch(() => {
+        /* caducado: que entre con su PIN */
+      })
+  }, [])
 
   const salir = () => {
     guardarSesion(null)
@@ -363,18 +376,14 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   const [modo, setModo] = useState<'comprobar' | 'repartir'>(() => (leer<string>(`reparto.modo.${reparto.tienda}-${reparto.numero}`) as 'comprobar' | 'repartir') ?? 'comprobar')
   const [gps, setGps] = useState<'si' | 'no' | null>(() => leer<'si' | 'no'>('reparto.gps'))
   // Fichaje: sin la entrada fichada hoy no se puede entregar (sí ver, comprobar, ordenar y cambiar de ruta).
-  const persona = sesion.fichaje_persona
-  const [fichaje, setFichaje] = useState<EstadoFichaje | 'sin_vinculo' | 'comprobando' | 'sin_conexion'>(() =>
-    !persona ? 'sin_vinculo' : (estadoGuardado(persona) ?? 'comprobando'),
-  )
+  const [fichaje, setFichaje] = useState<EstadoFichaje | 'comprobando' | 'sin_conexion'>(() => estadoGuardado(sesion.repartidor) ?? 'comprobando')
   const mirarFichaje = useCallback(async () => {
-    if (!persona) return setFichaje('sin_vinculo')
     try {
-      setFichaje(await estadoFichaje(persona))
+      setFichaje(await estadoFichaje(sesion.token, sesion.repartidor))
     } catch {
-      setFichaje(estadoGuardado(persona) ?? 'sin_conexion')
+      setFichaje(estadoGuardado(sesion.repartidor) ?? 'sin_conexion')
     }
-  }, [persona])
+  }, [sesion.token, sesion.repartidor])
   useEffect(() => {
     void mirarFichaje()
     const t = setInterval(() => void mirarFichaje(), 60_000)
@@ -385,7 +394,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
       document.removeEventListener('visibilitychange', vis)
     }
   }, [mirarFichaje])
-  const puedeEntregar = fichaje === 'trabajando'
+  const puedeEntregar = fichaje === 'trabajando' || fichaje === 'sin_vinculo'
 
   const ls = useMemo(() => datos?.lineas ?? [], [datos])
   const clave = (l: LineaApp) => `${l.vt}-${l.vn}`
@@ -552,13 +561,17 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         </Tarjeta>
       )}
 
+      {fichaje === 'sin_vinculo' && (
+        <Tarjeta style={{ borderTopColor: V.naranja, fontSize: 14, color: V.gris }}>
+          Tu ficha de Fichaje no está enlazada con el reparto: pide en la oficina que lo hagan (Archivo → Fichaje → Personas). Mientras, ficha igualmente al empezar.
+        </Tarjeta>
+      )}
+
       {!puedeEntregar && (
         <Tarjeta style={{ borderTopColor: V.naranja }}>
           <div style={{ fontWeight: 800, fontSize: 18, color: V.rojo }}>🕒 {fichaje === 'pausa' ? 'Estás en pausa' : fichaje === 'salida' ? 'Ya has fichado la salida' : 'Lo primero: fichar'}</div>
           <div style={{ fontSize: 14, color: V.gris, margin: '6px 0 10px' }}>
-            {fichaje === 'sin_vinculo'
-              ? 'Para entregar, entra en Fichaje, ficha la entrada y pulsa «🚚 Mi reparto». Mientras, puedes ver, comprobar y ordenar tu ruta.'
-              : fichaje === 'comprobando'
+            {fichaje === 'comprobando'
                 ? 'Comprobando tu fichaje…'
                 : fichaje === 'sin_conexion'
                   ? 'Sin cobertura no puedo comprobar tu fichaje. En cuanto vuelva la señal lo miro otra vez.'
@@ -572,11 +585,9 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
             <a href={FICHAJE_URL} style={{ ...enlace, display: 'block', background: V.verdeMed, color: '#fff' }}>
               🕒 Ir a Fichaje
             </a>
-            {fichaje !== 'sin_vinculo' && (
-              <button type="button" onClick={() => void mirarFichaje()} style={{ ...enlace, background: '#fff' }}>
-                Ya he fichado
-              </button>
-            )}
+            <button type="button" onClick={() => void mirarFichaje()} style={{ ...enlace, background: '#fff' }}>
+              Ya he fichado
+            </button>
           </div>
         </Tarjeta>
       )}

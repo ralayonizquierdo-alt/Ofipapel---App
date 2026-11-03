@@ -978,6 +978,9 @@ export function RepartoFichaPage() {
                   <u>G</u>enerar Repartos
                 </span>
               </BotonGrande>
+              <BotonGrande icon={<Truck size={18} />} onClick={() => navigate('/repartos/seguimiento')} disabled={editing}>
+                Seguimiento de hoy
+              </BotonGrande>
               <BotonGrande icon={<ListOrdered size={18} />} onClick={renumerar} disabled={!editing || lineasVista.length === 0}>
                 Renumerar orden de Entrega
               </BotonGrande>

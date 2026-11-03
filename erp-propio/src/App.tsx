@@ -106,6 +106,8 @@ import { ListadoFacturasProveedorPage } from './pages/listados/ListadoFacturasPr
 import * as ListadosClientes from './pages/listados/clientes'
 import { RecalcularDeudaPage } from './pages/clientes/RecalcularDeudaPage'
 import { ArchivoRoutes } from './pages/archivo/ArchivoRoutes'
+import { FichajeGestionPage } from './pages/archivo/FichajeGestionPage'
+import { FichajeApp } from './reparto-app/FichajeApp'
 import { LiquidacionPage } from './pages/facturacion/LiquidacionPage'
 import { RepartoApp } from './reparto-app/RepartoApp'
 import { RepartoTv } from './reparto-app/RepartoTv'
@@ -146,6 +148,8 @@ function App() {
           <Route path="/repartidor" element={<RepartoApp />} />
           {/* Pantalla de la TV de pedidos: sin ERP, con el código del enlace — src/reparto-app/RepartoTv.tsx */}
           <Route path="/reparto-tv" element={<RepartoTv />} />
+          {/* Pantalla de fichar: pública (nombre + PIN), sin cuenta del ERP — la gestión está en Archivo → Fichaje */}
+          <Route path="/fichaje" element={<FichajeApp />} />
           <Route element={<ProtectedArea />}>
             <Route path="/" element={null} />
             <Route path="/resumen" element={<PanelControlPage />} />
@@ -171,6 +175,7 @@ function App() {
             <Route path="/monedas/*" element={<MonedaFichaPage />} />
             <Route path="/tipos-cliente/*" element={<TipoClienteFichaPage />} />
             {/* Archivo → Parámetros, Zonas de servicio, Carga Cotización e Importar (sin captura) */}
+            <Route path="/fichaje-gestion" element={<FichajeGestionPage />} />
             <Route path="/archivo/*" element={<ArchivoRoutes />} />
             {/* Menú Almacén: «Listados Artículos» (06-20) sustituye a la pantalla antigua /stock */}
             <Route path="/stock" element={<Navigate to="/almacen/listados-articulos" replace />} />

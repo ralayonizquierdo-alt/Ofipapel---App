@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-// Panel de seguimiento de repartos: lo usan la pantalla del ERP (Ventas → Seguimiento de Repartos, con cerrar y PIN)
+// Panel de seguimiento de repartos: lo usan la pantalla del ERP (Ventas → Repartos → «Seguimiento de hoy», con cerrar y PIN; sin ranking)
 // y la pantalla de la TV del departamento de pedidos (/reparto-tv, sin ERP). Datos: reparto_privado.seguimiento()
 // vía fn_reparto_seguimiento (ERP) o fn_reparto_tv (TV, con el código del enlace).
 
@@ -49,6 +49,7 @@ export function PanelReparto({
   derecha,
   avisos,
   onCerrar,
+  onAbrir,
 }: {
   datos: DatosSeg | null
   error: string | null
@@ -59,6 +60,8 @@ export function PanelReparto({
   derecha?: ReactNode
   avisos?: ReactNode
   onCerrar?: (r: RutaSeg) => void
+  /** ERP: abrir la ficha del reparto (Ventas → Repartos). */
+  onAbrir?: (r: RutaSeg) => void
 }) {
   const rutas = datos?.rutas ?? []
   const abiertas = rutas.filter((r) => r.estado === 2)
@@ -110,10 +113,12 @@ export function PanelReparto({
       {error && <Aviso color={C.rojo}>{error}</Aviso>}
       {avisos}
 
-      <div style={{ display: 'grid', gridTemplateColumns: tv ? '1fr 360px' : 'minmax(0,1fr) 300px', gap: tv ? 18 : 10, flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: tv ? '1fr 360px' : 'minmax(0,1fr)', gap: tv ? 18 : 10, flex: 1, minHeight: 0 }}>
         <div style={{ minWidth: 0 }}>
-          {vista === 'rutas' ? <VistaRutas rutas={rutas} tv={tv} onCerrar={onCerrar} /> : <VistaMapa rutas={rutas} tv={tv} />}
+          {vista === 'rutas' ? <VistaRutas rutas={rutas} tv={tv} onCerrar={onCerrar} onAbrir={onAbrir} /> : <VistaMapa rutas={rutas} tv={tv} />}
         </div>
+        {/* Totales y ranking: solo en la TV (Rober: en el ERP no). */}
+        {tv && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: tv ? 18 : 10 }}>
           <Tarjeta titulo="Pedidos entregados" tv={tv}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center' }}>
@@ -148,6 +153,7 @@ export function PanelReparto({
             })}
           </Tarjeta>
         </div>
+        )}
       </div>
 
     </div>
@@ -155,7 +161,7 @@ export function PanelReparto({
 }
 
 // ------------------------------------------------------------------ Vista «Rutas» (una línea por ruta)
-function VistaRutas({ rutas, tv, onCerrar }: { rutas: RutaSeg[]; tv: boolean; onCerrar?: (r: RutaSeg) => void }) {
+function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: boolean; onCerrar?: (r: RutaSeg) => void; onAbrir?: (r: RutaSeg) => void }) {
   if (!rutas.length) return <Tarjeta tv={tv}>No hay repartos hoy.</Tarjeta>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: tv ? 12 : 8 }}>
@@ -183,7 +189,13 @@ function VistaRutas({ rutas, tv, onCerrar }: { rutas: RutaSeg[]; tv: boolean; on
             }}
           >
             <div style={{ width: tv ? 240 : 170, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: tv ? 24 : 15, color: C.verde, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.ruta_nombre ?? 'Sin ruta'}</div>
+              <div
+                onClick={onAbrir ? () => onAbrir(r) : undefined}
+                title={onAbrir ? 'Abrir la ficha del reparto' : undefined}
+                style={{ fontWeight: 800, fontSize: tv ? 24 : 15, color: C.verde, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: onAbrir ? 'pointer' : undefined, textDecoration: onAbrir ? 'underline' : undefined }}
+              >
+                {r.ruta_nombre ?? 'Sin ruta'}{onAbrir ? ` · nº ${r.numero}` : ''}
+              </div>
               <div style={{ color: '#5f6b5f', fontSize: tv ? 16 : 12 }}>
                 🚚 {r.repartidor_nombre ?? 'sin repartidor'}
                 {r.posicion && <span> · 📍 {hace(r.posicion.en)}</span>}

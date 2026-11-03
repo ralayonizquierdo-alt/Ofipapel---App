@@ -655,3 +655,22 @@ empleados con sus permisos y elegir el día del cambio.
 - **Base de datos:** migración `20261103_reparto_app.sql` (funciones de la app `fn_app_rep_*`, internas en el esquema
   `reparto_privado`, que la API no expone). Pendiente: de dónde salen los **bultos** (Rober lo habla con el equipo) y
   borrar posiciones de más de 30 días con una tarea programada.
+
+### Fichaje dentro del ERP (03/11/2026, Rober)
+
+- Sustituye a `fichaje.html` (Firebase, sin estrenar: nada que migrar). Migración `20261103_fichaje.sql`.
+- **Pantalla de fichar:** `/fichaje` (pública): grupo → nombre → PIN de 4 cifras → Entrada / Pausa / Fin de pausa /
+  Salida según el estado. La hora la pone el servidor; la ubicación se manda si el móvil la da (nunca bloquea).
+  Código en `src/reparto-app/FichajeApp.tsx`.
+- **Gestión:** Archivo → Fichaje (`/fichaje-gestion`, permiso del mismo nombre, dado a GERENCIA): Hoy, Alertas
+  (fuera de horario / fuera de sitio, 7-30-90 días), Personas (los empleados del ERP: ficha, departamento,
+  repartidor enlazado, PIN), Histórico, Corrección, Exportar (mes o fechas, PDF/Excel/WhatsApp), Horarios y
+  festivos, Ubicaciones, Normativa y Operativa.
+- **Ley (art. 34.9 ET):** `fichaje_evento` no se modifica ni se borra (trigger). Una corrección es un registro nuevo
+  con motivo y autor que anula el equivocado (`anulado_por`). Con auditoría.
+- **Reparto:** con el repartidor enlazado en Personas, `fn_app_rep_marcar` no deja entregar sin la entrada fichada
+  ese día (mira la hora del marcado, vale sin cobertura). Al fichar sale «🚚 Mi reparto» → `/repartidor?t=token`.
+  Repartidor sin enlazar: no se bloquea y la app lo avisa.
+- **NEXA:** lee las tablas `fichaje_*` como el resto (esquema automático, con los permisos del usuario).
+- Seguimiento de repartos: ahora va dentro de Repartos (botón «Seguimiento de hoy» en la ficha; el nombre de cada
+  ruta abre su ficha). En el ERP no hay ranking ni totales: eso es solo la TV.
