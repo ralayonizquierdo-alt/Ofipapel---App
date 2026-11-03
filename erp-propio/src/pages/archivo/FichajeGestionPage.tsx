@@ -357,15 +357,37 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
     setPin((x) => ({ ...x, [p.codigo]: '' }))
     await recargar()
   }
+  const generarPines = async () => {
+    const sinPin = personas.filter((p) => p.ficha && p.activo && !p.con_pin).length
+    if (!sinPin) return setMsg('Todas las personas que fichan ya tienen PIN.')
+    if (!confirm(`Se crea un PIN al azar para ${sinPin} persona(s) sin PIN. La lista sale UNA sola vez para imprimirla y repartirla (después solo se pueden cambiar). ¿Seguir?`)) return
+    const { data, error } = await supabase.rpc('fn_fichaje_pin_generar')
+    if (error) return setMsg(error.message)
+    const filas = (data ?? []) as { numero: string; nombre: string; departamento: string | null; pin: string }[]
+    exportarPdf({
+      titulo: 'PIN de Fichaje (entregar a cada persona y no guardar esta hoja)',
+      fichero: 'pines-fichaje',
+      apaisado: false,
+      columnas: ['Nº', 'Nombre', 'Departamento', 'PIN'],
+      filas: filas.map((f) => [f.numero, f.nombre, f.departamento ?? '', f.pin]),
+    })
+    setMsg(`PIN creado para ${filas.length} persona(s). Si no se abrió la hoja para imprimir, permite las ventanas emergentes y vuelve a generarlos (cambiando el PIN de cada uno).`)
+    await recargar()
+  }
   const lista = verTodos ? personas : personas.filter((p) => p.ficha || p.activo)
   return (
     <Caja titulo="Personas que fichan (salen de Archivo → Empleados)">
       <div className="mb-1 text-[12px] text-[#555]">
         Marca «Ficha» a quien tenga que fichar, elige su departamento y ponle un PIN de 4 cifras. Si reparte, enlázale su repartidor: así la app de reparto sabe si ha fichado y, al fichar, le sale el botón «🚚 Mi reparto». Para añadir una persona, créala antes en Archivo → Empleados.
       </div>
-      <label className="mb-1 flex items-center gap-1">
-        <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver también los empleados de baja
-      </label>
+      <div className="mb-1 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-1">
+          <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver también los empleados de baja
+        </label>
+        <button type="button" className="gw-btn font-bold" onClick={() => void generarPines()} title="Un PIN al azar para cada persona que ficha y aún no tiene; sale una hoja para imprimir">
+          🔑 Crear PIN a quien no tenga (e imprimir la lista)
+        </button>
+      </div>
       {msg && <div className="mb-1 font-bold text-[#127a12]">{msg}</div>}
       <table className="w-full border-collapse">
         <thead>

@@ -680,3 +680,9 @@ empleados con sus permisos y elegir el día del cambio.
   Mapa, PIN de la app y Pantalla de la TV. Pulsando una ruta se abre debajo su ficha, que se recarga cada 15 s
   mientras se consulta: el estado de cada pedido (coloreado) y la columna «Situación» cambian al momento con lo que
   marca el repartidor. Sin ranking ni totales (eso es solo la TV). La pantalla aparte de seguimiento ya no existe.
+- **Plantilla:** las 36 personas de Vacaciones y Turnos se cargaron una vez en `empleado` (sin acceso al ERP) con su
+  departamento; 20 con su número de GeminisWin como código, 16 con código provisional F01…F16 (Cowork busca su número
+  y rellena `numero_operario`). Los 9 repartidores, enlazados a su ficha de repartidor. En Personas, «🔑 Crear PIN a
+  quien no tenga» da un PIN al azar y saca la lista para imprimir una sola vez (`20261103_fichaje_plantilla.sql`).
+- **TV:** el enlace solo se crea desde el ERP (Control de Repartos → 📺 Pantalla de la TV: copiar o enviar por correo);
+  la app del repartidor no ve las rutas de sus compañeros. En la TV sale la hora encima de cada punto.
