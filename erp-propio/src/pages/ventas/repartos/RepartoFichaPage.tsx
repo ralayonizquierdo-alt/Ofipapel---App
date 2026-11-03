@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { ControlRepartosHoy } from './ControlRepartosHoy'
 import { ListOrdered, ReceiptText, Truck } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { todasLasFilas } from '../../../lib/todasLasFilas'
@@ -12,7 +13,8 @@ import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { GwAnterior, GwBuscar, GwEliminar, GwModificar, GwNuevo, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
-// Ficha de Repartos (Ventas → Repartos en GeminisWin): REPARTOS + REPARLIN.
+// Control de Repartos (Ventas → Repartos en GeminisWin): REPARTOS + REPARLIN. Arriba, el control de hoy (todas las
+// rutas en vivo con la app de reparto); debajo, la ficha del reparto elegido, con el estado de cada pedido al momento.
 // Estados de línea según REPARLIN.ESTADO; los del reparto según REPARTOS.ESTADO.
 
 const ESTADOS_LINEA: { value: string; label: string; codigo: number }[] = [
@@ -70,6 +72,10 @@ interface Linea {
   nombre_cliente: string | null
   factura_numero: number | null
   factura_texto: string | null
+  // De la app de reparto (solo lectura; no se guardan desde la ficha)
+  incidencia: string | null
+  entregado_en: string | null
+  comprobado_en: string | null
 }
 
 interface Clave {
@@ -141,6 +147,25 @@ function lineaDb(l: Linea, cab: Clave) {
   return fila
 }
 
+/** Color de la celda de estado: lo que va marcando el repartidor se ve de un vistazo. */
+function colorEstado(l: Linea) {
+  if (l.estado === 'entregado') return l.incidencia ? '#ffe3b0' : '#d6f0d6'
+  if (l.estado === 'no_entregado') return '#f8d2d2'
+  if (l.estado === 'liquidado') return '#d6e6fb'
+  if (l.estado === 'viene_anterior') return '#fff6c8'
+  return undefined
+}
+const horaC = (v: string | null) => (v ? new Date(v).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' }) : '')
+/** Lo que ha anotado la app: incidencia o motivo de no entrega, hora de entrega y si se comprobó al cargar. */
+function situacion(l: Linea) {
+  const partes: string[] = []
+  if (l.estado === 'entregado' && !l.incidencia) partes.push(`Entregado ${horaC(l.entregado_en)}`.trim())
+  if (l.estado_observaciones && (l.incidencia || l.estado === 'no_entregado' || l.estado !== 'entregado')) partes.push(l.estado_observaciones)
+  if (l.incidencia && l.entregado_en) partes.push(horaC(l.entregado_en))
+  if (l.comprobado_en && l.estado !== 'entregado') partes.push('✓ cargado')
+  return partes.join(' · ')
+}
+
 const claveLinea = (l: Pick<Linea, 'venta_tienda_codigo' | 'venta_numero'>) => `${l.venta_tienda_codigo}-${l.venta_numero}`
 
 async function cargarLineas(tienda: string, numero: number): Promise<Linea[]> {
@@ -190,6 +215,9 @@ async function cargarLineas(tienda: string, numero: number): Promise<Linea[]> {
       nombre_cliente: ((v?.nombre_cliente as string) || clientes.get(String(v?.cliente_codigo)) || null) ?? null,
       factura_numero: v?.factura_numero != null ? Number(v.factura_numero) : null,
       factura_texto: fk ? (fmap.get(fk) ?? null) : null,
+      incidencia: (f.incidencia as string) ?? null,
+      entregado_en: (f.entregado_en as string) ?? null,
+      comprobado_en: (f.comprobado_en as string) ?? null,
     }
   })
 }
@@ -232,6 +260,9 @@ async function lineaDesdeVenta(v: Record<string, unknown>, orden: number | null,
     nombre_cliente: ((v.nombre_cliente as string) || s('nombre')) ?? null,
     factura_numero: v.factura_numero != null ? Number(v.factura_numero) : null,
     factura_texto: null,
+    incidencia: null,
+    entregado_en: null,
+    comprobado_en: null,
   }
 }
 
@@ -410,6 +441,26 @@ export function RepartoFichaPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params['*'], tiendas.length])
+
+  // Estados en vivo: mientras se consulta, las líneas se recargan cada 15 s para ver lo que marca el repartidor en la
+  // app (/repartidor). En edición no, para no pisar lo que se está tocando.
+  useEffect(() => {
+    if (mode !== 'consulta' || !claveRuta) return
+    const t = setInterval(async () => {
+      const [ls, { data }] = await Promise.all([
+        cargarLineas(claveRuta.tienda_terminal_codigo, claveRuta.numero),
+        supabase.from('reparto').select('*').eq('tienda_terminal_codigo', claveRuta.tienda_terminal_codigo).eq('numero', claveRuta.numero).maybeSingle(),
+      ])
+      setLineas(ls)
+      setLineasDraft(ls)
+      if (data) {
+        setCab(data as Reparto)
+        setDraft(data as Reparto)
+      }
+    }, 15_000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, claveRuta?.tienda_terminal_codigo, claveRuta?.numero])
 
   const vista = editing ? draft : cab
   // En alta, el número que tendrá (se asigna de verdad al guardar).
@@ -823,6 +874,12 @@ export function RepartoFichaPage() {
 
   return (
     <div className="flex min-w-[1180px] flex-col gap-1" style={{ fontFamily: 'Tahoma, Segoe UI, Arial, sans-serif' }}>
+      {/* Control de hoy: todas las rutas en vivo (app de reparto); pulsando una se abre aquí debajo con sus pedidos. */}
+      <ControlRepartosHoy
+        actual={claveRuta}
+        bloqueado={editing}
+        onAbrir={(t, n) => navigate(`/repartos/${encodeURIComponent(t)}/${n}`)}
+      />
       {/* Cabecera */}
       <div className="grid grid-cols-[478px_minmax(0,1fr)_262px] items-start gap-x-5">
         <div className="flex flex-col">
@@ -977,9 +1034,6 @@ export function RepartoFichaPage() {
                 <span>
                   <u>G</u>enerar Repartos
                 </span>
-              </BotonGrande>
-              <BotonGrande icon={<Truck size={18} />} onClick={() => navigate('/repartos/seguimiento')} disabled={editing}>
-                Seguimiento de hoy
               </BotonGrande>
               <BotonGrande icon={<ListOrdered size={18} />} onClick={renumerar} disabled={!editing || lineasVista.length === 0}>
                 Renumerar orden de Entrega
@@ -1185,7 +1239,7 @@ function RejillaLineas({
   const td = 'h-[27px] border-r border-b border-[var(--gw-border-light)] px-1 whitespace-nowrap overflow-hidden'
   return (
     <div className="h-[276px] overflow-auto border border-[var(--gw-border)] bg-white">
-      <table className="w-full min-w-[1280px] table-fixed border-collapse text-[19px]">
+      <table className="w-full min-w-[1580px] table-fixed border-collapse text-[19px]">
         <colgroup>
           <col style={{ width: 82 }} />
           <col style={{ width: 216 }} />
@@ -1198,10 +1252,11 @@ function RejillaLineas({
           <col style={{ width: 260 }} />
           <col style={{ width: 120 }} />
           <col style={{ width: 120 }} />
+          <col style={{ width: 300 }} />
         </colgroup>
         <thead className="sticky top-0 z-10 bg-[var(--gw-face)]">
           <tr className="text-[20px]">
-            {['Ord.', 'Estado', 'Tie.', 'Nº Venta', 'Fecha', 'Id Factura', 'Nº factura', 'Cliente', 'Nombre Cliente', 'Importe', 'Cobrado'].map((h, i) => (
+            {['Ord.', 'Estado', 'Tie.', 'Nº Venta', 'Fecha', 'Id Factura', 'Nº factura', 'Cliente', 'Nombre Cliente', 'Importe', 'Cobrado', 'Situación (app del repartidor)'].map((h, i) => (
               <th
                 key={h}
                 className={`h-[30px] border-r border-b border-[var(--gw-border)] px-1 font-normal ${
@@ -1222,7 +1277,7 @@ function RejillaLineas({
                   {s && <span className="float-left text-[10px] leading-[27px]">▸</span>}
                   {l.orden ?? ''}
                 </td>
-                <td className={`${td} p-0`}>
+                <td className={`${td} p-0`} style={{ background: colorEstado(l) }}>
                   <select
                     className="h-[26px] w-full border-0 bg-transparent text-[19px] outline-none disabled:text-black"
                     style={{ WebkitTextFillColor: '#000' }}
@@ -1247,12 +1302,15 @@ function RejillaLineas({
                 <td className={td}>{l.nombre_cliente ?? ''}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatGw(l.venta_total ?? 0, 3)}</td>
                 <td className={`${td} text-right tabular-nums`}>{formatGw(l.venta_pagado ?? 0, 3)}</td>
+                <td className={`${td} text-[15px]`} title={situacion(l)}>
+                  {situacion(l)}
+                </td>
               </tr>
             )
           })}
           {Array.from({ length: vacias }, (_, i) => (
             <tr key={`v${i}`}>
-              {Array.from({ length: 11 }, (_, j) => (
+              {Array.from({ length: 12 }, (_, j) => (
                 <td key={j} className={td}>
                   &nbsp;
                 </td>

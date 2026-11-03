@@ -672,5 +672,11 @@ empleados con sus permisos y elegir el día del cambio.
   ese día (mira la hora del marcado, vale sin cobertura). Al fichar sale «🚚 Mi reparto» → `/repartidor?t=token`.
   Repartidor sin enlazar: no se bloquea y la app lo avisa.
 - **NEXA:** lee las tablas `fichaje_*` como el resto (esquema automático, con los permisos del usuario).
-- Seguimiento de repartos: ahora va dentro de Repartos (botón «Seguimiento de hoy» en la ficha; el nombre de cada
-  ruta abre su ficha). En el ERP no hay ranking ni totales: eso es solo la TV.
+- **Mi fichaje:** botón de la barra de accesos (el segundo, en verde). Ficha quien tiene la sesión del ERP abierta
+  (`fn_fichaje_mio` / `fn_fichaje_fichar_mio`, migración `20261103_fichaje_mio.sql`); en un ordenador compartido,
+  «Otra persona» con nombre + PIN. Así cada uno ficha en el ordenador más cercano, sin colas.
+- **Control de Repartos** (Ventas, antes «Repartos»): una sola ventana. Arriba, «Repartos de hoy» en vivo
+  (`ControlRepartosHoy.tsx`): una fila por ruta con un punto por pedido en el color de su estado, Cerrar reparto,
+  Mapa, PIN de la app y Pantalla de la TV. Pulsando una ruta se abre debajo su ficha, que se recarga cada 15 s
+  mientras se consulta: el estado de cada pedido (coloreado) y la columna «Situación» cambian al momento con lo que
+  marca el repartidor. Sin ranking ni totales (eso es solo la TV). La pantalla aparte de seguimiento ya no existe.

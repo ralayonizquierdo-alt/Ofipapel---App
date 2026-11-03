@@ -166,12 +166,6 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: tv ? 12 : 8 }}>
       {rutas.map((r, i) => {
-        const tramos = [
-          [r.entregados, C.verdeCl],
-          [r.incidencias, C.naranja],
-          [r.no_entregados, C.rojo],
-          [r.pendientes, C.gris],
-        ] as const
         const cerrado = r.estado !== 2
         return (
           <div
@@ -201,9 +195,7 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
                 {r.posicion && <span> · 📍 {hace(r.posicion.en)}</span>}
               </div>
             </div>
-            <div style={{ flex: 1, display: 'flex', height: tv ? 34 : 20, borderRadius: 10, overflow: 'hidden', background: '#eef2ee' }}>
-              {tramos.map(([v, c], j) => (v ? <div key={j} style={{ flex: v, background: c }} title={String(v)} /> : null))}
-            </div>
+            <BarraPuntos r={r} alto={tv ? 34 : 20} />
             <div style={{ textAlign: 'right', minWidth: tv ? 130 : 90 }}>
               <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: tv ? 30 : 18, color: cerrado ? '#5f6b5f' : r.pendientes ? C.verde : C.verdeCl }}>
                 {cerrado ? 'Cerrado' : !r.total ? 'Sin pedidos' : r.pendientes ? `${r.pendientes} quedan` : '✔ Hecho'}
@@ -236,8 +228,31 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
   )
 }
 
+// ------------------------------------------------------------------ Barra con un punto por pedido (Rober, 03/11/2026)
+/** Un punto por pedido a lo largo de la barra, con el color de su estado (entregados primero, luego incidencias, no
+ *  entregados y los que quedan). Con muchos pedidos los puntos se hacen más pequeños para que quepan todos. */
+export function BarraPuntos({ r, alto }: { r: Pick<RutaSeg, 'entregados' | 'incidencias' | 'no_entregados' | 'pendientes'>; alto: number }) {
+  const puntos = [
+    ...Array<string>(r.entregados).fill(C.verdeCl),
+    ...Array<string>(r.incidencias).fill(C.naranja),
+    ...Array<string>(r.no_entregados).fill(C.rojo),
+    ...Array<string>(r.pendientes).fill(C.gris),
+  ]
+  const d = Math.max(6, Math.min(alto - 6, 22))
+  return (
+    <div
+      style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: puntos.length > 1 ? 'space-between' : 'flex-start', gap: 2, height: alto, borderRadius: alto / 2, background: '#eef2ee', padding: `0 ${alto / 3}px` }}
+      title={`${r.entregados} entregados · ${r.incidencias} con incidencia · ${r.no_entregados} no entregados · ${r.pendientes} por entregar`}
+    >
+      {puntos.map((c, i) => (
+        <span key={i} style={{ flex: '0 1 auto', width: d, minWidth: 3, height: d, maxHeight: '100%', aspectRatio: '1', borderRadius: '50%', background: c, boxShadow: c === C.gris ? 'inset 0 0 0 1px #a4ada4' : '0 1px 2px rgba(0,0,0,.25)' }} />
+      ))}
+    </div>
+  )
+}
+
 // ------------------------------------------------------------------ Vista «Mapa» (Tenerife)
-function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
+export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
   const caja = useRef<HTMLDivElement>(null)
   const mapa = useRef<L.Map | null>(null)
   const capa = useRef<L.LayerGroup | null>(null)

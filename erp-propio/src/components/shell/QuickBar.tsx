@@ -13,6 +13,7 @@ import {
   DatabaseZap,
   HandCoins,
   LayoutDashboard,
+  Clock,
   LogOut,
   NotebookText,
   RefreshCcw,
@@ -30,13 +31,15 @@ export interface QuickItem {
   icon: LucideIcon
   color: string
   to?: string
-  action?: 'signout' | 'hacer-copia'
+  action?: 'signout' | 'hacer-copia' | 'mi-fichaje'
 }
 
 // Barra lateral de accesos rápidos de GeminisWin, en el mismo orden que el original.
 export const QUICK_ITEMS: QuickItem[] = [
   // Añadido (no está en GeminisWin): Panel de Control, la pantalla inicial.
   { label: 'Panel', description: 'Panel de Control', icon: LayoutDashboard, color: '#1f4e9c', to: '/resumen' },
+  // Añadido (Rober, 03/11/2026): fichar desde el ordenador más cercano (se usa dos veces al día por persona).
+  { label: 'Mi fichaje', description: 'Fichar entrada, pausa o salida (registro de jornada)', icon: Clock, color: '#127a12', action: 'mi-fichaje' },
   { label: 'Camb. Empl.', description: 'Cambiar Empleado', icon: UserRoundPlus, color: '#2f6fb5', action: 'signout' },
   { label: 'Cerrar Empl.', description: 'Cerrar Empleado', icon: UserRoundX, color: '#c0392b', action: 'signout' },
   { label: 'Clientes', description: 'Clientes', icon: Users, color: COLOR_SECCION.clientes, to: '/clientes' },
@@ -158,12 +161,12 @@ export function QuickBar({
             onClick={() => onRun(q)}
             onMouseEnter={() => onHover(enabled ? q.description : `${q.description} — ${motivo}`)}
             onMouseLeave={() => onHover(null)}
-            className={`relative flex flex-none flex-col items-center justify-center gap-[2px] border border-transparent hover:border-[var(--gw-border)] hover:bg-[#e5f1fb] disabled:opacity-45 disabled:hover:border-transparent disabled:hover:bg-transparent ${
+            className={`relative flex flex-none flex-col items-center justify-center gap-[2px] border ${q.action === 'mi-fichaje' ? 'border-[#127a12] bg-[#e8f5e8]' : 'border-transparent'} hover:border-[var(--gw-border)] hover:bg-[#e5f1fb] disabled:opacity-45 disabled:hover:border-transparent disabled:hover:bg-transparent ${
               horizontal ? 'w-[72px]' : 'py-[4px]'
             }`}
           >
-            <Icon size={30} color={q.color} fill={q.color} fillOpacity={0.16} strokeWidth={2.1} absoluteStrokeWidth />
-            <span className="whitespace-nowrap text-[11px] leading-[12px] text-black">{q.label}</span>
+            <Icon size={q.action === 'mi-fichaje' ? 34 : 30} color={q.color} fill={q.color} fillOpacity={0.16} strokeWidth={2.1} absoluteStrokeWidth />
+            <span className={`whitespace-nowrap text-[11px] leading-[12px] ${q.action === 'mi-fichaje' ? 'font-bold text-[#127a12]' : 'text-black'}`}>{q.label}</span>
             {globo > 0 && (
               <span className="absolute right-[6px] top-[1px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[#d92020] px-[4px] text-[11px] font-bold leading-none text-white shadow">
                 {globo > 99 ? '99+' : globo}

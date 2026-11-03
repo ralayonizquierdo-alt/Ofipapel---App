@@ -320,6 +320,7 @@ export function Layout() {
           onRun={(q) => {
             if (q.to) navigate(q.to)
             else if (q.action === 'signout') salir()
+            else if (q.action === 'mi-fichaje') window.dispatchEvent(new Event('gw:mi-fichaje'))
             else if (q.action) runMenu({ label: q.label, action: q.action })
           }}
         />

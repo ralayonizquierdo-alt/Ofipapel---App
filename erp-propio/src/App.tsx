@@ -41,7 +41,6 @@ import { PresupuestosPage } from './pages/ventas/pedidos/PresupuestosPage'
 import { TpvPage } from './pages/ventas/tpv/TpvPage'
 import { VentaFichaPage } from './pages/ventas/ventas/VentaFichaPage'
 import { RepartoFichaPage } from './pages/ventas/repartos/RepartoFichaPage'
-import { SeguimientoRepartosPage } from './pages/ventas/repartos/SeguimientoRepartosPage'
 import { GestorPedidosPage } from './pages/ventas/gestores/GestorPedidosPage'
 import { GestorPresupuestosPage } from './pages/ventas/gestores/GestorPresupuestosPage'
 import { NumeroSerieFichaPage } from './pages/ventas/series/NumeroSerieFichaPage'
@@ -107,6 +106,7 @@ import * as ListadosClientes from './pages/listados/clientes'
 import { RecalcularDeudaPage } from './pages/clientes/RecalcularDeudaPage'
 import { ArchivoRoutes } from './pages/archivo/ArchivoRoutes'
 import { FichajeGestionPage } from './pages/archivo/FichajeGestionPage'
+import { MiFichajeHost } from './pages/archivo/MiFichajeDialog'
 import { FichajeApp } from './reparto-app/FichajeApp'
 import { LiquidacionPage } from './pages/facturacion/LiquidacionPage'
 import { RepartoApp } from './reparto-app/RepartoApp'
@@ -126,6 +126,7 @@ function ProtectedArea() {
       <GenerarPeticionHost />
       {/* Utilidades: Cambio de Tienda/Fecha, Seleccionar Periodo, Copia de Seguridad, Temporales */}
       <UtilidadesHost />
+      <MiFichajeHost />
     </PermisosProvider>
     </PuertaSeguridad>
   )
@@ -207,7 +208,8 @@ function App() {
             <Route path="/caja/apertura" element={<Navigate to="/caja/aperturas/nuevo" replace />} />
             <Route path="/caja/cierre" element={<Navigate to="/caja/aperturas?cerrar=1" replace />} />
             <Route path="/caja/aperturas/*" element={<AperturasCierresPage />} />
-            <Route path="/repartos/seguimiento" element={<SeguimientoRepartosPage />} />
+            {/* El seguimiento va ahora dentro de Control de Repartos (misma ventana). */}
+            <Route path="/repartos/seguimiento" element={<Navigate to="/repartos" replace />} />
             <Route path="/repartos/*" element={<RepartoFichaPage />} />
             <Route path="/gestor-pedidos" element={<GestorPedidosPage />} />
             <Route path="/gestor-presupuestos" element={<GestorPresupuestosPage />} />
