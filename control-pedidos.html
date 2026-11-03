@@ -108,6 +108,11 @@ main{overflow-wrap:anywhere}
 .aviso-caja.ok{background:var(--verde-claro);color:var(--verde-oscuro)}
 .aviso-caja.info{background:var(--azul-claro);color:var(--azul)}
 .resumen{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.pasos{display:grid;gap:6px;margin:10px 0}
+.paso{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid #f1c6c6;background:#fff5f5;border-radius:10px}
+.paso-n{font-size:18px;font-weight:bold;color:#b42318}
+.paso-t{flex:1;min-width:200px}
+.paso .fila{margin:0;gap:6px;align-items:center}
 .vacio{color:var(--texto2);font-style:italic;padding:8px 0}
 #vistaImportar{padding:0 12px 12px}
 #vistaImportar iframe{display:block;width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid var(--borde);border-radius:12px;background:#fff}
@@ -614,6 +619,65 @@ function chipsQueFalta(g) {
   return subir + Object.keys(PASOS).filter((k) => por.has(k) && k !== 'geminis')
     .map((k) => POR_FACTURA.includes(k) ? porFra(k) : `<span class="chip ${k === 'reclamar' ? 'aviso' : 'mal'}">${PASOS[k]}: ${h(lista([...por.get(k)]))}</span>`).join('') + restos;
 }
+// ── La campaña en pasos: solo lo que queda por hacer, con un botón cada uno ──
+// ② Propuesta (subirla, revisar y validar) · ③ Llegada de mercancía (factura +
+// liquidación juntas) · ④ Cierre (Excel de Géminis y guía, por factura).
+// Reposición: ② y «Subido a Géminis». Lo demás, en «⋯ Más acciones».
+function bloquePasos(g) {
+  const ej = g.pedidos[0];
+  const repo = esRepo(ej);
+  const por = new Map();
+  for (const p of g.pedidos) for (const x of pasosPendientes(p)) {
+    if (!por.has(x.paso)) por.set(x.paso, []);
+    por.get(x.paso).push({ p, fra: x.fra || '' });
+  }
+  const nums = (k) => [...new Map((por.get(k) || []).map(({ p }) => [p.id, p])).values()]
+    .map((p) => `<a href="#" onclick="event.preventDefault(); abrirPedido('${p.id}')">${h(nPed(p.numero) || '—')}</a>`).join(', ');
+  const fras = (k) => [...new Set((por.get(k) || []).map((x) => x.fra).filter(Boolean))];
+  const subir = (txt, fn, primario) => `<label class="btn ${primario ? 'primario' : ''} peque" style="flex-direction:row;align-items:center;gap:6px;${primario ? 'color:#fff' : ''}">${txt}
+    <input type="file" multiple class="oculto" onchange="${fn}(this.files, ${js(g.clave)}); this.value=''"></label>`;
+  const fila = (n, titulo, detalle, botones) => `<div class="paso"><span class="paso-n">${n}</span><div class="paso-t"><b>${titulo}</b>${detalle ? ` · ${detalle}` : ''}</div><div class="fila">${botones || ''}</div></div>`;
+  const filas = [];
+  if (por.has('lineas') || por.has('propuesta')) filas.push(fila('②', 'Falta la propuesta del proveedor', 'pedidos ' + [nums('lineas'), nums('propuesta')].filter(Boolean).join(', '),
+    subir(repo ? '📄 Subir propuesta o factura' : '📄 Subir propuesta del proveedor', 'cargarPropuestasVarias', true)));
+  if (por.has('validar')) filas.push(fila('②', 'Revisar y validar', 'pedidos ' + nums('validar')));
+  if (por.has('reclamar')) filas.push(fila('②', 'Reclamación pendiente', 'pedidos ' + nums('reclamar')));
+  if (por.has('factura') || por.has('liquidacion')) filas.push(fila('③', 'Llegada de mercancía',
+    [por.has('factura') ? 'sin factura: pedidos ' + nums('factura') : '', fras('liquidacion').length ? 'falta liquidación de la Fra ' + fras('liquidacion').join(', ') : ''].filter(Boolean).join(' · '),
+    subir('📦 Ha llegado mercancía: factura + liquidación', 'llegadaMercancia', true)));
+  if (por.has('excel') || por.has('guia')) {
+    const docs = documentosCampana(g.pedidos);
+    const idx = (f) => docs.findIndex((d) => d.campo === 'factura' && d.nombre.replace(/^Factura /, '') === f);
+    const botones = [...new Set([...fras('excel'), ...fras('guia')])].map((f) => {
+      const i = idx(f);
+      return `<span class="pequeno"><b>Fra ${h(f)}</b></span>` +
+        (fras('excel').includes(f) && i >= 0 ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})">📥 Excel Géminis</button>` : '') +
+        (fras('guia').includes(f) && i >= 0 ? `<button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})">🧾 Guía</button>` : '');
+    }).join('');
+    filas.push(fila('④', 'Cierre', '', botones));
+  }
+  if (por.has('geminis')) filas.push(fila('③', 'Subir a Géminis', '',
+    `<button class="btn peque" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel Géminis</button>` +
+    (por.get('geminis') || []).map(({ p }) => `<button class="btn peque" onclick="subidoAGeminis('${p.id}')">☐ Subido a Géminis${p.numero ? ' · nº ' + h(p.numero) : ''}</button>`).join('')));
+  // Lo facturado que no acaba en ningún cliente también es algo por resolver.
+  const cu = repo ? { difs: [] } : cuadreCampana(g.pedidos);
+  if (cu.difs.length) filas.push(fila('⚠️', 'Facturado sin cliente', cu.difs.map((d) =>
+    `<a href="#" onclick="event.preventDefault(); abrirPedido('${(g.pedidos.find((p) => p.numero === d.numero) || {}).id}')">${h(nPed(d.numero))}</a> ${h(d.ref)} (${d.facturado - d.aCliente} ud.)`).join(', ')));
+  if (!filas.length) return '<div class="aviso-caja ok no-imprimir" style="margin:8px 0">✅ No queda nada por hacer.</div>';
+  return `<div class="pasos no-imprimir">${filas.join('')}</div>`;
+}
+/** Una entrega del proveedor: factura(s) y liquidación(es) de Géminis a la vez;
+ *  cada PDF se reconoce solo (la liquidación es la «Propuesta de Pedido» de Géminis). */
+async function llegadaMercancia(files, clave) {
+  const facturas = [], liqs = [];
+  for (const f of [...files]) {
+    let esLiq = false;
+    if (/\.pdf$/i.test(f.name)) { try { esLiq = Boolean(CP.leerPedidoGeminis(await textoDePdf(f))); } catch { /* no es liquidación */ } }
+    (esLiq ? liqs : facturas).push(f);
+  }
+  if (facturas.length) await cargarFacturasVarias(facturas, clave);
+  if (liqs.length) await cargarCodigosCampana(liqs, clave);
+}
 function subirLiquidacion(clave) {
   const i = document.createElement('input');
   i.type = 'file'; i.multiple = true;
@@ -787,16 +851,11 @@ function vistaGrupo(g, i) {
       <b>${h(g.nombre)}</b>
       <span class="resumen">
         <span class="chip gris">${g.pedidos.length} pedido(s)</span>
-        ${nFotos ? `<span class="chip gris">📷 ${nFotos} foto(s)</span>` : ''}
         ${hojasFaltan ? `<span class="chip mal">⚠️ ${hojasFaltan} hoja(s) sin subir</span>` : ''}
-        ${esRepo(ej) ? '' : chipEnvio(g.pedidos)}
-        <span class="chip ${validados === g.pedidos.length ? 'ok' : 'info'}">${validados} validado(s)</span>
-        ${comparados.length ? `<span class="chip ${nF ? 'mal' : 'ok'}">${nF} faltan</span><span class="chip ${nS ? 'aviso' : 'ok'}">${nS} sobran</span>` : ''}
+        ${esComercial() ? `${nFotos ? `<span class="chip gris">📷 ${nFotos} foto(s)</span>` : ''}<span class="chip ${validados === g.pedidos.length ? 'ok' : 'info'}">${validados} validado(s)</span>` : chipsQueFalta(g)}
       </span>
-      <span class="resumen">${chipsQueFalta(g)}</span>
     </summary>
-    ${esComercial() ? '' : bloqueMarca(g)}
-    ${esComercial() ? '' : bloqueDocumentos(g)}
+    ${esComercial() ? '' : bloquePasos(g)}
     <div class="tabla-scroll"><table class="lista-pedidos">
       <tr><th class="no-imprimir"><input type="checkbox" title="Seleccionar todos" onchange="this.closest('table').querySelectorAll('.selPed').forEach(c=>{c.checked=this.checked;marcarSel(c)})"></th>
         <th>Fecha</th><th>Nº</th><th>Cliente</th><th class="num">Líneas</th><th>Fotos</th><th>Propuesta</th><th>Estado</th><th class="c-movil"></th><th class="no-imprimir"></th></tr>
@@ -812,6 +871,8 @@ function vistaGrupo(g, i) {
         <td class="no-imprimir c-borrar">${esRepo(p) ? `<button class="btn peque" title="Archivar este pedido (queda abajo, en Archivados)" onclick="event.stopPropagation(); archivarPedido('${p.id}', true)">📦</button> ` : ''}<button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
     </table></div>
+    ${esComercial() ? '' : `<details class="no-imprimir mas-acciones" style="margin-top:10px"><summary class="pequeno" style="cursor:pointer">⋯ Más acciones</summary>
+    ${bloqueMarca(g)}${bloqueDocumentos(g)}`}
     <div class="fila no-imprimir" style="margin-top:10px">
       ${esRepo(ej) ? '' : `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📷 Añadir pedidos por foto a esta campaña
         <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(ej.proveedor)}, ${js(ej.campana || '')}); this.value=''"></label>
@@ -833,9 +894,9 @@ function vistaGrupo(g, i) {
         <input type="file" multiple class="oculto" onchange="cargarFacturasVarias(this.files, ${js(g.clave)}); this.value=''"></label>`}
       ${esRepo(ej) ? '' : `<button class="btn" onclick="imprimirGuiaFacturacion(${js(g.clave)})">🧾 Imprimir guía de facturación</button>`}
       <button class="btn peque peligro" onclick="borrarCampana(${js(g.clave)})">🗑️ Borrar ${esRepo(ej) ? 'estas reposiciones' : 'la campaña'}</button>
-      
     </div>
-    ${comparados.length ? `
+    ${esComercial() ? '' : '</details>'}
+    ${comparados.length && (filasRes.length || reclamar.length) ? `
     <h3 style="margin-top:14px">Faltas y sobras</h3>
     ${filasRes.length ? `<div class="tabla-scroll" id="tablaResumen${i}"><table>
       <tr><th>Qué pasa</th><th>Pedido</th><th>Cliente</th><th>Referencia</th><th>Descripción</th><th class="num">Uds.</th></tr>
