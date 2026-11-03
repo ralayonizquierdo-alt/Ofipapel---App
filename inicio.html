@@ -145,6 +145,28 @@ body{
   body{padding:1.4svh 2vw;}
   .orbit-shell{width:min(92svh,92vw);}
 }
+/* Globo de estado de las subidas diarias en el nodo Finanzas */
+.sat-inner{position:relative;}
+.globo-fin{
+  position:absolute;top:4%;right:4%;width:26%;aspect-ratio:1;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;z-index:5;
+  font:800 clamp(11px,2.2vmin,15px)/1 system-ui,sans-serif;
+  border:2px solid #0b1016;box-shadow:0 2px 8px rgba(0,0,0,.55);
+}
+.globo-fin[hidden]{display:none;}
+.globo-fin.verde{background:#25D366;color:#06210f;}
+.globo-fin.naranja{background:#FF9500;color:#2b1700;}
+.globo-fin.rojo{background:#E5261E;color:#fff;animation:globoLatido 1.6s ease-in-out infinite;}
+@keyframes globoLatido{50%{transform:scale(1.14);}}
+@media (prefers-reduced-motion:reduce){.globo-fin.rojo{animation:none;}}
+.globo-info{
+  position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);
+  display:none;z-index:6;white-space:nowrap;text-align:left;
+  background:#111821;color:#eef2f6;border:1px solid #3a4655;border-radius:10px;
+  padding:10px 12px;font:500 13px/1.5 system-ui,sans-serif;
+}
+.satellite:hover .globo-info:not([hidden]),.satellite:focus-visible .globo-info:not([hidden]){display:block;}
+.globo-info b{display:block;margin-bottom:3px;}
 </style>
 </head>
 <body>
@@ -614,6 +636,101 @@ body{
       }
     }, { passive: true });
   });
+})();
+</script>
+<script>
+// Globo del nodo Finanzas: estado de las subidas del día (app_sync, id 'importlog').
+// Solo se activa si en este navegador ya hay sesión de Finanzas de una cuenta de CON_GLOBO:
+// el hub no pide contraseña y estos datos solo los pueden leer los miembros de Finanzas.
+(function () {
+  var SUPA_URL = 'https://agjmciudnnginqybnogh.supabase.co';
+  var SUPA_KEY = 'sb_publishable_LaJCCCGsN2VIXFDFAxEb6g_eEZHh3j6';
+  var SUPA_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  var CLAVE_SESION = 'sb-agjmciudnnginqybnogh-auth-token';
+  var CON_GLOBO = ['luis', 'david', 'rober'];
+  var DOCS = [['volcado', 'Volcado Diario'], ['cajaCierres', 'Cierre de Cajas'], ['cajaBancoRecibos', 'Banco / Comprobantes']];
+  var HORA_LIMITE = 13;
+  var FESTIVOS = ['2026-12-08', '2026-12-25', '2027-01-01', '2027-01-06']; // Sin globo. Pendiente de completar con los locales.
+  var CADA_MS = 5 * 60 * 1000;
+  var TEXTOS = { verde: ['✓', 'Actualización completa'], naranja: ['!', 'Actualización incompleta'], rojo: ['✕', 'Sin subir hoy'] };
+
+  var enlace = document.querySelector('a.satellite[href="finanzas.html"]');
+  if (!enlace) return;
+  var etiqueta = enlace.getAttribute('aria-label');
+  var cliente = null, globo = null, info = null;
+
+  function cuentaConGlobo() {
+    try {
+      var sesion = JSON.parse(localStorage.getItem(CLAVE_SESION) || 'null');
+      var correo = sesion && sesion.user && sesion.user.email;
+      return !!correo && CON_GLOBO.indexOf(correo.replace('@ofipapel.internal', '')) >= 0;
+    } catch (e) { return false; }
+  }
+  function diaCanarias(d) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Atlantic/Canary' }).format(new Date(d)); }
+  function horaCanarias(d) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Atlantic/Canary', hour: '2-digit', hourCycle: 'h23' }).format(new Date(d))); }
+
+  function estadoGlobo(registro, ahora) {
+    var hoy = diaCanarias(ahora);
+    var semana = new Date(hoy + 'T12:00:00Z').getUTCDay();
+    if (semana === 0 || semana === 6 || FESTIVOS.indexOf(hoy) >= 0) return { color: null };
+    var hechos = {};
+    registro.forEach(function (e) { if (e && e.ts && diaCanarias(e.ts) === hoy) hechos[e.key] = true; });
+    var subidos = DOCS.filter(function (x) { return hechos[x[0]]; });
+    var color = !subidos.length ? 'rojo' : subidos.length < DOCS.length ? 'naranja' : 'verde';
+    // Antes de la hora límite solo se avisa de lo ya completo: la subida puede estar a medias.
+    if (color !== 'verde' && horaCanarias(ahora) < HORA_LIMITE) color = null;
+    return { color: color, subidos: subidos };
+  }
+
+  // En la barra de tareas el color lo pone Chrome: solo se puede mostrar cuántos documentos faltan.
+  function numeroBarra(estado) {
+    if (!navigator.setAppBadge) return;
+    var faltan = estado.color && estado.color !== 'verde' ? DOCS.length - estado.subidos.length : 0;
+    (faltan ? navigator.setAppBadge(faltan) : navigator.clearAppBadge()).catch(function () {});
+  }
+
+  function pinta(estado) {
+    numeroBarra(estado);
+    if (!globo) {
+      var inner = enlace.querySelector('.sat-inner');
+      globo = document.createElement('span');
+      info = document.createElement('span');
+      info.className = 'globo-info';
+      inner.appendChild(globo);
+      inner.appendChild(info);
+    }
+    globo.hidden = info.hidden = !estado.color;
+    if (!estado.color) { enlace.setAttribute('aria-label', etiqueta); return; }
+    globo.className = 'globo-fin ' + estado.color;
+    globo.textContent = TEXTOS[estado.color][0];
+    info.innerHTML = '<b>' + TEXTOS[estado.color][1] + '</b>' + DOCS.map(function (x) {
+      return (estado.subidos.indexOf(x) >= 0 ? '✓ ' : '✕ ') + x[1];
+    }).join('<br>');
+    enlace.setAttribute('aria-label', etiqueta + ': ' + TEXTOS[estado.color][1]);
+  }
+
+  function actualiza() {
+    if (!cuentaConGlobo()) { pinta({ color: null }); return; }
+    if (!cliente) cliente = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    cliente.from('app_sync').select('payload').eq('id', 'importlog').maybeSingle().then(function (r) {
+      // Sin datos no se sabe el estado: mejor sin globo que un rojo falso.
+      if (r.error || !r.data || !Array.isArray(r.data.payload)) { pinta({ color: null }); return; }
+      pinta(estadoGlobo(r.data.payload, Date.now()));
+    }, function () { pinta({ color: null }); });
+  }
+
+  function arranca() {
+    actualiza();
+    setInterval(actualiza, CADA_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) actualiza(); });
+  }
+
+  if (!cuentaConGlobo()) { numeroBarra({ color: null }); return; }
+  if (window.supabase) { arranca(); return; }
+  var script = document.createElement('script');
+  script.src = SUPA_JS;
+  script.onload = arranca;
+  document.head.appendChild(script);
 })();
 </script>
 <script>
