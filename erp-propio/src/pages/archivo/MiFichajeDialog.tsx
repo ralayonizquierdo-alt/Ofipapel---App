@@ -1,11 +1,12 @@
 // «Mi fichaje» (Rober, 03/11/2026): botón de la barra de accesos del ERP para fichar desde el ordenador más cercano,
-// sin hacer cola en un solo aparato. Ficha la persona que tiene abierta la sesión del ERP (fn_fichaje_mio /
-// fn_fichaje_fichar_mio). En un puesto compartido, «Otra persona» ficha con nombre + PIN, como en /fichaje.
+// sin hacer cola en un solo aparato. Cada persona se identifica con su nombre y su código (PIN): el ordenador puede tener
+// abierta la sesión de otra persona. Al fichar, la ventana se cierra sola; la siguiente persona la vuelve a abrir.
+// Si el empleado de la sesión ficha, sale ya elegido (fn_fichaje_mio) pero también pone su código.
 // Lo abre el evento «gw:mi-fichaje» (Layout → QuickBar). Gestión: Archivo → Fichaje.
 // Diseño: lo ve cada empleado dos veces al día, así que es más vistoso que el resto del ERP (sin salirse de sus
 // colores): saludo, reloj grande, estado en color, botones grandes, horas de hoy y de la semana y un mensaje amable.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { GwWindow } from '../../components/gw'
 import { duracion, horaCan, TIPOS_FICHAJE, type EstadoFichaje, type TipoFichaje } from '../../lib/fichaje'
@@ -102,7 +103,6 @@ export function MiFichajeHost() {
 
 function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
   const [panel, setPanel] = useState<Panel | null>(null)
-  const [otra, setOtra] = useState(false)
   const [personas, setPersonas] = useState<{ grupo: string; personas: { codigo: string; nombre: string }[] }[]>([])
   const [quien, setQuien] = useState('')
   const [pin, setPin] = useState('')
@@ -117,23 +117,14 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
     return () => clearInterval(t)
   }, [])
 
-  const cargarMio = useCallback(async () => {
-    const { data, error: e } = await supabase.rpc('fn_fichaje_mio')
-    if (e) return setError(e.message)
-    const r = data as Panel
-    if (!r.ok) {
-      setError(r.error ?? 'No se puede fichar.')
-      setOtra(true)
-    } else setPanel(r)
-  }, [])
   useEffect(() => {
-    const t = setTimeout(() => void cargarMio(), 0)
-    return () => clearTimeout(t)
-  }, [cargarMio])
-  useEffect(() => {
-    if (!otra || personas.length) return
     void supabase.rpc('fn_fichaje_personas').then(({ data }) => setPersonas((data ?? []) as typeof personas))
-  }, [otra, personas.length])
+    // El empleado de la sesión, si ficha, sale ya elegido.
+    void supabase.rpc('fn_fichaje_mio').then(({ data }) => {
+      const r = data as { ok: boolean; empleado?: string } | null
+      if (r?.ok && r.empleado) setQuien((q) => q || r.empleado!)
+    })
+  }, [])
 
   const entrarOtra = async () => {
     setError(null)
@@ -153,16 +144,14 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
     setOcupado(true)
     const pos = await ubicacion()
     const comun = { p_tipo: tipo, p_lat: pos?.lat ?? null, p_lng: pos?.lng ?? null, p_precision: pos?.precision ?? null, p_dispositivo: navigator.userAgent.slice(0, 150) }
-    const { data, error: e } = otra
-      ? await supabase.rpc('fn_fichaje_fichar', { ...comun, p_empleado: quien, p_pin: pin })
-      : await supabase.rpc('fn_fichaje_fichar_mio', comun)
+    const { data, error: e } = await supabase.rpc('fn_fichaje_fichar', { ...comun, p_empleado: quien, p_pin: pin })
     setOcupado(false)
     const r = data as Panel | null
     if (e || !r?.ok) return setError(e?.message ?? r?.error ?? 'No se ha podido fichar.')
     setPanel(r)
     setHecho(`${mensajeTras(tipo, r.nombre, minutos(r.hoy, false))} (${TIPOS_FICHAJE[tipo].toLowerCase()} a las ${horaCan(r.hoy[r.hoy.length - 1]?.en)})`)
-    // Con «Otra persona» en un puesto compartido, se cierra solo para que no quede abierto con su PIN.
-    if (otra) setTimeout(onCerrar, 5000)
+    // Se cierra sola: el ordenador queda libre para la siguiente persona.
+    setTimeout(onCerrar, 3500)
   }
 
   // Horas de hoy y de la semana (lunes a domingo).
@@ -203,9 +192,9 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
           </div>
 
           <div className="flex flex-col gap-3 bg-[#f6f8fb] p-4">
-            {otra && !panel && (
+            {!panel && (
               <div className="flex flex-col gap-2 rounded-lg border border-[#d7dde8] bg-white p-3 shadow-sm">
-                <div className="font-semibold text-[#1d3a8a]">¿Quién ficha?</div>
+                <div className="font-semibold text-[#1d3a8a]">¿Quién ficha? Elige tu nombre y pon tu código</div>
                 <select className="gw-input h-[34px] text-[15px]" value={quien} onChange={(e) => (setQuien(e.target.value), setPin(''))}>
                   <option value="">Elige tu nombre…</option>
                   {personas.map((g) => (
@@ -227,6 +216,7 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
                     placeholder="PIN"
                     value={pin}
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && quien && pin.length === 4 && void entrarOtra()}
                   />
                   <button
@@ -328,14 +318,9 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
             <div className="text-center text-[12px] italic text-[#4a5568]">«{frase}»</div>
 
             <div className="flex items-center justify-between">
-              {!otra ? (
-                <button
-                  type="button"
-                  className="gw-btn"
-                  onClick={() => (setOtra(true), setPanel(null), setError(null), setHecho(null))}
-                  title="En un ordenador compartido: ficha otra persona con su PIN"
-                >
-                  👥 Otra persona
+              {panel && !hecho ? (
+                <button type="button" className="gw-btn" onClick={() => (setPanel(null), setPin(''), setQuien(''), setError(null))}>
+                  No soy yo
                 </button>
               ) : (
                 <span />
