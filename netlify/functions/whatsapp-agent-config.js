@@ -1205,6 +1205,45 @@ const FAQ_RULES = [
     reply: (normalizedText) => (/agendar/.test(normalizedText) ? null : AGENDAS_INFO),
   },
   {
+    // SILLAS DE OFICINA Y ERGONÓMICAS: el enlace, directo.
+    //
+    // Instrucción del propietario (3/11/2026): «cuando un cliente pide sillas
+    // ergonómicas o sillas de oficina yo le pasaré directamente este link»,
+    // con la dirección exacta de abajo. Es la búsqueda de la web ya hecha, con
+    // fotos y precios, y es lo que haría él.
+    //
+    // Las palabras largas («silla de oficina», «sillas ergonomicas») están a
+    // propósito además de las cortas: la regla que gana es la de la palabra
+    // clave más larga que coincide, y sin ellas una consulta de sillas podía
+    // perder contra otra regla que nombrara algo de pasada. Y hacen falta
+    // también para `familiaDeProducto`: lo que sobra del mensaje después de
+    // quitar la palabra clave es lo que cuenta como «algo concreto», así que
+    // sin «silla de oficina» entero, el «de oficina» de «sillas de oficina»
+    // haría que esta respuesta se apartara — justo al revés de lo pedido.
+    keywords: [
+      'silla', 'sillas', 'sillon', 'sillones',
+      'silla de oficina', 'sillas de oficina', 'silla oficina', 'sillas oficina',
+      'silla ergonomica', 'sillas ergonomicas', 'silla ergonomicas',
+      'silla gaming', 'sillas gaming', 'silla de escritorio', 'sillas de escritorio',
+    ],
+    // NO lleva `familiaDeProducto`, y es una decisión, no un olvido.
+    //
+    // Esa marca aparta la respuesta en cuanto el mensaje dice algo más que la
+    // palabra clave — y «algo más» resultó ser cualquier cosa: «¿vendéis
+    // sillones de oficina?» se apartaba por el «vendéis», y «una silla
+    // ergonómica para la espalda» por el «para la espalda». Con ella puesta, el
+    // enlace solo salía si se preguntaba justo «¿tenéis sillas?», que es lo
+    // contrario de lo que se pidió: «yo le pasaré DIRECTAMENTE este link».
+    //
+    // Lo que se paga a cambio: una silla con marca y modelo concretos
+    // («la silla Topstar Syncro») también recibe el enlace en vez de su ficha
+    // del catálogo. Aceptado a sabiendas — el enlace lleva a todas las sillas,
+    // así que la encuentra igual.
+    // «Mesilla» y «mesillas» contienen «silla»/«sillas», y la coincidencia de
+    // palabras clave no mira fronteras de palabra. Aquí sí.
+    reply: (normalizedText) => (/\bsillas?\b|\bsillones?\b/.test(normalizedText) ? SILLAS_INFO : null),
+  },
+  {
     // 'que regalo'/'qué regalo' a secas se quitaron: coincidían con preguntas
     // genéricas de "¿qué regalo me recomendáis?" que no tienen nada que ver con
     // la campaña de regalos directos por importe de compra.
@@ -1536,6 +1575,13 @@ const FAQ_RULES = [
     reply: (normalizedText) => (isPureGreeting(normalizedText) ? GREETING : null),
   },
 ];
+
+// SILLAS DE OFICINA Y ERGONÓMICAS.
+//
+// La dirección la fijó el propietario el 3/11/2026 — es la búsqueda de la web
+// ya hecha, con fotos y precios. No se toca ni se «mejora» sin que lo pida.
+const SILLAS_URL = 'https://ofipapel.net/?s=Silla+oficina+gama+senior&post_type=product&dgwt_wcas=1';
+const SILLAS_INFO = `Aquí tienes nuestras sillas de oficina y ergonómicas, con fotos y precios: ${SILLAS_URL}\n\nY si prefieres probarlas antes de decidir, tenemos exposición de mobiliario de oficina en la tienda.`;
 
 const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras. Tenemos además amplia exposición de mobiliario de oficina, con gran variedad de sillas gaming y sillas ergonómicas de oficina.`;
 
