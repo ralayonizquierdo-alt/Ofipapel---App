@@ -65,6 +65,8 @@ const {
   isSellosQuestion,
   isWithinBusinessHours,
   esProblemaDeCuenta,
+  esFalloDeLaWeb,
+  mensajeFalloDeLaWeb,
   mensajeProblemaDeCuenta,
   STORES,
   GREETING,
@@ -1287,6 +1289,32 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       botReply: reply,
     });
     await notifyOwnerByWhatsapp(message.from, `🔑 Problema de cuenta: ${text}`);
+    return;
+  }
+
+  // LA WEB SE LE HA ATASCADO: a una persona, igual que un problema de cuenta.
+  //
+  // «Estoy intentando hacer un pedido, pero cuando meto mis datos me sale todo
+  // el rato verificando» (3/11/2026). Se llevó la respuesta fija de «entra en
+  // la web y haz el pedido tú mismo»: le mandaron a hacer justo lo que se le
+  // está rompiendo, porque una palabra clave no distingue «¿cómo hago un
+  // pedido?» de «no puedo hacer un pedido».
+  //
+  // Va DESPUÉS del problema de cuenta (que es más concreto y tiene su propio
+  // mensaje) y ANTES de que conteste ninguna regla fija: contar un fallo no es
+  // preguntar cómo se hace algo, y ninguna respuesta de manual le sirve.
+  if (esFalloDeLaWeb(text)) {
+    const reply = greeting + mensajeFalloDeLaWeb(idioma);
+    await sendWhatsappMessage(message.from, reply);
+    await appendToHistory(message.from, text, `[Fallo en la web — pasado a una persona] ${reply}`);
+    await pauseBot(message.from, 24);
+    await notifyOwner({
+      channel: 'Meta',
+      from: message.from,
+      customerMessage: `🛒 FALLO EN LA WEB (no puede completar la compra): ${text}`,
+      botReply: reply,
+    });
+    await notifyOwnerByWhatsapp(message.from, `🛒 Fallo en la web: ${text}`);
     return;
   }
 
