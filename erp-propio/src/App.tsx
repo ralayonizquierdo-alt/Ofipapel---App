@@ -108,6 +108,7 @@ import { RecalcularDeudaPage } from './pages/clientes/RecalcularDeudaPage'
 import { ArchivoRoutes } from './pages/archivo/ArchivoRoutes'
 import { LiquidacionPage } from './pages/facturacion/LiquidacionPage'
 import { RepartoApp } from './reparto-app/RepartoApp'
+import { RepartoTv } from './reparto-app/RepartoTv'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -143,6 +144,8 @@ function App() {
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
           {/* App de repartidores: pública (nombre + PIN), sin cuenta del ERP — src/reparto-app */}
           <Route path="/repartidor" element={<RepartoApp />} />
+          {/* Pantalla de la TV de pedidos: sin ERP, con el código del enlace — src/reparto-app/RepartoTv.tsx */}
+          <Route path="/reparto-tv" element={<RepartoTv />} />
           <Route element={<ProtectedArea />}>
             <Route path="/" element={null} />
             <Route path="/resumen" element={<PanelControlPage />} />

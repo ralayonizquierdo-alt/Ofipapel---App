@@ -507,3 +507,40 @@ end $$;
 grant execute on function public.fn_app_rep_vincular_fichaje(uuid, text) to anon, authenticated;
 -- fn_app_rep_login devuelve además 'fichaje_persona'; fn_app_rep_repartos devuelve 'manana' y admite fecha <= hoy + 1
 -- (versiones completas aplicadas con execute_sql el 03/11/2026, iguales a las de arriba con esos dos cambios).
+
+-- ------------------------------------------------------------------ Pantalla de TV sin ERP (03/11/2026, Rober)
+-- La TV del departamento de pedidos abre /reparto-tv?k=<código> (sin usuario del ERP). El código lo genera el ERP
+-- (Seguimiento de Repartos → Enlace para la TV), solo se guarda cifrado (sha256) y uno nuevo anula el anterior.
+-- El cuerpo del seguimiento pasa a reparto_privado.seguimiento(), común al ERP (fn_reparto_seguimiento) y a la TV.
+create table if not exists public.reparto_tv_clave (
+  id smallint primary key default 1 check (id = 1),
+  clave_hash text not null,
+  creada_en timestamptz not null default now(),
+  creada_por text
+);
+alter table public.reparto_tv_clave enable row level security;
+create or replace trigger trg_auditoria_reparto_tv_clave after insert or update or delete on public.reparto_tv_clave
+  for each row execute function public.fn_auditoria_trigger();
+-- reparto_privado.seguimiento(p_fecha): mismo cuerpo que fn_reparto_seguimiento de arriba, sin la comprobación de permiso.
+-- fn_reparto_seguimiento(p_fecha): comprueba fn_puede('/repartos') y devuelve reparto_privado.seguimiento(p_fecha).
+create or replace function public.fn_reparto_tv_generar() returns text
+language plpgsql security definer set search_path = public, extensions as $$
+declare v text := encode(extensions.gen_random_bytes(18), 'hex');
+begin
+  if not fn_puede('/repartos') then raise exception 'Sin permiso de Repartos.' using errcode = '42501'; end if;
+  insert into reparto_tv_clave (id, clave_hash, creada_en, creada_por)
+  values (1, encode(extensions.digest(v, 'sha256'), 'hex'), now(), coalesce(fn_empleado_actual(), 'ERP'))
+  on conflict (id) do update set clave_hash = excluded.clave_hash, creada_en = now(), creada_por = excluded.creada_por;
+  return v;
+end $$;
+grant execute on function public.fn_reparto_tv_generar() to authenticated;
+create or replace function public.fn_reparto_tv(p_clave text) returns jsonb
+language plpgsql stable security definer set search_path = public, extensions as $$
+begin
+  if p_clave is null or length(p_clave) < 20
+     or not exists (select 1 from reparto_tv_clave where clave_hash = encode(extensions.digest(p_clave, 'sha256'), 'hex')) then
+    raise exception 'clave_tv' using hint = 'Este enlace de la pantalla ya no vale: pide uno nuevo en el ERP (Ventas → Seguimiento de Repartos → Enlace para la TV).';
+  end if;
+  return reparto_privado.seguimiento(null);
+end $$;
+grant execute on function public.fn_reparto_tv(text) to anon, authenticated;

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useCallback, useEffect, useState } from 'react'
+import QRCode from 'qrcode'
 import { supabase } from '../../../lib/supabase'
+import { Aviso, base, BotonClaro, C, PanelReparto, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
 
 // Seguimiento de repartos (Ventas → Seguimiento de repartos, /repartos/seguimiento).
-// Pensada para la TV panorámica del departamento de pedidos: dos vistas que se alternan solas en modo TV
+// Back office del reparto. La TV del departamento de pedidos NO usa esta pantalla: abre /reparto-tv con el enlace que
+// se genera aquí («Enlace para la TV»), sin ERP. Dos vistas
 //  · «Rutas»: una línea por ruta con lo que va quedando, en tiempo real (se refresca cada 20 s).
 //  · «Mapa»: Tenerife con la última posición de cada repartidor (solo mientras tiene la ruta abierta en la app)
 //    y los puntos donde ha marcado entregas.
@@ -13,53 +14,19 @@ import { supabase } from '../../../lib/supabase'
 // Datos: fn_reparto_seguimiento / fn_reparto_cerrar / fn_repartidores_app / fn_repartidor_pin_poner
 // (migración 20261103_reparto_app.sql).
 
-interface Ruta {
-  tienda: string
-  numero: number
-  estado: number
-  ruta: string | null
-  ruta_nombre: string | null
-  repartidor: string | null
-  repartidor_nombre: string | null
-  total: number
-  entregados: number
-  incidencias: number
-  no_entregados: number
-  pendientes: number
-  comprobados: number
-  posicion: { lat: number; lng: number; en: string } | null
-  puntos: { lat: number; lng: number; estado: string }[]
-}
-interface Datos {
-  fecha: string
-  rutas: Ruta[]
-  ranking: { repartidor: string; entregados: number }[]
-  totales: { semana: number; mes: number; anio: number }
-}
-
-const C = { verde: '#1A5C1A', verdeMed: '#237523', verdeCl: '#3DAF3D', lima: '#8DC41E', naranja: '#F5A623', rojo: '#C62828', gris: '#b9c4b9' }
-const COLORES_RUTA = ['#237523', '#1f6fb2', '#c2185b', '#ef6c00', '#6a1b9a', '#00838f', '#5d4037', '#827717', '#283593', '#ad1457']
-const base = import.meta.env.BASE_URL
-const n = (v: number) => v.toLocaleString('es-ES')
-const hace = (iso: string) => {
-  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
-  return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h`
-}
-
 export function SeguimientoRepartosPage() {
-  const [datos, setDatos] = useState<Datos | null>(null)
+  const [datos, setDatos] = useState<DatosSeg | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [vista, setVista] = useState<'rutas' | 'mapa'>('rutas')
-  const [tv, setTv] = useState(false)
   const [pines, setPines] = useState(false)
+  const [enlaceTv, setEnlaceTv] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
-  const raiz = useRef<HTMLDivElement>(null)
 
   const cargar = useCallback(async () => {
     const { data, error: e } = await supabase.rpc('fn_reparto_seguimiento', {})
     if (e) setError(e.message)
     else {
-      setDatos(data as Datos)
+      setDatos(data as DatosSeg)
       setError(null)
     }
   }, [])
@@ -70,35 +37,7 @@ export function SeguimientoRepartosPage() {
     return () => clearInterval(t)
   }, [cargar])
 
-  // En modo TV las vistas se alternan cada 30 s.
-  useEffect(() => {
-    if (!tv) return
-    const t = setInterval(() => setVista((v) => (v === 'rutas' ? 'mapa' : 'rutas')), 30_000)
-    return () => clearInterval(t)
-  }, [tv])
-
-  useEffect(() => {
-    const salir = () => {
-      if (!document.fullscreenElement) setTv(false)
-    }
-    document.addEventListener('fullscreenchange', salir)
-    return () => document.removeEventListener('fullscreenchange', salir)
-  }, [])
-
-  const modoTv = async () => {
-    setTv(true)
-    try {
-      await raiz.current?.requestFullscreen()
-    } catch {
-      /* sin pantalla completa: se ve igual a toda la ventana */
-    }
-  }
-  const salirTv = () => {
-    setTv(false)
-    if (document.fullscreenElement) void document.exitFullscreen()
-  }
-
-  const cerrar = async (r: Ruta) => {
+  const cerrar = async (r: RutaSeg) => {
     if (r.pendientes && !confirm(`Quedan ${r.pendientes} pedido(s) sin marcar en ${r.ruta_nombre}. Si cierras, pasan al reparto del día siguiente como no entregados. ¿Cerrar?`)) return
     if (!r.pendientes && !confirm(`¿Cerrar el reparto de ${r.ruta_nombre}? Lo no entregado o con incidencia pasa al día siguiente.`)) return
     const { data, error: e } = await supabase.rpc('fn_reparto_cerrar', { p_tienda: r.tienda, p_numero: r.numero })
@@ -108,238 +47,83 @@ export function SeguimientoRepartosPage() {
     void cargar()
   }
 
-  const rutas = datos?.rutas ?? []
-  const abiertas = rutas.filter((r) => r.estado === 2)
-  const quedan = abiertas.reduce((s, r) => s + r.pendientes, 0)
-
   return (
-    <div
-      ref={raiz}
-      style={{
-        position: tv ? 'fixed' : 'relative',
-        inset: tv ? 0 : undefined,
-        zIndex: tv ? 1000 : undefined,
-        minHeight: tv ? '100vh' : '100%',
-        background: `#1A5C1A url(${base}marca/fondo-reparto.jpg) center / cover`,
-        fontFamily: 'Inter, system-ui, sans-serif',
-        padding: tv ? 24 : 12,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tv ? 18 : 10,
-        overflow: 'auto',
-      }}
-    >
-      {/* Cabecera */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg,#0d3d0d 0%,#1A5C1A 45%,#237523 75%,#3a8f2a 100%)',
-          borderRadius: 20,
-          padding: tv ? '16px 24px' : '10px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          color: '#fff',
-          boxShadow: '0 8px 24px rgba(0,0,0,.25)',
-        }}
-      >
-        <img src={`${base}marca/logo-ofipapel.png`} alt="Ofipapel" style={{ height: tv ? 60 : 40 }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 800, fontSize: tv ? 36 : 22 }}>Repartos de hoy</div>
-          <div style={{ letterSpacing: 2, fontSize: tv ? 16 : 12, opacity: 0.9 }}>
-            {abiertas.length} rutas en la calle · {n(quedan)} pedidos por entregar
-          </div>
-        </div>
-        <Grupo>
-          <Pestana activa={vista === 'rutas'} onClick={() => setVista('rutas')} grande={tv}>
-            Rutas
-          </Pestana>
-          <Pestana activa={vista === 'mapa'} onClick={() => setVista('mapa')} grande={tv}>
-            Mapa
-          </Pestana>
-        </Grupo>
-        {tv ? (
-          <BotonClaro onClick={salirTv}>Salir de TV</BotonClaro>
-        ) : (
+    <>
+      <PanelReparto
+        datos={datos}
+        error={error}
+        vista={vista}
+        setVista={setVista}
+        tv={false}
+        onCerrar={cerrar}
+        derecha={
           <>
             <BotonClaro onClick={() => setPines(true)}>PIN de la app</BotonClaro>
-            <BotonClaro onClick={modoTv}>📺 Modo TV</BotonClaro>
+            <BotonClaro onClick={() => setEnlaceTv(true)}>📺 Enlace para la TV</BotonClaro>
           </>
-        )}
-      </div>
-
-      {error && <Aviso color={C.rojo}>{error}</Aviso>}
-      {mensaje && !tv && (
-        <Aviso color={C.verdeMed} onCerrar={() => setMensaje(null)}>
-          {mensaje}
-        </Aviso>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: tv ? '1fr 360px' : 'minmax(0,1fr) 300px', gap: tv ? 18 : 10, flex: 1, minHeight: 0 }}>
-        <div style={{ minWidth: 0 }}>
-          {vista === 'rutas' ? <VistaRutas rutas={rutas} tv={tv} onCerrar={tv ? undefined : cerrar} /> : <VistaMapa rutas={rutas} tv={tv} />}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: tv ? 18 : 10 }}>
-          <Tarjeta titulo="Pedidos entregados" tv={tv}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', textAlign: 'center' }}>
-              {(
-                [
-                  ['Semana', datos?.totales.semana],
-                  ['Mes', datos?.totales.mes],
-                  ['Año', datos?.totales.anio],
-                ] as const
-              ).map(([t, v]) => (
-                <div key={t}>
-                  <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: tv ? 38 : 24, color: C.verde }}>{n(v ?? 0)}</div>
-                  <div style={{ color: '#5f6b5f', fontSize: tv ? 16 : 12 }}>{t}</div>
-                </div>
-              ))}
-            </div>
-          </Tarjeta>
-          <Tarjeta titulo="🏆 Ranking de la semana" tv={tv}>
-            {!datos?.ranking.length && <div style={{ color: '#5f6b5f' }}>Aún no hay entregas esta semana.</div>}
-            {datos?.ranking.map((r, i) => {
-              const max = datos.ranking[0].entregados || 1
-              return (
-                <div key={r.repartidor} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: tv ? 10 : 6, fontSize: tv ? 20 : 14 }}>
-                  <span style={{ width: tv ? 34 : 24, textAlign: 'center' }}>{['🥇', '🥈', '🥉'][i] ?? `${i + 1}.`}</span>
-                  <span style={{ width: tv ? 110 : 80, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.repartidor}</span>
-                  <span style={{ flex: 1, background: '#e3ece3', borderRadius: 8, height: tv ? 18 : 12 }}>
-                    <span style={{ display: 'block', width: `${(r.entregados / max) * 100}%`, height: '100%', borderRadius: 8, background: i === 0 ? C.lima : C.verdeMed }} />
-                  </span>
-                  <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, minWidth: 36, textAlign: 'right' }}>{r.entregados}</span>
-                </div>
-              )
-            })}
-          </Tarjeta>
-        </div>
-      </div>
-
+        }
+        avisos={
+          mensaje && (
+            <Aviso color={C.verdeMed} onCerrar={() => setMensaje(null)}>
+              {mensaje}
+            </Aviso>
+          )
+        }
+      />
       {pines && <DialogoPines onCerrar={() => setPines(false)} />}
-    </div>
+      {enlaceTv && <DialogoEnlaceTv onCerrar={() => setEnlaceTv(false)} />}
+    </>
   )
 }
 
-// ------------------------------------------------------------------ Vista «Rutas» (una línea por ruta)
-function VistaRutas({ rutas, tv, onCerrar }: { rutas: Ruta[]; tv: boolean; onCerrar?: (r: Ruta) => void }) {
-  if (!rutas.length) return <Tarjeta tv={tv}>No hay repartos hoy.</Tarjeta>
+// ------------------------------------------------------------------ Enlace para la TV
+function DialogoEnlaceTv({ onCerrar }: { onCerrar: () => void }) {
+  const [enlace, setEnlace] = useState<string | null>(null)
+  const [qr, setQr] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const generar = async () => {
+    if (!confirm('Se crea un enlace nuevo y el anterior deja de funcionar (habrá que abrir el nuevo en la TV). ¿Seguir?')) return
+    const { data, error } = await supabase.rpc('fn_reparto_tv_generar')
+    if (error) return setMsg(error.message)
+    const url = `${location.origin}${base}reparto-tv?k=${data as string}`
+    setEnlace(url)
+    setQr(await QRCode.toDataURL(url, { margin: 1, width: 220 }))
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: tv ? 12 : 8 }}>
-      {rutas.map((r, i) => {
-        const tramos = [
-          [r.entregados, C.verdeCl],
-          [r.incidencias, C.naranja],
-          [r.no_entregados, C.rojo],
-          [r.pendientes, C.gris],
-        ] as const
-        const cerrado = r.estado !== 2
-        return (
-          <div
-            key={`${r.tienda}-${r.numero}`}
-            style={{
-              background: 'rgba(255,255,255,.96)',
-              borderRadius: 16,
-              borderLeft: `8px solid ${COLORES_RUTA[i % COLORES_RUTA.length]}`,
-              padding: tv ? '14px 18px' : '8px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: tv ? 18 : 10,
-              opacity: cerrado ? 0.6 : 1,
-              boxShadow: '0 4px 12px rgba(0,0,0,.15)',
-            }}
-          >
-            <div style={{ width: tv ? 240 : 170, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: tv ? 24 : 15, color: C.verde, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.ruta_nombre ?? 'Sin ruta'}</div>
-              <div style={{ color: '#5f6b5f', fontSize: tv ? 16 : 12 }}>
-                🚚 {r.repartidor_nombre ?? 'sin repartidor'}
-                {r.posicion && <span> · 📍 {hace(r.posicion.en)}</span>}
-              </div>
-            </div>
-            <div style={{ flex: 1, display: 'flex', height: tv ? 34 : 20, borderRadius: 10, overflow: 'hidden', background: '#eef2ee' }}>
-              {tramos.map(([v, c], j) => (v ? <div key={j} style={{ flex: v, background: c }} title={String(v)} /> : null))}
-            </div>
-            <div style={{ textAlign: 'right', minWidth: tv ? 130 : 90 }}>
-              <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: tv ? 30 : 18, color: cerrado ? '#5f6b5f' : r.pendientes ? C.verde : C.verdeCl }}>
-                {cerrado ? 'Cerrado' : r.pendientes ? `${r.pendientes} quedan` : '✔ Hecho'}
-              </div>
-              <div style={{ color: '#5f6b5f', fontSize: tv ? 14 : 11 }}>
-                {r.entregados + r.incidencias}/{r.total} entregados
-                {r.incidencias ? ` · ${r.incidencias} incid.` : ''}
-                {r.no_entregados ? ` · ${r.no_entregados} no` : ''}
-              </div>
-            </div>
-            {onCerrar && !cerrado && (
+    <div onClick={onCerrar} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 18, borderTop: `5px solid ${C.lima}`, padding: 18, width: 520, maxWidth: '94vw' }}>
+        <div style={{ fontWeight: 800, color: C.verde, fontSize: 18, marginBottom: 4 }}>Pantalla de la TV</div>
+        <div style={{ fontSize: 13, color: '#5f6b5f', marginBottom: 10 }}>
+          La TV no necesita el ERP: abre en su navegador el enlace que se crea aquí y lo deja en pantalla completa. Se ven las rutas,
+          el mapa, el ranking y los totales, y se alternan solos. El enlace solo se enseña una vez: guárdalo en la TV (favoritos).
+          Si se pierde o lo ve quien no debe, crea otro y el anterior deja de valer.
+        </div>
+        {!enlace ? (
+          <button type="button" onClick={generar} style={{ padding: '10px 14px', borderRadius: 10, border: 'none', background: C.verdeMed, color: '#fff', fontWeight: 700 }}>
+            Crear enlace para la TV
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {qr && <img src={qr} alt="Código QR del enlace" style={{ width: 160, height: 160 }} />}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, wordBreak: 'break-all', background: '#f3f6f3', borderRadius: 8, padding: 8 }}>{enlace}</div>
               <button
                 type="button"
-                onClick={() => onCerrar(r)}
-                style={{ border: `2px solid ${C.verdeMed}`, color: C.verde, background: '#fff', borderRadius: 10, padding: '6px 10px', fontWeight: 700, fontSize: 12 }}
+                onClick={() => void navigator.clipboard.writeText(enlace).then(() => setMsg('Enlace copiado.'))}
+                style={{ marginTop: 8, padding: '6px 12px', borderRadius: 8, border: `2px solid ${C.verdeMed}`, background: '#fff', color: C.verde, fontWeight: 700 }}
               >
-                Cerrar reparto
+                Copiar enlace
               </button>
-            )}
+            </div>
           </div>
-        )
-      })}
-      <div style={{ display: 'flex', gap: 14, color: '#fff', fontSize: tv ? 16 : 12, textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>
-        <Leyenda color={C.verdeCl}>Entregado</Leyenda>
-        <Leyenda color={C.naranja}>Con incidencia</Leyenda>
-        <Leyenda color={C.rojo}>No entregado</Leyenda>
-        <Leyenda color={C.gris}>Por entregar</Leyenda>
-      </div>
-    </div>
-  )
-}
-
-// ------------------------------------------------------------------ Vista «Mapa» (Tenerife)
-function VistaMapa({ rutas, tv }: { rutas: Ruta[]; tv: boolean }) {
-  const caja = useRef<HTMLDivElement>(null)
-  const mapa = useRef<L.Map | null>(null)
-  const capa = useRef<L.LayerGroup | null>(null)
-
-  useEffect(() => {
-    if (!caja.current || mapa.current) return
-    const m = L.map(caja.current, { zoomControl: !tv, attributionControl: true }).setView([28.29, -16.6], tv ? 10 : 9.5)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m)
-    capa.current = L.layerGroup().addTo(m)
-    mapa.current = m
-    return () => {
-      m.remove()
-      mapa.current = null
-    }
-  }, [tv])
-
-  useEffect(() => {
-    const g = capa.current
-    if (!g) return
-    g.clearLayers()
-    rutas.forEach((r, i) => {
-      const color = COLORES_RUTA[i % COLORES_RUTA.length]
-      for (const p of r.puntos) {
-        const c = p.estado === 'no_entregado' ? C.rojo : p.estado === 'incidencia' ? C.naranja : C.verdeCl
-        L.circleMarker([p.lat, p.lng], { radius: tv ? 7 : 5, color: '#fff', weight: 1.5, fillColor: c, fillOpacity: 0.95 }).addTo(g)
-      }
-      if (r.posicion && r.estado === 2) {
-        const icono = L.divIcon({
-          className: '',
-          iconSize: [0, 0],
-          html: `<div style="transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center">
-                   <div style="background:${color};color:#fff;border-radius:12px;padding:3px 8px;font:700 ${tv ? 15 : 12}px Inter,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">🚚 ${r.repartidor_nombre ?? ''} · ${r.pendientes}</div>
-                   <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${color}"></div>
-                 </div>`,
-        })
-        L.marker([r.posicion.lat, r.posicion.lng], { icon: icono }).addTo(g)
-      }
-    })
-  }, [rutas, tv])
-
-  const sinPosicion = rutas.filter((r) => r.estado === 2 && !r.posicion)
-  return (
-    <div style={{ position: 'relative', height: tv ? 'calc(100vh - 180px)' : 520, borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,.25)' }}>
-      <div ref={caja} style={{ position: 'absolute', inset: 0 }} />
-      {sinPosicion.length > 0 && (
-        <div style={{ position: 'absolute', left: 10, bottom: 24, zIndex: 500, background: 'rgba(255,255,255,.92)', borderRadius: 10, padding: '6px 10px', fontSize: tv ? 15 : 12 }}>
-          Sin ubicación: {sinPosicion.map((r) => r.repartidor_nombre ?? r.ruta_nombre).join(', ')}
+        )}
+        {msg && <div style={{ fontSize: 13, marginTop: 8, color: C.verde }}>{msg}</div>}
+        <div style={{ textAlign: 'right', marginTop: 12 }}>
+          <button type="button" onClick={onCerrar} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid #bbb', background: '#fff' }}>
+            Cerrar
+          </button>
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -409,53 +193,3 @@ function DialogoPines({ onCerrar }: { onCerrar: () => void }) {
   )
 }
 
-// ------------------------------------------------------------------ Piezas
-function Tarjeta({ titulo, tv, children }: { titulo?: string; tv: boolean; children: ReactNode }) {
-  return (
-    <div style={{ background: 'rgba(255,255,255,.96)', borderRadius: 18, borderTop: `5px solid ${C.lima}`, padding: tv ? 18 : 12, boxShadow: '0 6px 18px rgba(0,0,0,.18)' }}>
-      {titulo && <div style={{ fontWeight: 800, color: C.verde, fontSize: tv ? 22 : 15, marginBottom: tv ? 12 : 8 }}>{titulo}</div>}
-      {children}
-    </div>
-  )
-}
-function Grupo({ children }: { children: ReactNode }) {
-  return <div style={{ display: 'flex', background: 'rgba(255,255,255,.15)', borderRadius: 12, padding: 3, gap: 3 }}>{children}</div>
-}
-function Pestana({ activa, onClick, children, grande }: { activa: boolean; onClick: () => void; children: ReactNode; grande: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{ border: 'none', borderRadius: 10, padding: grande ? '8px 18px' : '5px 12px', fontWeight: 700, fontSize: grande ? 18 : 13, background: activa ? '#fff' : 'transparent', color: activa ? C.verde : '#fff' }}
-    >
-      {children}
-    </button>
-  )
-}
-function BotonClaro({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} style={{ background: 'rgba(255,255,255,.14)', color: '#fff', border: '1px solid rgba(255,255,255,.35)', borderRadius: 10, padding: '6px 10px', fontWeight: 600, fontSize: 13 }}>
-      {children}
-    </button>
-  )
-}
-function Aviso({ color, children, onCerrar }: { color: string; children: ReactNode; onCerrar?: () => void }) {
-  return (
-    <div style={{ background: '#fff', borderLeft: `6px solid ${color}`, borderRadius: 10, padding: '8px 12px', fontSize: 14, display: 'flex', gap: 8 }}>
-      <span style={{ flex: 1 }}>{children}</span>
-      {onCerrar && (
-        <button type="button" onClick={onCerrar} style={{ border: 'none', background: 'none', fontSize: 16 }}>
-          ✕
-        </button>
-      )}
-    </div>
-  )
-}
-function Leyenda({ color, children }: { color: string; children: ReactNode }) {
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ width: 14, height: 14, borderRadius: 4, background: color, display: 'inline-block' }} />
-      {children}
-    </span>
-  )
-}
