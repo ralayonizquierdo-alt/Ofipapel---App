@@ -686,3 +686,7 @@ empleados con sus permisos y elegir el día del cambio.
   quien no tenga» da un PIN al azar y saca la lista para imprimir una sola vez (`20261103_fichaje_plantilla.sql`).
 - **TV:** el enlace solo se crea desde el ERP (Control de Repartos → 📺 Pantalla de la TV: copiar o enviar por correo);
   la app del repartidor no ve las rutas de sus compañeros. En la TV sale la hora encima de cada punto.
+- **PIN elegido por cada persona** (`20261103_fichaje_pin_inicial.sql`): todos empiezan con 1234 (provisional); la
+  primera vez que entran (en /fichaje o en «Mi fichaje») eligen el suyo y lo repiten. Con 1234 no se puede fichar.
+  Gerencia: «🔑 PIN 1234 a quien no tenga» y «Volver a 1234» por persona (si lo olvida). Bajas: Nauzet (587) y
+  Patricia (484), 03/11/2026.

@@ -58,6 +58,7 @@ interface Persona {
   repartidor: string | null
   ficha: boolean
   con_pin: boolean
+  pin_provisional: boolean
   horario_propio: boolean
 }
 interface Horario {
@@ -346,7 +347,6 @@ function Alertas() {
 // ------------------------------------------------------------------ Personas
 function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas: Persona[]; recargar: () => Promise<void> }) {
   const [repartidores, setRepartidores] = useState<{ codigo: string; nombre: string }[]>([])
-  const [pin, setPin] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [verTodos, setVerTodos] = useState(false)
   useEffect(() => {
@@ -380,28 +380,11 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
     else if (fila.activo && !p.con_pin) setMsg(`Ponle un PIN a ${corto(p)}: sin él no sale en la pantalla de fichar.`)
     await recargar()
   }
-  const ponerPin = async (p: Persona) => {
-    const v = pin[p.codigo] ?? ''
-    const { error } = await supabase.rpc('fn_fichaje_pin_poner', { p_empleado: p.codigo, p_pin: v })
-    setMsg(error ? error.message : `PIN de ${corto(p)} guardado. Ya puede fichar.`)
-    setPin((x) => ({ ...x, [p.codigo]: '' }))
-    await recargar()
-  }
-  const generarPines = async () => {
-    const sinPin = personas.filter((p) => p.ficha && p.activo && !p.con_pin).length
-    if (!sinPin) return setMsg('Todas las personas que fichan ya tienen PIN.')
-    if (!confirm(`Se crea un PIN al azar para ${sinPin} persona(s) sin PIN. La lista sale UNA sola vez para imprimirla y repartirla (después solo se pueden cambiar). ¿Seguir?`)) return
-    const { data, error } = await supabase.rpc('fn_fichaje_pin_generar')
-    if (error) return setMsg(error.message)
-    const filas = (data ?? []) as { numero: string; nombre: string; departamento: string | null; pin: string }[]
-    exportarPdf({
-      titulo: 'PIN de Fichaje (entregar a cada persona y no guardar esta hoja)',
-      fichero: 'pines-fichaje',
-      apaisado: false,
-      columnas: ['Nº', 'Nombre', 'Departamento', 'PIN'],
-      filas: filas.map((f) => [f.numero, f.nombre, f.departamento ?? '', f.pin]),
-    })
-    setMsg(`PIN creado para ${filas.length} persona(s). Si no se abrió la hoja para imprimir, permite las ventanas emergentes y vuelve a generarlos (cambiando el PIN de cada uno).`)
+  // PIN: cada persona elige el suyo. Empiezan con 1234 y la primera vez que entran ponen el suyo.
+  const pinInicial = async (p?: Persona) => {
+    if (p && !confirm(`¿Dejar a ${corto(p)} con el PIN 1234? La próxima vez que entre tendrá que poner uno nuevo.`)) return
+    const { data, error } = await supabase.rpc('fn_fichaje_pin_inicial', { p_empleado: p?.codigo ?? null })
+    setMsg(error ? error.message : p ? `${corto(p)} ya puede entrar con 1234 y poner su PIN.` : `PIN 1234 puesto a ${data as number} persona(s).`)
     await recargar()
   }
   // Ordenadas por sección (departamento, en su orden) y dentro por nombre; quien no ficha, al final.
@@ -414,15 +397,19 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
   return (
     <Caja titulo="Personas que fichan (salen de Archivo → Empleados)">
       <div className="mb-1 text-[12px] text-[#555]">
-        Marca «Ficha» a quien tenga que fichar, elige su departamento y ponle un PIN de 4 cifras. Si reparte, enlázale su repartidor: así la app de reparto sabe si ha fichado y, al fichar, le sale el botón «🚚 Mi reparto». Para añadir una persona, créala antes en Archivo → Empleados.
+        Marca «Ficha» a quien tenga que fichar y elige su departamento. El PIN lo elige cada persona: la primera vez entra con 1234 y pone el suyo (si lo olvida, «Volver a 1234»). Si reparte, enlázale su repartidor: así la app de reparto sabe si ha fichado y, al fichar, le sale el botón «🚚 Mi reparto». Para añadir una persona, créala antes en Archivo → Empleados.
       </div>
       <div className="mb-1 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver también los empleados de baja
         </label>
-        <button type="button" className="gw-btn font-bold" onClick={() => void generarPines()} title="Un PIN al azar para cada persona que ficha y aún no tiene; sale una hoja para imprimir">
-          🔑 Crear PIN a quien no tenga (e imprimir la lista)
+        <button type="button" className="gw-btn font-bold" onClick={() => void pinInicial()} title="Quien ficha y aún no tiene PIN podrá entrar con 1234 y poner el suyo">
+          🔑 PIN 1234 a quien no tenga
         </button>
+        <span className="text-[12px] text-[#555]">
+          Ya han puesto su PIN: <b>{personas.filter((p) => p.ficha && p.con_pin && !p.pin_provisional).length}</b> · Aún con 1234:{' '}
+          <b>{personas.filter((p) => p.ficha && p.pin_provisional).length}</b>
+        </span>
       </div>
       {msg && <div className="mb-1 font-bold text-[#127a12]">{msg}</div>}
       <table className="w-full border-collapse">
@@ -477,18 +464,19 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
                 </GwSelect>
               </td>
               <td className={td}>
-                <span className="flex items-center gap-1">
-                  {p.con_pin ? '✔' : '—'}
-                  <GwInput
-                    value={pin[p.codigo] ?? ''}
-                    onChange={(e) => setPin((x) => ({ ...x, [p.codigo]: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
-                    placeholder={p.con_pin ? 'cambiar' : 'nuevo'}
-                    inputMode="numeric"
-                    className="w-[70px]"
-                  />
-                  <button type="button" className="gw-btn h-[22px]" disabled={(pin[p.codigo] ?? '').length !== 4} onClick={() => void ponerPin(p)}>
-                    Guardar
-                  </button>
+                <span className="flex items-center justify-between gap-2">
+                  {!p.con_pin ? (
+                    <span className="text-[#888]">Sin PIN</span>
+                  ) : p.pin_provisional ? (
+                    <span className="font-bold text-[#a86400]">1234 · aún no ha puesto el suyo</span>
+                  ) : (
+                    <span className="font-bold text-[#127a12]">✔ Ya tiene el suyo</span>
+                  )}
+                  {p.ficha && (
+                    <button type="button" className="gw-btn h-[22px]" onClick={() => void pinInicial(p)} title="Si lo ha olvidado: vuelve a 1234 y pondrá uno nuevo al entrar">
+                      Volver a 1234
+                    </button>
+                  )}
                 </span>
               </td>
               <td className={td}>{p.horario_propio ? 'Propio' : 'El del departamento'}</td>

@@ -19,6 +19,7 @@ interface Grupo {
 interface Panel {
   ok: boolean
   error?: string
+  cambiar_pin?: boolean
   empleado: string
   nombre: string
   estado: EstadoFichaje
@@ -88,6 +89,8 @@ export function FichajeApp() {
   const [ocupado, setOcupado] = useState(false)
   const [hecho, setHecho] = useState<string | null>(null)
   const [fraseHecho, setFraseHecho] = useState('')
+  // Primera vez (PIN 1234): elige su PIN nuevo y lo repite.
+  const [nuevo, setNuevo] = useState<{ paso: 1 | 2; primero: string; actual: string } | null>(null)
   const [ahora, setAhora] = useState(new Date())
   const reinicio = useRef<number | null>(null)
 
@@ -119,6 +122,7 @@ export function FichajeApp() {
     setQuien(null)
     setPin('')
     setPanel(null)
+    setNuevo(null)
     setHecho(null)
     setError(null)
   }, [])
@@ -141,12 +145,48 @@ export function FichajeApp() {
     const { data, error: e } = await supabase.rpc('fn_fichaje_entrar', { p_empleado: quien.codigo, p_pin: nuevo })
     setOcupado(false)
     const r = data as Panel | null
+    if (r?.cambiar_pin) {
+      setNuevo({ paso: 1, primero: '', actual: '' })
+      programarVuelta(120_000)
+      return
+    }
     if (e || !r?.ok) {
       setError(e ? (/fetch|network/i.test(e.message) ? 'Sin conexión. Prueba otra vez.' : e.message) : (r?.error ?? 'PIN incorrecto.'))
       setPin('')
       return
     }
     setPanel(r)
+    programarVuelta(60_000)
+  }
+
+  const pulsarNuevo = async (d: string) => {
+    if (!nuevo || ocupado || !quien) return
+    const actual = (nuevo.actual + d).slice(0, 4)
+    setError(null)
+    if (actual.length < 4) return setNuevo({ ...nuevo, actual })
+    if (nuevo.paso === 1) {
+      if (actual === '1234') {
+        setNuevo({ ...nuevo, actual: '' })
+        return setError('Elige un PIN distinto de 1234.')
+      }
+      return setNuevo({ paso: 2, primero: actual, actual: '' })
+    }
+    if (actual !== nuevo.primero) {
+      setNuevo({ paso: 1, primero: '', actual: '' })
+      return setError('No coinciden. Vuelve a empezar.')
+    }
+    setOcupado(true)
+    const { data, error: e } = await supabase.rpc('fn_fichaje_pin_cambiar', { p_empleado: quien.codigo, p_pin_actual: pin, p_pin_nuevo: actual })
+    setOcupado(false)
+    const r = data as Panel | null
+    if (e || !r?.ok) {
+      setNuevo({ paso: 1, primero: '', actual: '' })
+      return setError(e?.message ?? r?.error ?? 'No se ha podido guardar el PIN.')
+    }
+    setPin(actual)
+    setNuevo(null)
+    setPanel(r)
+    setHecho('PIN guardado. A partir de ahora entra con el tuyo.')
     programarVuelta(60_000)
   }
 
@@ -237,10 +277,42 @@ export function FichajeApp() {
           </Tarjeta>
         )}
 
-        {quien && !panel && (
+        {quien && !panel && nuevo && (
           <Tarjeta>
             <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 20, color: V.verde }}>Hola, {quien.nombre}</div>
-            <div style={{ textAlign: 'center', color: V.gris, marginBottom: 10 }}>Pon tu PIN</div>
+            <div style={{ textAlign: 'center', color: V.gris, marginBottom: 10 }}>
+              {nuevo.paso === 1 ? 'Es tu primera vez: elige tu PIN de 4 cifras (el que usas siempre)' : 'Repite tu PIN nuevo'}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 14 }}>
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} style={{ width: 18, height: 18, borderRadius: 9, background: i < nuevo.actual.length ? V.lima : '#dfe8df' }} />
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+                <Boton key={d} claro onClick={() => void pulsarNuevo(d)} style={{ fontSize: 26, padding: '14px 0' }}>
+                  {d}
+                </Boton>
+              ))}
+              <Boton claro color={V.gris} onClick={volver} style={{ fontSize: 14 }}>
+                Cancelar
+              </Boton>
+              <Boton claro onClick={() => void pulsarNuevo('0')} style={{ fontSize: 26, padding: '14px 0' }}>
+                0
+              </Boton>
+              <Boton claro color={V.gris} onClick={() => setNuevo({ ...nuevo, actual: nuevo.actual.slice(0, -1) })} style={{ fontSize: 22 }}>
+                ⌫
+              </Boton>
+            </div>
+            {ocupado && <div style={{ textAlign: 'center', color: V.gris, marginTop: 10 }}>Guardando…</div>}
+            {error && <div style={{ color: V.rojo, textAlign: 'center', marginTop: 10, fontWeight: 600 }}>{error}</div>}
+          </Tarjeta>
+        )}
+
+        {quien && !panel && !nuevo && (
+          <Tarjeta>
+            <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 20, color: V.verde }}>Hola, {quien.nombre}</div>
+            <div style={{ textAlign: 'center', color: V.gris, marginBottom: 10 }}>Pon tu PIN <span style={{ fontSize: 12 }}>(la primera vez: 1234)</span></div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 14 }}>
               {[0, 1, 2, 3].map((i) => (
                 <span key={i} style={{ width: 18, height: 18, borderRadius: 9, background: i < pin.length ? V.verdeMed : '#dfe8df' }} />

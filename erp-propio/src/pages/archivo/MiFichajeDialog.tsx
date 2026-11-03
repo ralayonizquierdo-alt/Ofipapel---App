@@ -14,6 +14,7 @@ import { delDia, duracion, FRASES_ENTRADA, FRASES_SALIDA, horaCan, TIPOS_FICHAJE
 interface Panel {
   ok: boolean
   error?: string
+  cambiar_pin?: boolean
   nombre: string
   estado: EstadoFichaje
   siguientes: TipoFichaje[]
@@ -122,10 +123,28 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
     const { data, error: e } = await supabase.rpc('fn_fichaje_entrar', { p_empleado: quien, p_pin: pin })
     setOcupado(false)
     const r = data as Panel | null
+    if (r?.cambiar_pin) return setNuevo({ a: '', b: '' })
     if (e || !r?.ok) {
       setPin('')
       return setError(e?.message ?? r?.error ?? 'PIN incorrecto.')
     }
+    setPanel(r)
+  }
+
+  // Primera vez (PIN 1234): elige su PIN nuevo y lo repite.
+  const [nuevo, setNuevo] = useState<{ a: string; b: string } | null>(null)
+  const guardarNuevo = async () => {
+    if (!nuevo) return
+    setError(null)
+    if (nuevo.a === '1234') return setError('Elige un PIN distinto de 1234.')
+    if (nuevo.a !== nuevo.b) return setError('Los dos PIN no coinciden.')
+    setOcupado(true)
+    const { data, error: e } = await supabase.rpc('fn_fichaje_pin_cambiar', { p_empleado: quien, p_pin_actual: pin, p_pin_nuevo: nuevo.a })
+    setOcupado(false)
+    const r = data as Panel | null
+    if (e || !r?.ok) return setError(e?.message ?? r?.error ?? 'No se ha podido guardar el PIN.')
+    setPin(nuevo.a)
+    setNuevo(null)
     setPanel(r)
   }
 
@@ -186,9 +205,37 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
           </div>
 
           <div className="flex flex-col gap-3 bg-[#f6f8fb] p-4">
-            {!panel && (
+            {!panel && nuevo && (
+              <div className="flex flex-col gap-2 rounded-lg border-2 border-[#1e9e4a] bg-white p-3 shadow-sm">
+                <div className="font-semibold text-[#127a12]">Es tu primera vez: elige tu PIN de 4 cifras (el que usas siempre)</div>
+                {(['a', 'b'] as const).map((k) => (
+                  <input
+                    key={k}
+                    className="gw-input h-[34px] text-center text-[20px] tracking-[0.5em]"
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    autoFocus={k === 'a'}
+                    placeholder={k === 'a' ? 'PIN nuevo' : 'Repítelo'}
+                    value={nuevo[k]}
+                    onChange={(e) => setNuevo({ ...nuevo, [k]: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    onKeyDown={(e) => e.key === 'Enter' && nuevo.a.length === 4 && nuevo.b.length === 4 && void guardarNuevo()}
+                  />
+                ))}
+                <button
+                  type="button"
+                  disabled={nuevo.a.length !== 4 || nuevo.b.length !== 4 || ocupado}
+                  onClick={() => void guardarNuevo()}
+                  className="h-[40px] rounded-md font-bold text-white disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg,#1e9e4a,#127a12)' }}
+                >
+                  Guardar mi PIN
+                </button>
+              </div>
+            )}
+            {!panel && !nuevo && (
               <div className="flex flex-col gap-2 rounded-lg border border-[#d7dde8] bg-white p-3 shadow-sm">
-                <div className="font-semibold text-[#1d3a8a]">¿Quién ficha? Elige tu nombre y pon tu código</div>
+                <div className="font-semibold text-[#1d3a8a]">¿Quién ficha? Elige tu nombre y pon tu PIN <span className="text-[11px] font-normal text-[#4a5568]">(la primera vez: 1234)</span></div>
                 <select className="gw-input h-[34px] text-[15px]" value={quien} onChange={(e) => (setQuien(e.target.value), setPin(''))}>
                   <option value="">Elige tu nombre…</option>
                   {personas.map((g) => (
@@ -323,7 +370,7 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
 
             <div className="flex items-center justify-between">
               {panel && !hecho ? (
-                <button type="button" className="gw-btn" onClick={() => (setPanel(null), setPin(''), setQuien(''), setError(null))}>
+                <button type="button" className="gw-btn" onClick={() => (setPanel(null), setNuevo(null), setPin(''), setQuien(''), setError(null))}>
                   No soy yo
                 </button>
               ) : (
