@@ -1025,6 +1025,13 @@ function bloqueRefsCambian(p) {
       ${pend.length > 1 ? `<button class="btn peque" onclick="marcarRefCambiada('${p.id}', null, null, true)">✓ Todas cambiadas</button>` : ''}
       <button class="btn peque" onclick="imprimirRefsCambian('${p.id}')">🖨️ Imprimir</button></div></details>`;
 }
+/** La referencia con la que Géminis conoce hoy el artículo: la nueva del proveedor si ya se cambió. */
+function refEnGeminis(p, ref) {
+  const c = (E.catalogos[prov(p.proveedor)] || {}).cambiadas || {};
+  if (c[ref]) return c[ref];
+  const k = Object.keys(c).find((r) => CP.claveRef(r) === CP.claveRef(ref));
+  return k ? c[k] : ref;
+}
 /** Apunta (por proveedor, para todos los pedidos) que esa referencia ya se cambió en Géminis. */
 function marcarRefCambiada(id, nuestra, suya, si) {
   const p = pedidoPorId(id);
@@ -3840,7 +3847,8 @@ async function exportarPedidos(ids, opciones) {
     const dtoGlobal = p.factura ? (p.factura.cabecera || {}).dtoGlobal : p.final.dto;
     for (const l0 of CP.lineasParaGeminis(enOrden, { dtoGlobal, decimales })) {
       // Géminis guarda las referencias de Finocam sin el año del final.
-      const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(l0.ref, p.proveedor) });
+      // La referencia ya cambiada en Géminis por la nueva del proveedor va con la nueva.
+      const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(refEnGeminis(p, l0.ref), p.proveedor) });
       if (comoFactura) { filas.push(Object.assign(l, { _fra: CP.facturaDeLinea(l0, l0.origen || (p.factura.cabecera || {}).numero || p.factura.archivo), _ped: p })); continue; }
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
