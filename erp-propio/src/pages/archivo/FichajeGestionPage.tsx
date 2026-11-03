@@ -5,7 +5,7 @@
 // Un fichaje no se cambia ni se borra nunca: una corrección es un registro nuevo con motivo y autor.
 // Datos: migración 20261103_fichaje.sql (fn_fichaje_*).
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase } from '../../lib/supabase'
 import { GwField, GwGroup, GwInput, GwSelect } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
@@ -14,7 +14,6 @@ import {
   canariasAIso,
   diaSemana,
   duracion,
-  ESTADOS_FICHAJE,
   fechaCan,
   horaCan,
   hoyCan,
@@ -164,6 +163,12 @@ const th = 'border border-[var(--gw-border-light)] bg-[var(--gw-face)] px-1.5 py
 const td = 'border border-[var(--gw-border-light)] px-1.5 py-0.5'
 
 // ------------------------------------------------------------------ Hoy
+const ESTADO_HOY: Record<EstadoFichaje, { texto: string; color: string; fondo: string }> = {
+  trabajando: { texto: 'Trabajando', color: '#127a12', fondo: '#e3f5e3' },
+  pausa: { texto: 'En pausa', color: '#a86400', fondo: '#fff1d6' },
+  salida: { texto: 'Jornada terminada', color: '#4a5568', fondo: '#eceff3' },
+  sin_fichar: { texto: 'Sin fichar', color: '#b3261e', fondo: '#fde7e4' },
+}
 function Hoy() {
   const [dia, setDia] = useState(hoyCan())
   const [filas, setFilas] = useState<
@@ -187,45 +192,63 @@ function Hoy() {
       titulo={
         <span className="flex flex-wrap items-center gap-2">
           Estado del día
-          <GwInput type="date" value={dia} onChange={(e) => setDia(e.target.value || hoyCan())} className="w-[140px]" />
-          <span className="text-[13px] font-normal text-[#333]">
-            {(Object.keys(ESTADOS_FICHAJE) as EstadoFichaje[]).map((e) => `${ESTADOS_FICHAJE[e]}: ${cuenta(e)}`).join(' · ')}
-          </span>
+          <GwInput type="date" value={dia} onChange={(e) => setDia(e.target.value || hoyCan())} className="!w-[150px]" />
         </span>
       }
     >
       {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
       {!filas.length && <div>Nadie ficha todavía: da de alta a las personas en «Personas» (departamento y PIN).</div>}
       {!!filas.length && (
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className={th}>Persona</th>
-              <th className={th}>Departamento</th>
-              <th className={th}>Estado</th>
-              <th className={th}>Fichajes del día</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map((f) => (
-              <tr key={f.empleado}>
-                <td className={td}>{f.nombre}</td>
-                <td className={td}>{f.departamento}</td>
-                <td className={td}>{ESTADOS_FICHAJE[f.estado]}</td>
-                <td className={td}>
-                  {f.eventos.map((e, i) => (
-                    <span key={i} className={`mr-3 ${e.fuera_de_horario || e.fuera_de_sitio ? 'font-bold text-[#c42b1c]' : ''}`} title={e.origen === 'correccion' ? 'Corrección' : undefined}>
-                      {TIPOS_FICHAJE[e.tipo]} {horaCan(e.en)}
-                      {e.origen === 'correccion' ? ' ✎' : ''}
-                      {e.fuera_de_horario ? ' ⏰' : ''}
-                      {e.fuera_de_sitio ? ' 📍' : ''}
-                    </span>
-                  ))}
-                </td>
-              </tr>
+        <div className="flex flex-col gap-3">
+          {/* Resumen en grande */}
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {(Object.keys(ESTADO_HOY) as EstadoFichaje[]).map((e) => (
+              <div key={e} className="rounded-lg border px-3 py-2" style={{ borderColor: ESTADO_HOY[e].color + '55', background: ESTADO_HOY[e].fondo }}>
+                <div className="text-[28px] font-bold leading-none" style={{ color: ESTADO_HOY[e].color }}>
+                  {cuenta(e)}
+                </div>
+                <div className="text-[12px] font-semibold" style={{ color: ESTADO_HOY[e].color }}>
+                  {ESTADO_HOY[e].texto}
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+          {/* Una tarjeta por persona, por secciones */}
+          {[...new Set(filas.map((f) => f.departamento ?? 'Sin departamento'))].map((dep) => (
+            <div key={dep}>
+              <div className="mb-1 border-b-2 border-[#1d3a8a] pb-0.5 text-[14px] font-bold text-[#1d3a8a]">{dep}</div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-2">
+                {filas
+                  .filter((f) => (f.departamento ?? 'Sin departamento') === dep)
+                  .map((f) => (
+                    <div key={f.empleado} className="rounded-lg border border-[#d7dde8] bg-white p-2 shadow-sm" style={{ borderLeft: `5px solid ${ESTADO_HOY[f.estado].color}` }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <b className="truncate text-[14px]">{f.nombre}</b>
+                        <span className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ color: ESTADO_HOY[f.estado].color, background: ESTADO_HOY[f.estado].fondo }}>
+                          {ESTADO_HOY[f.estado].texto}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {!f.eventos.length && <span className="text-[12px] text-[#8a94a6]">Sin fichajes</span>}
+                        {f.eventos.map((e, i) => (
+                          <span
+                            key={i}
+                            className={`rounded-full border px-1.5 text-[11px] ${e.fuera_de_horario || e.fuera_de_sitio ? 'border-[#c42b1c] font-bold text-[#c42b1c]' : 'border-[#d7dde8] text-[#333]'}`}
+                            title={[e.origen === 'correccion' && 'Corrección', e.fuera_de_horario && 'Fuera de horario', e.fuera_de_sitio && 'Fuera del lugar esperado'].filter(Boolean).join(' · ') || undefined}
+                          >
+                            {TIPOS_FICHAJE[e.tipo]} {horaCan(e.en)}
+                            {e.origen === 'correccion' ? ' ✎' : ''}
+                            {e.fuera_de_horario ? ' ⏰' : ''}
+                            {e.fuera_de_sitio ? ' 📍' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
       <div className="mt-1 text-[11px] text-[#555]">⏰ fuera de horario · 📍 fuera del lugar esperado · ✎ corrección. Se actualiza solo cada 30 s.</div>
     </Caja>
@@ -327,12 +350,19 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
   const [msg, setMsg] = useState<string | null>(null)
   const [verTodos, setVerTodos] = useState(false)
   useEffect(() => {
+    // Todos, también los de baja en Repartidores (se marcan), para que no se pierda un enlace ya hecho.
     void supabase
       .from('repartidor')
-      .select('codigo, nombre, nombre_corto')
-      .or('deshabilitado.is.null,deshabilitado.eq.false')
+      .select('codigo, nombre, nombre_corto, deshabilitado')
       .order('nombre')
-      .then(({ data }) => setRepartidores(((data ?? []) as { codigo: string; nombre: string; nombre_corto: string | null }[]).map((r) => ({ codigo: r.codigo, nombre: r.nombre_corto || r.nombre }))))
+      .then(({ data }) =>
+        setRepartidores(
+          ((data ?? []) as { codigo: string; nombre: string; nombre_corto: string | null; deshabilitado: boolean | null }[]).map((r) => ({
+            codigo: r.codigo,
+            nombre: `${r.nombre_corto || r.nombre} (${r.codigo})${r.deshabilitado ? ' · de baja en Repartidores' : ''}`,
+          })),
+        ),
+      )
   }, [])
   const guardar = async (p: Persona, cambios: Partial<{ departamento_codigo: string | null; repartidor_codigo: string | null; activo: boolean }>) => {
     setMsg(null)
@@ -374,7 +404,13 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
     setMsg(`PIN creado para ${filas.length} persona(s). Si no se abrió la hoja para imprimir, permite las ventanas emergentes y vuelve a generarlos (cambiando el PIN de cada uno).`)
     await recargar()
   }
-  const lista = verTodos ? personas : personas.filter((p) => p.ficha || p.activo)
+  // Ordenadas por sección (departamento, en su orden) y dentro por nombre; quien no ficha, al final.
+  const ordenDep = new Map(deps.map((d) => [d.codigo, d.orden]))
+  const nombreDep = new Map(deps.map((d) => [d.codigo, d.nombre]))
+  const seccion = (p: Persona) => (p.ficha && p.departamento ? p.departamento : '')
+  const lista = (verTodos ? personas : personas.filter((p) => p.ficha || p.activo))
+    .slice()
+    .sort((a, b) => (ordenDep.get(seccion(a)) ?? 9999) - (ordenDep.get(seccion(b)) ?? 9999) || a.nombre.localeCompare(b.nombre, 'es'))
   return (
     <Caja titulo="Personas que fichan (salen de Archivo → Empleados)">
       <div className="mb-1 text-[12px] text-[#555]">
@@ -402,8 +438,16 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
           </tr>
         </thead>
         <tbody>
-          {lista.map((p) => (
-            <tr key={p.codigo} className={p.activo ? '' : 'text-[#888]'}>
+          {lista.map((p, i) => (
+            <Fragment key={p.codigo}>
+            {(i === 0 || seccion(lista[i - 1]) !== seccion(p)) && (
+              <tr>
+                <td colSpan={7} className="border-b border-[var(--gw-border)] bg-[#dfe9f7] px-1.5 py-1 font-bold text-[#1d3a8a]">
+                  {seccion(p) ? nombreDep.get(seccion(p)) : 'No fichan (o sin departamento)'} ({lista.filter((x) => seccion(x) === seccion(p)).length})
+                </td>
+              </tr>
+            )}
+            <tr className={p.activo ? '' : 'text-[#888]'}>
               <td className={td}>{p.numero ?? p.codigo}</td>
               <td className={td}>
                 {p.nombre}
@@ -449,6 +493,7 @@ function Personas({ deps, personas, recargar }: { deps: Departamento[]; personas
               </td>
               <td className={td}>{p.horario_propio ? 'Propio' : 'El del departamento'}</td>
             </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>

@@ -2,11 +2,13 @@
 // sin hacer cola en un solo aparato. Ficha la persona que tiene abierta la sesión del ERP (fn_fichaje_mio /
 // fn_fichaje_fichar_mio). En un puesto compartido, «Otra persona» ficha con nombre + PIN, como en /fichaje.
 // Lo abre el evento «gw:mi-fichaje» (Layout → QuickBar). Gestión: Archivo → Fichaje.
+// Diseño: lo ve cada empleado dos veces al día, así que es más vistoso que el resto del ERP (sin salirse de sus
+// colores): saludo, reloj grande, estado en color, botones grandes, horas de hoy y de la semana y un mensaje amable.
 
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { GwField, GwInput, GwSelect, GwWindow } from '../../components/gw'
-import { ESTADOS_FICHAJE, horaCan, TIPOS_FICHAJE, type EstadoFichaje, type TipoFichaje } from '../../lib/fichaje'
+import { GwWindow } from '../../components/gw'
+import { duracion, horaCan, TIPOS_FICHAJE, type EstadoFichaje, type TipoFichaje } from '../../lib/fichaje'
 
 interface Panel {
   ok: boolean
@@ -15,14 +17,65 @@ interface Panel {
   estado: EstadoFichaje
   siguientes: TipoFichaje[]
   hoy: { tipo: TipoFichaje; en: string; origen: string }[]
+  semana?: { tipo: TipoFichaje; en: string; dia: string }[]
   reparto_token: string | null
 }
 
-const BOTON: Record<TipoFichaje, { texto: string; color: string }> = {
-  entrada: { texto: '▶ Fichar entrada', color: '#127a12' },
-  pausa_inicio: { texto: '⏸ Empezar pausa', color: '#b26a00' },
-  pausa_fin: { texto: '▶ Terminar pausa', color: '#127a12' },
-  salida: { texto: '■ Fichar salida', color: '#c42b1c' },
+const BOTON: Record<TipoFichaje, { texto: string; icono: string; fondo: string }> = {
+  entrada: { texto: 'Fichar entrada', icono: '▶', fondo: 'linear-gradient(135deg,#1e9e4a,#127a12)' },
+  pausa_inicio: { texto: 'Empezar pausa', icono: '☕', fondo: 'linear-gradient(135deg,#f0a531,#c77700)' },
+  pausa_fin: { texto: 'Volver de la pausa', icono: '▶', fondo: 'linear-gradient(135deg,#1e9e4a,#127a12)' },
+  salida: { texto: 'Fichar salida', icono: '■', fondo: 'linear-gradient(135deg,#e2533f,#b3261e)' },
+}
+const ESTADO: Record<EstadoFichaje, { texto: string; color: string; fondo: string }> = {
+  trabajando: { texto: 'Trabajando', color: '#127a12', fondo: '#e3f5e3' },
+  pausa: { texto: 'En pausa', color: '#a86400', fondo: '#fff1d6' },
+  salida: { texto: 'Jornada terminada', color: '#4a5568', fondo: '#eceff3' },
+  sin_fichar: { texto: 'Sin fichar todavía', color: '#b3261e', fondo: '#fde7e4' },
+}
+const FRASES = [
+  'Gracias por tu trabajo: Ofipapel funciona porque estás tú.',
+  'Un buen día empieza con una sonrisa al primer cliente.',
+  'Lo pequeño bien hecho es lo que más se nota.',
+  'El equipo es más fuerte cuando nos echamos una mano.',
+  'Cada pedido bien entregado es un cliente que vuelve.',
+  'Hoy es un buen día para hacerlo un poco mejor que ayer.',
+  'Gracias por cuidar los detalles.',
+]
+const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+
+/** Minutos trabajados en una lista ordenada de fichajes (hasta ahora si sigue trabajando). */
+function minutos(evs: { tipo: TipoFichaje; en: string }[], hastaAhora: boolean) {
+  let total = 0
+  let desde: number | null = null
+  for (const e of evs) {
+    const t = new Date(e.en).getTime()
+    if (e.tipo === 'entrada' || e.tipo === 'pausa_fin') desde = t
+    else if (desde != null) {
+      total += t - desde
+      desde = null
+    }
+  }
+  if (desde != null && hastaAhora) total += Date.now() - desde
+  return total / 60000
+}
+
+function saludo(d: Date) {
+  const h = Number(d.toLocaleTimeString('es-ES', { hour: '2-digit', hour12: false, timeZone: 'Atlantic/Canary' }))
+  return h < 13 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches'
+}
+
+function mensajeTras(tipo: TipoFichaje, nombre: string, minHoy: number) {
+  switch (tipo) {
+    case 'entrada':
+      return `¡Bienvenido/a, ${nombre}! Que tengas un gran día.`
+    case 'pausa_inicio':
+      return 'Disfruta del descanso ☕ Te lo has ganado.'
+    case 'pausa_fin':
+      return '¡De vuelta! A por la segunda parte del día.'
+    case 'salida':
+      return `¡Buen trabajo hoy, ${nombre}! ${minHoy ? `Llevas ${duracion(minHoy)}. ` : ''}A descansar.`
+  }
 }
 
 async function ubicacion(): Promise<{ lat: number; lng: number; precision: number } | null> {
@@ -56,7 +109,8 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [hecho, setHecho] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
-  const [ahora, setAhora] = useState(new Date())
+  const [ahora, setAhora] = useState(() => new Date())
+  const [frase] = useState(() => FRASES[Math.floor(Date.now() / 86_400_000) % FRASES.length])
 
   useEffect(() => {
     const t = setInterval(() => setAhora(new Date()), 1000)
@@ -73,7 +127,8 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
     } else setPanel(r)
   }, [])
   useEffect(() => {
-    void cargarMio()
+    const t = setTimeout(() => void cargarMio(), 0)
+    return () => clearTimeout(t)
   }, [cargarMio])
   useEffect(() => {
     if (!otra || personas.length) return
@@ -105,24 +160,54 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
     const r = data as Panel | null
     if (e || !r?.ok) return setError(e?.message ?? r?.error ?? 'No se ha podido fichar.')
     setPanel(r)
-    setHecho(`✔ ${TIPOS_FICHAJE[tipo]} de ${r.nombre} fichada a las ${horaCan(r.hoy[r.hoy.length - 1]?.en)}`)
+    setHecho(`${mensajeTras(tipo, r.nombre, minutos(r.hoy, false))} (${TIPOS_FICHAJE[tipo].toLowerCase()} a las ${horaCan(r.hoy[r.hoy.length - 1]?.en)})`)
     // Con «Otra persona» en un puesto compartido, se cierra solo para que no quede abierto con su PIN.
-    if (otra) setTimeout(onCerrar, 4000)
+    if (otra) setTimeout(onCerrar, 5000)
   }
 
+  // Horas de hoy y de la semana (lunes a domingo).
+  const minHoy = panel ? minutos(panel.hoy, panel.estado === 'trabajando') : 0
+  const porDia = DIAS.map(() => 0)
+  if (panel?.semana) {
+    const dias = new Map<string, { tipo: TipoFichaje; en: string }[]>()
+    for (const e of panel.semana) dias.set(e.dia, [...(dias.get(e.dia) ?? []), e])
+    for (const [dia, evs] of dias) {
+      const i = (new Date(dia + 'T12:00:00Z').getUTCDay() + 6) % 7
+      porDia[i] = minutos(evs, panel.estado === 'trabajando' && evs === dias.get([...dias.keys()].pop()!))
+    }
+  }
+  const minSemana = porDia.reduce((a, b) => a + b, 0)
+  const maxDia = Math.max(480, ...porDia)
+  const hoyIdx = (ahora.getDay() + 6) % 7
+  const est = panel ? ESTADO[panel.estado] : null
+
   return (
-    <div className="fixed inset-0 z-[320] flex items-start justify-center bg-black/25 pt-16" onKeyDown={(e) => e.key === 'Escape' && onCerrar()}>
-      <GwWindow title="Mi fichaje" onClose={onCerrar} className="w-[440px] max-w-[95vw]">
-        <div className="flex flex-col gap-2 p-2 text-[13px]">
-          <div className="text-center">
-            <div className="font-mono text-[30px] font-bold text-[#1d3a8a]">{ahora.toLocaleTimeString('es-ES', { timeZone: 'Atlantic/Canary' })}</div>
-            <div className="capitalize text-[#333]">{ahora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Atlantic/Canary' })}</div>
+    <div className="fixed inset-0 z-[320] flex items-start justify-center bg-black/30 pt-10" onKeyDown={(e) => e.key === 'Escape' && onCerrar()}>
+      <GwWindow title="Mi fichaje" onClose={onCerrar} className="w-[520px] max-w-[96vw]">
+        <div className="flex flex-col text-[13px]">
+          {/* Cabecera: saludo y reloj */}
+          <div className="px-5 py-4 text-white" style={{ background: 'linear-gradient(135deg,#16306e 0%,#1d3a8a 45%,#2f6fb5 100%)' }}>
+            <div className="text-[18px] font-semibold">
+              {saludo(ahora)}
+              {panel ? `, ${panel.nombre}` : ''} 👋
+            </div>
+            <div className="mt-1 flex items-end justify-between gap-3">
+              <div className="font-mono text-[46px] font-bold leading-none tracking-tight">
+                {ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })}
+                <span className="text-[24px] opacity-70">:{ahora.toLocaleTimeString('es-ES', { second: '2-digit', timeZone: 'Atlantic/Canary' }).padStart(2, '0')}</span>
+              </div>
+              <div className="pb-1 text-right capitalize opacity-90">
+                {ahora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Atlantic/Canary' })}
+              </div>
+            </div>
           </div>
-          {otra && !panel && (
-            <div className="flex flex-wrap items-end gap-2 border border-[var(--gw-border)] bg-white p-2">
-              <GwField label="Persona" className="flex-1">
-                <GwSelect value={quien} onChange={(e) => (setQuien(e.target.value), setPin(''))}>
-                  <option value="">Elige…</option>
+
+          <div className="flex flex-col gap-3 bg-[#f6f8fb] p-4">
+            {otra && !panel && (
+              <div className="flex flex-col gap-2 rounded-lg border border-[#d7dde8] bg-white p-3 shadow-sm">
+                <div className="font-semibold text-[#1d3a8a]">¿Quién ficha?</div>
+                <select className="gw-input h-[34px] text-[15px]" value={quien} onChange={(e) => (setQuien(e.target.value), setPin(''))}>
+                  <option value="">Elige tu nombre…</option>
                   {personas.map((g) => (
                     <optgroup key={g.grupo} label={g.grupo}>
                       {g.personas.map((p) => (
@@ -132,76 +217,135 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
                       ))}
                     </optgroup>
                   ))}
-                </GwSelect>
-              </GwField>
-              <GwField label="PIN">
-                <GwInput
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  onKeyDown={(e) => e.key === 'Enter' && quien && pin.length === 4 && void entrarOtra()}
-                  className="w-[80px]"
-                />
-              </GwField>
-              <button type="button" className="gw-btn font-bold" disabled={!quien || pin.length !== 4 || ocupado} onClick={() => void entrarOtra()}>
-                Entrar
-              </button>
-            </div>
-          )}
-          {panel && (
-            <div className="flex flex-col gap-2 border border-[var(--gw-border)] bg-white p-2">
-              <div className="text-center text-[15px]">
-                <b>{panel.nombre}</b> · {ESTADOS_FICHAJE[panel.estado]}
-              </div>
-              {panel.siguientes.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  disabled={ocupado}
-                  onClick={() => void fichar(t)}
-                  className="gw-btn !h-[40px] text-[16px] font-bold"
-                  style={{ color: BOTON[t].color }}
-                >
-                  {panel.estado === 'salida' && t === 'entrada' ? '▶ Volver a entrar' : BOTON[t].texto}
-                </button>
-              ))}
-              {!!panel.hoy.length && (
-                <div className="border-t border-[var(--gw-border-light)] pt-1">
-                  {panel.hoy.map((e, i) => (
-                    <div key={i} className="flex justify-between">
-                      <span>
-                        {TIPOS_FICHAJE[e.tipo]}
-                        {e.origen === 'correccion' ? ' (corregido)' : ''}
-                      </span>
-                      <b className="font-mono">{horaCan(e.en)}</b>
-                    </div>
-                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <input
+                    className="gw-input h-[34px] flex-1 text-center text-[20px] tracking-[0.5em]"
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="PIN"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    onKeyDown={(e) => e.key === 'Enter' && quien && pin.length === 4 && void entrarOtra()}
+                  />
+                  <button
+                    type="button"
+                    disabled={!quien || pin.length !== 4 || ocupado}
+                    onClick={() => void entrarOtra()}
+                    className="rounded-md px-5 font-bold text-white disabled:opacity-40"
+                    style={{ background: 'linear-gradient(135deg,#2f6fb5,#1d3a8a)' }}
+                  >
+                    Entrar
+                  </button>
                 </div>
-              )}
-              {panel.reparto_token && (
-                <a className="gw-btn !h-[32px] justify-center font-bold" href={`${import.meta.env.BASE_URL}repartidor?t=${panel.reparto_token}`} target="_blank" rel="noreferrer">
-                  🚚 Mi reparto
-                </a>
-              )}
-            </div>
-          )}
-          {hecho && <div className="text-center text-[14px] font-bold text-[#127a12]">{hecho}</div>}
-          {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
-          <div className="flex justify-between">
-            {!otra ? (
-              <button type="button" className="gw-btn" onClick={() => (setOtra(true), setPanel(null), setError(null), setHecho(null))} title="En un ordenador compartido: ficha otra persona con su PIN">
-                Otra persona
-              </button>
-            ) : (
-              <span />
+              </div>
             )}
-            <button type="button" className="gw-btn" onClick={onCerrar}>
-              Cerrar
-            </button>
+
+            {panel && est && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full px-3 py-1 text-[14px] font-bold" style={{ color: est.color, background: est.fondo }}>
+                    ● {est.texto}
+                  </span>
+                  <span className="text-[13px] text-[#4a5568]">
+                    Hoy llevas <b className="text-[15px] text-[#1d3a8a]">{duracion(minHoy)}</b>
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {panel.siguientes.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => void fichar(t)}
+                      className="flex h-[58px] items-center justify-center gap-3 rounded-xl text-[20px] font-bold text-white shadow-md transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
+                      style={{ background: BOTON[t].fondo }}
+                    >
+                      <span className="text-[22px]">{BOTON[t].icono}</span>
+                      {panel.estado === 'salida' && t === 'entrada' ? 'Volver a entrar' : BOTON[t].texto}
+                    </button>
+                  ))}
+                  {panel.reparto_token && (
+                    <a
+                      className="flex h-[46px] items-center justify-center gap-2 rounded-xl border-2 border-[#127a12] bg-white text-[17px] font-bold text-[#127a12] no-underline"
+                      href={`${import.meta.env.BASE_URL}repartidor?t=${panel.reparto_token}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      🚚 Mi reparto
+                    </a>
+                  )}
+                </div>
+
+                {hecho && <div className="rounded-lg bg-[#e3f5e3] px-3 py-2 text-center text-[14px] font-bold text-[#127a12]">✔ {hecho}</div>}
+
+                {!!panel.hoy.length && (
+                  <div className="rounded-lg border border-[#d7dde8] bg-white p-3">
+                    <div className="mb-2 font-semibold text-[#1d3a8a]">Hoy</div>
+                    <div className="flex flex-wrap gap-2">
+                      {panel.hoy.map((e, i) => (
+                        <span key={i} className="rounded-full border border-[#d7dde8] bg-[#f6f8fb] px-2.5 py-1 text-[12px]">
+                          {TIPOS_FICHAJE[e.tipo]} <b className="font-mono">{horaCan(e.en)}</b>
+                          {e.origen === 'correccion' ? ' ✎' : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-lg border border-[#d7dde8] bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="font-semibold text-[#1d3a8a]">Tu semana</span>
+                    <span className="text-[#4a5568]">
+                      <b className="text-[15px] text-[#1d3a8a]">{duracion(minSemana)}</b> trabajadas
+                    </span>
+                  </div>
+                  <div className="flex h-[70px] items-end gap-2">
+                    {porDia.map((m, i) => (
+                      <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                        <div className="flex w-full flex-1 items-end">
+                          <div
+                            className="w-full rounded-t-md"
+                            title={m ? duracion(m) : 'Sin fichajes'}
+                            style={{
+                              height: `${Math.max(m ? 6 : 2, (m / maxDia) * 100)}%`,
+                              background: i === hoyIdx ? 'linear-gradient(180deg,#4f9be6,#1d3a8a)' : m ? '#9dbbe3' : '#e6eaf0',
+                            }}
+                          />
+                        </div>
+                        <span className={`text-[11px] ${i === hoyIdx ? 'font-bold text-[#1d3a8a]' : 'text-[#8a94a6]'}`}>{DIAS[i]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {error && <div className="rounded-lg bg-[#fde7e4] px-3 py-2 font-bold text-[#b3261e]">{error}</div>}
+
+            <div className="text-center text-[12px] italic text-[#4a5568]">«{frase}»</div>
+
+            <div className="flex items-center justify-between">
+              {!otra ? (
+                <button
+                  type="button"
+                  className="gw-btn"
+                  onClick={() => (setOtra(true), setPanel(null), setError(null), setHecho(null))}
+                  title="En un ordenador compartido: ficha otra persona con su PIN"
+                >
+                  👥 Otra persona
+                </button>
+              ) : (
+                <span />
+              )}
+              <button type="button" className="gw-btn" onClick={onCerrar}>
+                Cerrar
+              </button>
+            </div>
+            <div className="text-center text-[11px] text-[#8a94a6]">La hora la pone el servidor. Si te equivocas, avisa a gerencia: lo corrige dejando constancia.</div>
           </div>
-          <div className="text-[11px] text-[#555]">La hora la pone el servidor. Si te equivocas, avisa a gerencia: lo corrige dejando constancia (Archivo → Fichaje).</div>
         </div>
       </GwWindow>
     </div>
