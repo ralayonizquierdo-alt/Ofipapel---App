@@ -131,3 +131,25 @@ export function jornadas(eventos: EventoFichaje[]): Jornada[] {
     })
     .sort((a, b) => a.dia.localeCompare(b.dia) || a.nombre.localeCompare(b.nombre))
 }
+
+// Dos juegos de frases (Rober, 03/11/2026): al entrar, ánimo para el día; al salir, gracias por el trabajo.
+// Cambian cada día. Se ven en verde, destacadas.
+export const FRASES_ENTRADA = [
+  'Hoy es un buen día para hacerlo genial. ¡A por ello!',
+  'Un buen día empieza con una sonrisa al primer cliente.',
+  'Lo pequeño bien hecho es lo que más se nota. ¡Ánimo!',
+  'Juntos somos más fuertes: echa una mano y te la echarán.',
+  'Cada pedido bien preparado es un cliente que vuelve.',
+  'Tu energía se contagia: que hoy sea un gran día.',
+  'Empieza con ganas: lo que haces hoy cuenta mucho.',
+]
+export const FRASES_SALIDA = [
+  'Gracias por tu trabajo de hoy: Ofipapel funciona porque estás tú.',
+  'Gracias por tu esfuerzo y por cuidar los detalles. ¡A descansar!',
+  'Hoy has sumado mucho al equipo. ¡Gracias y hasta mañana!',
+  'Gracias por dar lo mejor de ti. Desconecta y disfruta.',
+  'Un día más, gracias. Lo que haces se nota, aunque no siempre se diga.',
+  'Gracias por tu trabajo. Descansa, que te lo has ganado.',
+  'Misión cumplida por hoy. ¡Gracias de corazón!',
+]
+export const delDia = (l: string[]) => l[Math.floor(Date.now() / 86_400_000) % l.length]

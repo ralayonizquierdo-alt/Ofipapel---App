@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-import { horaCan, TIPOS_FICHAJE, type EstadoFichaje, type TipoFichaje } from '../lib/fichaje'
+import { delDia, FRASES_ENTRADA, FRASES_SALIDA, horaCan, TIPOS_FICHAJE, type EstadoFichaje, type TipoFichaje } from '../lib/fichaje'
 
 // Pantalla de fichar (/fichaje): pública, sin cuenta del ERP (Rober, 03/11/2026). Sustituye a fichaje.html.
 // Mismo aspecto que Fichaje: verdes de Ofipapel, tréboles de fondo, tarjetas blancas con borde lima.
@@ -87,6 +87,7 @@ export function FichajeApp() {
   const [error, setError] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
   const [hecho, setHecho] = useState<string | null>(null)
+  const [fraseHecho, setFraseHecho] = useState('')
   const [ahora, setAhora] = useState(new Date())
   const reinicio = useRef<number | null>(null)
 
@@ -169,6 +170,7 @@ export function FichajeApp() {
     setPanel(r)
     const ultimo = r.hoy[r.hoy.length - 1]
     setHecho(`${TIPOS_FICHAJE[tipo]} fichada a las ${horaCan(ultimo?.en)}`)
+    setFraseHecho(tipo === 'entrada' ? delDia(FRASES_ENTRADA) : tipo === 'salida' ? delDia(FRASES_SALIDA) : '')
     // Repartidor con la jornada abierta: tiene tiempo de pulsar «Mi reparto».
     programarVuelta(r.reparto_token ? 60_000 : 8_000)
   }
@@ -271,6 +273,7 @@ export function FichajeApp() {
               <Tarjeta style={{ borderTopColor: V.verdeMed, textAlign: 'center' }}>
                 <div style={{ fontSize: 40 }}>✔</div>
                 <div style={{ fontWeight: 800, fontSize: 20, color: V.verde }}>{hecho}</div>
+                {fraseHecho && <div style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontSize: 19, color: V.verdeMed, marginTop: 6, lineHeight: 1.35 }}>{fraseHecho}</div>}
               </Tarjeta>
             )}
             <Tarjeta>

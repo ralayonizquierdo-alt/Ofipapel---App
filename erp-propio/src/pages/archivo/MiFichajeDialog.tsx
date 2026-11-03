@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { GwWindow } from '../../components/gw'
-import { duracion, horaCan, TIPOS_FICHAJE, type EstadoFichaje, type TipoFichaje } from '../../lib/fichaje'
+import { delDia, duracion, FRASES_ENTRADA, FRASES_SALIDA, horaCan, TIPOS_FICHAJE, type EstadoFichaje, type TipoFichaje } from '../../lib/fichaje'
 
 interface Panel {
   ok: boolean
@@ -34,15 +34,6 @@ const ESTADO: Record<EstadoFichaje, { texto: string; color: string; fondo: strin
   salida: { texto: 'Jornada terminada', color: '#4a5568', fondo: '#eceff3' },
   sin_fichar: { texto: 'Sin fichar todavía', color: '#b3261e', fondo: '#fde7e4' },
 }
-const FRASES = [
-  'Gracias por tu trabajo: Ofipapel funciona porque estás tú.',
-  'Un buen día empieza con una sonrisa al primer cliente.',
-  'Lo pequeño bien hecho es lo que más se nota.',
-  'El equipo es más fuerte cuando nos echamos una mano.',
-  'Cada pedido bien entregado es un cliente que vuelve.',
-  'Hoy es un buen día para hacerlo un poco mejor que ayer.',
-  'Gracias por cuidar los detalles.',
-]
 const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
 /** Minutos trabajados en una lista ordenada de fichajes (hasta ahora si sigue trabajando). */
@@ -69,13 +60,13 @@ function saludo(d: Date) {
 function mensajeTras(tipo: TipoFichaje, nombre: string, minHoy: number) {
   switch (tipo) {
     case 'entrada':
-      return `¡Bienvenido/a, ${nombre}! Que tengas un gran día.`
+      return `¡Bienvenido/a, ${nombre}!`
     case 'pausa_inicio':
       return 'Disfruta del descanso ☕ Te lo has ganado.'
     case 'pausa_fin':
       return '¡De vuelta! A por la segunda parte del día.'
     case 'salida':
-      return `¡Buen trabajo hoy, ${nombre}! ${minHoy ? `Llevas ${duracion(minHoy)}. ` : ''}A descansar.`
+      return `¡Hasta mañana, ${nombre}!${minHoy ? ` Hoy has trabajado ${duracion(minHoy)}.` : ''}`
   }
 }
 
@@ -107,10 +98,9 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
   const [quien, setQuien] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [hecho, setHecho] = useState<string | null>(null)
+  const [hecho, setHecho] = useState<{ titulo: string; frase: string; tipo: TipoFichaje } | null>(null)
   const [ocupado, setOcupado] = useState(false)
   const [ahora, setAhora] = useState(() => new Date())
-  const [frase] = useState(() => FRASES[Math.floor(Date.now() / 86_400_000) % FRASES.length])
 
   useEffect(() => {
     const t = setInterval(() => setAhora(new Date()), 1000)
@@ -149,9 +139,13 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
     const r = data as Panel | null
     if (e || !r?.ok) return setError(e?.message ?? r?.error ?? 'No se ha podido fichar.')
     setPanel(r)
-    setHecho(`${mensajeTras(tipo, r.nombre, minutos(r.hoy, false))} (${TIPOS_FICHAJE[tipo].toLowerCase()} a las ${horaCan(r.hoy[r.hoy.length - 1]?.en)})`)
+    setHecho({
+      tipo,
+      titulo: `${mensajeTras(tipo, r.nombre, minutos(r.hoy, false))} (${TIPOS_FICHAJE[tipo].toLowerCase()} a las ${horaCan(r.hoy[r.hoy.length - 1]?.en)})`,
+      frase: tipo === 'entrada' ? delDia(FRASES_ENTRADA) : tipo === 'salida' ? delDia(FRASES_SALIDA) : '',
+    })
     // Se cierra sola: el ordenador queda libre para la siguiente persona.
-    setTimeout(onCerrar, 3500)
+    setTimeout(onCerrar, 5000)
   }
 
   // Horas de hoy y de la semana (lunes a domingo).
@@ -269,7 +263,13 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
                   )}
                 </div>
 
-                {hecho && <div className="rounded-lg bg-[#e3f5e3] px-3 py-2 text-center text-[14px] font-bold text-[#127a12]">✔ {hecho}</div>}
+                {hecho && (
+                  <div className="rounded-xl border-2 border-[#1e9e4a] px-4 py-3 text-center shadow-sm" style={{ background: 'linear-gradient(135deg,#ecf9ee,#d7f2dc)' }}>
+                    <div className="text-[30px] leading-none">{hecho.tipo === 'salida' ? '🙌' : hecho.tipo === 'entrada' ? '☀️' : hecho.tipo === 'pausa_inicio' ? '☕' : '💪'}</div>
+                    <div className="mt-1 text-[16px] font-bold text-[#127a12]">{hecho.titulo}</div>
+                    {hecho.frase && <div className="mt-1 font-serif text-[17px] italic leading-snug text-[#1a7f3c]">{hecho.frase}</div>}
+                  </div>
+                )}
 
                 {!!panel.hoy.length && (
                   <div className="rounded-lg border border-[#d7dde8] bg-white p-3">
@@ -315,7 +315,11 @@ function MiFichajeDialog({ onCerrar }: { onCerrar: () => void }) {
 
             {error && <div className="rounded-lg bg-[#fde7e4] px-3 py-2 font-bold text-[#b3261e]">{error}</div>}
 
-            <div className="text-center text-[12px] italic text-[#4a5568]">«{frase}»</div>
+            {!hecho && (
+              <div className="text-center font-serif text-[16px] italic leading-snug text-[#1a7f3c]">
+                {delDia(!panel || panel.estado === 'sin_fichar' || panel.estado === 'salida' ? FRASES_ENTRADA : FRASES_SALIDA)}
+              </div>
+            )}
 
             <div className="flex items-center justify-between">
               {panel && !hecho ? (
