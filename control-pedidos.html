@@ -3852,7 +3852,8 @@ async function exportarPedidos(ids, opciones) {
       const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(refEnGeminis(p, l0.ref), p.proveedor) });
       // Lo que viene sin precio (regalo, material promocional) entra en Géminis con
       // una referencia comodín para que no dé error (propietario, 3/11/2026).
-      if (!(Number(l0.precio) > 0)) Object.assign(l, { ref: REF_SIN_PRECIO, alta: false });
+      // La referencia del proveedor va delante de la descripción («980698057>VINILO…»).
+      if (!(Number(l0.precio) > 0)) Object.assign(l, { ref: REF_SIN_PRECIO, alta: false, desc: `${l0.ref}>${l0.alta ? (l0.descAlta || l0.desc || '') : (l0.desc || '')}` });
       if (comoFactura) { filas.push(Object.assign(l, { _fra: CP.facturaDeLinea(l0, l0.origen || (p.factura.cabecera || {}).numero || p.factura.archivo), _ped: p })); continue; }
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
