@@ -25,9 +25,11 @@ import { Mensaje } from '../../utilidades/comun'
 import { useEsAdministrador } from '../comun'
 import { AreaAccesos } from './AreaAccesos'
 import { AreaConfiguracion } from './AreaConfiguracion'
+import { AreaCondiciones, useApartadosCondiciones } from './AreaCondiciones'
+import { usePermisos } from '../../../lib/PermisosContext'
 import { ContadoresVista, ImpuestosVista } from './Vistas'
 
-type Area = 'parametros' | 'configuracion' | 'accesos'
+type Area = 'parametros' | 'configuracion' | 'accesos' | 'condiciones'
 
 export interface Empleado {
   codigo: string
@@ -63,6 +65,10 @@ export function ParametrosAvatarPage() {
   const [mensaje, setMensaje] = useState<{ texto: string; error?: boolean } | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [guardables, setGuardables] = useState<Partial<Record<Area, Guardable>>>({})
+  // Condiciones de Programación (Luis, 03/11/2026): solo super administradores.
+  const { superAdmin } = usePermisos()
+  const apartados = useApartadosCondiciones(area === 'condiciones')
+  const [apartado, setApartado] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -122,6 +128,18 @@ export function ParametrosAvatarPage() {
                 </ElementoArbol>
               ))}
             {area === 'configuracion' && <div className="p-3 text-[13px] text-[#555]">Configuración de la empresa, tiendas y programa.</div>}
+            {area === 'condiciones' && (
+              <>
+                <ElementoArbol activo={apartado == null} icono="📜" onClick={() => setApartado(null)}>
+                  Todas
+                </ElementoArbol>
+                {apartados.map((a) => (
+                  <ElementoArbol key={a} activo={a === apartado} icono="•" onClick={() => setApartado(a)}>
+                    {a}
+                  </ElementoArbol>
+                ))}
+              </>
+            )}
           </div>
           <BotonArea activo={area === 'parametros'} icono="🛠️" onClick={() => setArea('parametros')}>
             Parámetros
@@ -139,6 +157,11 @@ export function ParametrosAvatarPage() {
           >
             Control de Accesos
           </BotonArea>
+          {superAdmin && (
+            <BotonArea activo={area === 'condiciones'} icono="📜" onClick={() => setArea('condiciones')}>
+              Condiciones de Programación
+            </BotonArea>
+          )}
         </div>
 
         {/* Zona derecha */}
@@ -155,6 +178,7 @@ export function ParametrosAvatarPage() {
             />
           </div>
           {area === 'configuracion' && <AreaConfiguracion />}
+          {area === 'condiciones' && <AreaCondiciones apartado={apartado} />}
           <div className={area === 'accesos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
             <AreaAccesos
               empleado={empleados.find((e) => e.codigo === empSel) ?? null}
@@ -217,7 +241,7 @@ function BotonArea({ activo, icono, onClick, children }: { activo: boolean; icon
     <button
       type="button"
       onClick={onClick}
-      className={`gw-boton-barra h-[52px] w-full flex-none justify-start gap-3 px-3 text-[20px] ${activo ? 'text-[#0033cc]' : 'text-[#555]'}`}
+      className={`gw-boton-barra h-[52px] w-full flex-none justify-start gap-3 px-3 text-left text-[20px] leading-tight ${activo ? 'text-[#0033cc]' : 'text-[#555]'}`}
     >
       <span className="text-[26px]">{icono}</span>
       {children}

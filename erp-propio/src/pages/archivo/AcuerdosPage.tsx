@@ -14,11 +14,17 @@ import { GwField, GwGroup, GwInput, GwSelect, GwTabs, GwTextArea } from '../../c
 import { GwOperativa } from '../../components/gw/GwOperativa'
 
 interface Cambio {
-  accion: 'super_administrador' | 'avisos_grupos' | 'gerencia' | 'parametro' | 'acuerdos_abiertos'
+  accion: 'super_administrador' | 'avisos_grupos' | 'gerencia' | 'parametro' | 'acuerdos_abiertos' | 'condicion'
   empleado?: string
   valor?: boolean | number
   grupos?: string[]
   clave?: string
+  /** Condición de programación (Parámetros → Condiciones de Programación). */
+  operacion?: 'alta' | 'cambio' | 'baja'
+  id?: number
+  apartado?: string
+  regla?: string
+  porque?: string
 }
 
 interface Acuerdo {
@@ -88,6 +94,10 @@ function textoCambio(c: Cambio, nombre: (cod?: string) => string): string {
         : `Control de teletrabajo ${c.valor ? 'activado (bloquea)' : 'desactivado (solo apunta)'}`
     case 'acuerdos_abiertos':
       return c.valor ? 'Los Acuerdos se abren a todos los super administradores' : 'Los Acuerdos vuelven a ser solo de la gerencia'
+    case 'condicion':
+      return c.operacion === 'baja'
+        ? `Condición de programación nº ${c.id}: se da de baja`
+        : `Condición de programación${c.operacion === 'cambio' ? ` nº ${c.id} cambia` : ' nueva'} (${c.apartado ?? ''}): ${c.regla ?? ''}`
   }
 }
 
@@ -426,18 +436,31 @@ function NuevoAcuerdo({
   const [adjunto, setAdjunto] = useState<{ nombre: string; base64: string } | null>(null)
   const [ocupado, setOcupado] = useState(false)
   const empleados = v.empleados ?? []
+  const [condiciones, setCondiciones] = useState<{ id: number; apartado: string; regla: string; porque: string | null }[]>([])
+  useEffect(() => {
+    if (soloSucesion) return
+    void supabase
+      .from('condicion_programacion')
+      .select('id, apartado, regla, porque')
+      .eq('activa', true)
+      .order('apartado')
+      .order('orden')
+      .then(({ data }) => setCondiciones((data ?? []) as { id: number; apartado: string; regla: string; porque: string | null }[]))
+  }, [soloSucesion])
 
   const poner = (i: number, c: Partial<Cambio>) => setCambios((cs) => cs.map((x, j) => (j === i ? { ...x, ...c } : x)))
   const nuevoCambio = (accion: Cambio['accion']): Cambio =>
-    accion === 'parametro'
-      ? { accion, clave: 'contab.importe_doble_firma', valor: v.doble_firma }
-      : accion === 'acuerdos_abiertos'
-        ? { accion, valor: true }
-        : accion === 'avisos_grupos'
-          ? { accion, empleado: empleados[0]?.codigo, grupos: ['todo'] }
-          : accion === 'super_administrador'
-            ? { accion, empleado: empleados[0]?.codigo, valor: true }
-            : { accion, empleado: empleados[0]?.codigo }
+    accion === 'condicion'
+      ? { accion, operacion: 'alta', apartado: 'Seguridad', regla: '', porque: '' }
+      : accion === 'parametro'
+        ? { accion, clave: 'contab.importe_doble_firma', valor: v.doble_firma }
+        : accion === 'acuerdos_abiertos'
+          ? { accion, valor: true }
+          : accion === 'avisos_grupos'
+            ? { accion, empleado: empleados[0]?.codigo, grupos: ['todo'] }
+            : accion === 'super_administrador'
+              ? { accion, empleado: empleados[0]?.codigo, valor: true }
+              : { accion, empleado: empleados[0]?.codigo }
 
   function leerAdjunto(f: File | undefined) {
     if (!f) return setAdjunto(null)
@@ -489,6 +512,7 @@ function NuevoAcuerdo({
         { id: 'gerencia', texto: 'Cambio de gerencia' },
         { id: 'parametro', texto: 'Doble firma o control de teletrabajo' },
         { id: 'acuerdos_abiertos', texto: 'Abrir o cerrar los Acuerdos' },
+        { id: 'condicion', texto: 'Condición de programación' },
       ]
 
   return (
@@ -563,6 +587,44 @@ function NuevoAcuerdo({
                     </GwSelect>
                   )}
                 </>
+              )}
+              {c.accion === 'condicion' && (
+                <div className="flex w-full flex-col gap-1.5">
+                  <div className="flex flex-wrap gap-2">
+                    <GwSelect value={c.operacion} onChange={(e) => poner(i, { operacion: e.target.value as Cambio['operacion'] })}>
+                      <option value="alta">añadir una condición</option>
+                      <option value="cambio">cambiar una condición</option>
+                      <option value="baja">dar de baja una condición</option>
+                    </GwSelect>
+                    {c.operacion !== 'alta' && (
+                      <GwSelect
+                        value={c.id ?? ''}
+                        onChange={(e) => {
+                          const sel = condiciones.find((x) => x.id === Number(e.target.value))
+                          poner(i, { id: Number(e.target.value), apartado: sel?.apartado, regla: sel?.regla, porque: sel?.porque ?? '' })
+                        }}
+                      >
+                        <option value="">— elige —</option>
+                        {condiciones.map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.apartado} · {x.regla.slice(0, 80)}
+                          </option>
+                        ))}
+                      </GwSelect>
+                    )}
+                  </div>
+                  {c.operacion !== 'baja' && (
+                    <>
+                      <GwInput
+                        placeholder="Apartado (Seguridad, Auditoría, Pantallas…)"
+                        value={c.apartado ?? ''}
+                        onChange={(e) => poner(i, { apartado: e.target.value })}
+                      />
+                      <GwInput placeholder="La regla" value={c.regla ?? ''} onChange={(e) => poner(i, { regla: e.target.value })} />
+                      <GwInput placeholder="Por qué (una línea)" value={c.porque ?? ''} onChange={(e) => poner(i, { porque: e.target.value })} />
+                    </>
+                  )}
+                </div>
               )}
               {c.accion === 'acuerdos_abiertos' && (
                 <GwSelect value={c.valor ? 'si' : 'no'} onChange={(e) => poner(i, { valor: e.target.value === 'si' })}>
