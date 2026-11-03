@@ -2017,23 +2017,24 @@ function renderCategoriesList(){
       const name = input.value.trim();
       if(!name){ showToast('Escribe un nombre para la categoría.'); input.value=cat.name; return; }
       if(categoryNameTaken(name, cat.id)){ showToast('Ya existe una categoría con ese nombre: elige otro.'); input.value=cat.name; return; }
-      cat.name = name;
+      const current = state.categories.find(c=>c.id===cat.id); // la sincronización puede haber cambiado el objeto
+      if(current) current.name = name;
       categoriesChanged();
     };
     row.appendChild(input);
-    const move = (label, title, to)=>{
-      const btn = document.createElement('button');
-      btn.type='button'; btn.className='mini-btn'; btn.textContent=label; btn.title=title;
-      btn.style.cssText='margin:0;';
-      btn.disabled = to<0 || to>=state.categories.length;
-      btn.onclick = ()=>{
-        state.categories.splice(to, 0, state.categories.splice(i,1)[0]);
-        categoriesChanged();
-      };
-      row.appendChild(btn);
+    // Posición en un desplegable y no con flechas: al subir, la fila se iba de debajo del ratón y el
+    // siguiente clic subía la de al lado, así que dos categorías se quedaban intercambiándose.
+    const position = document.createElement('select');
+    position.title = 'Posición en la lista';
+    position.style.cssText = 'width:58px;flex-shrink:0;';
+    position.innerHTML = state.categories.map((_,n)=>`<option value="${n}">${n+1}º</option>`).join('');
+    position.value = i;
+    position.onchange = ()=>{
+      const from = state.categories.findIndex(c=>c.id===cat.id);
+      state.categories.splice(+position.value, 0, state.categories.splice(from,1)[0]);
+      categoriesChanged();
     };
-    move('▲', 'Subir', i-1);
-    move('▼', 'Bajar', i+1);
+    row.appendChild(position);
     const del = document.createElement('button');
     del.type='button'; del.className='mini-btn'; del.textContent='✕'; del.title='Quitar';
     del.style.cssText='margin:0;color:var(--rojo);';
@@ -2041,7 +2042,7 @@ function renderCategoriesList(){
       const inUse = EMPLOYEES.filter(e=>e.categoryId===cat.id);
       if(inUse.length && !confirm(`${inUse.length} persona(s) tienen la categoría "${cat.name}". Si la quitas se quedarán sin categoría, sin cambiar nada más de su ficha ni sus vacaciones. ¿Quitarla?`)) return;
       inUse.forEach(e=>{ delete e.categoryId; });
-      state.categories.splice(i,1);
+      state.categories = state.categories.filter(c=>c.id!==cat.id);
       categoriesChanged();
     };
     row.appendChild(del);
@@ -3440,7 +3441,7 @@ const OPERATIVAS = {
   '#operativaCategorias': {
     pasos: [
       'Para cambiar un nombre, escribe encima de él.',
-      'Con ▲ y ▼ cambias el orden: lo de arriba sale primero en cada grupo.',
+      'En el desplegable de cada fila eliges su posición (1º, 2º...): lo de arriba sale primero en cada grupo.',
       'Con ✕ quitas una categoría, y con <b>+ Añadir</b> creas una nueva.',
     ],
     notas: [
