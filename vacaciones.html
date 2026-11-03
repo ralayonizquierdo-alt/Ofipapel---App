@@ -198,6 +198,9 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .btn{padding:8px 14px;border-radius:7px;border:none;font-size:.8rem;font-weight:600;cursor:pointer;}
 .btn-primary{background:var(--verde);color:#fff;}
 .btn-primary:disabled{background:#ccc;cursor:not-allowed;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-primary:disabled{background:#8FA88F;opacity:.75;}
+#empCardView input:disabled,#empCardView select:disabled{background:#F4F6F4;color:#333;opacity:1;}
 .btn-ghost{background:#eee;color:#333;}
 .btn-danger{background:#FDECEA;color:var(--rojo);}
 
@@ -545,7 +548,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 
 <div class="overlay" id="employeesOverlay">
-  <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
+  <div class="modal" style="width:640px;max-height:88vh;display:flex;flex-direction:column;">
     <div id="empListView" style="min-height:0;overflow-y:auto;">
       <h3 id="operativaEmpleados">Empleados</h3>
       <p style="font-size:.72rem;color:var(--texto2);margin-bottom:10px;">
@@ -586,11 +589,14 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="check-row"><input type="checkbox" id="ecHijos"><label for="ecHijos">👶 Tiene hijos a cargo (prioridad en la rotación, por delante de la antigüedad)</label></div>
       <div class="check-row"><input type="checkbox" id="ecActive"><label for="ecActive">Activo (desmarcar = de baja, deja de aparecer en el cuadrante)</label></div>
       <div class="modal-actions" style="position:sticky;bottom:0;background:#fff;padding-top:8px;margin-top:6px;flex-wrap:wrap;">
-        <div class="left"><button class="btn btn-danger" id="ecDelete">🗑 Eliminar ficha</button></div>
-        <div class="left">
-          <button class="btn btn-ghost" id="ecBack">← Volver a la lista</button>
-          <button class="btn btn-primary" id="ecSave">Guardar</button>
+        <div class="left" style="flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="ecNew">➕ Nuevo</button>
+          <button class="btn btn-ghost" id="ecEdit">✏️ Editar</button>
+          <button class="btn btn-primary" id="ecSave">💾 Guardar</button>
+          <button class="btn btn-ghost" id="ecCancel">✖ Cancelar</button>
+          <button class="btn btn-danger" id="ecDelete">🗑 Eliminar</button>
         </div>
+        <button class="btn btn-ghost" id="ecBack">🚪 Salir</button>
       </div>
     </div>
   </div>
@@ -612,6 +618,20 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div class="modal-actions">
       <div></div>
       <button class="btn btn-ghost" id="catClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="unsavedOverlay">
+  <div class="modal" style="width:400px;">
+    <h3>Hay cambios sin guardar</h3>
+    <p style="font-size:.8rem;margin-bottom:6px;">¿Qué quieres hacer con ellos?</p>
+    <div class="modal-actions" style="flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="unsavedStay">Seguir editando</button>
+      <div class="left">
+        <button class="btn btn-danger" id="unsavedDiscard">Cancelar cambios</button>
+        <button class="btn btn-primary" id="unsavedSave">Guardar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1822,6 +1842,7 @@ function openPeriodModal(emp, period, startISO, endISO){
   document.getElementById('pmEnd').oninput = ()=> validateModal(emp);
   document.getElementById('pmOverrideCheck').onchange = ()=> validateModal(emp);
   document.getElementById('pmSave').onclick = ()=> savePeriod(emp);
+  periodSnapshot = document.getElementById('pmStart').value+'|'+document.getElementById('pmEnd').value;
 
   validateModal(emp);
   openModal('periodOverlay');
@@ -1929,6 +1950,54 @@ function savePeriod(emp){
 
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+/* ═══════════════════ CAMBIOS SIN GUARDAR ═══════════════════
+   Las ventanas que se guardan con un botón preguntan antes de salir si hay algo sin guardar. Las demás
+   (Turnos de sábado, compensación de festivos, Categorías) guardan cada cambio al momento. */
+let periodSnapshot = '';
+const isModalOpen = id=> document.getElementById(id).classList.contains('open');
+const hasText = (...ids)=> ids.some(id=> document.getElementById(id).value.trim());
+const UNSAVED_GUARDS = {
+  employeesOverlay: {
+    dirty: ()=> cardEditing && cardValues()!==cardSnapshot,
+    save: saveEmployeeCard,
+  },
+  periodOverlay: {
+    dirty: ()=> !editingPeriodId || document.getElementById('pmStart').value+'|'+document.getElementById('pmEnd').value!==periodSnapshot,
+    save: ()=>{ document.getElementById('pmSave').click(); return !isModalOpen('periodOverlay'); },
+  },
+  permisosOverlay: {
+    dirty: ()=> hasText('pmzStart','pmzEnd','pmzMotivo'),
+    save: ()=>{ document.getElementById('btnAddPermiso').click(); return !UNSAVED_GUARDS.permisosOverlay.dirty(); },
+  },
+  holidaysOverlay: {
+    dirty: ()=> hasText('hNewDate','hNewName','hNewTienda'),
+    save: ()=>{ document.getElementById('btnAddHoliday').click(); return !UNSAVED_GUARDS.holidaysOverlay.dirty(); },
+  },
+};
+let unsavedActions = null;
+function leaveForm(guard, done){
+  if(!guard.dirty()){ done(); return; }
+  unsavedActions = {guard, done};
+  openModal('unsavedOverlay');
+}
+function requestClose(id){
+  const guard = UNSAVED_GUARDS[id];
+  if(guard) leaveForm(guard, ()=> closeModal(id));
+  else closeModal(id);
+}
+document.getElementById('unsavedStay').onclick = ()=> closeModal('unsavedOverlay');
+document.getElementById('unsavedDiscard').onclick = ()=>{
+  closeModal('unsavedOverlay');
+  unsavedActions.done();
+};
+document.getElementById('unsavedSave').onclick = ()=>{
+  closeModal('unsavedOverlay');
+  if(unsavedActions.guard.save()) unsavedActions.done(); // si no se pudo guardar, sigue en la ventana con su aviso
+};
+window.addEventListener('beforeunload', (e)=>{
+  if(Object.entries(UNSAVED_GUARDS).some(([id,guard])=> isModalOpen(id) && guard.dirty())) e.preventDefault();
+});
 
 /* ═══════════════════ FICHA DE EMPLEADO (alta/baja/edición) ═══════════════════ */
 let editingEmployeeId = null;
@@ -2104,10 +2173,31 @@ function openEmployeeCard(empId){
   document.getElementById('ecSinSustituto').checked = emp ? !!emp.sinSustituto : false;
   document.getElementById('ecHijos').checked = emp ? !!emp.hijos : false;
   document.getElementById('ecActive').checked = emp ? emp.active!==false : true;
-  document.getElementById('ecDelete').style.display = emp ? 'inline-block' : 'none';
+  setCardEditing(!emp);
+}
+
+/* Como las botoneras de GeminisWin: la ficha se abre solo para mirar; con Editar se puede cambiar y
+   se termina con Guardar o Cancelar. */
+let cardEditing = false, cardSnapshot = '';
+function cardValues(){
+  return JSON.stringify([...document.querySelectorAll('#empCardView input,#empCardView select')]
+    .map(el=> el.type==='checkbox' ? el.checked : el.value));
+}
+function setCardEditing(on){
+  cardEditing = on;
+  document.querySelectorAll('#empCardView input,#empCardView select').forEach(el=>{ el.disabled = !on; });
+  const exists = !!editingEmployeeId;
+  document.getElementById('ecManageCategories').disabled = !on;
+  document.getElementById('ecNew').disabled = on;
+  document.getElementById('ecEdit').disabled = on;
+  document.getElementById('ecSave').disabled = !on;
+  document.getElementById('ecCancel').disabled = !on;
+  document.getElementById('ecDelete').disabled = on || !exists;
+  cardSnapshot = cardValues();
 }
 
 function backToEmployeeList(){
+  cardEditing = false;
   document.getElementById('empCardView').style.display='none';
   document.getElementById('empListView').style.display='block';
   renderEmployeeList();
@@ -2118,11 +2208,18 @@ document.getElementById('empListClose').onclick = ()=> closeModal('employeesOver
 document.getElementById('empSearchInput').oninput = renderEmployeeList;
 document.getElementById('empShowInactive').onchange = renderEmployeeList;
 document.getElementById('btnAddEmployee').onclick = ()=> openEmployeeCard(null);
-document.getElementById('ecBack').onclick = backToEmployeeList;
+document.getElementById('ecBack').onclick = ()=> leaveForm(UNSAVED_GUARDS.employeesOverlay, backToEmployeeList);
+document.getElementById('ecNew').onclick = ()=> openEmployeeCard(null);
+document.getElementById('ecEdit').onclick = ()=> setCardEditing(true);
+document.getElementById('ecCancel').onclick = ()=>{
+  if(editingEmployeeId) openEmployeeCard(editingEmployeeId); // vuelve a los datos guardados
+  else backToEmployeeList();
+};
+document.getElementById('ecSave').onclick = saveEmployeeCard;
 
-document.getElementById('ecSave').onclick = ()=>{
+function saveEmployeeCard(){
   const name = document.getElementById('ecName').value.trim();
-  if(!name){ showToast('El nombre no puede estar vacío.'); return; }
+  if(!name){ showToast('El nombre no puede estar vacío: escríbelo para poder guardar.'); return false; }
   const unitId = document.getElementById('ecUnit').value;
   const senRaw = document.getElementById('ecSeniority').value.trim();
   const seniorityYear = senRaw ? parseInt(senRaw,10) : null;
@@ -2161,9 +2258,10 @@ document.getElementById('ecSave').onclick = ()=>{
   snapshotFixedPrefs(state);
 
   showToast('Ficha guardada: '+name);
-  backToEmployeeList();
   render();
-};
+  openEmployeeCard(emp.id);
+  return true;
+}
 
 document.getElementById('ecDelete').onclick = ()=>{
   if(!editingEmployeeId) return;
@@ -2821,7 +2919,7 @@ function renderCompensationsSummary(){
   }).join('');
 }
 document.getElementById('btnHolidays').onclick = ()=>{ renderHolidaysList(); openModal('holidaysOverlay'); };
-document.getElementById('holidaysClose').onclick = ()=> closeModal('holidaysOverlay');
+document.getElementById('holidaysClose').onclick = ()=> requestClose('holidaysOverlay');
 document.getElementById('btnAddHoliday').onclick = ()=>{
   const date = document.getElementById('hNewDate').value;
   const name = document.getElementById('hNewName').value.trim();
@@ -2927,7 +3025,7 @@ document.getElementById('btnPermisos').onclick = ()=>{
   document.getElementById('pmzWarnings').innerHTML = '';
   openModal('permisosOverlay');
 };
-document.getElementById('permisosClose').onclick = ()=> closeModal('permisosOverlay');
+document.getElementById('permisosClose').onclick = ()=> requestClose('permisosOverlay');
 document.getElementById('btnAddPermiso').onclick = ()=>{
   const empId = document.getElementById('pmzEmp').value;
   const start = document.getElementById('pmzStart').value;
@@ -2935,6 +3033,8 @@ document.getElementById('btnAddPermiso').onclick = ()=>{
   const motivo = document.getElementById('pmzMotivo').value.trim();
   if(!empId || !start || !end || end<start){ showToast('Completa empleado y un rango de fechas válido.'); return; }
   state.permisos.push({id:'perm'+Date.now()+Math.random().toString(36).slice(2,5), employeeId:empId, start, end, motivo});
+  document.getElementById('pmzStart').value = '';
+  document.getElementById('pmzEnd').value = '';
   document.getElementById('pmzMotivo').value = '';
   document.getElementById('pmzWarnings').innerHTML = '';
   render();
@@ -3428,12 +3528,15 @@ const OPERATIVAS = {
   },
   '#empCardTitle': {
     pasos: [
-      'Rellena o cambia los datos de la persona.',
+      'La ficha se abre solo para mirar. Pulsa <b>Editar</b> para poder cambiarla, o <b>Nuevo</b> para dar de alta a otra persona.',
       'Elige su <b>Categoría</b>. Para añadir, renombrar, ordenar o quitar categorías, usa <b>Gestionar categorías</b>.',
       'Para fijar una fecha, escríbela en <b>Fechas preferidas</b> así: 01/07-15/07, y marca la casilla 📌.',
-      'Pulsa guardar para que se aplique.',
+      'Termina con <b>Guardar</b>, o con <b>Cancelar</b> para dejarla como estaba.',
+      'Pulsa <b>Salir</b> para volver a la lista.',
     ],
     notas: [
+      'Si sales con cambios sin guardar, la app te pregunta si guardarlos o cancelarlos.',
+      'Las categorías se guardan al momento, aunque luego canceles la ficha.',
       'Para dar de baja sin perder su historial, desmarca <b>Activo</b>. Eliminar la ficha la borra de verdad.',
       'Una fecha preferida se puede correr unos días; una fija 📌 no se mueve nunca.',
     ],
@@ -3489,7 +3592,7 @@ for(const [selector, {pasos, notas}] of Object.entries(OPERATIVAS)){
 }
 
 document.querySelectorAll('.overlay').forEach(ov=>{
-  ov.addEventListener('mousedown', (e)=>{ if(e.target===ov) closeModal(ov.id); });
+  ov.addEventListener('mousedown', (e)=>{ if(e.target===ov) requestClose(ov.id); });
 });
 
 render();

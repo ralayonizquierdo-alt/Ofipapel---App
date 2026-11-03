@@ -350,6 +350,12 @@ Cada pantalla lleva un desplegable **📖 Operativa** con cómo se usa, en pocas
 Igual que en la ERP: los cambios se juntan y se publican solo cuando Luis da la orden, tras comprobarlos. Quien
 tenga la app abierta ve un aviso amarillo con **Actualizar** al publicarse una versión nueva de esta página.
 
+### Cambios sin guardar (Luis, 03/11/2026)
+
+La ficha de empleado lleva botonera como GeminisWin (Nuevo, Editar, Guardar, Cancelar, Eliminar, Salir) y se abre
+solo para mirar. Ficha, periodo y los formularios de Permisos y Festivos preguntan al salir si hay algo sin
+guardar (`UNSAVED_GUARDS`). Turnos de sábado, compensación de festivos y Categorías guardan cada cambio al momento.
+
 ### Categorías de empleado
 
 En la ficha, el desplegable **Categoría** y el botón **Gestionar categorías** (añadir, renombrar, ordenar y
