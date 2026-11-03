@@ -33,10 +33,22 @@ interface Reg {
   inventario_tienda_terminal_codigo: string | null
   inventario_numero: number | null
   creado_en: string | null
+  observaciones: string | null
+}
+
+/** Regularizaciones anteriores del mismo artículo, con sus notas (Rober, 03/11/2026). */
+interface Previa {
+  tienda: string
+  numero: number
+  almacen_codigo: string
+  fecha: string
+  cantidad: number
+  stock_anterior: number | null
+  observaciones: string | null
 }
 
 const COLS =
-  'tienda:tienda_terminal_codigo, numero, articulo_codigo, almacen_codigo, fecha, documento_externo, cantidad, precio, stock_anterior, inventario_tienda_terminal_codigo, inventario_numero, creado_en'
+  'tienda:tienda_terminal_codigo, numero, articulo_codigo, almacen_codigo, fecha, documento_externo, cantidad, precio, stock_anterior, inventario_tienda_terminal_codigo, inventario_numero, creado_en, observaciones'
 const DOC_DEFECTO = 'USR_STK'
 
 /** Movimiento de stock por una variación (positiva entra, negativa sale); 0 no genera nada. */
@@ -78,6 +90,7 @@ async function guardarUna(base: Reg, a: ArticuloStock, nuevo: number): Promise<n
     cantidad: nuevo,
     precio: reg.precio,
     stock_anterior: anterior,
+    observaciones: base.observaciones?.trim() || null,
     activo: true,
   })
   if (e2) throw e2
@@ -143,6 +156,7 @@ export function RegularizacionStockPage() {
       inventario_tienda_terminal_codigo: null,
       inventario_numero: null,
       creado_en: null,
+      observaciones: null,
     }
   }, [tiendas])
 
@@ -191,6 +205,21 @@ export function RegularizacionStockPage() {
     stockDe(reg.articulo_codigo, reg.almacen_codigo).then(setStockActual)
   }, [reg?.articulo_codigo, reg?.almacen_codigo, reg?.numero, refresco])
 
+  // Historial del artículo: las otras regularizaciones (no anuladas), las más recientes primero.
+  const [previas, setPrevias] = useState<Previa[]>([])
+  useEffect(() => {
+    const cod = reg?.articulo_codigo
+    if (!cod) return setPrevias([])
+    void supabase
+      .from('regularizacion_stock')
+      .select('tienda:tienda_terminal_codigo, numero, almacen_codigo, fecha, cantidad, stock_anterior, observaciones')
+      .eq('articulo_codigo', cod)
+      .neq('activo', false)
+      .order('fecha', { ascending: false })
+      .limit(30)
+      .then(({ data }) => setPrevias(((data ?? []) as Previa[]).filter((x) => !(x.tienda === reg?.tienda && x.numero === reg?.numero))))
+  }, [reg?.articulo_codigo, reg?.tienda, reg?.numero, refresco])
+
   const patch = (p: Partial<Reg>) => setReg((r) => (r ? { ...r, ...p } : r))
   const irA = (t: string, n: number) => navigate(`/regularizacion-stock/${encodeURIComponent(t)}/${n}`)
   const idx = navIndice(nav, ordenDesc)
@@ -236,7 +265,7 @@ export function RegularizacionStockPage() {
         // Modificación: solo nuevo stock, fecha y documento; el stock se corrige por lo que cambie el nuevo stock.
         const { error } = await supabase
           .from('regularizacion_stock')
-          .update({ cantidad: reg.cantidad, fecha: reg.fecha, documento_externo: reg.documento_externo || DOC_DEFECTO })
+          .update({ cantidad: reg.cantidad, fecha: reg.fecha, documento_externo: reg.documento_externo || DOC_DEFECTO, observaciones: reg.observaciones?.trim() || null })
           .eq('tienda_terminal_codigo', reg.tienda)
           .eq('numero', reg.numero!)
           .eq('articulo_codigo', reg.articulo_codigo)
@@ -426,6 +455,52 @@ export function RegularizacionStockPage() {
           {r.inventario_numero != null ? `${r.inventario_tienda_terminal_codigo ?? ''}/${r.inventario_numero}` : ''}
         </span>
       </div>
+
+      <label className="flex flex-col">
+        <span className={BIG_LABEL}>Observaciones</span>
+        <textarea
+          className="gw-input min-h-[64px] resize-y p-1 text-[16px]"
+          disabled={!editable}
+          value={r.observaciones ?? ''}
+          onChange={(e) => patch({ observaciones: e.target.value || null })}
+          placeholder={editable ? 'Notas de esta regularización: por qué, qué se contó, dónde estaba… (quedan guardadas para consultarlas)' : ''}
+          maxLength={2000}
+        />
+      </label>
+
+      {r.articulo_codigo && previas.length > 0 && (
+        <fieldset className="gw-group !pt-1">
+          <legend className="gw-label font-bold">Regularizaciones anteriores de este artículo ({previas.length})</legend>
+          <div className="max-h-[160px] overflow-auto bg-white">
+            <table className="w-full border-collapse text-[13px]">
+              <thead className="sticky top-0 bg-[var(--gw-face)]">
+                <tr>
+                  {['Fecha', 'Nº', 'Alm.', 'Antes', 'Nuevo', 'Dif.', 'Observaciones'].map((h) => (
+                    <th key={h} className="border border-[var(--gw-border-light)] px-1 text-left font-normal">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previas.map((p) => (
+                  <tr key={`${p.tienda}-${p.numero}`} className="cursor-pointer hover:bg-[#e5f1fb]" onClick={() => !editable && irA(p.tienda, p.numero)} title="Abrir esta regularización">
+                    <td className="whitespace-nowrap border border-[var(--gw-border-light)] px-1">{fechaHora(p.fecha)}</td>
+                    <td className="border border-[var(--gw-border-light)] px-1 text-right">
+                      {p.tienda}/{p.numero}
+                    </td>
+                    <td className="border border-[var(--gw-border-light)] px-1">{p.almacen_codigo}</td>
+                    <td className="border border-[var(--gw-border-light)] px-1 text-right">{formatGw(Number(p.stock_anterior ?? 0), 0)}</td>
+                    <td className="border border-[var(--gw-border-light)] px-1 text-right">{formatGw(Number(p.cantidad), 0)}</td>
+                    <td className="border border-[var(--gw-border-light)] px-1 text-right">{formatGw(Number(p.cantidad) - Number(p.stock_anterior ?? 0), 0)}</td>
+                    <td className="border border-[var(--gw-border-light)] px-1 text-[#1a4fd0]">{p.observaciones ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </fieldset>
+      )}
 
       {mensaje && <p className="gw-label text-[#c42b1c]">{mensaje}</p>}
       {sinDoc && modo === 'consulta' && <p className="gw-label text-[#1a4fd0]">No hay regularizaciones todavía. Pulsa Agregar para crear la primera.</p>}
