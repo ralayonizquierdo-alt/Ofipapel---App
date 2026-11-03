@@ -451,28 +451,6 @@ export function FichajeApp() {
               {panel ? panel.nombre.toUpperCase() : "OFIPAPEL"}
             </div>
           </div>
-          {!quien && (
-            <a
-              href={`${base}fichaje-gestion`}
-              title="Gestión del fichaje (en el ERP, con usuario de gerencia)"
-              style={{
-                background: "rgba(255,255,255,.14)",
-                color: "#fff",
-                border: "1px solid rgba(255,255,255,.35)",
-                borderRadius: 12,
-                padding: "6px 10px",
-                fontWeight: 600,
-                fontSize: 13,
-                textAlign: "center",
-                textDecoration: "none",
-                lineHeight: 1.2,
-              }}
-            >
-              🔒
-              <br />
-              Gerencia
-            </a>
-          )}
           {quien && (
             <button
               type="button"
