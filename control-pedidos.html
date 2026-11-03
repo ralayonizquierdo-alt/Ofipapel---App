@@ -585,7 +585,7 @@ function pasosPendientes(p) {
   }
   fras.filter((f) => !hecho(p, 'excel', f)).forEach((fra) => r.push({ paso: 'excel', fra }));
   // La liquidación de compra de Géminis de cada factura da los códigos internos de la guía.
-  fras.filter((f) => !hecho(p, 'liquidacion', f)).forEach((fra) => r.push({ paso: 'liquidacion', fra }));
+  fras.filter((f) => !hecho(p, 'liquidacion', f) && !facturaCodificada(p, f)).forEach((fra) => r.push({ paso: 'liquidacion', fra }));
   fras.filter((f) => !hecho(p, 'guia', f)).forEach((fra) => r.push({ paso: 'guia', fra }));
   return r;
 }
@@ -871,26 +871,34 @@ async function cargarCodigosCampana(files, clave) {
   const ps = E.pedidos.filter((p) => claveGrupo(p) === clave);
   let con = 0, sin = [];
   for (const p of ps) {
-    const todas = p.lineas.concat((p.final && p.final.lineas) || []);
+    const todas = p.lineas.concat((p.final && p.final.lineas) || [], (p.factura && p.factura.lineas) || []);
     p.codigos = Object.assign({}, p.codigos, CP.codigosInternos(todas, lineas));
     // Solo cuentan las líneas que saldrán en la guía: con factura final, lo facturado.
-    const tiene = (ref) => Object.keys(p.codigos).some((r) => CP.claveRef(r) === CP.claveRef(ref));
+    const tiene = (ref) => Boolean(codigoDe(p, ref));
     for (const l of (p.factura && p.factura.lineas) || (p.final && p.final.lineas) || []) { if (tiene(l.ref)) con++; else sin.push(`nº ${nPed(p.numero)} ${l.ref}`); }
   }
   // La factura cuyas líneas tienen ya todas su código interno queda con la liquidación hecha.
-  for (const p of ps) for (const f of facturasDe(p)) {
-    const ls = p.factura.lineas.filter((l) => String(fraDeLinea(l, p)) === f && !l.deMas);
-    if (ls.length && ls.every((l) => codigoDe(p, l.ref))) apuntarHecho(p, 'liquidacion', [f]);
-  }
+  for (const p of ps) for (const f of facturasDe(p)) if (facturaCodificada(p, f)) apuntarHecho(p, 'liquidacion', [f]);
   guardar(); pintar();
   alert(`Liquidación leída: ${lineas.length} códigos.\n${con} líneas de los pedidos ya tienen código interno.` +
     (sin.length ? `\nSin código (${sin.length}): ${sin.slice(0, 15).join(', ')}${sin.length > 15 ? '…' : ''}` : ''));
 }
-function codigoDe(p, ref) {
+function codigoDe(p, ref, sinEquivalencias) {
   const c = p.codigos || {};
   if (c[ref]) return c[ref];
   const k = Object.keys(c).find((r) => CP.claveRef(r) === CP.claveRef(ref));
-  return k ? c[k] : '';
+  if (k) return c[k];
+  if (sinEquivalencias) return '';
+  // La misma mercancía con el código del proveedor o el nuestro (MR12069 = MR1269).
+  const eq = Object.assign({}, (E.catalogos[prov(p.proveedor)] || {}).equivalencias, p.equivalencias);
+  const otras = Object.entries(eq).filter(([suya, nuestra]) => CP.claveRef(suya) === CP.claveRef(ref) || CP.claveRef(nuestra) === CP.claveRef(ref)).map(([suya, nuestra]) => (CP.claveRef(suya) === CP.claveRef(ref) ? nuestra : suya));
+  for (const o of otras) { const x = codigoDe(p, o, true); if (x) return x; }
+  return '';
+}
+/** La factura de ese pedido tiene ya el código interno en todas sus líneas (salvo lo que vino de más). */
+function facturaCodificada(p, f) {
+  const ls = ((p.factura && p.factura.lineas) || []).filter((l) => String(fraDeLinea(l, p)) === String(f) && !l.deMas && Number(l.precio) > 0);
+  return ls.length > 0 && ls.every((l) => codigoDe(p, l.ref));
 }
 /** Hoja A4 para las ventanas de imprimir. El margen va también dentro del body:
  *  Chrome en Android y algunas impresoras ignoran el de @page y la hoja salía
