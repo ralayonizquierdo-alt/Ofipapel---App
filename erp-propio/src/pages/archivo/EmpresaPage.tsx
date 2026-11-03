@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DoorOpen, Printer, Save, Undo2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { GwField, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
+import { GwField, GwGroup, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
 import { BloqueDireccion, GrupoSmtp, ObservacionesImagen, PestanaPendiente, useEsAdministrador } from './comun'
 
 interface Empresa {
@@ -26,6 +26,8 @@ interface Empresa {
   smtp_usuario: string | null
   smtp_puerto: number | null
   smtp_ssl: boolean
+  correo_remitente: string | null
+  correo_responder_a: string | null
   observaciones: string | null
   logotipo_url: string | null
   logotipo_modo: number
@@ -129,6 +131,20 @@ export function EmpresaPage() {
                 <GwField label="Dirección Web (URL)">{txt('web', 'DIRWEB')}</GwField>
                 <GwField label="Sinli Id Fande">{txt('sinli_id', 'SINLI')}</GwField>
               </div>
+              <GwGroup title="Correo del ERP por Microsoft 365" className="grid grid-cols-2 items-end gap-x-2">
+                <GwField label="Enviar desde (buzón de la empresa)">
+                  <GwInput
+                    value={d.correo_remitente ?? ''}
+                    disabled={ro}
+                    placeholder="ofipapelsl@ofipapelsl.com"
+                    title="Buzón de Microsoft 365 desde el que salen los correos del ERP (avisos, listados, NEXA)"
+                    onChange={(e) => patch({ correo_remitente: e.target.value.trim() || null })}
+                  />
+                </GwField>
+                <GwField label="Las respuestas van a (vacío: al mismo buzón; en NEXA, a quien lo envió)">
+                  <GwInput value={d.correo_responder_a ?? ''} disabled={ro} onChange={(e) => patch({ correo_responder_a: e.target.value.trim() || null })} />
+                </GwField>
+              </GwGroup>
               <GrupoSmtp r={d} ro={ro} onChange={patch} />
             </div>
           )}

@@ -1,3 +1,5 @@
+// Desde el 03/11/2026 (Rober) sale por Microsoft 365 (graph.ts) desde Archivo → Datos de Empresa → «Correo remitente»
+// si están los secretos AZURE_*; si no, por SMTP como se explica aquí debajo.
 // Correos de NEXA. NEXA solo PREPARA el correo (fila «borrador» en nexa_correo); lo envía el botón «Enviar» de la
 // tarjeta, que llama a la función con accion = enviar_correo. Aquí: validar lo que prepara la IA y mandarlo por el
 // MISMO correo de la empresa que usa el resto del ERP (función correo-enviar): servidor, usuario y puerto en
@@ -6,6 +8,7 @@
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0'
 import nodemailer from 'npm:nodemailer@6.9.16'
+import { enviarGraph, graphConfigurado } from './graph.ts'
 
 const EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/
 const MAX_DESTINATARIOS = 5
@@ -87,13 +90,19 @@ export async function enviarCorreo(
   const { data: puede } = await sb.rpc('fn_puede', { p_codigo: PERMISO_CORREO })
   if (puede !== true) return { ok: false, error: 'No tienes permiso para enviar correos desde NEXA (Grupos de acceso → «NEXA: enviar correos»).' }
 
-  const { data: emp } = await sb.from('empresa').select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl').order('codigo').limit(1).maybeSingle()
+  const { data: emp } = await sb
+    .from('empresa')
+    .select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl, correo_remitente, correo_responder_a')
+    .order('codigo')
+    .limit(1)
+    .maybeSingle()
+  const porMicrosoft = graphConfigurado() && !!(emp?.correo_remitente ?? '').trim()
   const clave = Deno.env.get('SMTP_PASSWORD') ?? ''
-  if (!emp?.smtp_servidor || !emp?.smtp_usuario || !clave) {
+  if (!porMicrosoft && (!emp?.smtp_servidor || !emp?.smtp_usuario || !clave)) {
     return { ok: false, error: 'El correo de la empresa aún no está configurado: faltan servidor y usuario en Archivo → Datos de Empresa y/o la contraseña (secreto SMTP_PASSWORD en Supabase).' }
   }
-  const puerto = Number(emp.smtp_puerto) || 465
-  if (puerto === 25 || puerto === 587) return { ok: false, error: `El puerto ${puerto} no está permitido desde el servidor: usad el 465 con SSL.` }
+  const puerto = Number(emp?.smtp_puerto) || 465
+  if (!porMicrosoft && (puerto === 25 || puerto === 587)) return { ok: false, error: `El puerto ${puerto} no está permitido desde el servidor: usad el 465 con SSL.` }
 
   const { data: c, error } = await sb.from('nexa_correo').select('*').eq('id', id).maybeSingle()
   if (error || !c) return { ok: false, error: 'No encuentro ese correo (¿es de otra persona?).' }
@@ -115,15 +124,35 @@ export async function enviarCorreo(
   }
 
   const pie = `\n\n—\nEnviado desde el ERP de Ofipapel por ${usuario.email}.`
+  if (porMicrosoft) {
+    try {
+      await enviarGraph({
+        desde: emp!.correo_remitente.trim(),
+        para: c.para,
+        cc: c.cc ?? [],
+        // Las respuestas a lo que manda NEXA van a quien lo envió (salvo que Datos de Empresa diga otra cosa).
+        responderA: (Deno.env.get('EMAIL_REPLY_TO') ?? '').trim() || emp?.correo_responder_a || usuario.email,
+        asunto: c.asunto,
+        html: aHtml(c.cuerpo + pie),
+        adjuntos: adjuntos.map((a) => ({ nombre: a.filename, base64: a.content })),
+      })
+    } catch (e) {
+      const msg = String((e as Error).message ?? e)
+      await sb.from('nexa_correo').update({ error: msg.slice(0, 500) }).eq('id', id)
+      return { ok: false, error: msg }
+    }
+    await sb.from('nexa_correo').update({ estado: 'enviado', enviado_en: new Date().toISOString(), proveedor_id: null, error: null }).eq('id', id)
+    return { ok: true, estado: 'enviado' }
+  }
   const transporte = nodemailer.createTransport({
-    host: emp.smtp_servidor,
+    host: emp!.smtp_servidor,
     port: puerto,
-    secure: emp.smtp_ssl ?? puerto === 465,
-    auth: { user: emp.smtp_usuario, pass: clave },
+    secure: emp!.smtp_ssl ?? puerto === 465,
+    auth: { user: emp!.smtp_usuario, pass: clave },
   })
   try {
     await transporte.sendMail({
-      from: `"${String(emp.nombre ?? 'Ofipapel').replace(/"/g, '')}" <${emp.email || emp.smtp_usuario}>`,
+      from: `"${String(emp!.nombre ?? 'Ofipapel').replace(/"/g, '')}" <${emp!.email || emp!.smtp_usuario}>`,
       to: c.para,
       ...(c.cc?.length ? { cc: c.cc } : {}),
       replyTo: (Deno.env.get('EMAIL_REPLY_TO') ?? '').trim() || usuario.email,

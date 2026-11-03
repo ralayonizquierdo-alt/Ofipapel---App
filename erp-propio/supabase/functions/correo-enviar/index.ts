@@ -1,6 +1,8 @@
 // Edge Function «correo-enviar» (Luis, 01/11/2026): envía los correos que esperan en la cola
 // correo_pendiente (avisos de recibos devueltos, recordatorios…) con el correo de la empresa.
 //
+// · Desde el 03/11/2026 (Rober) sale por Microsoft 365 (graph.ts) desde el buzón de Archivo → Datos de Empresa →
+//   «Correo remitente» (de momento ofipapelsl@ofipapelsl.com), si están los secretos AZURE_*. Si no, por SMTP:
 // · Datos del servidor: Archivo → Datos de Empresa (smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl).
 //   Usad el puerto 465 con SSL: las funciones de Supabase no permiten salir por el 25 ni el 587.
 // · La contraseña es el secreto SMTP_PASSWORD de las funciones (Project Settings → Edge Functions →
@@ -11,6 +13,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
+import { enviarGraph, graphConfigurado } from './graph.ts'
 
 Deno.serve(async () => {
   const sb = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', {
@@ -34,7 +37,30 @@ Deno.serve(async () => {
     return responder({ enviados: 0, error: motivo })
   }
 
-  const { data: emp } = await sb.from('empresa').select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl').order('codigo').limit(1).maybeSingle()
+  const { data: emp } = await sb
+    .from('empresa')
+    .select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl, correo_remitente, correo_responder_a')
+    .order('codigo')
+    .limit(1)
+    .maybeSingle()
+
+  // Microsoft 365
+  if (graphConfigurado()) {
+    const desde = (emp?.correo_remitente ?? '').trim()
+    if (!desde) return fallo('Falta el «Correo remitente» en Archivo → Datos de Empresa.')
+    let enviados = 0
+    for (const c of cola) {
+      try {
+        await enviarGraph({ desde, para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean), responderA: emp?.correo_responder_a || null, asunto: c.asunto, html: c.cuerpo_html })
+        await sb.from('correo_pendiente').update({ enviado_en: new Date().toISOString(), intentos: c.intentos + 1, error: null }).eq('id', c.id)
+        enviados++
+      } catch (e) {
+        await sb.from('correo_pendiente').update({ intentos: c.intentos + 1, error: String((e as Error).message ?? e).slice(0, 500) }).eq('id', c.id)
+      }
+    }
+    return responder({ enviados, pendientes: cola.length - enviados, via: 'microsoft' })
+  }
+
   const clave = Deno.env.get('SMTP_PASSWORD') ?? ''
   if (!emp?.smtp_servidor || !emp?.smtp_usuario) return fallo('Falta el servidor o el usuario de correo en Archivo → Datos de Empresa.')
   if (!clave) return fallo('Falta la contraseña del correo (secreto SMTP_PASSWORD de las funciones de Supabase).')
