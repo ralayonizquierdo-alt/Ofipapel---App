@@ -91,8 +91,13 @@ Comerciales (máx. 1 fuera a la vez), que ya evita que dos falten el mismo día.
 - Quien disfrutó de una fecha concreta el año anterior pasa a la cola para esa misma fecha este año, dando
   preferencia a quien no la tuvo. En empate, prioridad para quien tenga más antigüedad.
 - Es una sugerencia de apoyo a la decisión (panel "Prioridad rotación"), no una asignación automática.
-- **[pendiente]** No hay histórico real de "quién tuvo qué el año pasado" — hay que marcarlo a mano la
-  primera vez (checkbox por persona en ese panel).
+- El panel enseña, por persona, lo que tuvo el año del cuadrante y una propuesta para el siguiente, calculada
+  con las mismas reglas que el generador pero sin guardar nada. La casilla "Marcar" sigue siendo manual.
+- Las **fechas fijas** se colocan antes que nadie, en el generador y en la propuesta. Chincheta azul = fija ese
+  año (`fixedByYear`, se guarda aparte por año porque la ficha solo sabe las de ahora); chincheta roja = fija en
+  la propuesta. Si una fija no cumple las reglas ese año, sale en rojo «no cabe» para revisarla a mano.
+- El generador evita repetir las fechas que la persona tuvo el año anterior, y generar o borrar un año ya no
+  toca las vacaciones de los demás años.
 
 ## 6. Duración y días de vacaciones
 
@@ -334,6 +339,17 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
   año, fechas preferidas (las que usará el generador automático, formato `DD/MM-DD/MM`), particularidades/
   notas en texto libre, las casillas 🔁 comodín y 🚫 sin sustituto, y *Activo* (desmárcala para dar de baja
   sin perder el historial de esa persona). *Eliminar ficha* la borra de verdad, con confirmación.
+
+### Operativa de cada pantalla (norma de Luis, 03/11/2026)
+
+Cada pantalla lleva un desplegable **📖 Operativa** con cómo se usa, en pocas líneas: pasos numerados y
+«Bueno es saber». Toda pantalla nueva o que se cambie actualiza el suyo (`OPERATIVAS` en `vacaciones.html`).
+
+### Categorías de empleado
+
+En la ficha, el desplegable **Categoría** y el botón **Gestionar categorías** (añadir, renombrar, ordenar y
+quitar). El orden de esa lista decide el orden dentro de cada grupo en «Empleados»: luego va el más antiguo y,
+sin categoría o sin antigüedad, al final. No afecta a cobertura, rotación ni generador.
 
 ### Modal "Prioridad rotación"
 

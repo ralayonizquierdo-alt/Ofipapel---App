@@ -114,6 +114,12 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
   width:100%;padding:6px 8px;border:1px solid var(--borde);border-radius:6px;font-size:.8rem;background:#fff;
 }
 .check-row{display:flex;align-items:center;gap:6px;font-size:.8rem;margin:6px 0;}
+.operativa{margin:0 0 10px;font-size:.75rem;color:var(--texto);flex-shrink:0;}
+.operativa summary{cursor:pointer;font-weight:600;color:var(--verde);}
+.operativa-body{max-height:40vh;overflow-y:auto;background:var(--verde-pale);border-radius:6px;padding:8px 10px;margin-top:4px;}
+.operativa-body ol,.operativa-body ul{margin:2px 0 6px 18px;}
+.operativa-body li{margin:2px 0;}
+.operativa-body b{color:var(--verde);}
 .legend-item{display:flex;align-items:center;gap:8px;font-size:.78rem;margin:4px 0;}
 .swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,.08);}
 .summary-row{display:flex;justify-content:space-between;font-size:.75rem;padding:3px 0;border-bottom:1px dashed var(--borde);}
@@ -327,6 +333,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </header>
   <div id="body">
     <aside id="sidebar">
+      <div id="operativaCuadrante"></div>
       <div class="onleave-box">
         <h2>🏖️ ¿Quién está fuera? <span id="onLeaveCount"></span></h2>
         <div class="field"><label>Fecha</label><input type="date" id="onLeaveDate"></div>
@@ -437,13 +444,14 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 
 <div class="overlay" id="rotationOverlay">
-  <div class="modal" style="width:440px;">
-    <h3>Prioridad de rotación sugerida</h3>
+  <div class="modal" style="width:860px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3 id="operativaRotacion">Prioridad de rotación sugerida</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
       Marca quién disfrutó ya de este mismo periodo el año pasado. La prioridad combina "no repetir" con antigüedad
-      (más antigüedad = más prioridad en caso de empate). Es solo una sugerencia: la decisión final es manual.
+      (más antigüedad = más prioridad en caso de empate). Es solo una sugerencia: la propuesta no se guarda en el
+      cuadrante y la decisión final es manual.
     </p>
-    <div id="rotationList" style="max-height:340px;overflow-y:auto;"></div>
+    <div id="rotationList" style="flex:1;min-height:0;overflow:auto;"></div>
     <div class="modal-actions">
       <div></div>
       <button class="btn btn-ghost" id="rotClose">Cerrar</button>
@@ -453,7 +461,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="overlay" id="saturdayOverlay">
   <div class="modal" style="width:580px;max-height:88vh;display:flex;flex-direction:column;">
-    <h3>Turnos de sábado</h3>
+    <h3 id="operativaSabados">Turnos de sábado</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
       Clasifica a cada persona en Grupo A o Grupo B según el puesto que cubre los sábados en tienda,
       reparto, comerciales u oficinas. Es una clasificación de apoyo (no genera un calendario semana a
@@ -473,7 +481,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="overlay" id="holidaysOverlay">
   <div class="modal" style="width:640px;max-height:88vh;display:flex;flex-direction:column;">
-    <h3>Festivos trabajados</h3>
+    <h3 id="operativaFestivos">Festivos trabajados</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
       Festivos nacionales/locales en los que la tienda abre en horario reducido. A quien asignes como
       trabajador de un festivo se le suma automáticamente <b>1 día</b> a su total de vacaciones del año,
@@ -506,7 +514,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="overlay" id="permisosOverlay">
   <div class="modal" style="width:620px;max-height:88vh;display:flex;flex-direction:column;">
-    <h3>Permisos</h3>
+    <h3 id="operativaPermisos">Permisos</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
       Fechas puntuales de permiso, aparte de las vacaciones. Cuentan igual que las vacaciones para la
       cobertura de su unidad, así que aquí puedes comprobar antes de conceder uno si esas fechas ya están
@@ -535,7 +543,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 <div class="overlay" id="employeesOverlay">
   <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
     <div id="empListView">
-      <h3>Empleados</h3>
+      <h3 id="operativaEmpleados">Empleados</h3>
       <p style="font-size:.72rem;color:var(--texto2);margin-bottom:10px;">
         Aquí vive la plantilla real: da de alta/baja a quien entra o sale, y abre la ficha de cada persona
         para editar su unidad, antigüedad, días y particularidades.
@@ -555,6 +563,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <h3 id="empCardTitle">Ficha de empleado</h3>
       <div class="field"><label>Nombre completo</label><input type="text" id="ecName"></div>
       <div class="field"><label>Unidad</label><select id="ecUnit"></select></div>
+      <div class="field"><label>Categoría</label><div style="display:flex;gap:6px;"><select id="ecCategory" style="flex:1;min-width:0;"></select><button type="button" class="btn btn-ghost" id="ecManageCategories">Gestionar categorías</button></div></div>
       <div class="field"><label>Año de antigüedad (dejar vacío si no se sabe)</label><input type="text" id="ecSeniority" placeholder="Ej: 2015" inputmode="numeric"></div>
       <div class="field"><label>Días de vacaciones al año</label><input type="text" id="ecDays" inputmode="numeric"></div>
       <div class="field" id="ecHolidayNote" style="display:none;font-size:.72rem;color:var(--texto2);"></div>
@@ -585,11 +594,29 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="toast" id="toast"></div>
 
+<div class="overlay" id="categoriesOverlay">
+  <div class="modal" style="width:440px;">
+    <h3 id="operativaCategorias">Categorías de empleado</h3>
+    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
+      El orden de esta lista es el orden dentro de cada grupo en la lista de Empleados.
+    </p>
+    <div id="categoriesList" style="max-height:50vh;overflow-y:auto;"></div>
+    <div style="display:flex;gap:6px;margin-top:10px;">
+      <input type="text" id="catNewName" placeholder="Nueva categoría" style="flex:1;min-width:0;">
+      <button type="button" class="btn btn-ghost" id="catAdd">+ Añadir</button>
+    </div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn btn-ghost" id="catClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="printPreviewOverlay">
   <div class="modal print-preview-modal">
     <div class="ppm-header">
       <div>
-        <h3>Vista previa de impresión · A3 apaisado</h3>
+        <h3 id="operativaImpresion">Vista previa de impresión · A3 apaisado</h3>
         <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
           Empleados ordenados por fecha de inicio dentro de cada unidad (efecto "escalera", igual que en el Excel de
           dirección). Ambos abren el cuadro de impresión del navegador (ya en A3 apaisado) — en "Guardar como PDF"
@@ -615,7 +642,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   <div class="modal print-preview-modal">
     <div class="ppm-header">
       <div>
-        <h3>Vista previa · Turnos de sábado</h3>
+        <h3 id="operativaImpresionTurnos">Vista previa · Turnos de sábado</h3>
         <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
           Imprimir/Guardar PDF abren el cuadro de impresión del navegador. WhatsApp comparte un resumen
           de texto (Grupo A/B por puesto), ya que no se puede adjuntar la imagen sin depender de un
@@ -639,7 +666,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="overlay" id="annualViewOverlay">
   <div class="modal" style="width:520px;max-height:88vh;display:flex;flex-direction:column;">
-    <h3>📆 Plan anual — vista rápida</h3>
+    <h3 id="operativaPlanAnual">📆 Plan anual — vista rápida</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
       De un vistazo, quién tiene vacaciones asignadas este año y en qué fechas, por bloques.
     </p>
@@ -744,6 +771,15 @@ function defaultState(){
     unitOverrides: [],
     unitMax: Object.fromEntries(UNITS.map(u=>[u.id,u.defaultMax])),
     lastYearFlags: {},
+    categories: [
+      {id:'cat_jefe_area',   name:'Jefe/a de área'},
+      {id:'cat_jefe_tienda', name:'Jefe/a de tienda'},
+      {id:'cat_jefe_almacen', name:'Jefe/a de almacén'},
+      {id:'cat_sustituto',   name:'Sustituto/a de confianza'},
+      {id:'cat_dependiente', name:'Dependiente/a'},
+      {id:'cat_repartidor',  name:'Repartidor/a'},
+      {id:'cat_ayudante',    name:'Ayudante'},
+    ],
     pairRules: [
       {id:'pair1', empIds:['e19','e21'], label:'Fotocopiadora', mode:'excluir'},
       {id:'pair2', empIds:['e13','e10'], label:'Cobertura mutua de clientes', mode:'excluir'},
@@ -792,7 +828,23 @@ function applyMigrations(state){
     if(b1 && b1.endMD==='09-30'){ b1.endMD = '10-15'; b1.label = 'Vuelta al cole y campaña de otoño'; }
     state._migrations.blockRangeOtono202607 = true;
   }
+  if(!state._migrations.categoriaJefaMobiliario202611){
+    const patricia = state.employees.find(e=>e.id==='e24');
+    if(patricia && !patricia.categoryId) patricia.categoryId = 'cat_jefe_area';
+    state._migrations.categoriaJefaMobiliario202611 = true;
+  }
+  snapshotFixedPrefs(state);
   return state;
+}
+/* Fechas fijas de cada año: la ficha solo sabe las de ahora, así que las del año en curso se copian
+   aquí y, al cambiar de año, las anteriores ya no se tocan y quedan como historial. */
+function snapshotFixedPrefs(state){
+  const snap = {};
+  for(const [empId, pref] of Object.entries(state.employeePrefs)){
+    if(pref.fixed && pref.preferredText) snap[empId] = pref.preferredText;
+  }
+  state.fixedByYear = state.fixedByYear || {};
+  state.fixedByYear[new Date().getFullYear()] = snap;
 }
 function loadState(){
   try{
@@ -1193,6 +1245,11 @@ function holidaysWorkedBy(empId){
 function effectiveDaysPerYear(emp){
   return emp.daysPerYear + holidaysWorkedBy(emp.id).length;
 }
+/* state.periods guarda todos los años juntos: esto da solo los de un año. */
+function periodsOfYear(empId, y){
+  const prefix = y+'-';
+  return state.periods.filter(p=> p.employeeId===empId && p.start.startsWith(prefix));
+}
 
 /* ═══════════════════ PAREJAS INCOMPATIBLES (nunca pueden coincidir) ═══════════════════ */
 function findPairPartners(empId){
@@ -1488,7 +1545,7 @@ function renderGrid(){
     const uh = document.createElement('div'); uh.className='unit-header';
     uh.style.width = rowW+'px';
     const cc = document.createElement('div'); cc.className='corner-cell';
-    cc.textContent = u.name + ' · ' + emps.length;
+    cc.textContent = u.name + ' (' + emps.length + ')';
     uh.appendChild(cc);
     const cov = document.createElement('div'); cov.className='coverage-track';
     cov.style.width = totalW+'px';
@@ -1515,7 +1572,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const row = document.createElement('div'); row.className='emp-row';
   row.style.width = (NAME_W + totalW)+'px';
   const nameCell = document.createElement('div'); nameCell.className='emp-name';
-  const used = state.periods.filter(p=>p.employeeId===emp.id)
+  const used = periodsOfYear(emp.id, y)
     .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
   const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
@@ -1539,7 +1596,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   }
 
   // period blocks
-  const myPeriods = state.periods.filter(p=>p.employeeId===emp.id)
+  const myPeriods = periodsOfYear(emp.id, y)
     .sort((a,b)=> a.start.localeCompare(b.start));
   myPeriods.forEach((p, i)=>{
     const s = Math.max(0, isoToIndex(y,p.start));
@@ -1885,23 +1942,123 @@ function renderEmployeeList(){
     if(!showInactive && e.active===false) return false;
     if(q && !e.name.toLowerCase().includes(q)) return false;
     return true;
-  }).sort((a,b)=> a.name.localeCompare(b.name,'es'));
+  });
 
   if(!list.length){
     box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">Sin resultados.</p>';
     return;
   }
-  for(const emp of list){
-    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '(sin unidad)';
-    const row = document.createElement('div');
-    row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:7px 4px;'
-      +'border-bottom:1px solid #f0f0f0;font-size:.78rem;cursor:pointer;';
-    row.innerHTML = `<span>${escapeHtml(emp.name)}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${escapeHtml(unit)}</small></span>
-      <span style="color:var(--verde);">✎</span>`;
-    row.onclick = ()=> openEmployeeCard(emp.id);
-    box.appendChild(row);
+  // mismo orden de grupos que el cuadrante; quien no tenga una unidad conocida, al final
+  const groups = UNITS.map(u=>({name:u.name, emps:list.filter(e=>e.unitId===u.id)}));
+  groups.push({name:'(sin unidad)', emps:list.filter(e=>!UNITS.some(u=>u.id===e.unitId))});
+  for(const {name, emps} of groups){
+    if(!emps.length) continue;
+    const title = document.createElement('div');
+    title.style.cssText='padding:6px 4px;font-size:.75rem;font-weight:700;color:var(--verde);background:var(--verde-pale);border-bottom:2px solid var(--verde);';
+    title.textContent = name+' ('+emps.length+')';
+    box.appendChild(title);
+    for(const emp of emps.sort(compareInUnit)){
+      const row = document.createElement('div');
+      row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:7px 4px;'
+        +'border-bottom:1px solid #f0f0f0;font-size:.78rem;cursor:pointer;';
+      const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
+      const category = state.categories.find(c=>c.id===emp.categoryId);
+      row.innerHTML = `<span>${escapeHtml(emp.name)}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${category ? escapeHtml(category.name)+' · ' : ''}${escapeHtml(senLabel)}</small></span>
+        <span style="color:var(--verde);">✎</span>`;
+      row.onclick = ()=> openEmployeeCard(emp.id);
+      box.appendChild(row);
+    }
   }
 }
+/* Dentro de cada grupo: por el orden de las categorías, luego el más antiguo; sin categoría o sin
+   antigüedad apuntada, al final. */
+function compareInUnit(a,b){
+  const rank = e=>{ const i = state.categories.findIndex(c=>c.id===e.categoryId); return i<0 ? Infinity : i; };
+  const diff = (x,y)=> x===y ? 0 : x-y; // Infinity-Infinity daría NaN
+  return diff(rank(a), rank(b))
+    || diff(a.seniorityYear||Infinity, b.seniorityYear||Infinity)
+    || a.name.localeCompare(b.name,'es');
+}
+
+/* ═══════════════════ CATEGORÍAS DE EMPLEADO ═══════════════════ */
+function fillCategorySelect(selectedId){
+  const sel = document.getElementById('ecCategory');
+  sel.innerHTML = '<option value="">— Sin categoría —</option>'
+    + state.categories.map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
+  sel.value = state.categories.some(c=>c.id===selectedId) ? selectedId : '';
+}
+function categoryNameTaken(name, exceptId){
+  const norm = normalizeText(name);
+  return state.categories.some(c=> c.id!==exceptId && normalizeText(c.name)===norm);
+}
+function categoriesChanged(){
+  saveState();
+  renderCategoriesList();
+  fillCategorySelect(document.getElementById('ecCategory').value);
+  renderEmployeeList();
+}
+function renderCategoriesList(){
+  const box = document.getElementById('categoriesList');
+  box.innerHTML = '';
+  if(!state.categories.length){
+    box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">Sin categorías. Añade la primera aquí abajo.</p>';
+    return;
+  }
+  state.categories.forEach((cat,i)=>{
+    const row = document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid #f0f0f0;';
+    const input = document.createElement('input');
+    input.type='text'; input.value=cat.name; input.style.cssText='flex:1;min-width:0;';
+    input.onchange = ()=>{
+      const name = input.value.trim();
+      if(!name){ showToast('Escribe un nombre para la categoría.'); input.value=cat.name; return; }
+      if(categoryNameTaken(name, cat.id)){ showToast('Ya existe una categoría con ese nombre: elige otro.'); input.value=cat.name; return; }
+      cat.name = name;
+      categoriesChanged();
+    };
+    row.appendChild(input);
+    const move = (label, title, to)=>{
+      const btn = document.createElement('button');
+      btn.type='button'; btn.className='mini-btn'; btn.textContent=label; btn.title=title;
+      btn.style.cssText='margin:0;';
+      btn.disabled = to<0 || to>=state.categories.length;
+      btn.onclick = ()=>{
+        state.categories.splice(to, 0, state.categories.splice(i,1)[0]);
+        categoriesChanged();
+      };
+      row.appendChild(btn);
+    };
+    move('▲', 'Subir', i-1);
+    move('▼', 'Bajar', i+1);
+    const del = document.createElement('button');
+    del.type='button'; del.className='mini-btn'; del.textContent='✕'; del.title='Quitar';
+    del.style.cssText='margin:0;color:var(--rojo);';
+    del.onclick = ()=>{
+      const inUse = EMPLOYEES.filter(e=>e.categoryId===cat.id);
+      if(inUse.length && !confirm(`${inUse.length} persona(s) tienen la categoría "${cat.name}". Si la quitas se quedarán sin categoría, sin cambiar nada más de su ficha ni sus vacaciones. ¿Quitarla?`)) return;
+      inUse.forEach(e=>{ delete e.categoryId; });
+      state.categories.splice(i,1);
+      categoriesChanged();
+    };
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+document.getElementById('ecManageCategories').onclick = ()=>{
+  document.getElementById('catNewName').value = '';
+  renderCategoriesList();
+  openModal('categoriesOverlay');
+};
+document.getElementById('catAdd').onclick = ()=>{
+  const input = document.getElementById('catNewName');
+  const name = input.value.trim();
+  if(!name){ showToast('Escribe el nombre de la nueva categoría.'); return; }
+  if(categoryNameTaken(name)){ showToast('Ya existe una categoría con ese nombre: elige otro.'); return; }
+  state.categories.push({id:'cat'+Date.now(), name});
+  input.value = '';
+  categoriesChanged();
+};
+document.getElementById('catClose').onclick = ()=> closeModal('categoriesOverlay');
 
 function openEmployeesModal(){
   document.getElementById('empListView').style.display='block';
@@ -1936,6 +2093,7 @@ function openEmployeeCard(empId){
   document.getElementById('ecPrefsFixed').checked = emp ? !!(state.employeePrefs[emp.id]||{}).fixed : false;
   document.getElementById('ecNote').value = emp ? (emp.note||'') : '';
   document.getElementById('ecSaturdayGroup').value = emp ? (emp.saturdayGroup||'') : '';
+  fillCategorySelect(emp ? emp.categoryId : '');
   document.getElementById('ecFloater').checked = emp ? !!emp.floater : false;
   document.getElementById('ecSinSustituto').checked = emp ? !!emp.sinSustituto : false;
   document.getElementById('ecHijos').checked = emp ? !!emp.hijos : false;
@@ -1968,6 +2126,7 @@ document.getElementById('ecSave').onclick = ()=>{
   const prefsFixed = document.getElementById('ecPrefsFixed').checked;
   const note = document.getElementById('ecNote').value.trim();
   const saturdayGroup = document.getElementById('ecSaturdayGroup').value;
+  const categoryId = document.getElementById('ecCategory').value;
   const floater = document.getElementById('ecFloater').checked;
   const sinSustituto = document.getElementById('ecSinSustituto').checked;
   const hijos = document.getElementById('ecHijos').checked;
@@ -1985,6 +2144,7 @@ document.getElementById('ecSave').onclick = ()=>{
   emp.daysPerYear = (!isNaN(daysPerYear) && daysPerYear>0) ? daysPerYear : 30;
   if(note) emp.note = note; else delete emp.note;
   if(saturdayGroup) emp.saturdayGroup = saturdayGroup; else delete emp.saturdayGroup;
+  if(categoryId) emp.categoryId = categoryId; else delete emp.categoryId;
   if(floater) emp.floater = true; else delete emp.floater;
   if(sinSustituto) emp.sinSustituto = true; else delete emp.sinSustituto;
   if(hijos) emp.hijos = true; else delete emp.hijos;
@@ -1992,6 +2152,7 @@ document.getElementById('ecSave').onclick = ()=>{
 
   if(prefsText) state.employeePrefs[emp.id] = {preferredText: prefsText, fixed: prefsFixed};
   else delete state.employeePrefs[emp.id];
+  snapshotFixedPrefs(state);
 
   showToast('Ficha guardada: '+name);
   backToEmployeeList();
@@ -2022,7 +2183,7 @@ function renderSummary(){
   const y = state.year;
   for(const emp of EMPLOYEES){
     if(emp.active===false) continue;
-    const used = state.periods.filter(p=>p.employeeId===emp.id)
+    const used = periodsOfYear(emp.id, y)
       .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
     const row = document.createElement('div'); row.className='summary-row';
     const holWorked = holidaysWorkedBy(emp.id).length;
@@ -2218,6 +2379,15 @@ function minGapToOwnPeriods(emp, startIdx, endIdx, y){
   }
   return minGap;
 }
+/* Rotación: días de este hueco que la persona ya tuvo el año anterior en las mismas fechas. */
+function lastYearOverlapDays(emp, startIdx, endIdx, y){
+  let days = 0;
+  for(const p of periodsOfYear(emp.id, y-1)){
+    const ps = isoToIndex(y, y+p.start.slice(4)), pe = isoToIndex(y, y+p.end.slice(4));
+    days += Math.max(0, Math.min(endIdx,pe) - Math.max(startIdx,ps) + 1);
+  }
+  return days;
+}
 function findFallbackSlot(emp, y, lengthDays){
   const n = daysInYear(y);
   let best=null, bestScore=Infinity;
@@ -2228,12 +2398,90 @@ function findFallbackSlot(emp, y, lengthDays){
     for(let idx=s; idx<=e; idx++) score += companyAbsentCount(idx, y);
     const gap = minGapToOwnPeriods(emp, s, e, y);
     if(gap!==null && gap<TARGET_OWN_GAP_DAYS) score += (TARGET_OWN_GAP_DAYS-gap)*2; // penaliza quedar pegado a otro periodo suyo
+    score += lastYearOverlapDays(emp, s, e, y)*10; // penaliza repetir las fechas del año anterior
     if(score < bestScore){
       bestScore = score;
       best = {start: toISO(dateFromIndex(y,s)), end: toISO(dateFromIndex(y,e))};
     }
   }
   return best;
+}
+/* Reparte las vacaciones de `targets` en el año `y` añadiéndolas a state.periods. Las fechas fijas se
+   colocan antes que nada, para que nadie con más prioridad les quite el hueco. */
+function placeEmployees(targets, y){
+  const newPeriod = (employeeId, start, end)=> state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId, start, end});
+  const ordered = [...targets].sort((a,b)=> rotationScore(b) - rotationScore(a));
+  const fixedFailed = [], fixedCount = {}, fixedDays = {};
+
+  for(const emp of ordered){
+    const prefObj = state.employeePrefs[emp.id] || {};
+    if(!prefObj.fixed) continue;
+    for(const r of parsePreferredRanges(prefObj.preferredText || '', y)){
+      const placed = tryPlaceRangeExact(emp, r, y);
+      if(placed){
+        newPeriod(emp.id, placed.start, placed.end);
+        fixedCount[emp.id] = (fixedCount[emp.id]||0) + 1;
+        fixedDays[emp.id] = (fixedDays[emp.id]||0) + isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
+      } else {
+        fixedFailed.push({emp, range:r});
+      }
+    }
+  }
+
+  const results = [];
+  for(const emp of ordered){
+    const prefObj = state.employeePrefs[emp.id] || {};
+    const ranges = prefObj.fixed ? [] : parsePreferredRanges(prefObj.preferredText || '', y);
+    const fromFixed = fixedCount[emp.id] || 0;
+    let daysPlaced = fixedDays[emp.id] || 0, fromPrefs = 0, fromFallback = 0, fromPartner = 0;
+
+    // pareja que sale junta: intenta replicar primero las fechas ya asignadas a su pareja
+    for(const {partnerId} of findTogetherPartners(emp.id)){
+      for(const pp of periodsOfYear(partnerId, y)){
+        const s = isoToIndex(y, pp.start), e = isoToIndex(y, pp.end);
+        if(!rangeOk(emp, s, e, y)) continue;
+        newPeriod(emp.id, pp.start, pp.end);
+        daysPlaced += e-s+1;
+        fromPartner++;
+      }
+    }
+
+    for(const r of ranges){
+      const placed = tryPlaceRange(emp, r, y);
+      if(placed){
+        newPeriod(emp.id, placed.start, placed.end);
+        daysPlaced += isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
+        fromPrefs++;
+      }
+    }
+
+    const targetDays = effectiveDaysPerYear(emp);
+    let remaining = targetDays - daysPlaced;
+    while(remaining > 0){
+      const chunk = Math.min(15, remaining);
+      const fallback = findFallbackSlot(emp, y, chunk);
+      if(!fallback) break;
+      newPeriod(emp.id, fallback.start, fallback.end);
+      const chunkDays = isoToIndex(y,fallback.end)-isoToIndex(y,fallback.start)+1;
+      daysPlaced += chunkDays;
+      remaining -= chunkDays;
+      fromFallback++;
+    }
+    results.push({emp, daysPlaced, targetDays, fromFixed, fromPartner, fromPrefs, fromFallback});
+  }
+  return {results, fixedFailed};
+}
+/* Propuesta para un año sin escribir nada: se reparte sobre una copia y state.periods vuelve a quedar como estaba. */
+function proposeYear(y){
+  const saved = state.periods;
+  try{
+    state.periods = [...saved];
+    const targets = EMPLOYEES.filter(e=> e.active!==false && !periodsOfYear(e.id, y).length);
+    const {fixedFailed} = placeEmployees(targets, y);
+    return {proposed: state.periods.slice(saved.length), fixedFailed};
+  } finally {
+    state.periods = saved;
+  }
 }
 function generatePlan(){
   const y = state.year;
@@ -2248,55 +2496,15 @@ function generatePlan(){
 
   if(overwrite){
     const ids = new Set(targets.map(e=>e.id));
-    state.periods = state.periods.filter(p=> !ids.has(p.employeeId));
+    state.periods = state.periods.filter(p=> !(ids.has(p.employeeId) && p.start.startsWith(y+'-')));
   } else {
-    targets = targets.filter(e=> !state.periods.some(p=>p.employeeId===e.id));
+    targets = targets.filter(e=> !periodsOfYear(e.id, y).length);
   }
 
-  targets.sort((a,b)=> rotationScore(b) - rotationScore(a));
-
-  const assignedLines = [], failedLines = [], fixedFailedLines = [];
-  for(const emp of targets){
-    const prefObj = state.employeePrefs[emp.id] || {};
-    const ranges = parsePreferredRanges(prefObj.preferredText || '', y);
-    let daysPlaced = 0, fromPrefs = 0, fromFallback = 0, fromPartner = 0, fromFixed = 0;
-
-    // pareja que sale junta: intenta replicar primero las fechas ya asignadas a su pareja
-    for(const {partnerId} of findTogetherPartners(emp.id)){
-      const partnerPeriods = state.periods.filter(p=>p.employeeId===partnerId);
-      for(const pp of partnerPeriods){
-        const s = isoToIndex(y, pp.start), e = isoToIndex(y, pp.end);
-        if(!rangeOk(emp, s, e, y)) continue;
-        state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:pp.start, end:pp.end});
-        daysPlaced += e-s+1;
-        fromPartner++;
-      }
-    }
-
-    for(const r of ranges){
-      const placed = prefObj.fixed ? tryPlaceRangeExact(emp, r, y) : tryPlaceRange(emp, r, y);
-      if(placed){
-        state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:placed.start, end:placed.end});
-        daysPlaced += isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
-        if(prefObj.fixed) fromFixed++; else fromPrefs++;
-      } else if(prefObj.fixed){
-        fixedFailedLines.push(`${escapeHtml(emp.name)} — ${fmtRange(r.start,r.end)}`);
-      }
-    }
-
-    const targetDays = effectiveDaysPerYear(emp);
-    let remaining = targetDays - daysPlaced;
-    while(remaining > 0){
-      const chunk = Math.min(15, remaining);
-      const fallback = findFallbackSlot(emp, y, chunk);
-      if(!fallback) break;
-      state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:fallback.start, end:fallback.end});
-      const chunkDays = isoToIndex(y,fallback.end)-isoToIndex(y,fallback.start)+1;
-      daysPlaced += chunkDays;
-      remaining -= chunkDays;
-      fromFallback++;
-    }
-
+  const {results, fixedFailed} = placeEmployees(targets, y);
+  const assignedLines = [], failedLines = [];
+  const fixedFailedLines = fixedFailed.map(({emp, range})=> `${escapeHtml(emp.name)} — ${fmtRange(range.start,range.end)}`);
+  for(const {emp, daysPlaced, targetDays, fromFixed, fromPartner, fromPrefs, fromFallback} of results){
     if(daysPlaced===0){
       failedLines.push(emp.name);
     } else {
@@ -2327,14 +2535,15 @@ function clearGeneratedPeriods(){
   if(filterText) targets = targets.filter(e=> e.name.toLowerCase().includes(filterText.toLowerCase()));
   if(!targets.length){ showToast('No hay empleados que coincidan con el filtro actual.'); return; }
   const scopeLabel = filterUnit ? (UNITS.find(u=>u.id===filterUnit)||{}).name : 'toda la plantilla filtrada';
-  const affected = targets.filter(e=> state.periods.some(p=>p.employeeId===e.id)).length;
+  const y = state.year;
+  const affected = targets.filter(e=> periodsOfYear(e.id, y).length).length;
   const ok = confirm(`¿Borrar TODAS las vacaciones ya asignadas de ${scopeLabel} (afecta a ${affected} persona(s) con periodos)? Esta acción no se puede deshacer.`);
   if(!ok) return;
   const ids = new Set(targets.map(e=>e.id));
-  state.periods = state.periods.filter(p=> !ids.has(p.employeeId));
+  state.periods = state.periods.filter(p=> !(ids.has(p.employeeId) && p.start.startsWith(y+'-')));
   render();
   document.getElementById('generateReport').innerHTML =
-    `<div class="rules-log-item">🗑 Borradas las vacaciones de ${scopeLabel}. Puedes generar de nuevo desde cero.</div>`;
+    `<div class="rules-log-item">🗑 Borradas las vacaciones de ${y} de ${scopeLabel}. Puedes generar de nuevo desde cero.</div>`;
   showToast('Vacaciones borradas.');
 }
 document.getElementById('btnClearGenerated').onclick = clearGeneratedPeriods;
@@ -2357,26 +2566,59 @@ document.getElementById('btnAddBlock').onclick = ()=>{
 };
 
 /* ═══════════════════ ROTACIÓN ═══════════════════ */
+function pinIcon(color, size, title){
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${color}" role="img" style="vertical-align:middle;"><title>${escapeHtml(title)}</title><path d="M15 2.5l6.5 6.5-1.6 1.6-1.1-.4-3.9 3.9.5 4.2-1.6 1.6-4.2-4.2-5.9 5.9-1.1-1.1 5.9-5.9-4.2-4.2 1.6-1.6 4.2.5 3.9-3.9-.4-1.1z"/></svg>`;
+}
 document.getElementById('btnRotation').onclick = ()=>{
   const box = document.getElementById('rotationList');
-  box.innerHTML='';
+  const scrollTop = box.scrollTop;
+  const yBase = state.year, yNext = yBase+1;
+  const {proposed, fixedFailed} = proposeYear(yNext);
+  const fixedBase = (state.fixedByYear||{})[yBase] || {};
+  const byStart = (a,b)=> a.start.localeCompare(b.start);
+  const th = 'position:sticky;top:0;background:#fff;padding:6px 4px;text-align:left;font-size:.72rem;color:var(--texto2);font-weight:600;border-bottom:1px solid var(--borde);';
+  const thNext = 'background:var(--verde-pale);color:var(--verde);';
+  const td = 'padding:6px 4px;border-bottom:1px solid #f0f0f0;vertical-align:middle;';
+  box.innerHTML = `<table style="width:100%;min-width:680px;border-collapse:collapse;font-size:.78rem;"><thead><tr>
+    <th style="${th}width:26px;">Nº</th><th style="${th}">Empleado</th>
+    <th style="${th}width:135px;">Tuvo en ${yBase}</th><th style="${th}width:44px;text-align:center;">Fija ${yBase}</th>
+    <th style="${th}${thNext}width:135px;">Propuesta ${yNext}</th><th style="${th}width:44px;text-align:center;">Fija ${yNext}</th>
+    <th style="${th}width:50px;text-align:center;">Marcar</th>
+  </tr></thead><tbody></tbody></table>`;
+  const tbody = box.querySelector('tbody');
   const list = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=> rotationScore(b) - rotationScore(a));
   list.forEach((emp,i)=>{
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
     const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
     const hijosLabel = emp.hijos ? ' · 👶 hijos a cargo' : '';
-    const row = document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:.78rem;';
-    row.innerHTML = `<b style="width:22px;color:var(--verde);">${i+1}</b>
-      <span style="flex:1;">${escapeHtml(emp.name)}<br><small style="color:var(--texto2);">${escapeHtml(unit)} · ${escapeHtml(senLabel)}${hijosLabel}</small></span>`;
+    const base = periodsOfYear(emp.id, yBase).sort(byStart);
+    const next = [...periodsOfYear(emp.id, yNext), ...proposed.filter(p=>p.employeeId===emp.id)].sort(byStart);
+    const fixedNow = hasFixedPref(emp.id) ? parsePreferredRanges(state.employeePrefs[emp.id].preferredText, yNext) : [];
+    const baseHtml = base.map(p=>fmtRange(p.start,p.end)).join('<br>') || '<small>Sin vacaciones asignadas</small>';
+    const nextHtml = next.map(p=> fixedNow.some(r=>r.start===p.start && r.end===p.end)
+      ? `<span style="color:var(--rojo);">${fmtRange(p.start,p.end)}</span>` : fmtRange(p.start,p.end));
+    for(const f of fixedFailed.filter(f=>f.emp.id===emp.id)){
+      nextHtml.push(`<span style="color:var(--rojo);" title="Esta fecha fija no cumple las reglas en ${yNext}: hay que revisarla a mano.">⚠ ${fmtRange(f.range.start,f.range.end)} no cabe</span>`);
+    }
+    const row = document.createElement('tr');
+    row.innerHTML = `<td style="${td}"><b style="color:var(--verde);">${i+1}</b></td>
+      <td style="${td}">${escapeHtml(emp.name)}<br><small style="color:var(--texto2);">${escapeHtml(unit)} · ${escapeHtml(senLabel)}${hijosLabel}</small></td>
+      <td style="${td}color:var(--texto2);">${baseHtml}</td>
+      <td style="${td}text-align:center;">${fixedBase[emp.id] ? pinIcon('#2F6FCF', 14, 'Fecha fija en '+yBase+': '+fixedBase[emp.id]) : ''}</td>
+      <td style="${td}background:var(--verde-pale);color:var(--verde);font-weight:600;">${nextHtml.join('<br>') || '<small>Sin hueco disponible</small>'}</td>
+      <td style="${td}text-align:center;">${fixedNow.length ? pinIcon('#E74C3C', 24, 'Fecha fija en '+yNext+': '+state.employeePrefs[emp.id].preferredText) : ''}</td>`;
+    const chkCell = document.createElement('td');
+    chkCell.style.cssText = td+'text-align:center;';
     const chk = document.createElement('input'); chk.type='checkbox';
     chk.checked = !!state.lastYearFlags[emp.id];
     chk.title='Tuvo esta época el año pasado';
     chk.onchange = ()=>{ state.lastYearFlags[emp.id] = chk.checked; saveState(); document.getElementById('btnRotation').click(); };
-    row.appendChild(chk);
-    box.appendChild(row);
+    chkCell.appendChild(chk);
+    row.appendChild(chkCell);
+    tbody.appendChild(row);
   });
   openModal('rotationOverlay');
+  box.scrollTop = scrollTop;
 };
 document.getElementById('rotClose').onclick = ()=> closeModal('rotationOverlay');
 
@@ -2782,13 +3024,13 @@ function buildPrintArea(){
 
     // orden por fecha de inicio del primer periodo — dibuja el efecto "escalera" del Excel de dirección
     emps = emps.map(e=>{
-      const firstPeriod = state.periods.filter(p=>p.employeeId===e.id).sort((a,b)=>a.start.localeCompare(b.start))[0];
+      const firstPeriod = periodsOfYear(e.id, y).sort((a,b)=>a.start.localeCompare(b.start))[0];
       return {emp:e, firstStart: firstPeriod ? isoToIndex(y, firstPeriod.start) : Infinity};
     }).sort((a,b)=> a.firstStart - b.firstStart || a.emp.name.localeCompare(b.emp.name,'es')).map(x=>x.emp);
 
     const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
     const title = document.createElement('div'); title.className='p-unit-title';
-    title.textContent = u.name+' · '+emps.length;
+    title.textContent = u.name+' ('+emps.length+')';
     unitDiv.appendChild(title);
 
     for(const emp of emps){
@@ -2811,7 +3053,7 @@ function buildPrintArea(){
           track.appendChild(ov);
         }
       }
-      const myPeriods = state.periods.filter(p=>p.employeeId===emp.id).sort((a,b)=>a.start.localeCompare(b.start));
+      const myPeriods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
       myPeriods.forEach((p,i)=>{
         const s = Math.max(0, isoToIndex(y,p.start));
         const e = Math.min(n-1, isoToIndex(y,p.end));
@@ -2829,7 +3071,7 @@ function buildPrintArea(){
       });
       row.appendChild(track);
 
-      const used = state.periods.filter(p=>p.employeeId===emp.id)
+      const used = periodsOfYear(emp.id, y)
         .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
       const daysCell = document.createElement('div'); daysCell.className='p-days';
       daysCell.textContent = used+'/'+effectiveDaysPerYear(emp);
@@ -3029,7 +3271,7 @@ function renderAnnualView(){
 }
 function annualViewRow(emp, y){
   const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-  const periods = state.periods.filter(p=>p.employeeId===emp.id).sort((a,b)=>a.start.localeCompare(b.start));
+  const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
   const datesHtml = periods.length
     ? periods.map(p=>fmtRange(p.start,p.end)).join(' · ')
     : 'Sin vacaciones asignadas todavía';
@@ -3046,7 +3288,7 @@ function shareAnnualViewWhatsapp(){
     if(!emps.length) continue;
     text += `\n*${bloque.name.toUpperCase()}*\n`;
     for(const emp of emps){
-      const periods = state.periods.filter(p=>p.employeeId===emp.id).sort((a,b)=>a.start.localeCompare(b.start));
+      const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
       const datesText = periods.length ? periods.map(p=>fmtRange(p.start,p.end)).join(' · ') : 'sin asignar';
       text += `• ${emp.name} — ${datesText}\n`;
     }
@@ -3065,6 +3307,156 @@ function showToast(msg){
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=> t.classList.remove('show'), 3200);
+}
+
+/* ═══════════════════ OPERATIVA (norma de Luis, 03/11/2026) ═══════════════════
+   Cada pantalla nueva o que se cambie lleva aquí cómo se usa: pasos numerados y "Bueno es saber".
+   La clave es el título tras el que aparece; queda plegada hasta que se pulsa. */
+const OPERATIVAS = {
+  '#operativaCuadrante': {
+    pasos: [
+      'Elige el año arriba. Cada año guarda sus vacaciones por separado.',
+      'Arrastra sobre una fila vacía para crear un periodo entre las dos fechas.',
+      'Arrastra una barra para moverla, o su borde para cambiar solo el inicio o el fin.',
+      'Pulsa una barra, sin arrastrar, para cambiar sus fechas a mano o eliminarla.',
+      'Con <b>Generar plan</b> se rellena lo que falte. Para repartir una sola unidad, elígela antes en el filtro <b>Unidad</b>.',
+    ],
+    notas: [
+      'La franja de color sobre cada grupo es la cobertura: verde, gente fuera dentro del máximo; rojo, se supera.',
+      'El rayado rosa son fechas bloqueadas: nadie puede coger vacaciones en ellas.',
+      'Generar y «Borrar todo» solo tocan el año que estás viendo.',
+      'El generador coloca primero las fechas fijas 📌 y procura no repetir las fechas del año anterior.',
+    ],
+  },
+  '#pmTitle': {
+    pasos: [
+      'Comprueba o cambia las fechas <b>Desde</b> y <b>Hasta</b>.',
+      'Pulsa <b>Guardar</b>, o <b>Eliminar</b> para quitar un periodo que ya existe.',
+    ],
+    notas: [
+      'Si las fechas no cumplen una regla, la ventana lo dice antes de guardar.',
+      'Si se supera la cobertura, puedes marcar «Guardar de todas formas» cuando sea una decisión tuya.',
+    ],
+  },
+  '#operativaRotacion': {
+    pasos: [
+      'Elige arriba el año de partida: 2026 enseña lo que hubo en 2026 y propone 2027.',
+      'Mira el orden: arriba está quien tiene más prioridad.',
+      'Pulsa <b>Marcar</b> en quien ya disfrutó de la época que se reparte: baja detrás de los no marcados y la propuesta se recalcula.',
+    ],
+    notas: [
+      'La propuesta no se guarda: para crear las vacaciones, ve a ese año y usa <b>Generar plan</b> o ponlas a mano.',
+      'Chincheta azul: tuvo fecha fija ese año. Chincheta roja: tiene fecha fija en la propuesta, y esa fecha sale en rojo.',
+      '«No cabe» en rojo: esa fecha fija no cumple las reglas ese año y hay que revisarla a mano.',
+      'Si no hay hueco, una persona puede salir con menos días de los que le tocan.',
+      'A igualdad, va antes quien tiene hijos a cargo y luego quien tiene más antigüedad.',
+    ],
+  },
+  '#operativaSabados': {
+    pasos: [
+      'Busca a la persona en su puesto.',
+      'Elige su grupo, A o B, y escribe el puesto si hace falta. Se guarda solo.',
+      'Pulsa <b>Vista previa</b> para imprimir o compartir el cuadro.',
+    ],
+    notas: [
+      'Es una clasificación de apoyo: no crea un calendario semana a semana.',
+      'No se pueden cambiar turnos con quien encabeza cada tienda salvo urgencia, avisando con 15 días de antelación.',
+    ],
+  },
+  '#operativaFestivos': {
+    pasos: [
+      'En cada festivo, elige quién lo trabajó: se le suma 1 día de vacaciones al año.',
+      'Cuando se le dé ese día, márcalo como compensado e indica si fue vacaciones o permiso, la fecha y una nota.',
+      'Si falta un festivo, añádelo con el formulario de abajo.',
+    ],
+    notas: [
+      'El registro de abajo enseña lo compensado y lo pendiente, para no dar el mismo día dos veces.',
+      'Marcarlo como compensado es solo un apunte: no cambia el total de días.',
+    ],
+  },
+  '#operativaPermisos': {
+    pasos: [
+      'Elige el empleado, las fechas y el motivo.',
+      'Lee los avisos, si salen, y pulsa <b>Añadir permiso</b>.',
+      'El permiso queda en el registro, donde también se puede borrar.',
+    ],
+    notas: [
+      'Un permiso cuenta igual que las vacaciones para la cobertura de su unidad.',
+      'Los avisos de cobertura o de turno de sábado no impiden conceder el permiso.',
+    ],
+  },
+  '#operativaEmpleados': {
+    pasos: [
+      'Busca por nombre o baja por los grupos.',
+      'Pulsa una persona para abrir su ficha.',
+      'Con <b>+ Nuevo empleado</b> das de alta a alguien.',
+    ],
+    notas: [
+      'Los grupos van en el mismo orden que el cuadrante.',
+      'Dentro de cada grupo van por el orden de las categorías, luego el más antiguo; sin categoría o sin antigüedad, al final.',
+      'Marca «Mostrar también los dados de baja» para ver a quien ya no está.',
+    ],
+  },
+  '#empCardTitle': {
+    pasos: [
+      'Rellena o cambia los datos de la persona.',
+      'Elige su <b>Categoría</b>. Para añadir, renombrar, ordenar o quitar categorías, usa <b>Gestionar categorías</b>.',
+      'Para fijar una fecha, escríbela en <b>Fechas preferidas</b> así: 01/07-15/07, y marca la casilla 📌.',
+      'Pulsa guardar para que se aplique.',
+    ],
+    notas: [
+      'Para dar de baja sin perder su historial, desmarca <b>Activo</b>. Eliminar la ficha la borra de verdad.',
+      'Una fecha preferida se puede correr unos días; una fija 📌 no se mueve nunca.',
+    ],
+  },
+  '#operativaCategorias': {
+    pasos: [
+      'Para cambiar un nombre, escribe encima de él.',
+      'Con ▲ y ▼ cambias el orden: lo de arriba sale primero en cada grupo.',
+      'Con ✕ quitas una categoría, y con <b>+ Añadir</b> creas una nueva.',
+    ],
+    notas: [
+      'Al cambiar un nombre, se actualiza en todas las fichas que lo usan.',
+      'Al quitar una categoría en uso, la app avisa y esas personas se quedan sin categoría. Sus fichas y vacaciones no cambian.',
+      'La categoría solo decide el orden en la lista de Empleados: no afecta a cobertura, rotación ni generador.',
+    ],
+  },
+  '#operativaImpresion': {
+    pasos: [
+      'Comprueba cómo saldrá la hoja, en A3 apaisado.',
+      'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
+    ],
+    notas: [
+      '<b>WhatsApp</b> prepara un texto con quién está fuera en la fecha elegida en «¿Quién está fuera?». No manda la imagen.',
+    ],
+  },
+  '#operativaImpresionTurnos': {
+    pasos: [
+      'Comprueba cómo saldrá el cuadro de turnos.',
+      'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
+    ],
+    notas: [
+      '<b>WhatsApp</b> prepara un resumen en texto, sin la imagen del cuadro.',
+    ],
+  },
+  '#operativaPlanAnual': {
+    pasos: [
+      'Consulta quién tiene vacaciones en el año elegido y en qué fechas, por bloques.',
+      'Pulsa <b>WhatsApp</b> si quieres compartirlo en texto.',
+    ],
+    notas: [
+      'Esta ventana solo enseña: las fechas se cambian en el cuadrante.',
+    ],
+  },
+};
+for(const [selector, {pasos, notas}] of Object.entries(OPERATIVAS)){
+  const details = document.createElement('details');
+  details.className = 'operativa';
+  details.innerHTML = `<summary>📖 Operativa</summary><div class="operativa-body">
+    <ol>${pasos.map(p=>`<li>${p}</li>`).join('')}</ol>
+    <b>Bueno es saber</b><ul>${notas.map(n=>`<li>${n}</li>`).join('')}</ul>
+  </div>`;
+  document.querySelector(selector).insertAdjacentElement('afterend', details);
 }
 
 document.querySelectorAll('.overlay').forEach(ov=>{
