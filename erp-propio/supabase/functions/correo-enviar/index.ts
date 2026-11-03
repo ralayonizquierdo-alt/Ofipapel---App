@@ -24,7 +24,7 @@ Deno.serve(async () => {
 
   const { data: cola, error } = await sb
     .from('correo_pendiente')
-    .select('id, para, asunto, cuerpo_html, intentos')
+    .select('id, para, asunto, cuerpo_html, intentos, buzon')
     .is('enviado_en', null)
     .lt('intentos', 5)
     .order('id')
@@ -39,19 +39,29 @@ Deno.serve(async () => {
 
   const { data: emp } = await sb
     .from('empresa')
-    .select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl, correo_remitente, correo_responder_a')
+    .select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl, correo_remitente, correo_responder_a, correo_remitente_compras')
     .order('codigo')
     .limit(1)
     .maybeSingle()
 
   // Microsoft 365
   if (graphConfigurado()) {
-    const desde = (emp?.correo_remitente ?? '').trim()
-    if (!desde) return fallo('Falta el «Correo remitente» en Archivo → Datos de Empresa.')
+    // Pedidos y reclamaciones a proveedores: salen de Compras y las respuestas vuelven a Compras.
+    const general = (emp?.correo_remitente ?? '').trim()
+    const compras = (emp?.correo_remitente_compras ?? '').trim()
     let enviados = 0
     for (const c of cola) {
       try {
-        await enviarGraph({ desde, para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean), responderA: emp?.correo_responder_a || null, asunto: c.asunto, html: c.cuerpo_html })
+        const esCompras = c.buzon === 'compras'
+        const desde = esCompras ? compras : general
+        if (!desde) throw new Error(`Falta el buzón ${esCompras ? 'de Compras' : 'del ERP'} en Archivo → Datos de Empresa.`)
+        await enviarGraph({
+          desde,
+          para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean),
+          responderA: esCompras ? compras : emp?.correo_responder_a || null,
+          asunto: c.asunto,
+          html: c.cuerpo_html,
+        })
         await sb.from('correo_pendiente').update({ enviado_en: new Date().toISOString(), intentos: c.intentos + 1, error: null }).eq('id', c.id)
         enviados++
       } catch (e) {
