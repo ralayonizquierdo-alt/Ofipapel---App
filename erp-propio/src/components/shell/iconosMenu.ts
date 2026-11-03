@@ -109,6 +109,7 @@ import {
   Activity,
   Stamp,
   Handshake,
+  SpellCheck,
 } from 'lucide-react'
 import { COLOR_SECCION } from './secciones'
 import type { MenuEntry, TopMenu } from './menus'
@@ -145,6 +146,7 @@ const ICONOS: Record<string, Icono> = {
   'Registro de incidencias': Bug,
   'Uso por Operario': Activity,
   'Acuerdos de Dirección': Handshake,
+  'Diccionario de textos': SpellCheck,
   'Control y Firmas': Stamp,
   'Cambiar Empleado': UserRoundPlus,
   'Cambiar de Área': LayoutGrid,

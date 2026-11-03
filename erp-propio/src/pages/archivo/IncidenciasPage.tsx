@@ -5,11 +5,13 @@
 // 20261101_devoluciones_e_incidencias).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Bug, MessageSquarePlus, Paperclip, Plus, Save } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { usePermisos } from '../../lib/PermisosContext'
 import { GwField, GwGroup, GwInput, GwSelect, GwTextArea, GwWindow } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
+import { abrirEnMiCorreo, enviarPorCorreo, exportarExcel, exportarPdf, exportarWord, type TablaExportar } from '../../lib/exportarTabla'
 import { windowTitle } from '../../components/shell/menus'
 
 export interface Incidencia {
@@ -150,15 +152,20 @@ export function IncidenciasPage() {
   const { superAdmin, realAdmin } = usePermisos()
   const [lista, setLista] = useState<Incidencia[]>([])
   const [filtro, setFiltro] = useState<'vivas' | 'todas' | Incidencia['estado']>('vivas')
-  const [tipo, setTipo] = useState<'' | Incidencia['tipo']>('')
-  const [quien, setQuien] = useState('')
-  const [sel, setSel] = useState<number | null>(null)
+  // Desde el globo 📌 y el Panel de Control llega ya filtrado: ?tipo=tarea&quien=Luis(&id=…).
+  const [params] = useSearchParams()
+  const [tipo, setTipo] = useState<'' | Incidencia['tipo']>(() => (params.get('tipo') as Incidencia['tipo'] | null) ?? '')
+  const [quien, setQuien] = useState(() => params.get('quien') ?? '')
+  const [sel, setSel] = useState<number | null>(() => Number(params.get('id')) || null)
   const [nueva, setNueva] = useState(false)
   const [comentarios, setComentarios] = useState<Comentario[]>([])
   const [comentario, setComentario] = useState('')
   const [edicion, setEdicion] = useState<Partial<Incidencia>>({})
   const [error, setError] = useState<string | null>(null)
   const [ayuda, setAyuda] = useState(false)
+  const [correo, setCorreo] = useState(false)
+  const [para, setPara] = useState('')
+  const [avisoCorreo, setAvisoCorreo] = useState<string | null>(null)
   const puedeGestionar = superAdmin || realAdmin
 
   const cargar = useCallback(async () => {
@@ -267,11 +274,49 @@ export function IncidenciasPage() {
           ))}
         </GwSelect>
         <span className="flex-1" />
+        {/* Exportar lo que se ve (con los filtros puestos): Excel, Word o PDF. */}
+        <button type="button" className="gw-btn" disabled={!filas.length} onClick={() => exportarExcel(tablaIncidencias(filas))}>
+          📊 Excel
+        </button>
+        <button type="button" className="gw-btn" disabled={!filas.length} onClick={() => exportarWord(tablaIncidencias(filas))}>
+          📝 Word
+        </button>
+        <button type="button" className="gw-btn" disabled={!filas.length} onClick={() => exportarPdf(tablaIncidencias(filas))}>
+          🖨 PDF
+        </button>
+        <button type="button" className="gw-btn" disabled={!filas.length} onClick={() => (setCorreo((c) => !c), setAvisoCorreo(null))}>
+          ✉ Correo
+        </button>
         <button type="button" className="gw-btn" onClick={() => setAyuda((a) => !a)}>
           Operativa
         </button>
       </div>
       {error && <div className="font-bold text-[#c42b1c]">{error}</div>}
+      {correo && (
+        <div className="flex flex-wrap items-center gap-2 border border-[var(--gw-border)] bg-white p-2">
+          <span>Enviar el listado ({filas.length} fila(s)) a:</span>
+          <GwInput value={para} onChange={(e) => setPara(e.target.value)} placeholder="correo@ejemplo.com (varios separados por coma)" className="w-[320px]" />
+          <button
+            type="button"
+            className="gw-btn"
+            disabled={!para.trim()}
+            onClick={async () => {
+              const e = await enviarPorCorreo(tablaIncidencias(filas), para)
+              setAvisoCorreo(e ? `❌ ${e}` : '✅ Enviado a la cola: sale desde el correo de la empresa en unos minutos.')
+            }}
+          >
+            Enviar desde el correo de la empresa
+          </button>
+          <button type="button" className="gw-btn" onClick={() => abrirEnMiCorreo(tablaIncidencias(filas), para)}>
+            Abrir en mi programa de correo
+          </button>
+          <span className="w-full text-[11px] text-[#555]">
+            El correo de la empresa sale cuando esté configurado (tarea pendiente). Mientras, usa «Abrir en mi programa de correo» o descarga el Excel/PDF y
+            adjúntalo.
+          </span>
+          {avisoCorreo && <span className="w-full font-bold">{avisoCorreo}</span>}
+        </div>
+      )}
       {ayuda && (
         <div className="border border-[var(--gw-border)] bg-white p-2">
           <GwOperativa
@@ -290,6 +335,14 @@ export function IncidenciasPage() {
                   'Pincha una incidencia para ver el detalle, la solución y los comentarios, y para añadir uno.',
                   'Los administradores cambian el estado, quién la lleva y la solución. Quien la apuntó puede marcarla como comprobada.',
                   'Tareas: filtra «Le toca a …» para ver lo tuyo. Cuando la hagas, pon el estado 🟢 Resuelta (y en Solución, qué se hizo): desaparece de «Pendientes». Claude revisa las tareas y quita las que ya están hechas.',
+                ],
+              },
+              {
+                titulo: 'Sacar el listado',
+                pasos: [
+                  'Se saca lo que ves en la lista, con los filtros puestos.',
+                  '📊 Excel descarga un fichero que abre Excel; 📝 Word, un documento; 🖨 PDF abre la impresión: elige «Guardar como PDF».',
+                  '✉ Correo: escribe a quién y pulsa «Enviar desde el correo de la empresa» (tabla completa), o «Abrir en mi programa de correo» (resumen en texto). Como mucho 10 direcciones y 20 envíos por hora; queda en la auditoría.',
                 ],
               },
               {
@@ -430,4 +483,26 @@ export function IncidenciasPage() {
       {nueva && <NuevaIncidencia pantalla="/archivo/incidencias" onCerrar={() => setNueva(false)} onCreada={() => void cargar()} />}
     </div>
   )
+}
+
+/** Lo que se exporta del Registro de incidencias (lo que se ve con los filtros puestos). */
+function tablaIncidencias(filas: Incidencia[]): TablaExportar {
+  const fecha = (v: string | null) => (v ? new Date(v).toLocaleDateString('es-ES') : '')
+  return {
+    titulo: 'Registro de incidencias',
+    columnas: ['Nº', 'Tipo', 'Qué pasa', 'Estado', 'Prioridad', 'Le toca a', 'Pantalla', 'Apuntada por', 'Fecha', 'Detalle', 'Solución'],
+    filas: filas.map((x) => [
+      x.id,
+      TIPOS[x.tipo].replace(/^\S+\s/, ''),
+      x.titulo,
+      ESTADOS[x.estado].replace(/^\S+\s/, ''),
+      x.prioridad,
+      x.asignado ?? '',
+      x.pantalla ?? '',
+      x.reportado_por,
+      fecha(x.reportado_en),
+      x.descripcion ?? '',
+      x.solucion ?? '',
+    ]),
+  }
 }

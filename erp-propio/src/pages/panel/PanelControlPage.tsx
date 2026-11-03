@@ -21,6 +21,7 @@ import { BarrasApiladas, BarrasSimples, C, Card, ColumnasComparadas, GraficoHora
 import { PERIODOS, REFRESCO_MS, fmtFecha, fmtNum, hoyCanarias, usePanelData, usePanelDia, usePanelFamilias, type FamiliaTop, type PanelData, type PanelDia, type Periodo } from './panelData'
 import { GwWindow } from '../../components/gw'
 import { GwOperativa } from '../../components/gw/GwOperativa'
+import { RecuadroMisTareas } from '../../components/shell/MisTareas'
 
 // Panel de Control: pantalla que se abre al entrar. Operativo (lo ven todos los empleados):
 // solo número de operaciones y unidades, nunca importes. Ver panelData.ts para el futuro panel
@@ -68,6 +69,8 @@ export function PanelControlPage() {
       className="flex min-h-full flex-col gap-1.5 bg-[#e9ebee] p-0.5 text-[12px]"
       style={{ '--panel-chart-h': 'clamp(140px, calc((100vh - 640px) / 2), 230px)' } as CSSProperties}
     >
+      {/* Mis tareas pendientes (Registro de incidencias): solo si tiene alguna. */}
+      <RecuadroMisTareas />
       {/* Filtros: una sola fila, arriba, y afectan a todo lo de abajo */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-[#adadad] bg-[var(--gw-face)] px-2 py-1">
         <label className="flex items-center gap-1.5">

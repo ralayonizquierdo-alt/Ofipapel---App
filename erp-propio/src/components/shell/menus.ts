@@ -73,6 +73,7 @@ export const MENUS: TopMenu[] = [
       }),
       // Fallos de programación, mejoras y dudas (Luis, 01/11/2026): todos los grupos.
       item('Registro de incidencias', { to: '/archivo/incidencias', description: 'Fallos, mejoras y dudas: apuntarlos y ver cómo van' }),
+      item('Diccionario de textos', { to: '/archivo/diccionario', description: 'Cómo se escribe cada palabra al pasar las descripciones de MAYÚSCULAS a minúsculas (ERP y web)' }),
       'sep',
       item('Cambiar Empleado', { action: 'signout', shortcut: 'CTRL+E' }),
       // Áreas de trabajo (Luis, 01/11/2026): Gestión, Contabilidad, Web o AVATAR (todo).
@@ -544,6 +545,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/archivo/incidencias', title: 'Registro de incidencias' },
   { prefix: '/archivo/uso', title: 'Uso por Operario' },
   { prefix: '/archivo/acuerdos', title: 'Acuerdos de Dirección' },
+  { prefix: '/archivo/diccionario', title: 'Diccionario de textos' },
   { prefix: '/contabilidad/control', title: 'Control y Firmas' },
   { prefix: '/contabilidad', title: 'Contabilidad' },
   { prefix: '/cambiar-clave', title: 'Cambiar Contraseña' },

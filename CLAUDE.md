@@ -212,6 +212,10 @@ para tener contexto antes de tocar código.
 
 ## Convenciones
 
+- **Condiciones de Programación (obligatorias)**: `erp-propio/docs/CONDICIONES_PROGRAMACION.md`.
+  Las fija la gerencia en el ERP (Archivo → Parámetros → Condiciones de
+  Programación) y solo cambian con un Acuerdo de Dirección; si el fichero
+  no coincide con el ERP, manda el ERP. Léelas antes de tocar código.
 - **Ramas, PRs y ciclo de vida de las ramas**: ver `CONTRIBUTING.md` —
   comprobar ramas activas antes de crear una nueva, proceso de
   reconciliación, y criterio para cerrar o eliminar ramas. No lo dupliques
