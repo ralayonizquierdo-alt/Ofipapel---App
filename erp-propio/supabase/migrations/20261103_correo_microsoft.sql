@@ -17,3 +17,18 @@ do $$ begin
     alter table public.correo_pendiente add constraint correo_pendiente_buzon_chk check (buzon in ('general', 'compras'));
   end if;
 end $$;
+
+-- Reclamaciones a clientes por cobros (recibos devueltos, recordatorios, deudas): desde administracion@ofipapelsl.com
+-- (Rober). Buzón «administracion»; los correos de la cola que vienen de cobros/devoluciones lo toman solos.
+alter table public.empresa add column if not exists correo_remitente_administracion text;
+update public.empresa set correo_remitente_administracion = 'administracion@ofipapelsl.com' where correo_remitente_administracion is null;
+alter table public.correo_pendiente drop constraint if exists correo_pendiente_buzon_chk;
+alter table public.correo_pendiente add constraint correo_pendiente_buzon_chk check (buzon in ('general', 'compras', 'administracion'));
+create or replace function public.fn_correo_pendiente_buzon_trg() returns trigger language plpgsql as $$
+begin
+  if new.buzon = 'general' and (new.origen like 'devolucion:%' or new.origen in ('recordatorio_devoluciones') or new.origen like 'cobro%' or new.origen like 'reclamacion_cobro%') then
+    new.buzon := 'administracion';
+  end if;
+  return new;
+end $$;
+create or replace trigger trg_correo_pendiente_buzon before insert on public.correo_pendiente for each row execute function public.fn_correo_pendiente_buzon_trg();

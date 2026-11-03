@@ -39,7 +39,7 @@ Deno.serve(async () => {
 
   const { data: emp } = await sb
     .from('empresa')
-    .select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl, correo_remitente, correo_responder_a, correo_remitente_compras')
+    .select('nombre, email, smtp_servidor, smtp_usuario, smtp_puerto, smtp_ssl, correo_remitente, correo_responder_a, correo_remitente_compras, correo_remitente_administracion')
     .order('codigo')
     .limit(1)
     .maybeSingle()
@@ -49,16 +49,19 @@ Deno.serve(async () => {
     // Pedidos y reclamaciones a proveedores: salen de Compras y las respuestas vuelven a Compras.
     const general = (emp?.correo_remitente ?? '').trim()
     const compras = (emp?.correo_remitente_compras ?? '').trim()
+    // Cobros a clientes (recibos devueltos, recordatorios, reclamaciones de deuda): desde Administración.
+    const administracion = (emp?.correo_remitente_administracion ?? '').trim()
     let enviados = 0
     for (const c of cola) {
       try {
         const esCompras = c.buzon === 'compras'
-        const desde = esCompras ? compras : general
-        if (!desde) throw new Error(`Falta el buzón ${esCompras ? 'de Compras' : 'del ERP'} en Archivo → Datos de Empresa.`)
+        const esAdmin = c.buzon === 'administracion'
+        const desde = esCompras ? compras : esAdmin ? administracion : general
+        if (!desde) throw new Error(`Falta el buzón ${esCompras ? 'de Compras' : esAdmin ? 'de Administración' : 'del ERP'} en Archivo → Datos de Empresa.`)
         await enviarGraph({
           desde,
           para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean),
-          responderA: esCompras ? compras : emp?.correo_responder_a || null,
+          responderA: esCompras || esAdmin ? desde : emp?.correo_responder_a || null,
           asunto: c.asunto,
           html: c.cuerpo_html,
         })
