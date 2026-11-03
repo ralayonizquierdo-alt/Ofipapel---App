@@ -637,3 +637,21 @@ empleados con sus permisos y elegir el día del cambio.
 - Herramientas `recordar` / `olvidar`: solo cuando la persona lo pide o lo confirma. «Olvidar» desactiva, no borra, y todo
   queda en la auditoría. No guardar en ella datos personales, claves ni nada confidencial.
 - Límite conocido: «olvidar» pide confirmación si el mensaje lleva un «no» (p. ej. «ya no hace falta»).
+
+### App de repartidores y seguimiento en TV (03/11/2026)
+
+- **App del móvil:** `/repartidor` (pública, sin cuenta del ERP), código en `src/reparto-app/`. El repartidor toca su
+  nombre, pone su PIN de 4 cifras (5 fallos = bloqueo 15 min) y elige su ruta (solo las suyas o sin repartidor).
+  ① Comprobar: marca los albaranes que lleva antes de salir. ② Repartir: Entregado / Incidencia (faltan, devuelve,
+  no corresponde, otro con texto obligatorio) / No entregado (motivo; 1.er y 2.º intento con hora automática).
+  Ordena arrastrando (⋮⋮). Lo que viene de un reparto anterior sale arriba y en rojo. Sin cobertura: guarda y envía
+  después. Ubicación solo con la ruta abierta y si el repartidor la acepta. `?r=CODIGO` abre con el nombre elegido
+  (para enlazarla desde Fichaje).
+- **ERP:** Ventas → Seguimiento de Repartos (`/repartos/seguimiento`): vista Rutas (una línea por ruta) y Mapa de
+  Tenerife, ranking semanal, totales semana/mes/año, «Modo TV» (pantalla completa, alterna cada 30 s), «Cerrar
+  reparto» y «PIN de la app».
+- **Cerrar reparto** (`fn_reparto_cerrar`): lo no entregado, con incidencia o sin marcar pasa al siguiente reparto
+  abierto de la ruta (o a uno nuevo del siguiente día de reparto) como «viene de anterior».
+- **Base de datos:** migración `20261103_reparto_app.sql` (funciones de la app `fn_app_rep_*`, internas en el esquema
+  `reparto_privado`, que la API no expone). Pendiente: de dónde salen los **bultos** (Rober lo habla con el equipo) y
+  borrar posiciones de más de 30 días con una tarea programada.

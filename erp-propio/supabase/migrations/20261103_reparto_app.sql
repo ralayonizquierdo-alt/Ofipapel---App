@@ -9,7 +9,7 @@
 --                             hora de entrega, comprobado antes de salir, bultos (pendiente de decidir de dónde
 --                             salen) y posición del marcado.
 --  · reparto_posicion         posición del repartidor MIENTRAS tiene una ruta abierta en la app (mapa de la TV).
---                             Se guarda 30 días. Hay que informar a los repartidores (protección de datos).
+--                             Pendiente: borrar lo de más de 30 días con una tarea programada. Hay que informar a los repartidores (protección de datos).
 --  · reparto_cambio_ruta      quién cambió un pedido de ruta, cuándo y por qué.
 -- En el ERP: fn_reparto_cerrar (cierra y pasa lo no entregado / con incidencia / sin marcar al reparto
 -- siguiente de la misma ruta, arriba y en rojo), fn_reparto_seguimiento (pantalla de TV) y
@@ -25,7 +25,6 @@ create table if not exists public.repartidor_pin (
   actualizado_en timestamptz not null default now()
 );
 alter table public.repartidor_pin enable row level security;
-revoke all on public.repartidor_pin from anon, authenticated;
 
 create table if not exists public.reparto_app_sesion (
   token uuid primary key default gen_random_uuid(),
@@ -35,7 +34,6 @@ create table if not exists public.reparto_app_sesion (
   dispositivo text
 );
 alter table public.reparto_app_sesion enable row level security;
-revoke all on public.reparto_app_sesion from anon, authenticated;
 
 alter table public.reparto_linea
   add column if not exists incidencia text,
@@ -69,7 +67,6 @@ create table if not exists public.reparto_posicion (
 );
 create index if not exists reparto_posicion_rep_idx on public.reparto_posicion (repartidor_codigo, en desc);
 alter table public.reparto_posicion enable row level security;
-revoke all on public.reparto_posicion from anon, authenticated;
 
 create table if not exists public.reparto_cambio_ruta (
   id bigint generated always as identity primary key,
@@ -91,7 +88,6 @@ do $$ begin
     create policy reparto_cambio_ruta_lee on public.reparto_cambio_ruta for select to authenticated using (public.fn_puede('/repartos'));
   end if;
 end $$;
-revoke all on public.reparto_cambio_ruta from anon;
 grant select on public.reparto_cambio_ruta to authenticated;
 create or replace trigger trg_auditoria_reparto_cambio_ruta after insert or update or delete on public.reparto_cambio_ruta
   for each row execute function public.fn_auditoria_trigger();
@@ -100,8 +96,10 @@ create or replace trigger trg_auditoria_reparto_cambio_ruta after insert or upda
 create or replace function public.fn_app_rep_hoy() returns date language sql stable
 as $$ select (now() at time zone 'Atlantic/Canary')::date $$;
 
+create schema if not exists reparto_privado;  -- no expuesto por la API: solo lo usan las funciones
+
 -- Comprueba la sesión y deja el origen para la auditoría. Devuelve el código del repartidor.
-create or replace function public.fn_app_rep_sesion(p_token uuid) returns text
+create or replace function reparto_privado.sesion(p_token uuid) returns text
 language plpgsql security definer set search_path = public as $$
 declare v text;
 begin
@@ -112,7 +110,7 @@ begin
 end $$;
 
 -- El reparto tiene que estar abierto y ser de este repartidor (si no tiene, se le asigna).
-create or replace function public.fn_app_rep_reparto(p_rep text, p_tienda text, p_numero integer) returns public.reparto
+create or replace function reparto_privado.reparto(p_rep text, p_tienda text, p_numero integer) returns public.reparto
 language plpgsql security definer set search_path = public as $$
 declare r reparto;
 begin
@@ -152,7 +150,6 @@ begin
     return jsonb_build_object('ok', false, 'error', case when p.fallos + 1 >= 5 then 'PIN incorrecto. Bloqueado 15 minutos.' else 'PIN incorrecto.' end);
   end if;
   update repartidor_pin set fallos = 0, bloqueado_hasta = null where repartidor_codigo = p_repartidor;
-  delete from reparto_app_sesion where caduca_en < now() - interval '1 day';
   insert into reparto_app_sesion (repartidor_codigo, dispositivo) values (p_repartidor, left(p_dispositivo, 200)) returning token into v_token;
   select coalesce(nullif(nombre_corto, ''), nombre) into v_nombre from repartidor where codigo = p_repartidor;
   return jsonb_build_object('ok', true, 'token', v_token, 'repartidor', p_repartidor, 'nombre', v_nombre, 'puede_cambiar_ruta', p.puede_cambiar_ruta);
@@ -161,7 +158,7 @@ end $$;
 -- Repartos abiertos que puede coger: los suyos y los que aún no tienen repartidor.
 create or replace function public.fn_app_rep_repartos(p_token uuid) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token);
+declare v_rep text := reparto_privado.sesion(p_token);
 begin
   return coalesce((
     select jsonb_agg(jsonb_build_object(
@@ -179,9 +176,9 @@ end $$;
 -- no hay, el puesto que solía ocupar ese cliente en esta ruta (memoria de los últimos 120 días); luego población.
 create or replace function public.fn_app_rep_lineas(p_token uuid, p_tienda text, p_numero integer) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token); r reparto;
+declare v_rep text := reparto_privado.sesion(p_token); r reparto;
 begin
-  r := fn_app_rep_reparto(v_rep, p_tienda, p_numero);
+  r := reparto_privado.reparto(v_rep, p_tienda, p_numero);
   return jsonb_build_object(
     'reparto', jsonb_build_object('tienda', r.tienda_terminal_codigo, 'numero', r.numero, 'fecha', r.fecha, 'ruta', r.ruta_codigo,
                                   'ruta_nombre', coalesce((select descripcion from ruta_reparto where codigo = r.ruta_codigo), r.ruta_codigo)),
@@ -217,10 +214,10 @@ create or replace function public.fn_app_rep_marcar(
   p_detalle text default null, p_nota text default null, p_en timestamptz default null,
   p_lat double precision default null, p_lng double precision default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token); l reparto_linea; t timestamptz; v_nota text := nullif(trim(left(p_nota, 500)), '');
+declare v_rep text := reparto_privado.sesion(p_token); l reparto_linea; t timestamptz; v_nota text := nullif(trim(left(p_nota, 500)), '');
   v_obs text;
 begin
-  perform fn_app_rep_reparto(v_rep, p_tienda, p_numero);
+  perform reparto_privado.reparto(v_rep, p_tienda, p_numero);
   select * into l from reparto_linea where tienda_terminal_codigo = p_tienda and numero = p_numero and venta_tienda_codigo = p_vt and venta_numero = p_vn for update;
   if not found then raise exception 'Ese pedido ya no está en esta ruta.'; end if;
   if l.estado in ('liquidado', 'anulado') then raise exception 'Ese pedido ya está %.', l.estado; end if;
@@ -270,9 +267,9 @@ end $$;
 
 create or replace function public.fn_app_rep_orden(p_token uuid, p_tienda text, p_numero integer, p_orden jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token); e jsonb; i int := 0;
+declare v_rep text := reparto_privado.sesion(p_token); e jsonb; i int := 0;
 begin
-  perform fn_app_rep_reparto(v_rep, p_tienda, p_numero);
+  perform reparto_privado.reparto(v_rep, p_tienda, p_numero);
   for e in select * from jsonb_array_elements(coalesce(p_orden, '[]'::jsonb)) loop
     i := i + 1;
     update reparto_linea set orden = i
@@ -284,9 +281,9 @@ end $$;
 
 create or replace function public.fn_app_rep_comprobar(p_token uuid, p_tienda text, p_numero integer, p_vt text, p_vn integer, p_ok boolean) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token);
+declare v_rep text := reparto_privado.sesion(p_token);
 begin
-  perform fn_app_rep_reparto(v_rep, p_tienda, p_numero);
+  perform reparto_privado.reparto(v_rep, p_tienda, p_numero);
   update reparto_linea set comprobado_en = case when p_ok then coalesce(comprobado_en, now()) end
    where tienda_terminal_codigo = p_tienda and numero = p_numero and venta_tienda_codigo = p_vt and venta_numero = p_vn;
   return jsonb_build_object('ok', true);
@@ -295,7 +292,7 @@ end $$;
 -- Posición mientras la ruta está abierta en la app (como mucho una cada 20 s; se guardan 30 días).
 create or replace function public.fn_app_rep_posicion(p_token uuid, p_tienda text, p_numero integer, p_lat double precision, p_lng double precision, p_precision real default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token);
+declare v_rep text := reparto_privado.sesion(p_token);
 begin
   if p_lat is null or p_lng is null or p_lat not between 27 and 29.5 or p_lng not between -18.5 and -13 then
     return jsonb_build_object('ok', false);  -- fuera de Canarias: no se guarda
@@ -303,7 +300,6 @@ begin
   if exists (select 1 from reparto where tienda_terminal_codigo = p_tienda and numero = p_numero and estado = 2 and repartidor_codigo = v_rep)
      and not exists (select 1 from reparto_posicion where repartidor_codigo = v_rep and en > now() - interval '20 seconds') then
     insert into reparto_posicion (repartidor_codigo, tienda_terminal_codigo, numero, lat, lng, precision_m) values (v_rep, p_tienda, p_numero, p_lat, p_lng, p_precision);
-    delete from reparto_posicion where en < now() - interval '30 days';
   end if;
   return jsonb_build_object('ok', true);
 end $$;
@@ -311,7 +307,7 @@ end $$;
 -- Rutas abiertas hoy a las que se puede pasar un pedido.
 create or replace function public.fn_app_rep_rutas_destino(p_token uuid) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token);
+declare v_rep text := reparto_privado.sesion(p_token);
 begin
   return coalesce((select jsonb_agg(jsonb_build_object('tienda', r.tienda_terminal_codigo, 'numero', r.numero, 'ruta', r.ruta_codigo,
                                                       'ruta_nombre', coalesce(rr.descripcion, r.ruta_codigo),
@@ -322,37 +318,37 @@ begin
 end $$;
 
 -- Mueve un pedido a otra ruta, dejando constancia. Desde la app solo si el repartidor tiene permiso.
-create or replace function public.fn_reparto_mover_linea(
+create or replace function reparto_privado.mover_linea(
   p_tienda text, p_numero integer, p_vt text, p_vn integer, p_dest_tienda text, p_dest_numero integer, p_motivo text, p_quien text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare o reparto; d reparto; l reparto_linea;
+declare o reparto; d reparto;
 begin
   if coalesce(trim(p_motivo), '') = '' then raise exception 'Indica por qué se cambia de ruta.'; end if;
   select * into o from reparto where tienda_terminal_codigo = p_tienda and numero = p_numero;
   select * into d from reparto where tienda_terminal_codigo = p_dest_tienda and numero = p_dest_numero;
   if o.estado is distinct from 2 or d.estado is distinct from 2 then raise exception 'Los dos repartos tienen que estar abiertos.'; end if;
   if o.tienda_terminal_codigo = d.tienda_terminal_codigo and o.numero = d.numero then raise exception 'Es la misma ruta.'; end if;
-  select * into l from reparto_linea where tienda_terminal_codigo = p_tienda and numero = p_numero and venta_tienda_codigo = p_vt and venta_numero = p_vn;
+  if exists (select 1 from reparto_linea where tienda_terminal_codigo = p_dest_tienda and numero = p_dest_numero and venta_tienda_codigo = p_vt and venta_numero = p_vn) then
+    raise exception 'Ese pedido ya está en la ruta de destino.';
+  end if;
+  update reparto_linea set tienda_terminal_codigo = p_dest_tienda, numero = p_dest_numero, orden = null, comprobado_en = null
+   where tienda_terminal_codigo = p_tienda and numero = p_numero and venta_tienda_codigo = p_vt and venta_numero = p_vn;
   if not found then raise exception 'Ese pedido no está en esa ruta.'; end if;
-  l.tienda_terminal_codigo := p_dest_tienda; l.numero := p_dest_numero; l.orden := null; l.comprobado_en := null;
-  insert into reparto_linea select l.*;
-  delete from reparto_linea where tienda_terminal_codigo = p_tienda and numero = p_numero and venta_tienda_codigo = p_vt and venta_numero = p_vn;
   update venta set reparto_tienda_codigo = p_dest_tienda, reparto_numero = p_dest_numero where tienda_terminal_codigo = p_vt and numero = p_vn;
   insert into reparto_cambio_ruta (venta_tienda_codigo, venta_numero, de_tienda, de_numero, de_ruta, a_tienda, a_numero, a_ruta, quien, motivo)
   values (p_vt, p_vn, p_tienda, p_numero, o.ruta_codigo, p_dest_tienda, p_dest_numero, d.ruta_codigo, p_quien, left(trim(p_motivo), 500));
   return jsonb_build_object('ok', true);
 end $$;
-revoke execute on function public.fn_reparto_mover_linea(text, integer, text, integer, text, integer, text, text) from public, anon, authenticated;
 
 create or replace function public.fn_app_rep_cambiar_ruta(p_token uuid, p_tienda text, p_numero integer, p_vt text, p_vn integer, p_dest_tienda text, p_dest_numero integer, p_motivo text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare v_rep text := fn_app_rep_sesion(p_token);
+declare v_rep text := reparto_privado.sesion(p_token);
 begin
-  perform fn_app_rep_reparto(v_rep, p_tienda, p_numero);
+  perform reparto_privado.reparto(v_rep, p_tienda, p_numero);
   if not coalesce((select puede_cambiar_ruta from repartidor_pin where repartidor_codigo = v_rep), false) then
     raise exception 'No puedes cambiar pedidos de ruta: avisa en la oficina.';
   end if;
-  return fn_reparto_mover_linea(p_tienda, p_numero, p_vt, p_vn, p_dest_tienda, p_dest_numero, p_motivo,
+  return reparto_privado.mover_linea(p_tienda, p_numero, p_vt, p_vn, p_dest_tienda, p_dest_numero, p_motivo,
                                 'Repartidor ' || coalesce((select coalesce(nullif(nombre_corto, ''), nombre) from repartidor where codigo = v_rep), v_rep));
 end $$;
 
@@ -361,7 +357,7 @@ create or replace function public.fn_reparto_cambiar_ruta(p_tienda text, p_numer
 language plpgsql security definer set search_path = public as $$
 begin
   if not fn_puede('/repartos') then raise exception 'Sin permiso de Repartos.' using errcode = '42501'; end if;
-  return fn_reparto_mover_linea(p_tienda, p_numero, p_vt, p_vn, p_dest_tienda, p_dest_numero, p_motivo, coalesce(fn_empleado_actual(), 'ERP'));
+  return reparto_privado.mover_linea(p_tienda, p_numero, p_vt, p_vn, p_dest_tienda, p_dest_numero, p_motivo, coalesce(fn_empleado_actual(), 'ERP'));
 end $$;
 
 -- ------------------------------------------------------------------ ERP: PIN, cierre y seguimiento
@@ -375,7 +371,7 @@ begin
   values (p_repartidor, extensions.crypt(p_pin, extensions.gen_salt('bf')), coalesce(p_puede_cambiar_ruta, false))
   on conflict (repartidor_codigo) do update set pin_hash = excluded.pin_hash, puede_cambiar_ruta = excluded.puede_cambiar_ruta,
     fallos = 0, bloqueado_hasta = null, actualizado_en = now();
-  delete from reparto_app_sesion where repartidor_codigo = p_repartidor;  -- cierra sus sesiones abiertas
+  update reparto_app_sesion set caduca_en = now() where repartidor_codigo = p_repartidor and caduca_en > now();  -- cierra sus sesiones
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -492,25 +488,5 @@ begin
 end $$;
 
 -- ------------------------------------------------------------------ Permisos de ejecución
-revoke execute on function public.fn_app_rep_sesion(uuid) from public, anon, authenticated;
-revoke execute on function public.fn_app_rep_reparto(text, text, integer) from public, anon, authenticated;
-grant execute on function public.fn_app_rep_repartidores() to anon, authenticated;
-grant execute on function public.fn_app_rep_login(text, text, text) to anon, authenticated;
-grant execute on function public.fn_app_rep_repartos(uuid) to anon, authenticated;
-grant execute on function public.fn_app_rep_lineas(uuid, text, integer) to anon, authenticated;
-grant execute on function public.fn_app_rep_marcar(uuid, text, integer, text, integer, text, text, text, timestamptz, double precision, double precision) to anon, authenticated;
-grant execute on function public.fn_app_rep_orden(uuid, text, integer, jsonb) to anon, authenticated;
-grant execute on function public.fn_app_rep_comprobar(uuid, text, integer, text, integer, boolean) to anon, authenticated;
-grant execute on function public.fn_app_rep_posicion(uuid, text, integer, double precision, double precision, real) to anon, authenticated;
-grant execute on function public.fn_app_rep_rutas_destino(uuid) to anon, authenticated;
-grant execute on function public.fn_app_rep_cambiar_ruta(uuid, text, integer, text, integer, text, integer, text) to anon, authenticated;
-revoke execute on function public.fn_reparto_cambiar_ruta(text, integer, text, integer, text, integer, text) from public, anon;
-revoke execute on function public.fn_repartidor_pin_poner(text, text, boolean) from public, anon;
-revoke execute on function public.fn_repartidores_app() from public, anon;
-revoke execute on function public.fn_reparto_cerrar(text, integer) from public, anon;
-revoke execute on function public.fn_reparto_seguimiento(date) from public, anon;
-grant execute on function public.fn_reparto_cambiar_ruta(text, integer, text, integer, text, integer, text) to authenticated;
-grant execute on function public.fn_repartidor_pin_poner(text, text, boolean) to authenticated;
-grant execute on function public.fn_repartidores_app() to authenticated;
-grant execute on function public.fn_reparto_cerrar(text, integer) to authenticated;
-grant execute on function public.fn_reparto_seguimiento(date) to authenticated;
+-- Las funciones públicas comprueban la sesión (app) o fn_puede (ERP); las internas están en reparto_privado,
+-- que la API no expone. Las tablas nuevas tienen RLS sin políticas: solo las leen estas funciones.

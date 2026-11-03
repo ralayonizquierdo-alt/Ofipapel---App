@@ -41,6 +41,7 @@ import { PresupuestosPage } from './pages/ventas/pedidos/PresupuestosPage'
 import { TpvPage } from './pages/ventas/tpv/TpvPage'
 import { VentaFichaPage } from './pages/ventas/ventas/VentaFichaPage'
 import { RepartoFichaPage } from './pages/ventas/repartos/RepartoFichaPage'
+import { SeguimientoRepartosPage } from './pages/ventas/repartos/SeguimientoRepartosPage'
 import { GestorPedidosPage } from './pages/ventas/gestores/GestorPedidosPage'
 import { GestorPresupuestosPage } from './pages/ventas/gestores/GestorPresupuestosPage'
 import { NumeroSerieFichaPage } from './pages/ventas/series/NumeroSerieFichaPage'
@@ -106,6 +107,7 @@ import * as ListadosClientes from './pages/listados/clientes'
 import { RecalcularDeudaPage } from './pages/clientes/RecalcularDeudaPage'
 import { ArchivoRoutes } from './pages/archivo/ArchivoRoutes'
 import { LiquidacionPage } from './pages/facturacion/LiquidacionPage'
+import { RepartoApp } from './reparto-app/RepartoApp'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -139,6 +141,8 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
+          {/* App de repartidores: pública (nombre + PIN), sin cuenta del ERP — src/reparto-app */}
+          <Route path="/repartidor" element={<RepartoApp />} />
           <Route element={<ProtectedArea />}>
             <Route path="/" element={null} />
             <Route path="/resumen" element={<PanelControlPage />} />
@@ -195,6 +199,7 @@ function App() {
             <Route path="/caja/apertura" element={<Navigate to="/caja/aperturas/nuevo" replace />} />
             <Route path="/caja/cierre" element={<Navigate to="/caja/aperturas?cerrar=1" replace />} />
             <Route path="/caja/aperturas/*" element={<AperturasCierresPage />} />
+            <Route path="/repartos/seguimiento" element={<SeguimientoRepartosPage />} />
             <Route path="/repartos/*" element={<RepartoFichaPage />} />
             <Route path="/gestor-pedidos" element={<GestorPedidosPage />} />
             <Route path="/gestor-presupuestos" element={<GestorPresupuestosPage />} />
