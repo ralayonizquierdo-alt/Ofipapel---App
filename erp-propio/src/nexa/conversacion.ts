@@ -406,7 +406,7 @@ export async function enviarCorreoNexa(id: number) {
   if (!c || c.estado !== 'borrador' || c.enviando) return
   parchearCorreo(id, { enviando: true, error: undefined })
   try {
-    const { data, error } = await supabase.functions.invoke<RespuestaFuncion & { estado?: string }>('nexa', { body: { accion: 'enviar_correo', correo: id } })
+    const { data, error } = await supabase.functions.invoke<RespuestaFuncion & { estado?: string }>('nexa-correo', { body: { correo: id } })
     if (error) throw error
     if (!data?.ok) {
       parchearCorreo(id, { enviando: false, error: data?.error ?? 'No se ha podido enviar.' })
