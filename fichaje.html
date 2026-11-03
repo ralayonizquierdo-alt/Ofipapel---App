@@ -1349,6 +1349,9 @@ async function openActionStep(){
     );
   }
 }
+/* App de reparto del ERP (src/reparto-app): se abre con el nombre ya elegido; allí el repartidor pone su PIN. */
+const REPARTO_APP_URL = 'https://ofipapel-erp-propio-preview.netlify.app/repartidor';
+function esRepartidor(person){ return !!person && effectiveUnitId(person)==='repartidores'; }
 async function refreshActionStep(){
   const todayEvents = await eventsForPersonToday(selectedPerson.id, clockToken);
   const log = document.getElementById('todayLog');
@@ -1364,6 +1367,16 @@ async function refreshActionStep(){
   grid.querySelectorAll('button').forEach(btn=>{
     btn.onclick = ()=> doClockAction(btn.dataset.type);
   });
+  /* Repartidores: con la jornada empezada, botón a su app de reparto (ERP). El fichaje sigue siendo este:
+     la jornada termina al fichar la salida aquí (al guardar la furgoneta en la nave), no al acabar la ruta. */
+  if(esRepartidor(selectedPerson) && !actions.includes('entrada')){
+    const a = document.createElement('a');
+    a.className = 'action-btn entrada';
+    a.href = REPARTO_APP_URL + '?n=' + encodeURIComponent(selectedPerson.name);
+    a.textContent = '🚚 Mi reparto';
+    a.style.cssText = 'display:flex;align-items:center;justify-content:center;text-decoration:none;grid-column:1/-1;';
+    grid.appendChild(a);
+  }
   document.getElementById('geoNote').textContent = cachedGeo ? '📍 Ubicación registrada con este fichaje.' : '';
 }
 async function doClockAction(type){
@@ -1381,7 +1394,8 @@ async function doClockAction(type){
     document.getElementById('actionSuccess').innerHTML =
       `<div class="toast-ok">${TYPE_LABEL[type]} registrada a las ${canaryTime(new Date().toISOString())} ✔</div>`;
     await refreshActionStep();
-    setTimeout(resetClockScreen, 2600);
+    /* Al fichar la entrada, el repartidor tiene el botón «Mi reparto» a mano: no se vuelve sola a la portada. */
+    if(!(type==='entrada' && esRepartidor(selectedPerson))) setTimeout(resetClockScreen, 2600);
   }catch(err){
     showToast('No se pudo registrar: '+err.message);
   }

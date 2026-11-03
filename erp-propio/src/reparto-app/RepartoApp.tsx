@@ -52,9 +52,12 @@ const MOTIVOS: [string, string][] = [
   ['otro', 'Otro'],
 ]
 
+const normal = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
 const hora = (v: string | null) => (v ? new Date(v).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' }) : '')
 const euros = (n: number | null | undefined) => (n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €')
 const base = import.meta.env.BASE_URL
+// Fichaje (fichaje.html, Firebase): el registro horario legal lo lleva Fichaje y lo gestiona gerencia.
+const FICHAJE_URL = 'https://ofipapel.netlify.app/fichaje.html'
 
 function useFuentesYManifiesto() {
   useEffect(() => {
@@ -218,8 +221,15 @@ function Entrada({ onEntrar }: { onEntrar: (s: Sesion) => void }) {
       .then((l) => {
         setLista(l)
         // Desde Fichaje se puede abrir con el repartidor ya elegido: /repartidor?r=CODIGO
-        const r = new URLSearchParams(location.search).get('r')
-        const encontrado = r ? l.find((x) => x.codigo === r) : null
+        // …o desde Fichaje con su nombre: /repartidor?n=Nombre Apellidos (se busca por nombre; el PIN sigue haciendo falta)
+        const q = new URLSearchParams(location.search)
+        const r = q.get('r')
+        const nom = normal(q.get('n') ?? '')
+        const encontrado = r
+          ? l.find((x) => x.codigo === r)
+          : nom
+            ? (l.find((x) => normal(x.nombre) === nom) ?? l.find((x) => nom.split(' ').includes(normal(x.nombre).split(' ')[0])))
+            : null
         if (encontrado) setQuien(encontrado)
       })
       .catch((e: ErrorApp) => setError(e.red ? 'Sin conexión. Prueba otra vez cuando tengas cobertura.' : e.message))
@@ -543,6 +553,18 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         <div style={{ color: '#fff', fontSize: 13, textShadow: '0 1px 2px rgba(0,0,0,.6)', padding: '0 4px' }}>
           Antes de salir: marca cada pedido cuyo albarán llevas. Si alguno no es de tu ruta, tócalo para cambiarlo o avisa en la oficina.
         </div>
+      )}
+
+      {modo === 'repartir' && ls.length > 0 && hechos === ls.length && (
+        <Tarjeta>
+          <div style={{ fontWeight: 800, fontSize: 18, color: V.verde }}>✔ Ruta terminada</div>
+          <div style={{ fontSize: 14, color: V.gris, margin: '6px 0 10px' }}>
+            Vuelve a la nave con las facturas y carga lo de mañana. Tu jornada termina al guardar la furgoneta: ficha la salida en Fichaje.
+          </div>
+          <a href={FICHAJE_URL} style={{ ...enlace, display: 'block' }}>
+            🕒 Ir a Fichaje
+          </a>
+        </Tarjeta>
       )}
 
       {!datos ? (
