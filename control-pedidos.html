@@ -604,14 +604,21 @@ function chipsQueFalta(g) {
   if (!por.size) return `<span class="chip ok">✅ Terminada</span>${restos}`;
   const lista = (xs) => xs.length > 6 ? xs.slice(0, 6).join(', ') + '…' : xs.join(', ');
   // El Excel y la guía, uno por factura y pulsables: si ya se hizo fuera de la app, se da por hecho.
-  const porFra = (k) => [...por.get(k)].map((f) => `<span class="chip mal" style="cursor:pointer" title="Pulsa si ya está hecho"
-    onclick="event.preventDefault(); event.stopPropagation(); marcarHecho(${js(g.clave)}, '${k}', ${js(f)})">${PASOS[k]}${f === 'validado' ? '' : ' · Fra ' + h(f)}</span>`).join('');
+  // La liquidación se sube desde el propio aviso; el Excel y la guía se dan por hechos.
+  const porFra = (k) => [...por.get(k)].map((f) => `<span class="chip mal" style="cursor:pointer" title="${k === 'liquidacion' ? 'Pulsa para subir la liquidación de Géminis (PDF)' : 'Pulsa si ya está hecho'}"
+    onclick="event.preventDefault(); event.stopPropagation(); ${k === 'liquidacion' ? `subirLiquidacion(${js(g.clave)})` : `marcarHecho(${js(g.clave)}, '${k}', ${js(f)})`}">${PASOS[k]}${f === 'validado' ? '' : ' · Fra ' + h(f)}</span>`).join('');
   // Último paso de la reposición: una casilla por pedido; al marcarla se archiva.
   const subir = g.pedidos.filter((p) => pasosPendientes(p).some((x) => x.paso === 'geminis')).map((p) =>
     `<span class="chip mal" style="cursor:pointer" title="Márcalo cuando esté subido a Géminis: el pedido se archiva"
       onclick="event.preventDefault(); event.stopPropagation(); subidoAGeminis('${p.id}')">☐ Subido a Géminis${p.numero ? ' · nº ' + h(p.numero) : ''}</span>`).join('');
   return subir + Object.keys(PASOS).filter((k) => por.has(k) && k !== 'geminis')
     .map((k) => POR_FACTURA.includes(k) ? porFra(k) : `<span class="chip ${k === 'reclamar' ? 'aviso' : 'mal'}">${PASOS[k]}: ${h(lista([...por.get(k)]))}</span>`).join('') + restos;
+}
+function subirLiquidacion(clave) {
+  const i = document.createElement('input');
+  i.type = 'file'; i.multiple = true;
+  i.onchange = () => cargarCodigosCampana(i.files, clave);
+  i.click();
 }
 function subidoAGeminis(id) {
   const p = pedidoPorId(id);
