@@ -187,7 +187,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 /* ── modal ── */
 .overlay{position:fixed;inset:0;background-image:linear-gradient(rgba(30,20,4,.6),rgba(30,20,4,.6)),var(--bg-pattern-login);background-size:cover;background-position:center;display:none;align-items:center;justify-content:center;z-index:50;}
 .overlay.open{display:flex;}
-.modal{background:#fff;border-radius:var(--rad);padding:20px;width:360px;max-width:92vw;box-shadow:var(--sombra);}
+.modal{background:#fff;border-radius:var(--rad);padding:20px;width:360px;max-width:92vw;max-height:92vh;overflow-y:auto;box-shadow:var(--sombra);}
 .modal h3{font-size:.95rem;margin-bottom:12px;color:var(--verde);}
 .modal .field{margin-bottom:10px;}
 .warn-box{background:#FFF6E5;border:1px solid #F5D68C;border-radius:8px;padding:8px 10px;font-size:.72rem;color:#8a5a00;margin-bottom:10px;}
@@ -546,7 +546,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="overlay" id="employeesOverlay">
   <div class="modal" style="width:560px;max-height:88vh;display:flex;flex-direction:column;">
-    <div id="empListView">
+    <div id="empListView" style="min-height:0;overflow-y:auto;">
       <h3 id="operativaEmpleados">Empleados</h3>
       <p style="font-size:.72rem;color:var(--texto2);margin-bottom:10px;">
         Aquí vive la plantilla real: da de alta/baja a quien entra o sale, y abre la ficha de cada persona
@@ -563,7 +563,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         <button class="btn btn-ghost" id="empListClose">Cerrar</button>
       </div>
     </div>
-    <div id="empCardView" style="display:none;">
+    <div id="empCardView" style="display:none;min-height:0;overflow-y:auto;">
       <h3 id="empCardTitle">Ficha de empleado</h3>
       <div class="field"><label>Nombre completo</label><input type="text" id="ecName"></div>
       <div class="field"><label>Unidad</label><select id="ecUnit"></select></div>
@@ -585,7 +585,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="check-row"><input type="checkbox" id="ecSinSustituto"><label for="ecSinSustituto">🚫 Sin sustituto (nadie cubre su puesto)</label></div>
       <div class="check-row"><input type="checkbox" id="ecHijos"><label for="ecHijos">👶 Tiene hijos a cargo (prioridad en la rotación, por delante de la antigüedad)</label></div>
       <div class="check-row"><input type="checkbox" id="ecActive"><label for="ecActive">Activo (desmarcar = de baja, deja de aparecer en el cuadrante)</label></div>
-      <div class="modal-actions">
+      <div class="modal-actions" style="position:sticky;bottom:0;background:#fff;padding-top:8px;margin-top:6px;flex-wrap:wrap;">
         <div class="left"><button class="btn btn-danger" id="ecDelete">🗑 Eliminar ficha</button></div>
         <div class="left">
           <button class="btn btn-ghost" id="ecBack">← Volver a la lista</button>
@@ -2076,6 +2076,7 @@ function openEmployeeCard(empId){
   const emp = empId ? EMPLOYEES.find(e=>e.id===empId) : null;
   document.getElementById('empListView').style.display='none';
   document.getElementById('empCardView').style.display='block';
+  document.getElementById('empCardView').scrollTop = 0;
   document.getElementById('empCardTitle').textContent = emp ? 'Ficha de empleado' : 'Nuevo empleado';
 
   const unitSel = document.getElementById('ecUnit');
