@@ -1025,6 +1025,7 @@ function bloqueRefsCambian(p) {
       ${pend.length > 1 ? `<button class="btn peque" onclick="marcarRefCambiada('${p.id}', null, null, true)">✓ Todas cambiadas</button>` : ''}
       <button class="btn peque" onclick="imprimirRefsCambian('${p.id}')">🖨️ Imprimir</button></div></details>`;
 }
+const REF_SIN_PRECIO = '2 NO Alta NO WEB';
 /** La referencia con la que Géminis conoce hoy el artículo: la nueva del proveedor si ya se cambió. */
 function refEnGeminis(p, ref) {
   const c = (E.catalogos[prov(p.proveedor)] || {}).cambiadas || {};
@@ -3849,6 +3850,9 @@ async function exportarPedidos(ids, opciones) {
       // Géminis guarda las referencias de Finocam sin el año del final.
       // La referencia ya cambiada en Géminis por la nueva del proveedor va con la nueva.
       const l = Object.assign({}, l0, { ref: l0.alta ? l0.ref : CP.refParaGeminis(refEnGeminis(p, l0.ref), p.proveedor) });
+      // Lo que viene sin precio (regalo, material promocional) entra en Géminis con
+      // una referencia comodín para que no dé error (propietario, 3/11/2026).
+      if (!(Number(l0.precio) > 0)) Object.assign(l, { ref: REF_SIN_PRECIO, alta: false });
       if (comoFactura) { filas.push(Object.assign(l, { _fra: CP.facturaDeLinea(l0, l0.origen || (p.factura.cabecera || {}).numero || p.factura.archivo), _ped: p })); continue; }
       const k = [l.ref, l.precio, l.dto].join('|');
       if (!suma.has(k)) { suma.set(k, Object.assign({}, l)); continue; }
