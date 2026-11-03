@@ -345,6 +345,11 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
 Cada pantalla lleva un desplegable **📖 Operativa** con cómo se usa, en pocas líneas: pasos numerados y
 «Bueno es saber». Toda pantalla nueva o que se cambie actualiza el suyo (`OPERATIVAS` en `vacaciones.html`).
 
+### Publicación y aviso «Actualizar» (Luis, 03/11/2026)
+
+Igual que en la ERP: los cambios se juntan y se publican solo cuando Luis da la orden, tras comprobarlos. Quien
+tenga la app abierta ve un aviso amarillo con **Actualizar** al publicarse una versión nueva de esta página.
+
 ### Categorías de empleado
 
 En la ficha, el desplegable **Categoría** y el botón **Gestionar categorías** (añadir, renombrar, ordenar y

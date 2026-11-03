@@ -294,6 +294,10 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </style>
 </head>
 <body>
+<div id="newVersionBar" style="display:none;position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:9999;max-width:94vw;align-items:center;gap:10px;background:#FFF6BF;border:1px solid #D4B106;border-radius:8px;padding:5px 12px;font-size:.78rem;color:var(--texto);box-shadow:var(--sombra);">
+  <span>Hay una versión nueva de la app. <small>(guarda antes lo que estés escribiendo)</small></span>
+  <button class="btn btn-primary" id="btnNewVersion">Actualizar</button>
+</div>
 <div id="authGate" style="position:fixed;inset:0;background-image:var(--bg-pattern-login);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;z-index:9999;">
   <div class="modal" style="width:320px;">
     <h3>🔒 Iniciar sesión</h3>
@@ -3309,6 +3313,28 @@ function showToast(msg){
   toastTimer = setTimeout(()=> t.classList.remove('show'), 3200);
 }
 
+/* ═══════════════════ AVISO DE VERSIÓN NUEVA (como en la ERP) ═══════════════════
+   Cada minuto y al volver a la pestaña se compara la huella (ETag) de esta página con la de cuando se
+   abrió. Solo cambia si cambia este fichero, así que publicar otra app no avisa aquí. No recarga sola,
+   para no perder lo que se esté escribiendo. */
+let loadedPageEtag = null;
+async function checkNewVersion(){
+  try{
+    const res = await fetch(location.pathname, {method:'HEAD', cache:'no-store'});
+    const etag = res.ok && res.headers.get('etag');
+    if(!etag) return;
+    const hash = etag.split('-ssl')[0]; // Netlify añade "-ssl" o "-ssl-df" según la compresión
+    if(!loadedPageEtag) loadedPageEtag = hash;
+    else if(hash!==loadedPageEtag) document.getElementById('newVersionBar').style.display = 'flex';
+  }catch(e){ /* sin conexión: se vuelve a mirar en la siguiente vuelta */ }
+}
+document.getElementById('btnNewVersion').onclick = ()=> location.reload();
+if(/^https?:$/.test(location.protocol)){
+  checkNewVersion();
+  setInterval(checkNewVersion, 60000);
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkNewVersion(); });
+}
+
 /* ═══════════════════ OPERATIVA (norma de Luis, 03/11/2026) ═══════════════════
    Cada pantalla nueva o que se cambie lleva aquí cómo se usa: pasos numerados y "Bueno es saber".
    La clave es el título tras el que aparece; queda plegada hasta que se pulsa. */
@@ -3326,6 +3352,7 @@ const OPERATIVAS = {
       'El rayado rosa son fechas bloqueadas: nadie puede coger vacaciones en ellas.',
       'Generar y «Borrar todo» solo tocan el año que estás viendo.',
       'El generador coloca primero las fechas fijas 📌 y procura no repetir las fechas del año anterior.',
+      'Si sale arriba el aviso amarillo de versión nueva, pulsa <b>Actualizar</b> para recargar la página.',
     ],
   },
   '#pmTitle': {

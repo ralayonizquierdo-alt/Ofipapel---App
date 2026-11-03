@@ -220,6 +220,10 @@ para tener contexto antes de tocar código.
   reconciliación, y criterio para cerrar o eliminar ramas. No lo dupliques
   aquí.
 - Nombres de commit descriptivos, en español, estilo `fix:`/`feat:` cuando aplica.
+- **Publicación de Vacaciones** (Luis, 3/11/2026, como en la ERP): los cambios de
+  `vacaciones.html` y `VACACIONES_REGLAS.md` se juntan en una rama y solo van a
+  `main` con el «adelante» de Luis, tras repasarlos juntos; entonces Claude los
+  sube él mismo y comprueba la versión publicada. Cada pantalla lleva su Operativa.
 - **Fusión de PRs de Control de Pedidos** (autorización permanente del
   propietario, 2026-10-03): Claude fusiona él mismo sus PRs de
   `control-pedidos.html` y sus piezas (`control-pedidos-logica.js`,
