@@ -860,11 +860,16 @@ function vistaGrupo(g, i) {
  *  que la guía de facturación salga con él. Se lee sin IA. */
 async function cargarCodigosCampana(files, clave) {
   const lineas = [];
+  const subidas = [];
   for (const f of [...files]) {
     try {
-      const g = /\.pdf$/i.test(f.name) ? CP.leerPedidoGeminis(await textoDePdf(f)) : null;
+      const texto = /\.pdf$/i.test(f.name) ? await textoDePdf(f) : null;
+      const g = texto ? CP.leerPedidoGeminis(texto) : null;
       if (!g) { alert(`${f.name} no parece una «Propuesta de Pedido» de Géminis en PDF.`); continue; }
       lineas.push(...g.lineas);
+      // El nº de factura que se escribió en Géminis, para listarla en «Documentos subidos».
+      const m = texto.join('\n').match(/N[ºo°]\s*Factura[\s\S]{0,200}?\b(\d{6,})\b/i);
+      subidas.push({ nombre: f.name, fra: m ? m[1] : '', codigos: g.lineas.length, fecha: hoy() });
     } catch (err) { alert('No he podido leer ' + f.name + ': ' + err.message); }
   }
   if (!lineas.length) return;
@@ -879,6 +884,7 @@ async function cargarCodigosCampana(files, clave) {
   }
   // La factura cuyas líneas tienen ya todas su código interno queda con la liquidación hecha.
   for (const p of ps) for (const f of facturasDe(p)) if (facturaCodificada(p, f)) apuntarHecho(p, 'liquidacion', [f]);
+  for (const p of ps) p.liquidaciones = ((p.liquidaciones || []).filter((x) => !subidas.some((y) => y.nombre === x.nombre))).concat(subidas);
   guardar(); pintar();
   alert(`Liquidación leída: ${lineas.length} códigos.\n${con} líneas de los pedidos ya tienen código interno.` +
     (sin.length ? `\nSin código (${sin.length}): ${sin.slice(0, 15).join(', ')}${sin.length > 15 ? '…' : ''}` : ''));
@@ -2191,8 +2197,12 @@ function bloqueDocumentos(g) {
     ? `<div class="aviso-caja mal" style="margin:6px 0"><b>🧮 Artículos: ${cu.facturadas} uds. facturadas por el proveedor, ${cu.aClientes} a clientes</b>${cu.sinCliente ? ` · ${cu.sinCliente} sin cliente` : ''}${cu.sinValidar ? ` · ${cu.sinValidar} en pedidos sin validar` : ''}
         ${cu.difs.length ? `<ul style="margin:4px 0 0 18px;padding:0">${cu.difs.map((d) => `<li>Pedido ${h(nPed(d.numero))} (${h(d.cliente)}) · <b>${h(d.ref)}</b>: facturadas ${d.facturado}, al cliente ${d.aCliente}</li>`).join('')}</ul>` : ''}</div>`
     : `<div class="aviso-caja ok" style="margin:6px 0"><b>🧮 Artículos cuadrados:</b> las ${cu.facturadas} uds. que factura el proveedor están todas facturadas a un cliente.</div>`;
-  return `${lineaCuadre}<details class="no-imprimir" style="margin:8px 0"><summary>📂 Documentos subidos: 📷 ${nFotos} foto(s) · 📄 ${docs.filter((d) => d.campo === 'propuesta').length} propuesta(s) · 🧾 ${docs.filter((d) => d.campo === 'factura').length} factura(s) final(es)</summary>
-    <div style="display:grid;gap:8px;margin-top:8px">${lista('propuesta', '📄 Propuestas del proveedor')}${lista('factura', '🧾 Facturas finales')}</div></details>`;
+  // Liquidaciones de Géminis subidas (se apuntan desde el 3/11/2026; las de antes no constan).
+  const liqs = [...new Map(g.pedidos.flatMap((p) => p.liquidaciones || []).map((x) => [x.nombre, x])).values()];
+  const listaLiq = `<div><b>🏷️ Liquidaciones de Géminis (${liqs.length})</b>${liqs.length ? `<ul style="margin:4px 0 0 18px;padding:0">${liqs.map((x) =>
+    `<li><b>${x.fra ? 'Factura ' + h(x.fra) : h(x.nombre)}</b> · ${h(x.nombre)} · ${x.codigos} códigos · ${h(fmtFecha(x.fecha))}</li>`).join('')}</ul>` : ' <span class="pequeno">ninguna</span>'}</div>`;
+  return `${lineaCuadre}<details class="no-imprimir" style="margin:8px 0"><summary>📂 Documentos subidos: 📷 ${nFotos} foto(s) · 📄 ${docs.filter((d) => d.campo === 'propuesta').length} propuesta(s) · 🧾 ${docs.filter((d) => d.campo === 'factura').length} factura(s) final(es) · 🏷️ ${liqs.length} liquidación(es)</summary>
+    <div style="display:grid;gap:8px;margin-top:8px">${lista('propuesta', '📄 Propuestas del proveedor')}${lista('factura', '🧾 Facturas finales')}${listaLiq}</div></details>`;
 }
 /** El Excel de Géminis de una sola factura final de la campaña (la compra de esa factura). */
 function excelDeFactura(clave, indice) {
