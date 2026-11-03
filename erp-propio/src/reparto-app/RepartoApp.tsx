@@ -620,7 +620,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         <Tarjeta>
           <div style={{ fontWeight: 800, fontSize: 18, color: V.verde }}>✔ Ruta terminada</div>
           <div style={{ fontSize: 14, color: V.gris, margin: '6px 0 10px' }}>
-            Vuelve a la nave con las facturas y carga lo de mañana. Tu jornada termina al guardar la furgoneta: ficha la salida en Fichaje.
+            Pasa por Ofipapel a entregar los cobros y cargar la furgoneta para mañana. Tu jornada termina al guardar la furgoneta en la nave: ficha la salida allí, en Fichaje.
           </div>
           <a href={FICHAJE_URL} style={{ ...enlace, display: 'block' }}>
             🕒 Ir a Fichaje

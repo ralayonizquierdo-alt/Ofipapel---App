@@ -1368,7 +1368,7 @@ async function refreshActionStep(){
     btn.onclick = ()=> doClockAction(btn.dataset.type);
   });
   /* Repartidores: con la jornada empezada, botón a su app de reparto (ERP). El fichaje sigue siendo este:
-     la jornada termina al fichar la salida aquí (al guardar la furgoneta en la nave), no al acabar la ruta. */
+     la jornada termina al fichar la salida aquí (al guardar la furgoneta en la nave, después de pasar por Ofipapel a entregar los cobros y cargar), no al acabar la ruta. */
   if(esRepartidor(selectedPerson) && !actions.includes('entrada')){
     const a = document.createElement('a');
     a.className = 'action-btn entrada';
