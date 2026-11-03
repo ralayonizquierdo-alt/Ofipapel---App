@@ -9,6 +9,8 @@ export interface Sesion {
   repartidor: string
   nombre: string
   puede_cambiar_ruta: boolean
+  /** Persona de Fichaje (id de Firebase) para comprobar que ha fichado; llega desde el botón «Mi reparto». */
+  fichaje_persona: string | null
   caduca: number
 }
 
@@ -19,6 +21,7 @@ export interface RepartoApp {
   ruta: string | null
   ruta_nombre: string | null
   mio?: boolean
+  manana?: boolean
   pedidos?: number
   pendientes?: number
   repartidor?: string | null
@@ -107,13 +110,30 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 export const repartidores = () => rpc<{ codigo: string; nombre: string }[]>('fn_app_rep_repartidores', {})
 
 export async function entrar(repartidor: string, pin: string): Promise<Sesion> {
-  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean }>('fn_app_rep_login', {
+  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean; fichaje_persona: string | null }>('fn_app_rep_login', {
     p_repartidor: repartidor,
     p_pin: pin,
     p_dispositivo: navigator.userAgent.slice(0, 200),
   })
   if (!r.ok) throw new ErrorApp(r.error ?? 'PIN incorrecto.')
-  const s: Sesion = { token: r.token, repartidor: r.repartidor, nombre: r.nombre, puede_cambiar_ruta: r.puede_cambiar_ruta, caduca: Date.now() + 15.5 * 3600_000 }
+  const s: Sesion = {
+    token: r.token,
+    repartidor: r.repartidor,
+    nombre: r.nombre,
+    puede_cambiar_ruta: r.puede_cambiar_ruta,
+    fichaje_persona: r.fichaje_persona,
+    caduca: Date.now() + 15.5 * 3600_000,
+  }
+  // Si ha entrado desde Fichaje («Mi reparto»), se apunta qué persona de Fichaje es.
+  const p = new URLSearchParams(location.search).get('p')
+  if (p && p !== s.fichaje_persona) {
+    try {
+      await rpc('fn_app_rep_vincular_fichaje', { p_token: s.token, p_persona: p })
+      s.fichaje_persona = p
+    } catch {
+      /* se vuelve a intentar la próxima vez */
+    }
+  }
   guardarSesion(s)
   return s
 }

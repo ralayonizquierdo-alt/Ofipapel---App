@@ -1372,7 +1372,7 @@ async function refreshActionStep(){
   if(esRepartidor(selectedPerson) && !actions.includes('entrada')){
     const a = document.createElement('a');
     a.className = 'action-btn entrada';
-    a.href = REPARTO_APP_URL + '?n=' + encodeURIComponent(selectedPerson.name);
+    a.href = REPARTO_APP_URL + '?n=' + encodeURIComponent(selectedPerson.name) + '&p=' + encodeURIComponent(selectedPerson.id);
     a.textContent = '🚚 Mi reparto';
     a.style.cssText = 'display:flex;align-items:center;justify-content:center;text-decoration:none;grid-column:1/-1;';
     grid.appendChild(a);

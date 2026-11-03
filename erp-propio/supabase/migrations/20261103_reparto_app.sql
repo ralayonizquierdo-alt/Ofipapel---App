@@ -152,7 +152,7 @@ begin
   update repartidor_pin set fallos = 0, bloqueado_hasta = null where repartidor_codigo = p_repartidor;
   insert into reparto_app_sesion (repartidor_codigo, dispositivo) values (p_repartidor, left(p_dispositivo, 200)) returning token into v_token;
   select coalesce(nullif(nombre_corto, ''), nombre) into v_nombre from repartidor where codigo = p_repartidor;
-  return jsonb_build_object('ok', true, 'token', v_token, 'repartidor', p_repartidor, 'nombre', v_nombre, 'puede_cambiar_ruta', p.puede_cambiar_ruta);
+  return jsonb_build_object('ok', true, 'token', v_token, 'repartidor', p_repartidor, 'nombre', v_nombre, 'puede_cambiar_ruta', p.puede_cambiar_ruta, 'fichaje_persona', p.fichaje_persona);
 end $$;
 
 -- Repartos abiertos que puede coger: los suyos y los que aún no tienen repartidor.
@@ -169,7 +169,7 @@ begin
                               and l.estado in ('pendiente', 'viene_anterior')))
            order by (r.repartidor_codigo = v_rep) desc, r.ruta_codigo)
       from reparto r left join ruta_reparto rr on rr.codigo = r.ruta_codigo
-     where r.estado = 2 and r.fecha <= fn_app_rep_hoy() and (r.repartidor_codigo is null or r.repartidor_codigo = v_rep)), '[]'::jsonb);
+     where r.estado = 2 and r.fecha <= fn_app_rep_hoy() + 1 and (r.repartidor_codigo is null or r.repartidor_codigo = v_rep)), '[]'::jsonb);
 end $$;
 
 -- Pedidos de la ruta. Orden: los que vienen de un reparto anterior arriba; luego el orden del repartidor; si
@@ -490,3 +490,20 @@ end $$;
 -- ------------------------------------------------------------------ Permisos de ejecución
 -- Las funciones públicas comprueban la sesión (app) o fn_puede (ERP); las internas están en reparto_privado,
 -- que la API no expone. Las tablas nuevas tienen RLS sin políticas: solo las leen estas funciones.
+
+-- ------------------------------------------------------------------ Fichaje (03/11/2026, Rober)
+-- Para entregar hay que haber fichado la entrada en Fichaje (fichaje.html, Firebase). La app lo comprueba leyendo
+-- Fichaje; aquí solo se guarda qué persona de Fichaje es cada repartidor (llega en el botón «Mi reparto» de Fichaje).
+-- La ruta del día siguiente se puede ver y comprobar la víspera (fn_app_rep_repartos: fecha <= hoy + 1).
+alter table public.repartidor_pin add column if not exists fichaje_persona text;
+create or replace function public.fn_app_rep_vincular_fichaje(p_token uuid, p_persona text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_rep text := reparto_privado.sesion(p_token);
+begin
+  if coalesce(trim(p_persona), '') = '' or length(p_persona) > 100 then raise exception 'Falta la persona de Fichaje.'; end if;
+  update repartidor_pin set fichaje_persona = trim(p_persona) where repartidor_codigo = v_rep and fichaje_persona is distinct from trim(p_persona);
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.fn_app_rep_vincular_fichaje(uuid, text) to anon, authenticated;
+-- fn_app_rep_login devuelve además 'fichaje_persona'; fn_app_rep_repartos devuelve 'manana' y admite fecha <= hoy + 1
+-- (versiones completas aplicadas con execute_sql el 03/11/2026, iguales a las de arriba con esos dos cambios).

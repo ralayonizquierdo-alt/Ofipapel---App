@@ -21,6 +21,7 @@ import {
   type RepartoApp,
   type Sesion,
 } from './api'
+import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
 
 // App de repartidores (/repartidor): móvil, sin cuenta del ERP. Mismo estilo que Fichaje (fichaje.html):
 // verdes de Ofipapel, fondo con tréboles, tarjetas blancas con borde lima.
@@ -337,6 +338,7 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
             >
               <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>🚚 {r.ruta_nombre ?? 'Sin ruta'}</div>
               <div style={{ color: V.gris, fontSize: 14 }}>
+                {r.manana ? 'Mañana · ' : ''}
                 {r.pedidos} pedidos · {r.pendientes} por entregar{r.mio ? ' · tuya' : ' · sin repartidor'}
               </div>
             </button>
@@ -360,6 +362,30 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   const [pendientesCola, setPendientesCola] = useState(() => cola().length)
   const [modo, setModo] = useState<'comprobar' | 'repartir'>(() => (leer<string>(`reparto.modo.${reparto.tienda}-${reparto.numero}`) as 'comprobar' | 'repartir') ?? 'comprobar')
   const [gps, setGps] = useState<'si' | 'no' | null>(() => leer<'si' | 'no'>('reparto.gps'))
+  // Fichaje: sin la entrada fichada hoy no se puede entregar (sí ver, comprobar, ordenar y cambiar de ruta).
+  const persona = sesion.fichaje_persona
+  const [fichaje, setFichaje] = useState<EstadoFichaje | 'sin_vinculo' | 'comprobando' | 'sin_conexion'>(() =>
+    !persona ? 'sin_vinculo' : (estadoGuardado(persona) ?? 'comprobando'),
+  )
+  const mirarFichaje = useCallback(async () => {
+    if (!persona) return setFichaje('sin_vinculo')
+    try {
+      setFichaje(await estadoFichaje(persona))
+    } catch {
+      setFichaje(estadoGuardado(persona) ?? 'sin_conexion')
+    }
+  }, [persona])
+  useEffect(() => {
+    void mirarFichaje()
+    const t = setInterval(() => void mirarFichaje(), 60_000)
+    const vis = () => document.visibilityState === 'visible' && void mirarFichaje()
+    document.addEventListener('visibilitychange', vis)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', vis)
+    }
+  }, [mirarFichaje])
+  const puedeEntregar = fichaje === 'trabajando'
 
   const ls = useMemo(() => datos?.lineas ?? [], [datos])
   const clave = (l: LineaApp) => `${l.vt}-${l.vn}`
@@ -432,6 +458,12 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   }
 
   const accion = (l: LineaApp, tipo: 'entregado' | 'incidencia' | 'no_entregado' | 'deshacer', detalle?: string, nota?: string) => {
+    if (tipo !== 'deshacer' && !puedeEntregar) {
+      setHoja(null)
+      setAviso('Primero ficha la entrada en Fichaje: hasta entonces puedes ver, comprobar y ordenar la ruta, pero no entregar.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     const ahora = new Date().toISOString()
     const pos = ultimaPos.current
     if (tipo === 'entregado') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, entregado_en: ahora, nota: nota ?? null })
@@ -520,6 +552,35 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         </Tarjeta>
       )}
 
+      {!puedeEntregar && (
+        <Tarjeta style={{ borderTopColor: V.naranja }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: V.rojo }}>🕒 {fichaje === 'pausa' ? 'Estás en pausa' : fichaje === 'salida' ? 'Ya has fichado la salida' : 'Lo primero: fichar'}</div>
+          <div style={{ fontSize: 14, color: V.gris, margin: '6px 0 10px' }}>
+            {fichaje === 'sin_vinculo'
+              ? 'Para entregar, entra en Fichaje, ficha la entrada y pulsa «🚚 Mi reparto». Mientras, puedes ver, comprobar y ordenar tu ruta.'
+              : fichaje === 'comprobando'
+                ? 'Comprobando tu fichaje…'
+                : fichaje === 'sin_conexion'
+                  ? 'Sin cobertura no puedo comprobar tu fichaje. En cuanto vuelva la señal lo miro otra vez.'
+                  : fichaje === 'pausa'
+                    ? 'Ficha el fin de pausa en Fichaje para seguir entregando.'
+                    : fichaje === 'salida'
+                      ? 'Tu jornada de hoy está cerrada en Fichaje. Si sigues trabajando, ficha la entrada otra vez.'
+                      : 'Aún no has fichado la entrada hoy. Ficha en Fichaje y vuelve: hasta entonces puedes ver, comprobar y ordenar la ruta, pero no entregar.'}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a href={FICHAJE_URL} style={{ ...enlace, display: 'block', background: V.verdeMed, color: '#fff' }}>
+              🕒 Ir a Fichaje
+            </a>
+            {fichaje !== 'sin_vinculo' && (
+              <button type="button" onClick={() => void mirarFichaje()} style={{ ...enlace, background: '#fff' }}>
+                Ya he fichado
+              </button>
+            )}
+          </div>
+        </Tarjeta>
+      )}
+
       <div style={{ display: 'flex', background: 'rgba(255,255,255,.9)', borderRadius: 16, padding: 4, gap: 4 }}>
         {(['comprobar', 'repartir'] as const).map((m) => (
           <button
@@ -580,6 +641,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           onAccion={accion}
           onHoja={setHoja}
           puedeCambiarRuta={sesion.puede_cambiar_ruta}
+          bloqueado={!puedeEntregar}
         />
       )}
 
@@ -627,6 +689,7 @@ function Lista({
   onAccion,
   onHoja,
   puedeCambiarRuta,
+  bloqueado,
 }: {
   lineas: LineaApp[]
   modo: 'comprobar' | 'repartir'
@@ -637,6 +700,7 @@ function Lista({
   onAccion: (l: LineaApp, t: 'entregado' | 'deshacer') => void
   onHoja: (h: Hoja) => void
   puedeCambiarRuta: boolean
+  bloqueado: boolean
 }) {
   const [orden, setOrden] = useState<LineaApp[]>(lineas)
   const [arrastrando, setArrastrando] = useState<string | null>(null)
@@ -816,7 +880,7 @@ function Lista({
                       </Boton>
                     </div>
                   ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10, opacity: bloqueado ? 0.45 : 1 }}>
                       <Boton onClick={() => onAccion(l, 'entregado')} style={{ fontSize: 14, padding: '12px 4px' }}>
                         ✅<br />
                         Entregado
