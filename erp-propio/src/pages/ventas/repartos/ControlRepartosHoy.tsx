@@ -143,7 +143,7 @@ export function ControlRepartosHoy({
                       </td>
                       <td className="border-b border-[var(--gw-border-light)] px-1.5">
                         <div className="flex">
-                          <BarraPuntos r={r} alto={20} />
+                          <BarraPuntos r={r} alto={22} horas />
                         </div>
                       </td>
                       <td className="w-[170px] border-b border-[var(--gw-border-light)] px-1.5 text-right">
@@ -231,8 +231,8 @@ function DialogoTv({ onCerrar }: { onCerrar: () => void }) {
   return (
     <Modal titulo="Pantalla de la TV" onCerrar={onCerrar}>
       <div>
-        La TV no usa el ERP: abre en su navegador el enlace que se crea aquí (o escanea el código con el móvil y lo mandas a la TV) y lo deja en
-        pantalla completa. Allí se ven las rutas, el mapa, el ranking y los totales, y se alternan solos. El enlace solo se enseña una vez: guárdalo
+        La TV no usa el ERP: crea el enlace, cópialo o mándalo por correo, y ábrelo en el navegador de la TV en pantalla completa (o escanea el
+        código con el móvil). Solo se crea desde aquí: los repartidores no tienen acceso. Allí se ven las rutas, el mapa, el ranking y los totales, y se alternan solos. El enlace solo se enseña una vez: guárdalo
         en la TV. Si se pierde, crea otro y el anterior deja de valer.
       </div>
       {!enlace ? (
@@ -244,9 +244,17 @@ function DialogoTv({ onCerrar }: { onCerrar: () => void }) {
           {qr && <img src={qr} alt="Código QR del enlace" className="h-[150px] w-[150px]" />}
           <div className="min-w-0 flex-1">
             <div className="break-all border border-[var(--gw-border)] bg-white p-1 text-[12px]">{enlace}</div>
-            <button type="button" className="gw-btn mt-1" onClick={() => void navigator.clipboard.writeText(enlace).then(() => setMsg('Enlace copiado.'))}>
-              Copiar enlace
-            </button>
+            <div className="mt-1 flex gap-1">
+              <button type="button" className="gw-btn" onClick={() => void navigator.clipboard.writeText(enlace).then(() => setMsg('Enlace copiado.'))}>
+                Copiar enlace
+              </button>
+              <a
+                className="gw-btn"
+                href={`mailto:?subject=${encodeURIComponent('Pantalla de repartos (TV)')}&body=${encodeURIComponent(`Ábrelo en el navegador de la TV y ponlo en pantalla completa:\n\n${enlace}\n\nNo lo reenvíes: quien lo tenga ve los repartos de hoy.`)}`}
+              >
+                ✉ Enviar por correo
+              </a>
+            </div>
           </div>
         </div>
       )}

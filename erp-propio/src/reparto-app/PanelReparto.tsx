@@ -22,6 +22,8 @@ export interface RutaSeg {
   comprobados: number
   posicion: { lat: number; lng: number; en: string } | null
   puntos: { lat: number; lng: number; estado: string }[]
+  /** Un elemento por pedido (marcados por hora y luego los que quedan): estado y hora de entrega o del intento. */
+  pedidos?: { e: 'entregado' | 'incidencia' | 'no_entregado' | 'pendiente'; h: string | null }[]
 }
 export interface DatosSeg {
   fecha: string
@@ -195,7 +197,7 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
                 {r.posicion && <span> · 📍 {hace(r.posicion.en)}</span>}
               </div>
             </div>
-            <BarraPuntos r={r} alto={tv ? 34 : 20} />
+            <BarraPuntos r={r} alto={tv ? 34 : 20} horas={tv} />
             <div style={{ textAlign: 'right', minWidth: tv ? 130 : 90 }}>
               <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: tv ? 30 : 18, color: cerrado ? '#5f6b5f' : r.pendientes ? C.verde : C.verdeCl }}>
                 {cerrado ? 'Cerrado' : !r.total ? 'Sin pedidos' : r.pendientes ? `${r.pendientes} quedan` : '✔ Hecho'}
@@ -231,21 +233,63 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
 // ------------------------------------------------------------------ Barra con un punto por pedido (Rober, 03/11/2026)
 /** Un punto por pedido a lo largo de la barra, con el color de su estado (entregados primero, luego incidencias, no
  *  entregados y los que quedan). Con muchos pedidos los puntos se hacen más pequeños para que quepan todos. */
-export function BarraPuntos({ r, alto }: { r: Pick<RutaSeg, 'entregados' | 'incidencias' | 'no_entregados' | 'pendientes'>; alto: number }) {
-  const puntos = [
-    ...Array<string>(r.entregados).fill(C.verdeCl),
-    ...Array<string>(r.incidencias).fill(C.naranja),
-    ...Array<string>(r.no_entregados).fill(C.rojo),
-    ...Array<string>(r.pendientes).fill(C.gris),
-  ]
+export function BarraPuntos({
+  r,
+  alto,
+  horas = false,
+}: {
+  r: Pick<RutaSeg, 'entregados' | 'incidencias' | 'no_entregados' | 'pendientes' | 'pedidos'>
+  alto: number
+  /** Hora encima de cada punto (TV: pocas rutas y pantalla grande). */
+  horas?: boolean
+}) {
+  const COLOR = { entregado: C.verdeCl, incidencia: C.naranja, no_entregado: C.rojo, pendiente: C.gris } as const
+  const puntos: { c: string; h: string | null }[] = r.pedidos
+    ? r.pedidos.map((p) => ({ c: COLOR[p.e] ?? C.gris, h: p.h }))
+    : [
+        ...Array<string>(r.entregados).fill(C.verdeCl),
+        ...Array<string>(r.incidencias).fill(C.naranja),
+        ...Array<string>(r.no_entregados).fill(C.rojo),
+        ...Array<string>(r.pendientes).fill(C.gris),
+      ].map((c) => ({ c, h: null }))
   const d = Math.max(6, Math.min(alto - 6, 22))
+  const conHoras = horas && puntos.some((p) => p.h)
+  const letra = Math.max(9, Math.round(alto * 0.45))
   return (
     <div
-      style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: puntos.length > 1 ? 'space-between' : 'flex-start', gap: 2, height: alto, borderRadius: alto / 2, background: '#eef2ee', padding: `0 ${alto / 3}px` }}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: puntos.length > 1 ? 'space-between' : 'flex-start',
+        gap: 2,
+        height: alto + (conHoras ? letra + 6 : 0),
+        borderRadius: alto / 2,
+        background: conHoras ? `linear-gradient(transparent ${letra + 6}px, #eef2ee ${letra + 6}px)` : '#eef2ee',
+        padding: `0 ${alto / 3}px`,
+      }}
       title={`${r.entregados} entregados · ${r.incidencias} con incidencia · ${r.no_entregados} no entregados · ${r.pendientes} por entregar`}
     >
-      {puntos.map((c, i) => (
-        <span key={i} style={{ flex: '0 1 auto', width: d, minWidth: 3, height: d, maxHeight: '100%', aspectRatio: '1', borderRadius: '50%', background: c, boxShadow: c === C.gris ? 'inset 0 0 0 1px #a4ada4' : '0 1px 2px rgba(0,0,0,.25)' }} />
+      {puntos.map((p, i) => (
+        <span key={i} style={{ flex: '0 1 auto', minWidth: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+          {conHoras && (
+            <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontSize: letra, fontWeight: 600, lineHeight: 1, color: p.h ? (p.c === C.rojo ? C.rojo : p.c === C.naranja ? '#a86400' : C.verde) : 'transparent', whiteSpace: 'nowrap', marginBottom: (alto - d) / 2 + 6 }}>
+              {p.h ?? '00:00'}
+            </span>
+          )}
+          <span
+            style={{
+              width: d,
+              height: d,
+              marginBottom: (alto - d) / 2,
+              borderRadius: '50%',
+              background: p.c,
+              flexShrink: 0,
+              boxShadow: p.c === C.gris ? 'inset 0 0 0 1px #a4ada4' : '0 1px 2px rgba(0,0,0,.25)',
+            }}
+          />
+        </span>
       ))}
     </div>
   )
