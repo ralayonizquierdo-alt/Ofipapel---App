@@ -252,6 +252,61 @@ function isWithinBusinessHours(date = new Date()) {
 // puede hacer es (a) desatascar al cliente ahora, diciéndole que no necesita la
 // web para comprar, y (b) avisar al equipo. Por eso engancha con el escalado
 // real en vez de contestar con un texto fijo.
+// LA WEB SE LE HA ATASCADO. ESO NO ES UNA PREGUNTA.
+//
+// Visto en real el 3/11/2026, y es el mejor ejemplo de lo que lleva fallando
+// desde el principio. El cliente escribió:
+//
+//   «estoy intentando hacer un pedido, pero cuando meto mis datos como cliente
+//    me sale todo el rato verificando»
+//
+// y se llevó la respuesta fija de «por WhatsApp no puedo tomarte el pedido,
+// entra en la web, busca el producto, añádelo al carrito y finaliza la compra».
+// O sea: le mandaron a hacer exactamente lo que se le está rompiendo.
+//
+// Palabras del propietario: «comprensión CERO». Y tiene razón, pero el culpable
+// no fue la IA — fue una REGLA, que saltó con «hacer un pedido» y se comió el
+// turno antes de que nadie leyera el resto de la frase. Una palabra clave no
+// distingue entre «¿cómo hago un pedido?» y «no puedo hacer un pedido».
+//
+// Esto no se arregla afinando esa regla: se arregla reconociendo antes que el
+// cliente está CONTANDO UN FALLO, no preguntando cómo se hace algo. Y lo que
+// hace falta entonces no es una explicación, es una persona — la misma
+// decisión que ya se tomó con los problemas de cuenta.
+//
+// Hacen falta las DOS mitades, y por eso no se dispara sola: algo que falla Y
+// que sea de lo nuestro. «No me funciona la impresora, ¿qué cartucho lleva?»
+// tiene la primera pero no la segunda, y es una consulta de producto normal.
+const ALGO_FALLA =
+  /\bno\s+(?:me\s+)?(?:puedo|deja|dejan|funciona|va|carga|llega|termina|avanza|consigo)\b|\bme\s+(?:sale|da|aparece|salta|pide)\b|\bse\s+(?:me\s+)?(?:queda|cuelga|bloquea)\b|\berror\b|\bfall(?:a|o)\b|\bbloquead|\bcolgad|\bno\s+hay\s+manera\b|\bimposible\b/i;
+
+// Lo nuestro: la web y el proceso de compra. A propósito NO entra «pedido» a
+// secas — «no me ha llegado el pedido» es otra cosa y tiene su propio camino,
+// que funciona (se busca en WooCommerce). Aquí solo lo que se rompe mientras
+// intenta comprar.
+const ALGO_NUESTRO =
+  /\bweb\b|\bp[áa]gina\b|\bonline\b|\bcarrito\b|\bfinalizar\s+(?:la\s+)?compra\b|\bpasarela\b|\bpagar\b|\bel\s+pago\b|\bregistrar|\bregistro\b|\bformulario\b|\bverificando\b|\bverificaci[óo]n\b|\bmis\s+datos\b|\blos\s+datos\b|\bla\s+app\b/i;
+
+function esFalloDeLaWeb(texto) {
+  const t = String(texto || '');
+  return ALGO_FALLA.test(t) && ALGO_NUESTRO.test(t);
+}
+
+// No se le explica nada ni se le dan botones: ya ha intentado resolverlo solo y
+// no ha podido. Se le dice la verdad —esto no lo arregla el bot—, se le pide lo
+// único que de verdad ayuda a quien lo vaya a mirar (una captura), y se avisa
+// al equipo.
+const FALLO_WEB_INFO =
+  'Eso que te pasa en la web no lo puedo arreglar yo desde aquí. Se lo paso a una persona del equipo con lo que me cuentas. ' +
+  'Si puedes, mándame una captura de la pantalla donde se queda: así ven exactamente en qué punto se atasca.';
+const FALLO_WEB_INFO_EN =
+  "I can't fix that website problem from here. I'm passing it to someone on the team with what you've told me. " +
+  'If you can, send me a screenshot of the screen where it gets stuck, so they can see exactly where it fails.';
+
+function mensajeFalloDeLaWeb(idioma = 'es') {
+  return idioma === 'en' ? FALLO_WEB_INFO_EN : FALLO_WEB_INFO;
+}
+
 function esProblemaDeCuenta(texto) {
   return /\b(contrase[nñ]a|password|restablec|recuperar (?:mi )?(?:cuenta|acceso)|iniciar sesi[oó]n|login|no puedo (?:entrar|acceder)|no me deja (?:entrar|acceder)|mi cuenta|correo de confirmaci[oó]n|no me llega (?:el|ning[uú]n) (?:correo|email|mail))\b/i.test(
     String(texto || '')
@@ -1609,6 +1664,8 @@ module.exports = {
   isAgenteInfoEnCualquierIdioma,
   esProblemaDeCuenta,
   mensajeProblemaDeCuenta,
+  esFalloDeLaWeb,
+  mensajeFalloDeLaWeb,
   isAgenteInfoMessage,
   isWithinBusinessHours,
   SELLOS_QUESTION,
