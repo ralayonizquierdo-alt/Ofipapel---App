@@ -149,7 +149,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .day-tick.weekend{background:#FAFAF5;}
 .day-tick.blocked{background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 4px,#FBCFCB 4px,#FBCFCB 8px);color:var(--rojo);}
 
-.unit-group{border-bottom:2px solid var(--borde);}
+.unit-group{border-bottom:3px solid var(--verde);width:max-content;min-width:100%;}
 .unit-header{display:flex;background:var(--verde-pale);}
 .unit-header .corner-cell{
   width:var(--name-w);flex-shrink:0;padding:5px 10px;font-size:.75rem;font-weight:700;color:var(--verde);
@@ -654,16 +654,16 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 <script>
 /* ═══════════════════ DATOS DE EJEMPLO ═══════════════════ */
 const UNITS = [
-  {id:'repartidores',      name:'Repartidores',            group:'Reparto',       defaultMax:1},
-  {id:'almacen',           name:'Almacén',                 group:'Almacén',       defaultMax:1},
-  {id:'oficina',           name:'Oficina',                 group:'Oficina',       defaultMax:1},
-  {id:'pedidos',           name:'Pedidos',                 group:'Pedidos',       defaultMax:1},
-  {id:'comerciales',       name:'Comerciales',             group:'Comerciales',   defaultMax:1},
-  {id:'aliz2',             name:'Aliz 2',                  group:'Dependientas',  defaultMax:1},
-  {id:'aliz1',             name:'Aliz 1',                  group:'Dependientas',  defaultMax:1},
   {id:'ofipapel_detalle',  name:'Ofipapel · Detalle',      group:'Dependientas',  defaultMax:1},
   {id:'ofipapel_info',     name:'Ofipapel · Informática',  group:'Dependientas',  defaultMax:1},
+  {id:'aliz1',             name:'Aliz 1',                  group:'Dependientas',  defaultMax:1},
+  {id:'aliz2',             name:'Aliz 2',                  group:'Dependientas',  defaultMax:1},
+  {id:'pedidos',           name:'Pedidos',                 group:'Pedidos',       defaultMax:1},
+  {id:'oficina',           name:'Oficina',                 group:'Oficina',       defaultMax:1},
   {id:'mobiliario',        name:'Mobiliario',              group:'Dependientas',  defaultMax:1},
+  {id:'comerciales',       name:'Comerciales',             group:'Comerciales',   defaultMax:1},
+  {id:'repartidores',      name:'Repartidores',            group:'Reparto',       defaultMax:1},
+  {id:'almacen',           name:'Almacén',                 group:'Almacén',       defaultMax:1},
   {id:'limpieza',          name:'Limpieza',                group:'Limpieza',      defaultMax:1},
 ];
 
