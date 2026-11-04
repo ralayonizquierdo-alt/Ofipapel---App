@@ -1552,7 +1552,7 @@ const IMPORT_LOG_LABELS = {
   ventasClientes:'Ventas Clientes (Excel)', compras:'Compras (Excel)',
   comprasAnual:'Compras Anuales (Excel)', comprasProveedores:'Compras Proveedores (Excel)',
   proveedores:'Pagos Proveedores (Excel/PDF)', familias:'Familias de Productos (Excel)',
-  forzarSubida:'Forzar subida de datos'
+  forzarSubida:'Forzar subida de datos', deuda:'Pool de Deuda (editado)'
 };
 
 const _ILG_ENTRADA  = ['volcado','cajaCierres','cajaBancoRecibos','forzarSubida'];
@@ -1911,6 +1911,8 @@ function applyCloudDataset(key, payload){
   } else if(key==='ventasweb_det'){
     ventasWebDetalle = payload;
     try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
+  } else if(key==='deuda'){
+    if(Array.isArray(payload)&&payload.length){ DEUDA_DATA=payload; try{ localStorage.setItem('op_deuda',JSON.stringify(DEUDA_DATA)); }catch(e){} renderDeuda(); renderAlertas(); }
   } else if(key==='importlog'){
     _mergeImportLog(payload); _renderTodosLosRegistros();
   } else if(key==='importstamps'){
@@ -1961,6 +1963,7 @@ async function loadAllSharedDatasets(){
     if(!existing.ventasweb_det && ventasWebDetalle.length) syncDatasetToCloud('ventasweb_det', ventasWebDetalle);
     if(!existing.importstamps && Object.keys(_importStamps).length) syncDatasetToCloud('importstamps', _importStamps);
     if(!existing.importlog && importLog.length) syncDatasetToCloud('importlog', importLog);
+    if(!existing.deuda) syncDatasetToCloud('deuda', DEUDA_DATA);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -2024,6 +2027,7 @@ async function forzarSyncCompleto(btn){
     if(ventasWebDetalle.length) ops.push(sube('ventasweb_det', ventasWebDetalle));
     if(cajaEfectivo.length)     ops.push(sube('cajaefectivo', cajaEfectivo));
     if(cajaFondoCambio.length)  ops.push(sube('cajafondocambio', cajaFondoCambio));
+    ops.push(sube('deuda', DEUDA_DATA));
     const res = await Promise.all(ops);
     if(res.every(Boolean)){
       // Aunque sea «forzar», tiene que quedar apuntado quién subió qué y cuándo
@@ -2100,7 +2104,7 @@ function updateStorageStatus(){
   }catch(e){ el.textContent=''; }
 }
 
-const DEUDA_DATA = [
+const DEUDA_INICIAL = [
   { nombre:'ICO Préstamo 435 · Santander', tipo:'ico2', nominal:700000, pendiente:356144, cuota:9540.69, vto:'20/05/2025', banco:'Santander', pct:49, detalle:'Capital 9.189€ + Interés 352€' },
   { nombre:'Préstamo Empresa BBVA (3220)', tipo:'', nominal:290000, pendiente:271711, cuota:3930.67, vto:'31/08/2031', banco:'BBVA', pct:6, detalle:'Capital 3.072€ + Interés 859€' },
   { nombre:'Hipoteca Naves · CaixaBank (3257)', tipo:'hip', nominal:692000, pendiente:268971, cuota:3083.76, vto:'20/01/2033', banco:'CaixaBank', pct:61, detalle:'Capital 2.584€ + Interés 500€' },
@@ -2109,6 +2113,22 @@ const DEUDA_DATA = [
   { nombre:'Préstamo IGIC · BBVA (2440)', tipo:'alerta', nominal:44281, pendiente:44281, cuota:14760.19, vto:'07/05/2025', banco:'BBVA', pct:100, detalle:'⚠ VENCIDO — Revisar con BBVA urgente' },
   { nombre:'Préstamo Renta 2023 · BBVA (Luis)', tipo:'', nominal:27100, pendiente:11453, cuota:2318.72, vto:'31/07/2025', banco:'BBVA', pct:58, detalle:'IRPF / Patrimonio · Capital 2.263€ + Interés 56€' },
 ];
+// El Pool de Deuda se edita desde la pantalla y se comparte en la nube (app_sync, id «deuda»); DEUDA_INICIAL es solo la semilla de la primera vez.
+// Campos nuevos por préstamo: estado ('normal' | 'alerta' | 'resuelto'), nota y editado {por, ts}.
+const EDITAN_DEUDA = ['admin','rober','luis'];
+let DEUDA_DATA = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_deuda')||'null'); if(Array.isArray(g)&&g.length) return g; }catch(e){} return JSON.parse(JSON.stringify(DEUDA_INICIAL)); })();
+function guardarDeuda(){ try{ localStorage.setItem('op_deuda',JSON.stringify(DEUDA_DATA)); }catch(e){} syncDatasetToCloud('deuda',DEUDA_DATA); }
+function _vtoDeuda(s){ const m=String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m?new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`):null; }
+// null = sin alerta; 'alerta' = marcado en alerta; 'vencido' = su vencimiento ya pasó (y no está marcado como resuelto)
+function estadoAlertaDeuda(d){
+  const e=d.estado||(d.tipo==='alerta'?'alerta':'normal');
+  if(e==='resuelto') return null;
+  if(e==='alerta') return 'alerta';
+  const v=_vtoDeuda(d.vto), hoy=new Date(); hoy.setHours(0,0,0,0);
+  return (v&&v<hoy)?'vencido':null;
+}
+function alertasDeDeuda(){ return DEUDA_DATA.filter(d=>estadoAlertaDeuda(d)); }
+
 
 // ═══════════════════════════════════════════════════════
 // LOGIN
@@ -2981,9 +3001,6 @@ function renderAlertas(){
   if(polPct > 50) alerts.push({type:'warn', ico:'⚠️', ttl:'Póliza CaixaBank por encima del 50%', txt:`Dispuesto: ${fmt(Math.abs(last.caixa_pol))} / 300.000 €. Disponible: ${fmt(last.caixa_disp||0)}.`});
   else alerts.push({type:'ok', ico:'✅', ttl:'Póliza CaixaBank bajo control', txt:`Dispuesto: ${fmt(Math.abs(last.caixa_pol))}. Disponible: ${fmt(last.caixa_disp||0)}.`});
 
-  // Préstamo IGIC vencido
-  alerts.push({type:'err', ico:'🚨', ttl:'Préstamo IGIC BBVA — VENCIDO (07/05/2025)', txt:'Saldo pendiente: 44.281 €. Cuota mensual: 14.760 €. Requiere revisión urgente del estado con BBVA.'});
-
   // BBVA Ofipapel tendencia
   if(prev){
     const d = (last.bbva_ofip||0)-(prev.bbva_ofip||0);
@@ -2994,8 +3011,12 @@ function renderAlertas(){
   // Pagarés en caja: lo emitido menos lo ya ingresado en el banco (no es efectivo, no tiene «nivel mínimo»)
   alerts.push({type:'ok', ico:'🧾', ttl:'Pagarés en Caja — pendientes de ingresar', txt:`Total en caja: ${fmt(last.caja_central)}.`});
 
-  // ICO Vencimiento
-  alerts.push({type:'warn', ico:'📅', ttl:'ICO Préstamo 435 — Fecha vencimiento pasada', txt:'Vencimiento: 20/05/2025. Saldo pendiente: 356.144 €. Confirmar situación actual con Santander.'});
+  // Pool de deuda: un aviso por cada préstamo en alerta o vencido (sale de los datos editables de «Pool de Deuda»)
+  alertasDeDeuda().forEach(d=>{
+    const alerta=estadoAlertaDeuda(d)==='alerta';
+    alerts.push({type:alerta?'err':'warn', ico:alerta?'🚨':'📅', ttl:`${d.nombre} — ${alerta?'EN ALERTA':'VENCIDO'} (${d.vto})`,
+      txt:`Saldo pendiente: ${fmt(d.pendiente)}. Cuota mensual: ${fmt(d.cuota)}.${d.nota?' '+d.nota+'.':''} Confirma la situación con ${d.banco}; cuando esté resuelto, actualízalo en Pool de Deuda.`});
+  });
 
   // Santander volatilidad
   if(sorted.length>=2){
@@ -3023,7 +3044,7 @@ function renderAlertas(){
   if(confProx.length>0) alerts.push({type:'warn', ico:'🏦', ttl:`Confirming Santander — ${confProx.length} pago(s) esta semana`, txt:`Total a pagar en los próximos 7 días: ${fmt(sumConf7)}. Proveedores: ${confProx.map(c=>c.proveedor).join(', ')}.`});
 
   // Carga financiera
-  const cargaMes = 9540+3930+3083+2661+2266+2318;
+  const cargaMes = DEUDA_DATA.filter(d=>d.tipo!=='alerta'&&(d.estado||'normal')!=='alerta'&&d.estado!=='resuelto').reduce((t,d)=>t+d.cuota,0);
   alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.`});
 
   const fiscalAlerts = getFiscalAlertas();
@@ -3313,22 +3334,24 @@ function renderDeuda(){
     </div>
   </div>`;
 
-  const cards = DEUDA_DATA.map(d=>`
-  <div class="deuda-card ${d.tipo}">
-    <div class="deuda-name">${d.tipo==='hip'?'🏠 ':d.tipo==='alerta'?'🚨 ':d.tipo==='ico2'?'💼 ':'📄 '}${d.nombre}</div>
-    <div class="d-row"><span class="d-k">Banco:</span><span class="d-v">${d.banco}</span></div>
+  const puedeEditar=EDITAN_DEUDA.includes(currentUser);
+  const cards = DEUDA_DATA.map((d,i)=>{ const ea=estadoAlertaDeuda(d), cls=ea==='alerta'?'alerta':(d.tipo==='alerta'?'':d.tipo); return `
+  <div class="deuda-card ${cls}">
+    <div class="deuda-name">${cls==='hip'?'🏠 ':cls==='alerta'?'🚨 ':cls==='ico2'?'💼 ':'📄 '}${escapeHtml(d.nombre)}${ea==='vencido'?' <span style="font-size:11px;background:#f5a623;color:#fff;border-radius:6px;padding:1px 7px;">VENCIDO</span>':''}${d.estado==='resuelto'?' <span style="font-size:11px;background:#27ae60;color:#fff;border-radius:6px;padding:1px 7px;">✅ Resuelto</span>':''}</div>
+    <div class="d-row"><span class="d-k">Banco:</span><span class="d-v">${escapeHtml(d.banco||'')}</span></div>
     <div class="d-row"><span class="d-k">Nominal:</span><span class="d-v">${fmt(d.nominal)}</span></div>
     <div class="d-row"><span class="d-k">Pendiente:</span><span class="d-v" style="color:var(--rojo)">${fmt(d.pendiente)}</span></div>
     <div class="d-row"><span class="d-k">Cuota/mes:</span><span class="d-v">${fmt(d.cuota)}</span></div>
     <div class="d-row"><span class="d-k">Vencimiento:</span><span class="d-v">${d.vto}</span></div>
     <div class="d-bar-wrap"><div class="d-bar ${d.tipo==='hip'?'hip':''}" style="width:${d.pct}%"></div></div>
-    <div class="d-sub">${d.detalle}</div>
-  </div>`).join('');
+    <div class="d-sub">${escapeHtml(d.detalle||'')}${d.nota?`<div style="margin-top:4px;color:var(--texto);font-weight:600;">📝 ${escapeHtml(d.nota)}</div>`:''}${d.editado?`<div style="margin-top:4px;font-size:10px;color:var(--texto2);">Actualizado por ${escapeHtml(d.editado.por||'—')} el ${new Date(d.editado.ts).toLocaleDateString('es-ES')}</div>`:''}</div>
+    ${puedeEditar?`<div style="margin-top:8px;"><button onclick="abrirEditarDeuda(${i})" style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Editar</button></div>`:''}
+  </div>`;}).join('');
 
   destroyChart('cDeuda');
   document.getElementById('deudaContent').innerHTML = `
   ${kpis}
-  <div class="sec-title">📋 Detalle por Instrumento</div>
+  <div class="sec-title" style="display:flex;align-items:center;gap:12px;">📋 Detalle por Instrumento ${puedeEditar?`<button onclick="abrirEditarDeuda(-1)" style="margin-left:auto;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;">➕ Añadir préstamo</button>`:''}</div>
   <div class="deuda-grid">${cards}</div>
   <div class="sec-title">📊 Distribución Visual</div>
   <div class="chart-card">
@@ -3345,6 +3368,58 @@ function renderDeuda(){
     },
     options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toLocaleString('es-ES')} €`}} }, scales:{ x:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'}}, y:{grid:{display:false},ticks:{...G.ticks,font:{size:10}}} } }
   });
+}
+
+// ── Editar el Pool de Deuda (solo EDITAN_DEUDA) ──
+function abrirEditarDeuda(i){
+  if(!EDITAN_DEUDA.includes(currentUser)){ showToast('Solo Rober y Luis pueden editar el Pool de Deuda','err'); return; }
+  const nuevo=i<0, d=nuevo?{nombre:'',banco:'',tipo:'',nominal:0,pendiente:0,cuota:0,vto:'',detalle:'',estado:'normal',nota:''}:DEUDA_DATA[i];
+  const est=d.estado||(d.tipo==='alerta'?'alerta':'normal'), tipoSel=d.tipo==='alerta'?'':(d.tipo||'');
+  const num=v=>String(v==null?'':v).replace('.',',');
+  const f=(id,lbl,val,ph)=>`<label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">${lbl}</label><input id="${id}" value="${escapeHtml(val)}" placeholder="${ph||''}" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;">`;
+  let m=document.getElementById('deudaEditor'); if(m) m.remove();
+  m=document.createElement('div'); m.id='deudaEditor';
+  m.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.6);padding:16px;overflow-y:auto;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="font-size:17px;font-weight:700;color:var(--azul);">${nuevo?'➕ Añadir préstamo':'✏️ Editar préstamo'}</div>
+    ${f('dNombre','Nombre',d.nombre,'Ej.: Préstamo ICO · Santander')}${f('dBanco','Banco',d.banco||'')}
+    <label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">Tipo</label>
+    <select id="dTipo" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;"><option value="">Préstamo</option><option value="ico2">ICO</option><option value="hip">Hipoteca</option></select>
+    ${f('dNominal','Importe inicial (€)',num(d.nominal))}${f('dPend','Pendiente hoy (€)',num(d.pendiente))}${f('dCuota','Cuota mensual (€)',num(d.cuota))}${f('dVto','Vencimiento (dd/mm/aaaa)',d.vto||'','15/06/2031')}
+    <label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">Estado</label>
+    <select id="dEstado" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;"><option value="normal">Normal (avisa solo si pasa el vencimiento)</option><option value="alerta">En alerta (avisa siempre)</option><option value="resuelto">Resuelto o renegociado (no avisa)</option></select>
+    ${f('dNota','Nota (se ve en la tarjeta y en el aviso)',d.nota||'','Ej.: renovado con Santander hasta 2030')}${f('dDetalle','Detalle de la tarjeta (texto pequeño de debajo)',d.detalle||'')}
+    <div id="dError" style="color:var(--rojo);font-size:12px;margin-top:8px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+      <button onclick="guardarEditarDeuda(${i})" style="flex:1;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button>
+      <button onclick="document.getElementById('deudaEditor').remove()" style="background:#eee;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;">Cancelar</button>
+      ${nuevo?'':`<button onclick="quitarDeuda(${i})" style="background:#fdecea;color:#c0392b;border:none;border-radius:8px;padding:10px 14px;font-size:13px;cursor:pointer;">🗑️ Quitar</button>`}
+    </div></div>`;
+  document.body.appendChild(m);
+  document.getElementById('dTipo').value=tipoSel; document.getElementById('dEstado').value=est;
+}
+function guardarEditarDeuda(i){
+  const g=id=>document.getElementById(id).value.trim(), err=t=>{ document.getElementById('dError').textContent=t; };
+  const num=id=>{ const raw=g(id).replace(/[^\d.,-]/g,''); const n=/,\d{1,2}$/.test(raw)?parseFloat(raw.replace(/\./g,'').replace(',','.')):parseFloat(raw.replace(/,/g,'')); return isNaN(n)?NaN:n; };
+  if(!g('dNombre')) return err('Pon el nombre del préstamo');
+  const nominal=num('dNominal'), pend=num('dPend'), cuota=num('dCuota');
+  if([nominal,pend,cuota].some(isNaN)||nominal<0||pend<0||cuota<0) return err('Importe inicial, pendiente y cuota tienen que ser números');
+  const vto=g('dVto'); if(vto&&!_vtoDeuda(vto)) return err('El vencimiento se escribe así: 15/06/2031');
+  const antes=i<0?null:{...DEUDA_DATA[i]};
+  const d=i<0?{}:DEUDA_DATA[i];
+  const eraAlertaFija=d.tipo==='alerta';
+  Object.assign(d,{nombre:g('dNombre'),banco:g('dBanco'),tipo:g('dTipo'),nominal,pendiente:pend,cuota,vto,estado:g('dEstado'),nota:g('dNota'),detalle:g('dDetalle')});
+  d.pct=(eraAlertaFija&&d.estado==='alerta')?100:(nominal>0?Math.max(0,Math.min(100,Math.round((1-pend/nominal)*100))):0);
+  d.editado={por:currentUser,ts:new Date().toISOString()};
+  if(i<0) DEUDA_DATA.push(d);
+  const cambios=antes?['pendiente','cuota','vto','estado','nota','detalle'].filter(k=>String(antes[k]||'')!==String(d[k]||'')).map(k=>k+': '+(antes[k]||'—')+' → '+(d[k]||'—')).join('; '):'préstamo nuevo';
+  guardarDeuda(); logImport('deuda',d.nombre+(cambios?' ('+cambios+')':''));
+  document.getElementById('deudaEditor').remove(); renderDeuda(); renderAlertas(); showToast('✅ Pool de Deuda actualizado','ok');
+}
+function quitarDeuda(i){
+  const d=DEUDA_DATA[i]; if(!d||!confirm('¿Quitar «'+d.nombre+'» del Pool de Deuda?\nSe borra para todos.')) return;
+  DEUDA_DATA.splice(i,1); guardarDeuda(); logImport('deuda',d.nombre+' (quitado del pool)');
+  document.getElementById('deudaEditor')?.remove(); renderDeuda(); renderAlertas(); showToast('Préstamo quitado','ok');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3447,12 +3522,7 @@ function checkAlertasArrastre(){
   }
 
   // 3. Pool bancario: tipo 'alerta' o fecha vto superada
-  const parseVtoES = s => { const m=(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`):null; };
-  const deudaAlerta = DEUDA_DATA.filter(d => {
-    if(d.tipo==='alerta') return true;
-    const v = parseVtoES(d.vto);
-    return v && v < hoy;
-  });
+  const deudaAlerta = alertasDeDeuda();
   if(deudaAlerta.length){
     alertas.push({
       cat:'deuda',
