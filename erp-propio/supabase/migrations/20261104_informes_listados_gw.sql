@@ -218,7 +218,7 @@ begin
   ),
   base as (
     -- Informes por línea de pedido
-    select case inf when 'pedidos' then pf.tienda_terminal_codigo || '-' || lpad(pf.numero::text, 12, '0')
+    select case inf when 'pedidos' then pf.s || '|' || pf.tienda_terminal_codigo || '-' || lpad(pf.numero::text, 12, '0')
                     when 'detallado' then pf.fecha::text || '|' || pf.tienda_terminal_codigo
                     when 'familias' then coalesce(a.familia_codigo, '—')
                     else '' end as g,

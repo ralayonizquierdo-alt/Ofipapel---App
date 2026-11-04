@@ -1078,6 +1078,55 @@ export const SECCIONES_PARAMETROS: SeccionParametros[] = [
   },
 ]
 
+SECCIONES_PARAMETROS.push({
+  clave: 'operativa',
+  titulo: 'Operativa',
+  icono: '📘',
+  pestanas: [
+    {
+      clave: 'operativa',
+      titulo: 'Operativa',
+      especial: 'operativa',
+      parametros: [],
+      operativa: [
+        {
+          titulo: 'Cambiar un parámetro',
+          pasos: [
+            'Abajo a la izquierda elige el apartado: Parámetros, Configuración o Control de Accesos.',
+            'Arriba a la izquierda elige la sección (Locales, TPV, Compras…) y luego su pestaña.',
+            'Cambia el valor: los botones ✔/✖ se pulsan para activar o desactivar.',
+            'Pulsa Aplicar (o Aceptar para guardar y salir). Cancelar deshace lo no guardado.',
+          ],
+        },
+        {
+          titulo: 'Un valor distinto para un empleado',
+          pasos: [
+            'En «Valores de:» elige el empleado.',
+            'Marca «Propio» junto al parámetro y cambia su valor.',
+            'Pulsa Aplicar. Para que vuelva a usar el de toda la empresa, quita «Propio».',
+          ],
+        },
+        {
+          titulo: 'Control de Accesos',
+          pasos: [
+            'Grupos: los grupos y sus empleados (se crean y modifican en Archivo → Grupos de Acceso).',
+            'Usuarios o Empleados: elige uno y pulsa «Editar Actual» para sus límites y permisos propios.',
+            'Accesos en Formularios: «Abrir Formulario» decide si el grupo puede abrir esa pantalla.',
+          ],
+        },
+        {
+          titulo: 'Bueno es saber',
+          notas: [
+            'Punto verde: el programa ya usa ese parámetro. Punto gris: se guarda, pero aún no lo usa ninguna pantalla.',
+            'Lo que sale en gris no tiene sentido en el navegador (impresoras, carpetas, Windows…): pasa el ratón para ver por qué.',
+            'Solo los administradores pueden cambiar los parámetros.',
+          ],
+        },
+      ],
+    },
+  ],
+})
+
 /** Configuración (segundo apartado de la izquierda): Hardware, Módulos, Programador de Tareas. */
 export const SECCIONES_CONFIGURACION: SeccionParametros[] = [
   {

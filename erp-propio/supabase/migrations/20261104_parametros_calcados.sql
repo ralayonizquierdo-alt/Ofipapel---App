@@ -45,19 +45,19 @@ comment on table public.rol_acceso is 'Accesos Generales y Accesos en Formulario
 
 alter table public.rol_acceso enable row level security;
 
-drop policy if exists rol_acceso_select on public.rol_acceso;
-create policy rol_acceso_select on public.rol_acceso for select to authenticated using (true);
-drop policy if exists rol_acceso_insert on public.rol_acceso;
-create policy rol_acceso_insert on public.rol_acceso for insert to authenticated with check ((select public.fn_es_administrador()));
-drop policy if exists rol_acceso_update on public.rol_acceso;
-create policy rol_acceso_update on public.rol_acceso for update to authenticated using ((select public.fn_es_administrador())) with check ((select public.fn_es_administrador()));
-drop policy if exists rol_acceso_delete on public.rol_acceso;
-create policy rol_acceso_delete on public.rol_acceso for delete to authenticated using ((select public.fn_es_administrador()));
+do $$
+begin
+  if not exists (select 1 from pg_policies where tablename = 'rol_acceso' and policyname = 'rol_acceso_select') then
+    create policy rol_acceso_select on public.rol_acceso for select to authenticated using (true);
+    create policy rol_acceso_insert on public.rol_acceso for insert to authenticated with check ((select public.fn_es_administrador()));
+    create policy rol_acceso_update on public.rol_acceso for update to authenticated using ((select public.fn_es_administrador())) with check ((select public.fn_es_administrador()));
+    create policy rol_acceso_borra on public.rol_acceso for delete to authenticated using ((select public.fn_es_administrador()));
+  end if;
+end $$;
 
-revoke all on public.rol_acceso from anon;
+-- anon no ve nada: RLS sin políticas para anon.
 grant select, insert, update, delete on public.rol_acceso to authenticated;
 
-drop trigger if exists trg_auditoria_rol_acceso on public.rol_acceso;
-create trigger trg_auditoria_rol_acceso
+create or replace trigger trg_auditoria_rol_acceso
   after insert or update or delete on public.rol_acceso
   for each row execute function public.fn_auditoria_trigger();

@@ -68,7 +68,7 @@ export function MenuImpresoraPedido({
     }
   }
 
-  const ancho = 134
+  const ancho = 150
   const izq = Math.max(4, Math.min(ancla.left, window.innerWidth - ancho - 4))
   return createPortal(
     <div className="fixed inset-0 z-[80]" onMouseDown={onCerrar}>
@@ -84,7 +84,7 @@ export function MenuImpresoraPedido({
               type="button"
               disabled={!!o.pendiente}
               title={o.pendiente}
-              className="px-2 py-[1px] text-left hover:bg-[#0078d7] hover:text-white disabled:text-[#9a9a9a] disabled:hover:bg-white"
+              className="whitespace-nowrap px-2 py-[1px] text-left hover:bg-[#0078d7] hover:text-white disabled:text-[#9a9a9a] disabled:hover:bg-white"
               onClick={() => setDoc(o)}
             >
               {o.label}
@@ -94,13 +94,13 @@ export function MenuImpresoraPedido({
       ) : (
         <div
           className="absolute flex flex-col border border-[#7a7a7a] bg-white py-[1px] text-[11px] shadow-[2px_2px_4px_rgba(0,0,0,0.35)]"
-          style={{ left: window.innerWidth / 2 - 30, top: window.innerHeight / 2 - 40, width: 60 }}
+          style={{ left: window.innerWidth / 2 - 34, top: window.innerHeight / 2 - 40, width: 68 }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button type="button" disabled={trabajando} className="px-1.5 text-left hover:bg-[#0078d7] hover:text-white" onClick={() => sacar('a4')}>
+          <button type="button" disabled={trabajando} className="whitespace-nowrap px-1.5 text-left hover:bg-[#0078d7] hover:text-white" onClick={() => sacar('a4')}>
             PAPEL A4
           </button>
-          <button type="button" disabled={trabajando} className="px-1.5 text-left hover:bg-[#0078d7] hover:text-white" onClick={() => sacar('pdf')}>
+          <button type="button" disabled={trabajando} className="whitespace-nowrap px-1.5 text-left hover:bg-[#0078d7] hover:text-white" onClick={() => sacar('pdf')}>
             PDF
           </button>
         </div>

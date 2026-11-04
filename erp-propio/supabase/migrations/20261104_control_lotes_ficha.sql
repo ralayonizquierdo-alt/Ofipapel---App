@@ -76,8 +76,7 @@ begin
   return new;
 end;
 $$;
-drop trigger if exists trg_lote_actualizado_en on public.lote;
-create trigger trg_lote_actualizado_en before update on public.lote
+create or replace trigger trg_lote_actualizado_en before update on public.lote
   for each row execute function public.fn_lote_actualizado_en();
 
 alter table public.lote enable row level security;
@@ -88,12 +87,9 @@ do $$
 declare t text;
 begin
   foreach t in array array['lote', 'lote_serie', 'lote_stock'] loop
-    execute format('drop policy if exists %I on public.%I', t || '_lee', t);
-    execute format('drop policy if exists %I on public.%I', t || '_alta', t);
-    execute format('drop policy if exists %I on public.%I', t || '_modifica', t);
-    execute format('drop policy if exists %I on public.%I', t || '_borra', t);
+    continue when exists (select 1 from pg_policies where tablename = t and policyname = t || '_lee');
     execute format('create policy %I on public.%I for select to authenticated using (true)', t || '_lee', t);
-    execute format('create policy %I on public.%I for insert to authenticated with check ((select public.fn_puede(''/almacen/lotes''))))', t || '_alta', t);
+    execute format('create policy %I on public.%I for insert to authenticated with check ((select public.fn_puede(''/almacen/lotes'')))', t || '_alta', t);
     execute format('create policy %I on public.%I for update to authenticated using ((select public.fn_puede(''/almacen/lotes''))) with check ((select public.fn_puede(''/almacen/lotes'')))', t || '_modifica', t);
     execute format('create policy %I on public.%I for delete to authenticated using ((select public.fn_puede(''/almacen/lotes'')))', t || '_borra', t);
     execute format('create or replace trigger %I after insert or update or delete on public.%I for each row execute function public.fn_auditoria_trigger()', 'trg_auditoria_' || t, t);
@@ -101,4 +97,4 @@ begin
 end $$;
 
 grant select, insert, update, delete on public.lote, public.lote_serie, public.lote_stock to authenticated;
-revoke all on public.lote, public.lote_serie, public.lote_stock from anon;
+-- anon no ve nada: RLS sin políticas para anon.
