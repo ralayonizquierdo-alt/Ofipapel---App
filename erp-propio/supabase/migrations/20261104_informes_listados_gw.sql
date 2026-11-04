@@ -377,5 +377,5 @@ grant execute on function public.lst_cmp(text, jsonb) to authenticated;
 grant execute on function public.lst_campo_cli(cliente, text) to authenticated;
 grant execute on function public.fn_lst_clientes_gw(jsonb) to authenticated;
 grant execute on function public.fn_lst_pedidos_gw(jsonb) to authenticated;
-revoke execute on function public.fn_lst_clientes_gw(jsonb) from anon;
-revoke execute on function public.fn_lst_pedidos_gw(jsonb) from anon;
+revoke execute on function public.fn_lst_clientes_gw(jsonb) from public, anon;
+revoke execute on function public.fn_lst_pedidos_gw(jsonb) from public, anon;

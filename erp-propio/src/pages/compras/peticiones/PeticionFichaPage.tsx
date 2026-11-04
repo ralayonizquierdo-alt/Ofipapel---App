@@ -29,7 +29,7 @@ import {
   TIPOS_PETICION,
   type Peticion,
 } from './peticiones'
-import { datosArticuloPeticion, defArticuloPeticion, EVENTO_PETICION_CREADA } from './GenerarPeticionDialog'
+import { datosArticuloPeticion, defArticuloPeticion, EVENTO_PETICION_CREADA, previstaPorDefecto } from './GenerarPeticionDialog'
 import { TramitarPeticionesDialog } from './TramitarPeticionesDialog'
 
 // Compras → «Peticiones de Artículos», calcada de la captura de GeminisWin (04/11, ZIP 7):
@@ -94,7 +94,7 @@ function vacia(): Peticion {
     origen_cliente_codigo: null,
     origen_nombre: null,
     proveedor_codigo: null,
-    fecha_prevista_entrega: null,
+    fecha_prevista_entrega: previstaPorDefecto(),
     observaciones: null,
   }
 }

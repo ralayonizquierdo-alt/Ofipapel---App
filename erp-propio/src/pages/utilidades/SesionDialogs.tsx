@@ -1,10 +1,11 @@
-// SIN CAPTURA de GeminisWin: Utilidades → Cambio de Tienda, Cambio de Fecha, Cambio de Fecha y
-// Hora y Archivo → Seleccionar Periodo. Diálogos pequeños sobre la sesión de trabajo del puesto
-// (src/lib/sesionTrabajo.ts). Ajustar cuando lleguen las capturas.
+// Utilidades → Cambio de Tienda, Cambio de Fecha, Cambio de Fecha y Hora y Archivo → Seleccionar
+// Periodo. Diálogos pequeños sobre la sesión de trabajo del puesto (src/lib/sesionTrabajo.ts).
+// Cambio de Fecha (y Hora): calcados de GeminisWin (capturas ZIP 7, 37-38, 04/11/2026). Cambio de
+// Tienda y Seleccionar Periodo: SIN CAPTURA, ajustar cuando lleguen.
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { GwDate, GwField } from '../../components/gw'
+import { GwDate } from '../../components/gw'
 import { GwDateTime } from '../../components/gw/GwDateTime'
 import { supabase } from '../../lib/supabase'
 import { tiendaPermitida } from '../../lib/accesoEmpleado'
@@ -21,7 +22,7 @@ import {
   useSesionTrabajo,
   volverPeriodoEnCurso,
 } from '../../lib/sesionTrabajo'
-import { Botones, Dialogo, Mensaje } from './comun'
+import { Botones, Dialogo, Mensaje, OperativaDialogo } from './comun'
 import { fechaEs } from './datos'
 
 interface Tienda {
@@ -163,38 +164,62 @@ export function CambioFechaDialog({ conHora, onClose }: { conHora: boolean; onCl
     onClose()
   }
 
+  // Calcado de GeminisWin (capturas ZIP 7, 37 y 38): marco «Cambio de fecha:» con la fecha grande
+  // y dos botones grandes ✓Aceptar / ×Cancelar. Lo propio del ERP (fecha real, aviso de ejercicio
+  // cerrado) queda debajo, en pequeño.
+  const btnGrande = 'flex h-[34px] flex-1 items-center justify-center gap-1 border border-[var(--gw-border)] bg-[#f3f3f3] text-[16px] hover:bg-[#e5f1fb]'
   return (
-    <Dialogo titulo={conHora ? 'Cambio de Fecha y Hora' : 'Cambio de Fecha'} onClose={onClose} ancho={360}>
-      <div className="flex items-end gap-3">
-        <GwField label={conHora ? 'Fecha y hora de trabajo' : 'Fecha de trabajo'}>
-          {conHora ? (
-            <GwDateTime value={fechaHora} onChange={setFechaHora} autoFocus style={{ width: 150 }} />
-          ) : (
-            <GwDate value={fecha} onChange={setFecha} autoFocus style={{ width: 100 }} />
-          )}
-        </GwField>
-        <span className="pb-1 text-[#444]">Hoy es {fechaEs(hoyReal)}</span>
-      </div>
-      <span className="text-[#444]">
-        Los documentos nuevos de esta sesión (TPV, ventas, pedidos, presupuestos, compras y caja) se grabarán con esta fecha
-        {conHora ? ' y hora' : ''}. Se olvida al cerrar la pestaña. VeriFactu registra siempre la fecha y hora reales.
-      </span>
+    <Dialogo titulo={conHora ? 'Cambio de Fecha y Hora' : 'Cambio de Fecha'} onClose={onClose} ancho={310}>
+      <fieldset className="border border-[var(--gw-border-light)] px-2 pb-2 pt-0">
+        <legend className="px-1 text-[16px] leading-[20px]">{conHora ? 'Cambio de fecha y Hora:' : 'Cambio de fecha:'}</legend>
+        {conHora ? (
+          <GwDateTime value={fechaHora} onChange={setFechaHora} autoFocus className="!h-[26px] !text-[16px]" style={{ width: '100%' }} />
+        ) : (
+          <GwDate value={fecha} onChange={setFecha} autoFocus className="!h-[26px] !text-[16px]" style={{ width: '100%' }} />
+        )}
+      </fieldset>
       {cerrado && <Mensaje texto={`Atención: la fecha cae en el ejercicio ${cerrado.anio}, que está cerrado.`} error />}
       {error && <Mensaje texto={error} error />}
-      <Botones>
-        <button type="button" className="gw-btn mr-auto" disabled={desfaseMs === 0} onClick={() => {
+      <div className="flex gap-1.5 border-t border-[var(--gw-border-light)] pt-2">
+        <button type="button" className={btnGrande} onClick={aceptar}>
+          <span className="font-bold text-[#2a9d2a]">✓</span>Aceptar
+        </button>
+        <button type="button" className={btnGrande} onClick={onClose}>
+          <span className="font-bold text-[#c42b1c]">×</span>Cancelar
+        </button>
+      </div>
+      <div className="flex items-center gap-2 text-[11px] text-[#444]">
+        <span>Hoy es {fechaEs(hoyReal)}</span>
+        <button
+          type="button"
+          className="gw-btn ml-auto !h-[20px] !px-2 !text-[11px]"
+          disabled={desfaseMs === 0}
+          onClick={() => {
             restablecerFecha()
             onClose()
-          }} title="Volver a la fecha y hora reales">
+          }}
+          title="Volver a la fecha y hora reales"
+        >
           Fecha real
         </button>
-        <button type="button" className="gw-btn w-[90px]" onClick={aceptar}>
-          Aceptar
-        </button>
-        <button type="button" className="gw-btn w-[90px]" onClick={onClose}>
-          Cancelar
-        </button>
-      </Botones>
+      </div>
+      <OperativaDialogo
+        bloques={[
+          {
+            titulo: conHora ? 'Cambio de Fecha y Hora' : 'Cambio de Fecha',
+            pasos: [
+              conHora ? 'Escribe la fecha y la hora de trabajo (dd/mm/aaaa hh:mm:ss).' : 'Escribe la fecha de trabajo (dd/mm/aaaa).',
+              'Pulsa Aceptar: se ve en amarillo en la barra de estado.',
+              'Para volver a la fecha de hoy, «Fecha real».',
+            ],
+            notas: [
+              `Los documentos nuevos de esta sesión (TPV, ventas, pedidos, presupuestos, compras y caja) se graban con esta fecha${conHora ? ' y hora' : ''}.`,
+              'Se olvida al cerrar la pestaña del navegador.',
+              'VeriFactu registra siempre la fecha y hora reales.',
+            ],
+          },
+        ]}
+      />
     </Dialogo>
   )
 }

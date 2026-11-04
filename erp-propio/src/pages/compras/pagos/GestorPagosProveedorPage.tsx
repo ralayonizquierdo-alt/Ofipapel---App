@@ -555,7 +555,12 @@ export function GestorPagosProveedorPage() {
           <legend className="px-1 text-[16px]">Tipo de la forma de pago</legend>
           <div className="flex">
             {CLASES.map((c) => (
-              <Toggle key={c.v} on={clases.has(c.v)} onClick={() => setClases(alternar(clases, c.v))} className="min-w-0 flex-1">
+              <Toggle
+                key={c.v}
+                on={clases.has(c.v)}
+                onClick={() => setClases(alternar(clases, c.v))}
+                className={`min-w-0 ${c.v === 'banco' || c.v === 'domiciliacion' ? 'flex-[1.45]' : 'flex-1'}`}
+              >
                 {c.label}
               </Toggle>
             ))}

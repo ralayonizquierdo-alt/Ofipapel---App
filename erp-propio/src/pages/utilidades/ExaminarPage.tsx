@@ -1,5 +1,7 @@
-// SIN CAPTURA de GeminisWin: Utilidades → Examinar (F11). En GeminisWin examina y/o edita la
-// tabla activa; en el ERP es un visor de SOLO LECTURA de cualquier tabla de la base de datos,
+// Utilidades → Examinar (F11). Al entrar sale el diálogo «Usar» de GeminisWin (calcado de la
+// captura ZIP 7, 39, 04/11/2026): base de datos, tablas, Tablas/Vistas, Exclusivo, Sólo lectura y
+// Aceptar / Cancelar / Otras…. En GeminisWin examina y/o edita la tabla; en el ERP es un visor de
+// SOLO LECTURA de cualquier tabla de la base de datos,
 // para administradores: lista de tablas a la izquierda y rejilla paginada (100 filas) con filtro
 // «contiene» por columna y orden al pulsar la cabecera. Lee con fn_examinar (SECURITY INVOKER,
 // transacción de solo lectura y con la RLS del usuario). No escribe nada.
@@ -9,7 +11,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useEsAdministrador } from '../archivo/comun'
-import { Mensaje } from './comun'
+import { Dialogo, Mensaje, OperativaDialogo } from './comun'
 import { cargarTablasErp, type TablaErp } from './datos'
 import { GwPrimero, GwUltimo } from '../../components/gw/GwIconos'
 
@@ -36,6 +38,7 @@ export function ExaminarPage() {
   const [sel, setSel] = useState<number | null>(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [usar, setUsar] = useState(true)
 
   useEffect(() => {
     if (!admin) return
@@ -101,6 +104,17 @@ export function ExaminarPage() {
   const btnNav = 'gw-btn flex h-[22px] w-[26px] items-center justify-center !px-0'
   return (
     <div className="flex h-full min-h-[480px] gap-1.5 text-[12px]">
+      {usar && admin && (
+        <UsarDialog
+          tablas={tablas}
+          actual={tabla}
+          onAceptar={(t) => {
+            abrirTabla(t)
+            setUsar(false)
+          }}
+          onCancelar={() => (tabla ? setUsar(false) : navigate('/'))}
+        />
+      )}
       {/* Tablas */}
       <div className="flex w-[220px] flex-none flex-col gap-1">
         <input className="gw-input" placeholder="Buscar tabla…" value={buscaTabla} onChange={(e) => setBuscaTabla(e.target.value)} />
@@ -122,6 +136,9 @@ export function ExaminarPage() {
             </tbody>
           </table>
         </div>
+        <button type="button" className="gw-btn" onClick={() => setUsar(true)} title="Vuelve a abrir el diálogo «Usar» para elegir otra tabla">
+          Usar…
+        </button>
         <button type="button" className="gw-btn" onClick={() => navigate('/')}>
           Salir
         </button>
@@ -224,5 +241,104 @@ export function ExaminarPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+/** Diálogo «Usar» de GeminisWin: elegir la tabla que se va a examinar. */
+function UsarDialog({ tablas, actual, onAceptar, onCancelar }: { tablas: TablaErp[]; actual: string | null; onAceptar: (t: string) => void; onCancelar: () => void }) {
+  const [sel, setSel] = useState<string | null>(actual)
+  const elegida = sel ?? tablas[0]?.tabla ?? null
+  useEffect(() => {
+    if (elegida) document.getElementById(`usar-${elegida}`)?.scrollIntoView({ block: 'nearest' })
+  }, [elegida])
+  function teclas(e: React.KeyboardEvent) {
+    if (!tablas.length) return
+    const i = tablas.findIndex((t) => t.tabla === elegida)
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSel(tablas[Math.min(tablas.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))].tabla)
+    } else if (e.key === 'Enter' && elegida) onAceptar(elegida)
+  }
+  const btn = 'gw-btn !h-[22px] w-full !text-[12px]'
+  return (
+    <Dialogo titulo="Usar" onClose={onCancelar} ancho={330}>
+      <div className="flex gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <label className="flex flex-col gap-[1px]">
+            <span>Base de datos:</span>
+            <select className="gw-input !h-[20px] !text-[12px]" disabled title="El ERP tiene una sola base de datos (Supabase)">
+              <option>Ofipapel ERP</option>
+            </select>
+          </label>
+          <span>Tablas de la base de datos:</span>
+          <div
+            tabIndex={0}
+            autoFocus
+            onKeyDown={teclas}
+            role="listbox"
+            aria-label="Tablas de la base de datos"
+            className="h-[150px] overflow-y-auto border border-[var(--gw-border)] bg-white outline-none focus:border-[var(--gw-select)]"
+          >
+            {tablas.map((t) => (
+              <div
+                key={t.tabla}
+                id={`usar-${t.tabla}`}
+                role="option"
+                aria-selected={t.tabla === elegida}
+                className={`cursor-default truncate px-1 leading-[15px] ${t.tabla === elegida ? 'bg-[var(--gw-select)] text-white' : ''}`}
+                onClick={() => setSel(t.tabla)}
+                onDoubleClick={() => onAceptar(t.tabla)}
+              >
+                {t.tabla}
+              </div>
+            ))}
+            {!tablas.length && <div className="px-1 text-[#777]">Cargando…</div>}
+          </div>
+        </div>
+        <div className="flex w-[80px] flex-none flex-col gap-1 pt-[14px]">
+          <button type="button" className={btn} disabled={!elegida} onClick={() => elegida && onAceptar(elegida)}>
+            Aceptar
+          </button>
+          <button type="button" className={btn} onClick={onCancelar}>
+            Cancelar
+          </button>
+          <button type="button" className={btn} disabled title="No aplica en el ERP web: hay una sola base de datos">
+            <u>O</u>tras...
+          </button>
+          <fieldset className="mt-1 border border-[var(--gw-border-light)] px-1 pb-1 pt-0">
+            <legend className="px-0.5">Seleccionar</legend>
+            <label className="flex items-center gap-1">
+              <input type="radio" name="usar-tipo" checked readOnly />
+              <u>T</u>ablas
+            </label>
+            <label className="flex items-center gap-1 text-[#8a8a8a]" title="Examinar solo enseña tablas: las vistas no se listan">
+              <input type="radio" name="usar-tipo" checked={false} disabled readOnly />
+              <u>V</u>istas
+            </label>
+          </fieldset>
+          <label className="flex items-center gap-1 text-[#8a8a8a]" title="No aplica en el ERP web: la base de datos es compartida y no se bloquea para un solo usuario">
+            <input type="checkbox" checked={false} disabled readOnly />
+            E<u>x</u>clusivo
+          </label>
+          <label className="flex items-center gap-1 text-[#8a8a8a]" title="Examinar en el ERP es siempre de solo lectura: para cambiar datos, usa su ficha">
+            <input type="checkbox" checked disabled readOnly />
+            <u>S</u>ólo lectura
+          </label>
+        </div>
+      </div>
+      <OperativaDialogo
+        bloques={[
+          {
+            titulo: 'Examinar',
+            pasos: [
+              'Elige una tabla de la lista (flechas o clic) y pulsa Aceptar (o doble clic / Intro).',
+              'En la rejilla: escribe bajo una cabecera y pulsa Intro para filtrar («contiene»); pulsa una cabecera para ordenar.',
+              '«Usar…» vuelve a este diálogo para elegir otra tabla; «Salir» cierra.',
+            ],
+            notas: ['Solo para administradores y siempre de solo lectura: no cambia nada. Los datos se cambian en su ficha.', 'Se ven 100 filas por página.'],
+          },
+        ]}
+      />
+    </Dialogo>
   )
 }
