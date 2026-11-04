@@ -650,10 +650,10 @@ body{
   var CON_GLOBO = ['luis', 'david', 'rober'];
   var DOCS = [['volcado', 'Volcado Diario'], ['cajaCierres', 'Cierre de Cajas'], ['cajaBancoRecibos', 'Banco / Comprobantes']];
   var HORA_LIMITE = 13;
-  // Sin globo. 2026: calendario de Canarias + Candelaria (Tenerife) + locales de Arona. 2027: solo enero, falta completar.
-  var FESTIVOS = ['2026-01-01', '2026-01-06', '2026-02-02', '2026-02-17', '2026-04-02', '2026-04-03', '2026-05-01',
-    '2026-05-30', '2026-08-15', '2026-10-05', '2026-10-12', '2026-11-02', '2026-12-08', '2026-12-25',
-    '2027-01-01', '2027-01-06'];
+  // Festivos sin globo: se calculan solos cada año (Canarias, Candelaria de Tenerife y locales de Arona).
+  var FESTIVOS_FIJOS = ['01-01', '01-06', '02-02', '05-01', '05-30', '08-15', '10-12', '11-01', '12-06', '12-08', '12-25'];
+  // Los traslados los decide cada año el decreto de Canarias: no siguen una regla y hay que añadirlos a mano.
+  var TRASLADOS = { 2026: ['11-02'], 2027: ['08-16'] };
   var CADA_MS = 5 * 60 * 1000;
   var TEXTOS = { verde: ['✓', 'Actualización completa'], naranja: ['!', 'Actualización incompleta'], rojo: ['✕', 'Sin subir hoy'] };
 
@@ -672,10 +672,29 @@ body{
   function diaCanarias(d) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Atlantic/Canary' }).format(new Date(d)); }
   function horaCanarias(d) { return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Atlantic/Canary', hour: '2-digit', hourCycle: 'h23' }).format(new Date(d))); }
 
+  function iso(fecha) { return fecha.toISOString().slice(0, 10); }
+  function pascua(anio) { // Domingo de Pascua (algoritmo de Meeus/Jones/Butcher)
+    var a = anio % 19, b = Math.floor(anio / 100), c = anio % 100, d = Math.floor(b / 4), e = b % 4;
+    var f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    var i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    var n = h + l - 7 * m + 114;
+    return Date.UTC(anio, Math.floor(n / 31) - 1, n % 31 + 1);
+  }
+  function esFestivo(hoy) {
+    var anio = Number(hoy.slice(0, 4)), mesDia = hoy.slice(5), DIA = 86400000;
+    if (FESTIVOS_FIJOS.indexOf(mesDia) >= 0 || (TRASLADOS[anio] || []).indexOf(mesDia) >= 0) return true;
+    var p = pascua(anio);
+    var moviles = [p - 47 * DIA, p - 3 * DIA, p - 2 * DIA].map(function (t) { return iso(new Date(t)); }); // Martes de Carnaval, Jueves y Viernes Santo
+    if (moviles.indexOf(hoy) >= 0) return true;
+    var octubre = new Date(Date.UTC(anio, 9, 1)); // Cristo de la Salud: primer lunes de octubre
+    octubre.setUTCDate(1 + (8 - octubre.getUTCDay()) % 7);
+    return iso(octubre) === hoy;
+  }
+
   function estadoGlobo(registro, ahora) {
     var hoy = diaCanarias(ahora);
     var semana = new Date(hoy + 'T12:00:00Z').getUTCDay();
-    if (semana === 0 || semana === 6 || FESTIVOS.indexOf(hoy) >= 0) return { color: null };
+    if (semana === 0 || semana === 6 || esFestivo(hoy)) return { color: null };
     var hechos = {};
     registro.forEach(function (e) { if (e && e.ts && diaCanarias(e.ts) === hoy) hechos[e.key] = true; });
     var subidos = DOCS.filter(function (x) { return hechos[x[0]]; });
