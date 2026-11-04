@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
 import { GwField, GwInput, GwTabs, type GwTabDef } from '../../../components/gw'
@@ -9,11 +9,12 @@ import { useBusquedaFicha } from '../../../components/gw/useBusquedaFicha'
 import { emptyProveedor, type Proveedor } from '../../proveedores/types'
 import { TabDatosGenerales } from '../../proveedores/tabs/TabDatosGenerales'
 import { TabBancos } from '../../proveedores/tabs/TabBancos'
-import { TabCompras } from '../../proveedores/tabs/TabCompras'
-import { TabObservaciones } from '../../proveedores/tabs/TabObservaciones'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { type Transportista, emptyTransportista } from './types'
 import { TabDatosComercialesTransportista } from './TabDatosComercialesTransportista'
 import { TabEnlacesTransportista } from './TabEnlacesTransportista'
+import { TabObservacionesTransportista } from './TabObservacionesTransportista'
+import { TabComprasTransportista } from './TabComprasTransportista'
 
 interface CodigoNombre {
   codigo: string
@@ -28,10 +29,32 @@ const TAB_ROWS: GwTabDef[][] = [
     { key: 'bancos', label: 'Bancos' },
     { key: 'obs', label: 'Observaciones e Imagen' },
     { key: 'compras', label: 'Compras' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 
-const TABS_SATELITE = new Set(['bancos', 'compras'])
+const TABS_SATELITE = new Set(['bancos', 'compras', 'operativa'])
+
+const OPERATIVA = [
+  {
+    titulo: 'Dar de alta o cambiar un transportista',
+    pasos: [
+      'Pulsa Nuevo: el código se propone solo (el siguiente libre, con 6 cifras). Escribe el nombre, el Dni/Nif, la razón social y el contacto.',
+      'Rellena Datos Generales (dirección, teléfonos, correo), Datos comerciales (forma y días de pago) y Enlaces (cuentas contables 410, 624, 411 y 572).',
+      'Pulsa Aceptar (F4). Para cambiarlo después: Modificar, cambia lo que haga falta y Aceptar.',
+      'Bancos y Compras se rellenan cuando el transportista ya está dado de alta.',
+    ],
+  },
+  {
+    titulo: 'Bueno es saber',
+    notas: [
+      'Compras enseña los pedidos a proveedor que trajo este transportista. Por defecto «No Filtrar»: elige un campo de fecha y cómo filtrar, las tiendas, y pulsa Aplicar. Doble clic en una fila abre el pedido.',
+      'Bancos: Nuevo, Modificar y Borrar en la barra de la rejilla (en Modificar de la ficha). «Cuenta Principal» marca la que se usa por defecto.',
+      'Observaciones e Imagen: escribe la ruta o dirección de la imagen; «Ver Imagen a ...» decide cómo se encaja en el marco.',
+      'Eliminar no borra: lo marca como baja con la fecha de hoy.',
+    ],
+  },
+]
 
 const hoy = () => new Date().toISOString().slice(0, 10)
 
@@ -221,15 +244,9 @@ export function TransportistaFichaPage() {
 
   if (loading) return <div className="p-4 text-[13px]">Cargando…</div>
 
+  // En alta (o sin transportistas) Bancos y Compras se ven vacías y apagadas, como en GeminisWin:
+  // las cuentas y las compras cuelgan del código, que no existe hasta aceptar el alta.
   const satelitesBloqueados = mode === 'alta' || vacio
-  const aviso = (contenido: ReactNode) =>
-    satelitesBloqueados ? (
-      <div className="p-3 text-[13px]">
-        {vacio ? 'No hay ningún transportista. Pulsa Nuevo para dar de alta el primero.' : 'Acepta el alta del transportista para poder rellenar esta pestaña.'}
-      </div>
-    ) : (
-      contenido
-    )
   // Las pestañas comunes con Proveedores (dirección, bancos, compras, observaciones) se reutilizan:
   // solo leen y escriben columnas que existen con el mismo nombre en las dos tablas.
   const comun = {
@@ -275,9 +292,17 @@ export function TransportistaFichaPage() {
               {tab === 'generales' && <TabDatosGenerales {...comun} />}
               {tab === 'comerciales' && <TabDatosComercialesTransportista {...tabProps} />}
               {tab === 'enlaces' && <TabEnlacesTransportista {...tabProps} />}
-              {tab === 'bancos' && aviso(<TabBancos {...comun} tipoEntidad="transportista" />)}
-              {tab === 'obs' && <TabObservaciones {...comun} tabla="TRANSPOR" />}
-              {tab === 'compras' && aviso(<TabCompras {...comun} campo="transportista_codigo" />)}
+              {tab === 'bancos' && (
+                <TabBancos
+                  {...comun}
+                  proveedor={satelitesBloqueados ? { ...comun.proveedor, codigo: '' } : comun.proveedor}
+                  editing={editing && !satelitesBloqueados}
+                  tipoEntidad="transportista"
+                />
+              )}
+              {tab === 'obs' && <TabObservacionesTransportista {...tabProps} />}
+              {tab === 'compras' && <TabComprasTransportista codigo={satelitesBloqueados ? '' : registro.codigo} />}
+              {tab === 'operativa' && <GwOperativa bloques={OPERATIVA} />}
             </>
           )}
         </GwTabs>

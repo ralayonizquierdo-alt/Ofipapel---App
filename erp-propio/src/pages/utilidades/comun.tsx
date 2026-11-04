@@ -1,8 +1,9 @@
 // Piezas comunes de los diálogos del menú Utilidades (y Archivo → Seleccionar Periodo): ventana
 // pequeña tipo diálogo de Windows clásico, centrada sobre el escritorio, que se cierra con Esc.
 
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { GwWindow } from '../../components/gw'
+import { GwOperativa, type BloqueOperativa } from '../../components/gw/GwOperativa'
 
 export function Dialogo({
   titulo,
@@ -40,4 +41,24 @@ export function Botones({ children }: { children: ReactNode }) {
 
 export function Mensaje({ texto, error }: { texto: string; error?: boolean }) {
   return <div className={`border px-2 py-1 ${error ? 'border-[#d9a0a0] bg-[#fdeaea] text-[#a00]' : 'border-[#a8c8a8] bg-[#eef8ee] text-[#185a18]'}`}>{texto}</div>
+}
+
+/**
+ * «Operativa» de un diálogo pequeño (norma de Luis: toda pantalla nueva o cambiada la lleva).
+ * Botón «Operativa» que despliega cómo se usa debajo, sin agrandar el diálogo hasta pulsarlo.
+ */
+export function OperativaDialogo({ bloques }: { bloques: BloqueOperativa[] }) {
+  const [abierta, setAbierta] = useState(false)
+  return (
+    <div className="flex flex-col gap-1">
+      <button type="button" className="gw-btn self-start !h-[20px] !px-2 !text-[11px]" onClick={() => setAbierta((v) => !v)} title="Cómo se usa esta ventana">
+        {abierta ? 'Ocultar operativa' : 'Operativa'}
+      </button>
+      {abierta && (
+        <div className="max-h-[260px] overflow-y-auto border border-[var(--gw-border-light)] bg-white p-1 [&_*]:!text-[12px] [&_*]:!leading-[17px]">
+          <GwOperativa bloques={bloques} />
+        </div>
+      )}
+    </div>
+  )
 }

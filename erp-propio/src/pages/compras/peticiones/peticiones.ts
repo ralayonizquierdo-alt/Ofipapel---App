@@ -38,6 +38,32 @@ export interface Peticion {
   observaciones: string | null
 }
 
+/**
+ * Desplegable «Tipo» de GeminisWin (captura 04/11, ZIP 7): Pedido / Devolución.
+ * PETICION.TIPO no venía documentado: 0 (o vacío) = Pedido, 1 = Devolución.
+ */
+export const TIPOS_PETICION: { value: number; label: string }[] = [
+  { value: 0, label: 'Pedido' },
+  { value: 1, label: 'Devolución' },
+]
+export const etiquetaTipoPeticion = (t: number | null | undefined) => (t === 1 ? 'Devolución' : 'Pedido')
+
+/**
+ * Desplegable «Estado» con los textos y el orden exactos de GeminisWin (captura 04/11, ZIP 7).
+ * La lista de la captura se corta tras «Entregada»; «Anulada» va la última (estado del ERP).
+ */
+export const ESTADOS_PETICION_GW: { value: string; label: string }[] = [
+  { value: 'pendiente', label: 'Pendiente' },
+  { value: 'atendida', label: 'Atendida' },
+  { value: 'parcial_tramitada', label: 'Tramit. Parcial' },
+  { value: 'parcial_resuelta', label: 'Resuelta Parcial' },
+  { value: 'tramitada', label: 'Tramitada' },
+  { value: 'resuelta', label: 'Resuelta' },
+  { value: 'entregada', label: 'Entregada' },
+  { value: 'anulada', label: 'Anulada' },
+]
+export const etiquetaEstadoPeticion = (v: string | null | undefined) => ESTADOS_PETICION_GW.find((e) => e.value === v)?.label ?? v ?? ''
+
 /** Estados que todavía se pueden tramitar a un pedido (lo que queda por pedir). */
 export const ESTADOS_TRAMITABLES = ['pendiente', 'atendida']
 

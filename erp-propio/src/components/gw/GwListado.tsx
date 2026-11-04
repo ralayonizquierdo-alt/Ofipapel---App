@@ -51,6 +51,7 @@ import { GwDate, Calendario } from './GwDate'
 import { GwLookupDialog, type GwLookupColumn } from './GwLookupDialog'
 import { useListaOrdenada, type GwListaOrdenadaDef } from './GwListaOrdenada'
 import { cssPagina, registrarVistaPrevia } from '../../lib/impresion'
+import { GwOperativa, type BloqueOperativa } from './GwOperativa'
 
 /* =====================================================================
  * Tipos y ayudantes de filtros
@@ -844,9 +845,11 @@ export function ListadoVentana({
   onDestino,
   onProcesar,
   procesando,
+  operativa,
   children,
 }: {
-  informes: { value: string; label: string }[]
+  /** `disabled` + `title`: informe de GeminisWin que el ERP aún no saca («Pendiente»). */
+  informes: { value: string; label: string; disabled?: boolean; title?: string }[]
   informe: string
   onInforme: (v: string) => void
   /** Casillas junto al título «Informe a procesar» («Listar sin Igics»…). */
@@ -860,10 +863,13 @@ export function ListadoVentana({
   onDestino: (d: Destino) => void
   onProcesar: () => void
   procesando?: boolean
+  /** Pestaña «Operativa» (cómo se usa): botón junto a «Pulse F4…». */
+  operativa?: BloqueOperativa[]
   children: ReactNode
 }) {
   const navigate = useNavigate()
   const cerrar = () => navigate('/')
+  const [verOperativa, setVerOperativa] = useState(false)
   // Archivo → Presentación preliminar: procesa el informe con destino Pantalla (vista preliminar).
   const ultimo = useRef({ destino, onDestino, onProcesar })
   useEffect(() => {
@@ -907,8 +913,8 @@ export function ListadoVentana({
           </legend>
           <select className={`${LST_INPUT} h-[30px]! text-[18px]!`} value={informe} onChange={(e) => onInforme(e.target.value)}>
             {informes.map((i) => (
-              <option key={i.value} value={i.value}>
-                {i.label}
+              <option key={i.value} value={i.value} disabled={i.disabled} title={i.title}>
+                {i.disabled ? `${i.label}  (Pendiente)` : i.label}
               </option>
             ))}
           </select>
@@ -939,7 +945,14 @@ export function ListadoVentana({
         <div className="flex flex-col gap-1">{children}</div>
       </div>
       <div className="flex flex-none items-stretch gap-2 border border-[var(--gw-border-light)] p-1">
-        <div className="flex w-[220px] flex-none items-center px-1 text-[17px] leading-[20px]">Pulse F4 para cerrar la ventana</div>
+        <div className="flex w-[220px] flex-none items-center gap-1 px-1 text-[17px] leading-[20px]">
+          <span className="flex-1">Pulse F4 para cerrar la ventana</span>
+          {operativa && (
+            <button type="button" className="gw-btn h-[26px]! px-1.5! text-[13px]!" title="Cómo se usa esta ventana" onClick={() => setVerOperativa(true)}>
+              Operativa
+            </button>
+          )}
+        </div>
         <div className="flex flex-1 border border-[var(--gw-border-light)] p-[3px]">
           {DESTINOS.map((d) => (
             <button
@@ -975,7 +988,22 @@ export function ListadoVentana({
           Cerrar
         </button>
       </div>
+      {verOperativa && operativa && <VentanaOperativa bloques={operativa} onCerrar={() => setVerOperativa(false)} />}
     </div>
+  )
+}
+
+/** Ventana flotante con la Operativa de un listado (ventana grande o diálogo pequeño). */
+export function VentanaOperativa({ bloques, onCerrar }: { bloques: BloqueOperativa[]; onCerrar: () => void }) {
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/25" onKeyDown={(e) => e.key === 'Escape' && onCerrar()}>
+      <GwWindow title="Operativa" onClose={onCerrar} className="max-h-[85vh] w-[800px] max-w-[96vw]">
+        <div className="max-h-[70vh] overflow-y-auto">
+          <GwOperativa bloques={bloques} />
+        </div>
+      </GwWindow>
+    </div>,
+    document.body,
   )
 }
 
@@ -1041,6 +1069,7 @@ export function DialogoListado({
   onAceptar,
   textoCancelar = 'Cancelar',
   procesando,
+  operativa,
 }: {
   titulo: string
   ancho: number
@@ -1048,9 +1077,12 @@ export function DialogoListado({
   onAceptar: () => void
   textoCancelar?: string
   procesando?: boolean
+  /** Operativa (cómo se usa): botón «?» en la barra de título. */
+  operativa?: BloqueOperativa[]
 }) {
   const navigate = useNavigate()
   const cerrar = () => navigate('/')
+  const [verOperativa, setVerOperativa] = useState(false)
   // Archivo → Presentación preliminar: lo mismo que Aceptar (con el destino elegido en el diálogo).
   const aceptar = useRef(onAceptar)
   useEffect(() => {
@@ -1076,6 +1108,16 @@ export function DialogoListado({
         <div className="flex h-[20px] select-none items-center gap-1 bg-gradient-to-b from-[#e3e9f3] to-[#c6d3e6] px-1 text-[12px]">
           <img src={`${import.meta.env.BASE_URL}marca/icono-32.png`} alt="" width={14} height={14} draggable={false} />
           <span className="flex-1 truncate">{titulo}</span>
+          {operativa && (
+            <button
+              type="button"
+              onClick={() => setVerOperativa(true)}
+              title="Operativa: cómo se usa esta ventana"
+              className="flex h-[14px] w-[20px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6] text-[10px] font-bold"
+            >
+              ?
+            </button>
+          )}
           <span className="flex h-[14px] w-[20px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6] text-[9px]">_</span>
           <span className="flex h-[14px] w-[20px] items-center justify-center border border-[#9aa8bb] bg-[#e9eef6] text-[9px]">□</span>
           <button
@@ -1100,6 +1142,7 @@ export function DialogoListado({
           </div>
         </div>
       </div>
+      {verOperativa && operativa && <VentanaOperativa bloques={operativa} onCerrar={() => setVerOperativa(false)} />}
     </SobreEscritorio>
   )
 }

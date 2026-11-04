@@ -6,6 +6,8 @@ import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { ejercicioTrabajo } from '../../../lib/sesionTrabajo'
 import { formatGw, GwDate } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
+import { exportarPdf } from '../../../lib/exportarTabla'
 import { FORMA_PAGO_COLS, cargarDoc, claseFormaPago, generarPagosDoc, hoyISO, type ClaseFp, type FormaPago } from './pagosModel'
 import { GwAnterior, GwBuscar, GwImprimir, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
@@ -36,6 +38,26 @@ const CLASES: { v: ClaseFp; label: string }[] = [
   { v: 'efectivo', label: 'Efectivo' },
   { v: 'tarjeta', label: 'Tarjeta' },
   { v: 'cheque', label: 'Cheque' },
+]
+// Al elegir la subpestaña, GeminisWin deja marcados estos tipos de forma de pago (capturas 54-57):
+// «Por Fecha de Pago y/o Vto.» todos menos Domiciliación; «Domiciliaciones…» solo Domiciliación.
+const CLASES_MODO: Record<ModoFecha, ClaseFp[]> = {
+  fecha: [],
+  mov: [],
+  pago: ['credito', 'efecto', 'banco', 'efectivo', 'tarjeta', 'cheque'],
+  domic: ['domiciliacion'],
+}
+// Menú del botón Imprimir (captura 62), en el orden de GeminisWin.
+const SIN_IMPRESO = 'Falta la captura del impreso de GeminisWin (formato y posiciones del papel): cuando llegue se calca. Mientras, usa «Pagos y Vtos. Actual».'
+const INFORMES_IMP: { k: string; label: string; motivo?: string }[] = [
+  { k: 'pv-actual', label: 'Pagos y Vtos. Actual' },
+  { k: 'pv-todos', label: 'Todos los Pagos y Vtos.' },
+  { k: 'recibo', label: 'Recibo Actual', motivo: SIN_IMPRESO },
+  { k: 'recibos', label: 'Todos los Recibos', motivo: SIN_IMPRESO },
+  { k: 'talon', label: 'Talón Actual', motivo: SIN_IMPRESO },
+  { k: 'talones', label: 'Todos los Talones', motivo: SIN_IMPRESO },
+  { k: 'pagare', label: 'Pagaré Actual', motivo: SIN_IMPRESO },
+  { k: 'pagares', label: 'Todos los Pagarés', motivo: SIN_IMPRESO },
 ]
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 // Colores de la columna Importe por forma de pago (GeminisWin pinta cada forma de pago de un color).
@@ -131,6 +153,10 @@ export function GestorPagosProveedorPage() {
   const [cargando, setCargando] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState<string | null>(null)
+  // Como GeminisWin: al cambiar de pestaña la rejilla se vacía hasta pulsar «Aplicar» (✗ = sin aplicar).
+  const [vigente, setVigente] = useState(true)
+  const [verOperativa, setVerOperativa] = useState(false)
+  const [menuImp, setMenuImp] = useState(false)
 
   useEffect(() => {
     supabase
@@ -329,20 +355,20 @@ export function GestorPagosProveedorPage() {
   }, [anio, periodo, filtro])
 
   const filas = useMemo(() => {
+    if (!vigente) return []
     const r = filasVista.filter((f) => {
       let ok: boolean
       if (modo === 'fecha') ok = enRango(f.fecha, desde, hasta) || enRango(f.fechaPago, desde, hasta) || enRango(f.fechaVto, desde, hasta)
       else if (modo === 'mov') ok = enRango(f.fechaMov, desde, hasta)
       else ok = enRango(f.fechaPago, desde, hasta) || enRango(f.fechaVto, desde, hasta)
       if (!ok) return false
-      if (modo === 'domic' && f.clase !== 'domiciliacion') return false
       if (aplicado.estados.size && !aplicado.estados.has(f.pagado ? 'pagado' : 'pendiente')) return false
       if (aplicado.clases.size && !aplicado.clases.has(f.clase)) return false
       if (busqueda && !`${f.nFactura} ${f.receptor} ${f.nombre} ${f.nDoc}`.toLowerCase().includes(busqueda.toLowerCase())) return false
       return true
     })
     return r.sort((a, b) => (a.fechaVto ?? a.fecha ?? '').localeCompare(b.fechaVto ?? b.fecha ?? '') || a.nFactura.localeCompare(b.nFactura))
-  }, [filasVista, modo, desde, hasta, aplicado, busqueda])
+  }, [filasVista, modo, desde, hasta, aplicado, busqueda, vigente])
 
   const selIdx = filas.findIndex((f) => f.key === sel)
   const actual = selIdx >= 0 ? filas[selIdx] : null
@@ -374,7 +400,9 @@ export function GestorPagosProveedorPage() {
     return { porDiaFp, porDia, diasConMov: porDia.length }
   }, [filas, desde, hasta, periodo])
 
-  const totalDocs = filas.reduce((s, f) => s + f.totalDoc, 0)
+  // Solo «Facturas y Pagos» tiene la columna Total Doc.; en las demás el total del pie va bajo Importe.
+  const conTotalDoc = vista === 'fp'
+  const totalDocs = filas.reduce((s, f) => s + (conTotalDoc ? f.totalDoc : f.importe), 0)
   const totPagado = porDia.reduce((s, x) => s + x.pagado, 0)
   const totAPagar = porDia.reduce((s, x) => s + x.aPagar, 0)
 
@@ -415,20 +443,81 @@ export function GestorPagosProveedorPage() {
 
   function aplicar() {
     setAplicado({ estados: new Set(estados), clases: new Set(clases) })
+    setVigente(true)
+  }
+
+  // Cambiar de pestaña vacía la rejilla (hasta «Aplicar») y deja los tipos de forma de pago de esa subpestaña.
+  function cambiarModo(m: ModoFecha) {
+    setModo(m)
+    setClases(new Set(CLASES_MODO[m]))
+    setVigente(false)
+    setSel(null)
+  }
+  function cambiarVista(v: Vista | 'op') {
+    if (v === 'op') return setVerOperativa(true)
+    setVerOperativa(false)
+    if (v === vista) return
+    setVista(v)
+    setModo('fecha')
+    setEstados(new Set())
+    setClases(new Set())
+    setVigente(false)
+    setSel(null)
+  }
+  const igual = <T,>(a: Set<T>, b: Set<T>) => a.size === b.size && [...a].every((x) => b.has(x))
+  const aplicadoAlDia = vigente && igual(estados, aplicado.estados as Set<'pagado' | 'pendiente'>) && igual(clases, aplicado.clases)
+
+  const columnasImp = ['Nº Factura', 'Pag.', 'Receptor', 'Nombre Receptor', 'Fecha', 'Fe. Pago', 'Fe. VTO.', 'Nº Doc. Pago', ...(conTotalDoc ? ['Total Doc.'] : []), 'Importe']
+  const filaImp = (f: Fila) => [
+    f.nFactura,
+    f.pagado ? 'Sí' : 'No',
+    f.receptor,
+    f.nombre,
+    fmtFecha(f.fecha),
+    fmtFecha(f.fechaPago),
+    fmtFecha(f.fechaVto),
+    f.nDoc,
+    ...(conTotalDoc ? [formatGw(f.totalDoc, 3)] : []),
+    formatGw(f.importe, 3),
+  ]
+  function imprimir(k: string) {
+    setMenuImp(false)
+    const vistaTxt = VISTAS.find((x) => x.v === vista)?.label ?? ''
+    const modoTxt = MODOS.find((x) => x.v === modo)?.label ?? ''
+    const periodoTxt = periodo === 'anio' ? `Año ${anio}` : periodo === 'filtro' ? `${fmtFecha(desde)} a ${fmtFecha(hasta)}` : `${MESES[periodo]} ${anio}`
+    if (k === 'pv-todos') {
+      exportarPdf({ titulo: `Gestor de Pagos · ${vistaTxt} · ${modoTxt} · ${periodoTxt}`, columnas: columnasImp, filas: filas.map(filaImp) })
+      return
+    }
+    if (k === 'pv-actual') {
+      if (!actual) return setMensaje('Elige primero una fila de la rejilla y vuelve a pulsar Imprimir → «Pagos y Vtos. Actual».')
+      // Los pagos y vencimientos del documento de la fila (o solo la fila si es un pago suelto).
+      const d = actual.doc
+      const lista = d ? filas.filter((f) => f.doc === d) : [actual]
+      const titulo = d ? `Pagos y vencimientos · ${d.clase === 'pedido' ? 'Pedido' : 'Factura'} de proveedor ${d.tienda}-${d.numero}` : `Pago ${actual.pago?.tienda}-${actual.pago?.codigo}`
+      exportarPdf({ titulo, columnas: columnasImp, filas: lista.map(filaImp) })
+    }
   }
 
   const fpDesc = (c: string | null) => (c ? (fpMap.get(c)?.codigo ?? c) : '')
+  // Pie como GeminisWin: «Pago Pedido Proveedor: 43-188904. F.P.: 85 Total: … Pag.: …. F. Fact.: dd/mm/aa».
   const pieSel = actual
     ? actual.doc
-      ? `Fact. ${actual.doc.clase === 'pedido' ? 'Pedido' : 'Factura'} Proveedor: ${actual.doc.tienda}-${actual.doc.numero}. F.P.: ${fpDesc(actual.doc.fp)} Total: ${formatGw(actual.doc.total, 3)} Pag.: ${formatGw(actual.importe, 3)}. F. Fact.: ${fmtFecha(actual.doc.fecha)}`
+      ? `${actual.pago ? 'Pago' : 'Fact.'} ${actual.doc.clase === 'pedido' ? 'Pedido' : 'Factura'} Proveedor: ${actual.doc.tienda}-${actual.doc.numero}. F.P.: ${fpDesc(actual.doc.fp)} Total: ${formatGw(actual.doc.total, 3)} Pag.: ${formatGw(actual.importe, 3)}. F. Fact.: ${fmtFecha(actual.doc.fecha)}`
       : `Pago ${actual.pago?.tienda}-${actual.pago?.codigo}. F.P.: ${fpDesc(actual.fp)} Cuota: ${formatGw(actual.pago?.cuota ?? 0, 3)} Pag.: ${formatGw(actual.importe, 3)}`
     : ''
+  const hayFilas = filas.length > 0
 
   return (
     <div className="flex h-full min-h-0 flex-col text-[15px]">
       {/* Pestañas de vista + año */}
       <div className="flex items-end gap-2">
-        <Tabs items={VISTAS} value={vista} onChange={setVista} className="flex-1" />
+        <Tabs
+          items={[...VISTAS, { v: 'op' as const, label: 'Operativa' }]}
+          value={verOperativa ? 'op' : vista}
+          onChange={cambiarVista}
+          className="flex-1"
+        />
         <div className="mb-[2px] flex h-[32px] w-[124px] items-stretch border border-[var(--gw-border)] bg-white">
           <span className="flex flex-1 items-center justify-end pr-1.5 text-[22px] font-bold">{anio}</span>
           <span className="flex w-[14px] flex-col border-l border-[var(--gw-border-light)] text-[8px]">
@@ -441,7 +530,14 @@ export function GestorPagosProveedorPage() {
           </span>
         </div>
       </div>
-      <Tabs items={MODOS} value={modo} onChange={setModo} />
+      {verOperativa ? (
+        <div className="min-h-0 flex-1 overflow-auto border-x border-b border-[var(--gw-border)] bg-white p-3">
+          <GwOperativa bloques={OPERATIVA} />
+        </div>
+      ) : (
+      <>
+      {/* En las pestañas que no son «Facturas y Pagos» GeminisWin pinta las subpestañas en letra pequeña. */}
+      <Tabs items={MODOS} value={modo} onChange={cambiarModo} pequenas={vista !== 'fp'} />
 
       {/* Filtros */}
       <div className="flex items-stretch gap-2 border-x border-b border-[var(--gw-border)] px-1.5 pb-1.5 pt-0.5">
@@ -468,9 +564,10 @@ export function GestorPagosProveedorPage() {
         <button
           type="button"
           onClick={aplicar}
+          title={aplicadoAlDia ? 'La rejilla muestra lo elegido' : 'Hay cambios sin aplicar: pulsa para ver la rejilla con lo elegido'}
           className="my-1 flex w-[110px] items-center justify-center gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] text-[16px] hover:bg-[#e5f1fb]"
         >
-          <Check size={16} strokeWidth={3} className="text-[#127a12]" /> Aplicar
+          {aplicadoAlDia ? <Check size={16} strokeWidth={3} className="text-[#127a12]" /> : <X size={16} strokeWidth={3} className="text-[#c42b1c]" />} Aplicar
         </button>
       </div>
 
@@ -487,7 +584,7 @@ export function GestorPagosProveedorPage() {
               <col className="w-[8%]" />
               <col className="w-[8%]" />
               <col className="w-[11%]" />
-              <col className="w-[10%]" />
+              {conTotalDoc && <col className="w-[10%]" />}
               <col className="w-[10%]" />
             </colgroup>
             <thead>
@@ -500,7 +597,7 @@ export function GestorPagosProveedorPage() {
                 <th>Fe. Pago</th>
                 <th>Fe. VTO.</th>
                 <th>Nº Doc. Pago</th>
-                <th>Total Doc.</th>
+                {conTotalDoc && <th>Total Doc.</th>}
                 <th>Importe</th>
               </tr>
             </thead>
@@ -530,14 +627,14 @@ export function GestorPagosProveedorPage() {
                     <td>{fmtFecha(f.fechaPago)}</td>
                     <td>{fmtFecha(f.fechaVto)}</td>
                     <td className="truncate">{f.nDoc}</td>
-                    <td className="text-right">{formatGw(f.totalDoc, 3)}</td>
+                    {conTotalDoc && <td className="text-right">{formatGw(f.totalDoc, 3)}</td>}
                     <td className="text-right" style={{ background: bgImp, color: textoSobre(bgImp) }}>
                       {formatGw(f.importe, 3)}
                     </td>
                   </tr>
                 )
               })}
-              <FilasVacias cols={10} ocupadas={filas.length} total={16} />
+              <FilasVacias cols={conTotalDoc ? 10 : 9} ocupadas={filas.length} total={16} />
             </tbody>
           </table>
         </div>
@@ -605,8 +702,10 @@ export function GestorPagosProveedorPage() {
         <span className="min-w-0 flex-1 truncate" title={pieSel}>
           {cargando ? 'Cargando…' : (mensaje ?? pieSel)}
         </span>
-        <span className="w-[130px] text-right font-bold text-black">{formatGw(totalDocs, 3)}</span>
-        <span className="w-[52px]" />
+        <span className="w-[130px] text-right font-bold text-black" title={conTotalDoc ? 'Suma de Total Doc.' : 'Suma de Importe'}>
+          {formatGw(totalDocs, 3)}
+        </span>
+        <span className={conTotalDoc ? 'w-[52px]' : 'w-0'} />
         <span className="w-[372px] shrink-0 grid grid-cols-[96px_1fr_1fr] font-bold">
           <span className="font-normal text-[#1a4fd0]">Días: {diasConMov}</span>
           <span className="text-right text-black">{formatGw(totPagado, 3)}</span>
@@ -616,20 +715,21 @@ export function GestorPagosProveedorPage() {
 
       {/* Botonera */}
       <div className="flex h-[38px] items-stretch gap-[2px] border-t border-[var(--gw-border)] pt-[2px]">
-        <Ico title="Primero" onClick={() => irA(0)}>
+        <Ico title="Primero" onClick={() => irA(0)} disabled={!hayFilas}>
           <GwPrimero />
         </Ico>
-        <Ico title="Anterior" onClick={() => irA(selIdx - 1)}>
+        <Ico title="Anterior" onClick={() => irA(selIdx - 1)} disabled={!hayFilas}>
           <GwAnterior />
         </Ico>
-        <Ico title="Siguiente" onClick={() => irA(selIdx + 1)}>
+        <Ico title="Siguiente" onClick={() => irA(selIdx + 1)} disabled={!hayFilas}>
           <GwSiguiente />
         </Ico>
-        <Ico title="Último" onClick={() => irA(filas.length - 1)}>
+        <Ico title="Último" onClick={() => irA(filas.length - 1)} disabled={!hayFilas}>
           <GwUltimo />
         </Ico>
         <Ico
           title="Buscar"
+          disabled={!hayFilas}
           onClick={() => {
             const q = prompt('Buscar por nº de factura, receptor o nº de documento (vacío = quitar búsqueda):', busqueda ?? '')
             if (q !== null) setBusqueda(q.trim() || null)
@@ -637,9 +737,32 @@ export function GestorPagosProveedorPage() {
         >
           <GwBuscar />
         </Ico>
-        <Ico title="Imprimir" onClick={() => window.print()}>
-          <GwImprimir />
-        </Ico>
+        <span className="relative flex">
+          <Ico title={hayFilas ? 'Imprimir' : 'No hay filas que imprimir: elige pestaña y periodo y pulsa Aplicar'} onClick={() => setMenuImp((v) => !v)} disabled={!hayFilas}>
+            <GwImprimir />
+          </Ico>
+          {menuImp && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuImp(false)} />
+              <ul role="menu" className="absolute bottom-[36px] left-0 z-20 w-[118px] min-w-max border border-[#7a7a7a] bg-white py-[1px] text-[14px] shadow-[2px_2px_3px_rgba(0,0,0,.35)]">
+                {INFORMES_IMP.map((it) => (
+                  <li key={it.k}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={!!it.motivo}
+                      title={it.motivo}
+                      onClick={() => imprimir(it.k)}
+                      className="block w-full whitespace-nowrap px-2 py-[1px] text-left hover:bg-[#0a64d6] hover:text-white disabled:text-[#9a9a9a] disabled:hover:bg-transparent"
+                    >
+                      {it.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </span>
         <Ico title="Refrescar" onClick={() => cargar()}>
           <RotateCw size={15} className="text-[#127a12]" />
         </Ico>
@@ -653,28 +776,50 @@ export function GestorPagosProveedorPage() {
           <Settings2 size={15} /> <span><u>G</u>. Pagos Factura</span>
         </BtnTxt>
         <span className="flex w-[96px] flex-col items-center justify-center text-[14px] leading-[15px] text-[#1a4fd0]">
-          <span>Nº Mov.:</span>
+          {hayFilas && <span>Nº Mov.:</span>}
           <span>{filas.length}</span>
         </span>
-        <BtnTxt
-          onClick={() => {
-            const lista = filas.filter((f) => f.doc && !f.pago && !f.doc.pagado).map((f) => f.doc as Doc)
-            if (lista.length && confirm(`¿Generar los vencimientos pendientes de ${lista.length} documento(s) de la vista?`)) generar(lista)
-          }}
-          w="flex-1"
-        >
-          <Settings2 size={15} /> <span>Gen. <u>T</u>odos los Pagos</span>
-        </BtnTxt>
+        {/* En la pestaña «Pagos» GeminisWin no tiene «Gen. Todos los Pagos» (captura 61). */}
+        {vista !== 'p' ? (
+          <BtnTxt
+            onClick={() => {
+              const lista = filas.filter((f) => f.doc && !f.pago && !f.doc.pagado).map((f) => f.doc as Doc)
+              if (!lista.length) return setMensaje('En la vista no hay facturas pendientes sin sus pagos generados. Elige otra pestaña o periodo y pulsa Aplicar.')
+              if (confirm(`¿Generar los vencimientos pendientes de ${lista.length} documento(s) de la vista?`)) generar(lista)
+            }}
+            disabled={!hayFilas}
+            w="flex-1"
+          >
+            <Settings2 size={15} /> <span>Gen. <u>T</u>odos los Pagos</span>
+          </BtnTxt>
+        ) : (
+          <span className="flex-1" />
+        )}
       </div>
+      </>
+      )}
 
       {/* Meses / Año / Filtro */}
       <div className="relative flex h-[34px] items-stretch gap-[2px] pt-[2px]">
         {MESES.map((m, i) => (
-          <PerTab key={m} on={periodo === i} onClick={() => setPeriodo(i)}>
+          <PerTab
+            key={m}
+            on={periodo === i}
+            onClick={() => {
+              setPeriodo(i)
+              aplicar()
+            }}
+          >
             {m}
           </PerTab>
         ))}
-        <PerTab on={periodo === 'anio'} onClick={() => setPeriodo('anio')}>
+        <PerTab
+          on={periodo === 'anio'}
+          onClick={() => {
+            setPeriodo('anio')
+            aplicar()
+          }}
+        >
           Año {anio}
         </PerTab>
         <PerTab
@@ -682,6 +827,7 @@ export function GestorPagosProveedorPage() {
           onClick={() => {
             setPeriodo('filtro')
             setVerFiltro((v) => !v)
+            aplicar()
           }}
         >
           Filtro
@@ -702,6 +848,36 @@ export function GestorPagosProveedorPage() {
   )
 }
 
+const OPERATIVA = [
+  {
+    titulo: 'Para qué sirve',
+    notas: [
+      'Es la cartera de pagos a proveedores: facturas y pedidos de proveedor con sus pagos y vencimientos, lo pagado y lo que queda por pagar, día a día.',
+    ],
+  },
+  {
+    titulo: 'Cómo se usa',
+    pasos: [
+      'Elige el año (flechas junto al año) y abajo el mes, «Año» o «Filtro» (fechas desde/hasta).',
+      'Arriba elige qué ver: «Facturas y Pagos», «Facturas y Pagos sin Fact.», «Facturas», «Pagos y Facturas sin Pagos» o «Pagos».',
+      'Debajo elige por qué fecha se busca: de factura, pago o vencimiento; del movimiento; de pago y/o vencimiento (marca todos los tipos menos Domiciliación); o domiciliaciones (marca solo Domiciliación).',
+      'Marca si quieres solo lo Pagado o lo Pendiente y los tipos de forma de pago (✓ incluido, ✗ sin filtrar) y pulsa «Aplicar». Mientras haya cambios sin aplicar, «Aplicar» lleva una ✗ y la rejilla está vacía.',
+      'Elige una fila: «Factura» abre la factura o el pedido de proveedor; «Pago» abre el pago (o crea uno nuevo para esa factura). Doble clic en un pago también lo abre.',
+      '«G. Pagos Factura» genera los vencimientos pendientes de la factura elegida; «Gen. Todos los Pagos» los de todas las facturas pendientes de la vista.',
+      'Imprimir abre su menú: «Pagos y Vtos. Actual» (los de la factura elegida) o «Todos los Pagos y Vtos.» (toda la rejilla). Sale la ventana de impresión, donde también se puede guardar como PDF.',
+    ],
+  },
+  {
+    titulo: 'Bueno es saber',
+    notas: [
+      'Colores de «Pag.»: verde agua pagado, naranja pendiente, rosa vencido sin pagar. La columna Importe va del color de su forma de pago y en verde si está pagado.',
+      'A la derecha: lo pagado (por fecha de pago) y lo que hay que pagar (por vencimiento), por día y forma de pago y por día. Abajo, los totales y los días con movimiento.',
+      'Solo «Facturas y Pagos» tiene la columna «Total Doc.»; en las demás pestañas el total del pie suma el Importe. En «Pagos» no hay «Gen. Todos los Pagos».',
+      'Recibo, Talón y Pagaré del menú de imprimir están en gris: falta la captura del impreso de GeminisWin para calcarlo.',
+    ],
+  },
+]
+
 function alternar<T>(s: Set<T>, v: T) {
   const n = new Set(s)
   if (n.has(v)) n.delete(v)
@@ -709,7 +885,19 @@ function alternar<T>(s: Set<T>, v: T) {
   return n
 }
 
-function Tabs<T extends string>({ items, value, onChange, className = '' }: { items: { v: T; label: string }[]; value: T; onChange: (v: T) => void; className?: string }) {
+function Tabs<T extends string>({
+  items,
+  value,
+  onChange,
+  className = '',
+  pequenas = false,
+}: {
+  items: { v: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+  className?: string
+  pequenas?: boolean
+}) {
   return (
     <div className={`flex items-end border-b border-[var(--gw-border)] ${className}`}>
       {items.map((it) => (
@@ -717,8 +905,10 @@ function Tabs<T extends string>({ items, value, onChange, className = '' }: { it
           key={it.v}
           type="button"
           onClick={() => onChange(it.v)}
-          className={`-mb-px whitespace-nowrap border border-[var(--gw-border)] px-2.5 text-[16px] ${
-            value === it.v ? 'h-[34px] border-b-white bg-white font-bold' : 'h-[30px] bg-[var(--gw-face)] hover:bg-[#e5f1fb]'
+          className={`-mb-px whitespace-nowrap border border-[var(--gw-border)] ${pequenas ? 'px-1.5 text-[11px]' : 'px-2.5 text-[16px]'} ${
+            value === it.v
+              ? `${pequenas ? 'h-[22px]' : 'h-[34px]'} border-b-white bg-white font-bold`
+              : `${pequenas ? 'h-[20px]' : 'h-[30px]'} bg-[var(--gw-face)] hover:bg-[#e5f1fb]`
           }`}
         >
           {it.label}
@@ -751,13 +941,14 @@ function Celda({ v, bg }: { v: number; bg: string }) {
   )
 }
 
-function Ico({ title, onClick, children }: { title: string; onClick: () => void; children: ReactNode }) {
+function Ico({ title, onClick, disabled, children }: { title: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className="flex w-[64px] shrink-0 items-center justify-center border border-[var(--gw-border)] text-[#1d3a8a] hover:bg-[#e5f1fb]"
+      disabled={disabled}
+      className="flex w-[64px] shrink-0 items-center justify-center border border-[var(--gw-border)] text-[#1d3a8a] hover:bg-[#e5f1fb] disabled:opacity-40 disabled:grayscale disabled:hover:bg-transparent"
     >
       {children}
     </button>

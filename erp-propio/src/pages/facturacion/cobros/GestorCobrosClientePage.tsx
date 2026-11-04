@@ -1,23 +1,30 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Check, CircleDollarSign, FileText, HandCoins, RotateCw, Settings2, X } from 'lucide-react'
+import { Check, CircleDollarSign, FileText, HandCoins, HelpCircle, RotateCw, Settings2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { formatGw, GwDate } from '../../../components/gw'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { FORMA_PAGO_COLS, claseFormaPago, type ClaseFp, type FormaPago } from '../../compras/pagos/pagosModel'
 import { FACTURA_COLS, VENTA_COLS, docDeFactura, docDeVenta, generarVencimientos, hoyISO, r3, todasLasFilas, type DocCobro } from './cobrosModel'
 import { GwAnterior, GwBuscar, GwImprimir, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
+import { GwVentanaFlotante } from '../../../components/gw/GwVentanaFlotante'
 
 // «Gestor de Pagos de Clientes» de GeminisWin (Facturación → Gestor de Pagos de Clientes): la
 // cartera de cobros — facturas de clientes (y ventas sin facturar con importe pendiente) y sus
 // cobros/vencimientos (PAGOSCLI → cobro_cliente), con lo cobrado y lo pendiente por vencimiento.
-// Sin captura todavía: gemelo del Gestor de Pagos a proveedores, con las tres pestañas del mapa
-// funcional (Facturas · Pagos y Facturas sin Pagos · Pagos).
+// Calcada de las capturas de GeminisWin (04/11/2026, ZIP 7, 06-13): la ventana se titula «Gestor de
+// Pagos», con cinco pestañas (Facturas y Pagos · Facturas y Pagos sin Fact. · Facturas · Pagos y
+// Facturas sin Pagos · Pagos), cuatro modos de fecha, filtros de estado y tipo de forma de pago que solo
+// se aplican al pulsar «Aplicar» (✓ aplicado, ✗ pendiente de aplicar) y rejillas de Pagado / A Pagar.
+// Solo la pestaña «Facturas y Pagos» lleva la columna Total Doc.; «Pagos» no lleva «Gen. Todos los Pagos».
 
-type Vista = 'f' | 'pfsp' | 'p'
+type Vista = 'fp' | 'fpsf' | 'f' | 'pfsp' | 'p'
 type ModoFecha = 'fecha' | 'mov' | 'pago' | 'domic'
 
 const VISTAS: { v: Vista; label: string }[] = [
+  { v: 'fp', label: 'Facturas y Pagos' },
+  { v: 'fpsf', label: 'Facturas y Pagos sin Fact.' },
   { v: 'f', label: 'Facturas' },
   { v: 'pfsp', label: 'Pagos y Facturas sin Pagos' },
   { v: 'p', label: 'Pagos' },
@@ -28,6 +35,13 @@ const MODOS: { v: ModoFecha; label: string }[] = [
   { v: 'pago', label: 'Por Fecha de Pago y/o Vto.' },
   { v: 'domic', label: 'Domiciliaciones por Fecha de Pago o Vto.' },
 ]
+/** Al cambiar de modo, GeminisWin deja marcados estos tipos de forma de pago (vacío = todos con ✗, sin filtrar). */
+const CLASES_DE_MODO: Record<ModoFecha, ClaseFp[]> = {
+  fecha: [],
+  mov: [],
+  pago: ['credito', 'efecto', 'banco', 'efectivo', 'tarjeta', 'cheque'],
+  domic: ['domiciliacion'],
+}
 const CLASES: { v: ClaseFp; label: string }[] = [
   { v: 'credito', label: 'Crédito' },
   { v: 'efecto', label: 'Efecto' },
@@ -77,7 +91,10 @@ interface Fila {
   fechaVto: string | null
   nDoc: string
   totalDoc: number
+  /** Importe del movimiento (columna Importe): la cuota del pago o el total de la factura. */
   importe: number
+  /** Lo ya cobrado (rejillas «Pagado»). */
+  cobrado: number
   aPagar: number
   fp: string | null
   clase: ClaseFp
@@ -126,13 +143,17 @@ export function GestorCobrosClientePage() {
   const [periodo, setPeriodo] = useState<number | 'anio' | 'filtro'>(() => new Date().getMonth())
   const [filtro, setFiltro] = useState({ desde: hoyISO().slice(0, 8) + '01', hasta: hoyISO() })
   const [verFiltro, setVerFiltro] = useState(false)
-  const [vista, setVista] = useState<Vista>(docFiltro ? 'pfsp' : 'f')
+  const [vista, setVista] = useState<Vista>(docFiltro ? 'pfsp' : 'fp')
   const [modo, setModo] = useState<ModoFecha>('fecha')
   // Filtros de estado y forma de pago: vacío = sin filtrar (todos con ✗, como abre GeminisWin).
   const [estados, setEstados] = useState<Set<'pagado' | 'pendiente'>>(new Set())
   const [clases, setClases] = useState<Set<ClaseFp>>(new Set())
-  const [cliente, setCliente] = useState(clienteUrl ?? '')
-  const [aplicado, setAplicado] = useState({ estados: new Set<string>(), clases: new Set<ClaseFp>(), cliente: clienteUrl ?? '' })
+  // Como en GeminisWin, la rejilla se llena al pulsar «Aplicar» (y se vacía al cambiar de pestaña o de modo).
+  // Abierto desde una factura o un cliente (?factura=, ?cliente=) se aplica solo.
+  const [aplicado, setAplicado] = useState<{ vista: Vista; modo: ModoFecha; estados: Set<string>; clases: Set<ClaseFp> } | null>(() =>
+    docFiltro || clienteUrl ? { vista: docFiltro ? 'pfsp' : 'fp', modo: 'fecha', estados: new Set(), clases: new Set() } : null,
+  )
+  const [ayuda, setAyuda] = useState(false)
   const [formas, setFormas] = useState<FormaPago[]>([])
   const [docs, setDocs] = useState<Doc[]>([])
   const [cobros, setCobros] = useState<CobroRow[]>([])
@@ -276,9 +297,10 @@ export function GestorCobrosClientePage() {
         fechaMov: d.fechaMov,
         fechaPago: d.fechaPago,
         fechaVto: d.fechaVto,
-        nDoc: '',
+        nDoc: d.forma_pago_codigo ? (fpMap.get(d.forma_pago_codigo)?.descripcion ?? '') : '',
         totalDoc: d.total,
-        importe: d.pagado,
+        importe: d.total,
+        cobrado: d.pagado,
         aPagar: cobrado ? 0 : d.pendiente,
         fp: d.forma_pago_codigo,
         clase: clase(d.forma_pago_codigo, null, true),
@@ -299,9 +321,10 @@ export function GestorCobrosClientePage() {
         fechaMov: p.fecha,
         fechaPago: p.fechaPago,
         fechaVto: p.fechaVto,
-        nDoc: p.nDoc ?? '',
+        nDoc: p.nDoc || (p.fp ? (fpMap.get(p.fp)?.descripcion ?? '') : ''),
         totalDoc: d?.total ?? (p.cuota || p.importe),
-        importe: cobrado ? p.importe : 0,
+        importe: cobrado ? p.importe : p.cuota || p.importe,
+        cobrado: cobrado ? p.importe : 0,
         aPagar: cobrado ? 0 : r3(p.cuota - p.importe),
         fp: p.fp,
         clase: clase(p.fp, p.tipoPago, false),
@@ -310,7 +333,14 @@ export function GestorCobrosClientePage() {
       }
     }
     const sinCobros = (d: Doc) => !conCobros.has(docKeyOf(d.clase, d.tienda, d.numero))
-    switch (vista) {
+    if (!aplicado) return []
+    switch (aplicado.vista) {
+      // Facturas y Pagos: cada pago ligado a su factura (o venta), y las facturas que aún no tienen pagos.
+      case 'fp':
+        return [...cobros.filter((p) => p.docKey).map(filaCobro), ...docs.filter(sinCobros).map(filaDoc)]
+      // Facturas y Pagos sin Fact.: las facturas, y los pagos que no están ligados a ninguna factura.
+      case 'fpsf':
+        return [...docs.map(filaDoc), ...cobros.filter((p) => !p.docKey).map(filaCobro)]
       case 'f':
         return docs.map(filaDoc)
       case 'pfsp':
@@ -318,7 +348,7 @@ export function GestorCobrosClientePage() {
       case 'p':
         return cobros.map(filaCobro)
     }
-  }, [docs, cobros, nombres, vista, fpMap])
+  }, [docs, cobros, nombres, aplicado, fpMap])
 
   const [desde, hasta] = useMemo(() => {
     if (periodo === 'anio') return [`${anio}-01-01`, `${anio}-12-31`]
@@ -331,6 +361,8 @@ export function GestorCobrosClientePage() {
   const filas = useMemo(() => {
     const r = filasVista.filter((f) => {
       // Abierto desde una factura (?factura=…): se ven todos sus movimientos, sin mirar fechas.
+      if (!aplicado) return false
+      const modo = aplicado.modo
       if (!docFiltro) {
         let ok: boolean
         if (modo === 'fecha') ok = enRango(f.fecha, desde, hasta) || enRango(f.fechaPago, desde, hasta) || enRango(f.fechaVto, desde, hasta)
@@ -338,15 +370,14 @@ export function GestorCobrosClientePage() {
         else ok = enRango(f.fechaPago, desde, hasta) || enRango(f.fechaVto, desde, hasta)
         if (!ok) return false
       }
-      if (modo === 'domic' && f.clase !== 'domiciliacion') return false
-      if (aplicado.cliente && f.receptor !== aplicado.cliente) return false
+      if (clienteUrl && f.receptor !== clienteUrl) return false
       if (aplicado.estados.size && !aplicado.estados.has(f.pagado ? 'pagado' : 'pendiente')) return false
       if (aplicado.clases.size && !aplicado.clases.has(f.clase)) return false
       if (busqueda && !`${f.nFactura} ${f.receptor} ${f.nombre} ${f.nDoc}`.toLowerCase().includes(busqueda.toLowerCase())) return false
       return true
     })
     return r.sort((a, b) => (a.fechaVto ?? a.fecha ?? '').localeCompare(b.fechaVto ?? b.fecha ?? '') || a.nFactura.localeCompare(b.nFactura))
-  }, [filasVista, modo, desde, hasta, aplicado, busqueda, docFiltro])
+  }, [filasVista, desde, hasta, aplicado, busqueda, docFiltro, clienteUrl])
 
   const selIdx = filas.findIndex((f) => f.key === sel)
   const actual = selIdx >= 0 ? filas[selIdx] : null
@@ -370,7 +401,7 @@ export function GestorCobrosClientePage() {
       b.set(fecha, y)
     }
     for (const f of filas) {
-      if (f.importe) add(f.fechaPago ?? f.fechaMov ?? f.fecha, f.fp ?? '', f.importe, 0)
+      if (f.cobrado) add(f.fechaPago ?? f.fechaMov ?? f.fecha, f.fp ?? '', f.cobrado, 0)
       if (f.aPagar) add(f.fechaVto ?? f.fecha, f.fp ?? '', 0, f.aPagar)
     }
     const porDiaFp = [...a.values()].sort((x, y) => x.orden.localeCompare(y.orden))
@@ -378,7 +409,14 @@ export function GestorCobrosClientePage() {
     return { porDiaFp, porDia, diasConMov: porDia.length }
   }, [filas, desde, hasta, periodo, docFiltro])
 
-  const totalDocs = filas.reduce((s, f) => s + f.totalDoc, 0)
+  const conTotalDoc = (aplicado?.vista ?? vista) === 'fp'
+  const totalDocs = filas.reduce((s, f) => s + (conTotalDoc ? f.totalDoc : f.importe), 0)
+  const estaAplicado =
+    !!aplicado &&
+    aplicado.vista === vista &&
+    aplicado.modo === modo &&
+    mismoConjunto(aplicado.estados, estados) &&
+    mismoConjunto(aplicado.clases, clases)
   const totPagado = porDia.reduce((s, x) => s + x.pagado, 0)
   const totAPagar = porDia.reduce((s, x) => s + x.aPagar, 0)
 
@@ -422,28 +460,50 @@ export function GestorCobrosClientePage() {
   }
 
   function aplicar() {
-    setAplicado({ estados: new Set(estados), clases: new Set(clases), cliente: cliente.trim() })
+    setAplicado({ vista, modo, estados: new Set(estados), clases: new Set(clases) })
   }
 
-  function quitarDoc() {
+  function cambiarVista(v: Vista) {
+    setVista(v)
+    setAplicado(null)
+    setSel(null)
+  }
+
+  function cambiarModo(m: ModoFecha) {
+    setModo(m)
+    setClases(new Set(CLASES_DE_MODO[m]))
+    setAplicado(null)
+    setSel(null)
+  }
+
+  function quitarFiltroUrl() {
     const n = new URLSearchParams(qs)
     n.delete('factura')
     n.delete('venta')
+    n.delete('cliente')
     setQs(n, { replace: true })
   }
 
   const pendienteActual = actual?.doc && Math.abs(actual.doc.pendiente) > 0.005
   const pieSel = actual
     ? actual.doc
-      ? `${actual.doc.clase === 'factura' ? `Factura ${actual.doc.tienda}-${actual.doc.numero} (${actual.doc.ref})` : `Venta ${actual.doc.tienda}-${actual.doc.numero}`}. F.P.: ${actual.doc.forma_pago_codigo ?? ''} Total: ${formatGw(actual.doc.total, 3)} Cob.: ${formatGw(actual.doc.pagado, 3)} Pend.: ${formatGw(actual.doc.pendiente, 3)}. F. Fact.: ${fmtFecha(actual.doc.fecha)}`
-      : `Cobro ${actual.cobro?.tienda}-${actual.cobro?.codigo}. F.P.: ${actual.fp ?? ''} Cuota: ${formatGw(actual.cobro?.cuota ?? 0, 3)} Cob.: ${formatGw(actual.importe, 3)}`
+      ? `${actual.cobro ? 'Pago ' : ''}${actual.doc.clase === 'factura' ? 'Factura' : 'Venta'}: ${actual.doc.tienda}-${actual.doc.clase === 'factura' ? actual.doc.ref : actual.doc.numero}. F.P.: ${actual.fp ?? actual.doc.forma_pago_codigo ?? ''} Total: ${formatGw(actual.importe, 3)} Pag.: ${formatGw(actual.cobrado, 3)}. Fecha Doc.: ${fmtFecha(actual.doc.fecha)}`
+      : `Pago: ${actual.cobro?.tienda}-${actual.cobro?.codigo}. F.P.: ${actual.fp ?? ''} Total: ${formatGw(actual.importe, 3)} Pag.: ${formatGw(actual.cobrado, 3)}. Fecha Doc.: ${fmtFecha(actual.fechaMov)}`
     : ''
 
   return (
     <div className="flex h-full min-h-0 flex-col text-[15px]">
       {/* Pestañas de vista + año */}
       <div className="flex items-end gap-2">
-        <Tabs items={VISTAS} value={vista} onChange={setVista} className="flex-1" />
+        <Tabs items={VISTAS} value={vista} onChange={cambiarVista} className="flex-1" />
+        <button
+          type="button"
+          title="Operativa: cómo se usa el Gestor de Pagos"
+          onClick={() => setAyuda(true)}
+          className="mb-[2px] flex h-[32px] w-[32px] items-center justify-center border border-[var(--gw-border)] bg-[var(--gw-face)] text-[#1d3a8a] hover:bg-[#e5f1fb]"
+        >
+          <HelpCircle size={17} />
+        </button>
         <div className="mb-[2px] flex h-[32px] w-[124px] items-stretch border border-[var(--gw-border)] bg-white">
           <span className="flex flex-1 items-center justify-end pr-1.5 text-[22px] font-bold">{anio}</span>
           <span className="flex w-[14px] flex-col border-l border-[var(--gw-border-light)] text-[8px]">
@@ -456,7 +516,8 @@ export function GestorCobrosClientePage() {
           </span>
         </div>
       </div>
-      <Tabs items={MODOS} value={modo} onChange={setModo} />
+      {/* En GeminisWin los modos salen en letra pequeña en todas las pestañas menos «Facturas y Pagos». */}
+      <Tabs items={MODOS} value={modo} onChange={cambiarModo} pequena={vista !== 'fp'} />
 
       {/* Filtros */}
       <div className="flex items-stretch gap-2 border-x border-b border-[var(--gw-border)] px-1.5 pb-1.5 pt-0.5">
@@ -480,35 +541,24 @@ export function GestorCobrosClientePage() {
             ))}
           </div>
         </fieldset>
-        <fieldset className="w-[150px] shrink-0 border border-[var(--gw-border-light)] px-1 pb-1">
-          <legend className="px-1 text-[16px]">Cliente</legend>
-          {docFiltro ? (
-            <button
-              type="button"
-              onClick={quitarDoc}
-              title="Quitar el filtro de documento"
-              className="flex h-[28px] w-full items-center justify-between gap-1 border border-[var(--gw-border)] bg-[#fff6c8] px-1 text-[14px] hover:bg-[#e5f1fb]"
-            >
-              <span className="truncate">{docFiltro.split('|').slice(1).join('-')}</span>
-              <X size={13} strokeWidth={3} className="shrink-0 text-[#c42b1c]" />
-            </button>
-          ) : (
-            <input
-              className="gw-input h-[28px] w-full !text-[15px]"
-              value={cliente}
-              placeholder="Todos"
-              title="Código de cliente (vacío = todos). Pulsa Aplicar."
-              onChange={(e) => setCliente(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && aplicar()}
-            />
-          )}
-        </fieldset>
+        {(docFiltro || clienteUrl) && (
+          <button
+            type="button"
+            onClick={quitarFiltroUrl}
+            title={`Solo se ven los movimientos de ${docFiltro ? 'este documento' : 'este cliente'}. Pulsa para quitar el filtro y ver todos.`}
+            className="my-1 flex w-[130px] shrink-0 items-center justify-between gap-1 border border-[var(--gw-border)] bg-[#fff6c8] px-1 text-[14px] hover:bg-[#e5f1fb]"
+          >
+            <span className="truncate">{docFiltro ? docFiltro.split('|').slice(1).join('-') : `Cliente ${clienteUrl}`}</span>
+            <X size={13} strokeWidth={3} className="shrink-0 text-[#c42b1c]" />
+          </button>
+        )}
         <button
           type="button"
           onClick={aplicar}
-          className="my-1 flex w-[100px] shrink-0 items-center justify-center gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] text-[16px] hover:bg-[#e5f1fb]"
+          title={estaAplicado ? 'Filtros aplicados' : 'Pulsa para cargar la rejilla con la pestaña, el modo y los filtros elegidos'}
+          className="my-1 flex w-[110px] shrink-0 items-center justify-center gap-1 border border-[var(--gw-border)] bg-[var(--gw-face)] text-[16px] hover:bg-[#e5f1fb]"
         >
-          <Check size={16} strokeWidth={3} className="text-[#127a12]" /> Aplicar
+          {estaAplicado ? <Check size={16} strokeWidth={3} className="text-[#127a12]" /> : <X size={16} strokeWidth={3} className="text-[#c42b1c]" />} Aplicar
         </button>
       </div>
 
@@ -517,19 +567,21 @@ export function GestorCobrosClientePage() {
         <div className="min-h-0 min-w-0 flex-1 overflow-auto border border-[var(--gw-border)] bg-white">
           <table className="gw-grid w-full table-fixed text-[14px]">
             <colgroup>
-              <col className="w-[10%]" />
+              <col className="w-[12px]" />
+              <col className="w-[12%]" />
               <col className="w-[5%]" />
-              <col className="w-[7%]" />
-              <col className="w-[13%]" />
+              <col className="w-[8%]" />
+              <col className={conTotalDoc ? 'w-[17%]' : 'w-[16%]'} />
+              <col className={conTotalDoc ? 'w-[8%]' : 'w-[11%]'} />
               <col className="w-[8%]" />
               <col className="w-[8%]" />
-              <col className="w-[8%]" />
-              <col className="w-[11%]" />
-              <col className="w-[10%]" />
+              <col className={conTotalDoc ? 'w-[11%]' : 'w-[12%]'} />
+              {conTotalDoc && <col className="w-[10%]" />}
               <col className="w-[10%]" />
             </colgroup>
             <thead>
               <tr>
+                <th />
                 <th>Nº Factura</th>
                 <th>Pag.</th>
                 <th>Cliente</th>
@@ -538,14 +590,12 @@ export function GestorCobrosClientePage() {
                 <th>Fe. Pago</th>
                 <th>Fe. VTO.</th>
                 <th>Nº Doc. Pago</th>
-                <th>Total Doc.</th>
+                {conTotalDoc && <th>Total Doc.</th>}
                 <th>Importe</th>
               </tr>
             </thead>
             <tbody>
               {filas.map((f) => {
-                const vencido = !f.pagado && !!f.fechaVto && f.fechaVto < hoyISO()
-                const bgPag = f.pagado ? '#9be3c4' : vencido ? '#e8336a' : '#d97a3a'
                 const bgImp = f.pagado && f.importe ? '#22e04a' : colorFp(f.fp)
                 return (
                   <tr
@@ -558,8 +608,9 @@ export function GestorCobrosClientePage() {
                     }}
                     title={f.cobro ? `Cobro ${f.cobro.tienda}-${f.cobro.codigo}` : f.doc ? `${f.doc.clase === 'factura' ? 'Factura' : 'Venta'} ${f.doc.tienda}-${f.doc.numero}` : ''}
                   >
-                    <td className="truncate">{f.nFactura}</td>
-                    <td className="text-center" style={{ background: bgPag }}>
+                    <td className="!px-0 text-center text-[10px]">{sel === f.key ? '▸' : ''}</td>
+                    <td className="truncate text-right">{f.nFactura}</td>
+                    <td className="text-center">
                       <input type="checkbox" readOnly checked={f.pagado} className="pointer-events-none h-[12px] w-[12px] align-middle" />
                     </td>
                     <td className="truncate">{f.receptor}</td>
@@ -568,14 +619,14 @@ export function GestorCobrosClientePage() {
                     <td>{fmtFecha(f.fechaPago)}</td>
                     <td>{fmtFecha(f.fechaVto)}</td>
                     <td className="truncate">{f.nDoc}</td>
-                    <td className="text-right">{formatGw(f.totalDoc, 3)}</td>
+                    {conTotalDoc && <td className="text-right">{formatGw(f.totalDoc, 3)}</td>}
                     <td className="text-right" style={{ background: bgImp, color: textoSobre(bgImp) }}>
                       {formatGw(f.importe, 3)}
                     </td>
                   </tr>
                 )
               })}
-              <FilasVacias cols={10} ocupadas={filas.length} total={16} />
+              <FilasVacias cols={conTotalDoc ? 11 : 10} ocupadas={filas.length} total={16} />
             </tbody>
           </table>
         </div>
@@ -592,8 +643,8 @@ export function GestorCobrosClientePage() {
                 <tr>
                   <th>Día</th>
                   <th>Fp</th>
-                  <th>Cobrado</th>
-                  <th>A Cobrar</th>
+                  <th>Pagado</th>
+                  <th>A Pagar</th>
                 </tr>
               </thead>
               <tbody>
@@ -619,8 +670,8 @@ export function GestorCobrosClientePage() {
               <thead>
                 <tr>
                   <th>Día</th>
-                  <th>Cobrado</th>
-                  <th>A Cobrar</th>
+                  <th>Pagado</th>
+                  <th>A Pagar</th>
                 </tr>
               </thead>
               <tbody>
@@ -646,7 +697,7 @@ export function GestorCobrosClientePage() {
         <span className="w-[130px] text-right font-bold text-black">{formatGw(totalDocs, 3)}</span>
         <span className="w-[52px]" />
         <span className="w-[372px] shrink-0 grid grid-cols-[96px_1fr_1fr] font-bold">
-          <span className="font-normal text-[#1a4fd0]">Días: {diasConMov}</span>
+          <span className="font-normal text-[#1a4fd0]">{diasConMov ? `Días: ${diasConMov}` : '0'}</span>
           <span className="text-right text-black">{formatGw(totPagado, 3)}</span>
           <span className="text-right text-black">{formatGw(totAPagar, 3)}</span>
         </span>
@@ -699,9 +750,17 @@ export function GestorCobrosClientePage() {
           <Settings2 size={15} /> <span><u>G</u>. Pagos Factura</span>
         </BtnTxt>
         <span className="flex w-[80px] shrink-0 flex-col items-center justify-center text-[14px] leading-[15px] text-[#1a4fd0]">
-          <span>Nº Mov.:</span>
-          <span>{filas.length}</span>
+          {filas.length ? (
+            <>
+              <span>Nº Mov.:</span>
+              <span>{filas.length}</span>
+            </>
+          ) : (
+            <span>0</span>
+          )}
         </span>
+        {/* «Pagos» no lleva este botón en GeminisWin. */}
+        {vista !== 'p' ? (
         <BtnTxt
           onClick={() => {
             const lista = filas.filter((f) => f.doc && !f.cobro && f.doc.clase === 'factura' && !f.pagado).map((f) => f.doc as Doc)
@@ -711,6 +770,9 @@ export function GestorCobrosClientePage() {
         >
           <Settings2 size={15} /> <span className="truncate">Gen. <u>T</u>odos los Pagos</span>
         </BtnTxt>
+        ) : (
+          <span className="min-w-0 flex-1" />
+        )}
       </div>
 
       {/* Meses / Año / Filtro */}
@@ -744,8 +806,49 @@ export function GestorCobrosClientePage() {
           </div>
         )}
       </div>
+
+      {ayuda && (
+        <GwVentanaFlotante titulo="Gestor de Pagos de Clientes · Operativa" onCerrar={() => setAyuda(false)} ancho={640}>
+          <GwOperativa
+            bloques={[
+              {
+                titulo: 'Ver la cartera de cobros',
+                pasos: [
+                  'Elige el año (arriba a la derecha) y el mes, «Año» o «Filtro» (abajo).',
+                  'Elige la pestaña y el modo de fecha.',
+                  'Si quieres, marca Pagado / Pendiente y los tipos de forma de pago (todos con ✗ = sin filtrar).',
+                  'Pulsa «Aplicar»: se llena la rejilla y el botón pasa a ✓. Si cambias algo, vuelve a ✗ hasta que pulses otra vez.',
+                ],
+              },
+              {
+                titulo: 'Pestañas',
+                notas: [
+                  'Facturas y Pagos: cada pago (vencimiento o cobro) con su factura, y las facturas que aún no tienen pagos. Es la única con Total Doc.',
+                  'Facturas y Pagos sin Fact.: las facturas, y los pagos que no van ligados a ninguna factura.',
+                  'Facturas: una línea por factura (o venta pendiente sin facturar).',
+                  'Pagos y Facturas sin Pagos: todos los pagos, y las facturas que no tienen ninguno.',
+                  'Pagos: solo los pagos.',
+                ],
+              },
+              {
+                titulo: 'Bueno es saber',
+                notas: [
+                  '«Por Fecha de Pago y/o Vto.» marca todos los tipos menos Domiciliación; «Domiciliaciones…» marca solo Domiciliación.',
+                  'A la derecha: lo pagado y lo que queda por pagar, por día y forma de pago y por día.',
+                  'Doble clic en un pago abre su ficha. «Cobrar» cobra la factura o el vencimiento elegido; «G. Pagos Factura» crea sus vencimientos según la forma de pago.',
+                  'El criterio de las pestañas «Facturas y Pagos» y «Facturas y Pagos sin Fact.» es provisional: solo hay capturas de GeminisWin de la primera con datos.',
+                ],
+              },
+            ]}
+          />
+        </GwVentanaFlotante>
+      )}
     </div>
   )
+}
+
+function mismoConjunto<T>(a: Set<T>, b: Set<T>) {
+  return a.size === b.size && [...a].every((x) => b.has(x))
 }
 
 function alternar<T>(s: Set<T>, v: T) {
@@ -755,7 +858,19 @@ function alternar<T>(s: Set<T>, v: T) {
   return n
 }
 
-function Tabs<T extends string>({ items, value, onChange, className = '' }: { items: { v: T; label: string }[]; value: T; onChange: (v: T) => void; className?: string }) {
+function Tabs<T extends string>({
+  items,
+  value,
+  onChange,
+  className = '',
+  pequena = false,
+}: {
+  items: { v: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+  className?: string
+  pequena?: boolean
+}) {
   return (
     <div className={`flex items-end border-b border-[var(--gw-border)] ${className}`}>
       {items.map((it) => (
@@ -763,8 +878,10 @@ function Tabs<T extends string>({ items, value, onChange, className = '' }: { it
           key={it.v}
           type="button"
           onClick={() => onChange(it.v)}
-          className={`-mb-px whitespace-nowrap border border-[var(--gw-border)] px-2.5 text-[16px] ${
-            value === it.v ? 'h-[34px] border-b-white bg-white font-bold' : 'h-[30px] bg-[var(--gw-face)] hover:bg-[#e5f1fb]'
+          className={`-mb-px whitespace-nowrap border border-[var(--gw-border)] ${pequena ? 'px-1 text-[11px]' : 'px-2.5 text-[16px]'} ${
+            value === it.v
+              ? `${pequena ? 'h-[20px]' : 'h-[34px]'} border-b-white bg-white font-bold`
+              : `${pequena ? 'h-[18px]' : 'h-[30px]'} bg-[var(--gw-face)] hover:bg-[#e5f1fb]`
           }`}
         >
           {it.label}

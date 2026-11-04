@@ -8,6 +8,7 @@ import { elegirTienda, fijarEjercicioActivo, sesionTrabajo } from '../../lib/ses
 import { CambioFechaDialog, CambioTiendaDialog, SeleccionarPeriodoDialog } from './SesionDialogs'
 import { EliminarTemporalesDialog, HacerCopiaDialog, TestearCopiaDialog } from './CopiaDialogs'
 import { ElegirImpresoraDialog, PrepararPaginaDialog } from './ImpresionDialogs'
+import { ConfigurarUtilidadesDialog, EjecutarInformeDialog } from './UtilidadesConfigDialogs'
 import { cargarParametros, valorParametro } from '../../lib/parametros'
 import { cargarMiAcceso, tiendaPermitida } from '../../lib/accesoEmpleado'
 import { abrirPresentacionPreliminar, cssPagina, usePrefsImpresion } from '../../lib/impresion'
@@ -95,6 +96,10 @@ export function UtilidadesHost() {
       return <PrepararPaginaDialog onClose={cerrar} />
     case 'elegir-impresora':
       return <ElegirImpresoraDialog onClose={cerrar} />
+    case 'configurar-utilidades':
+      return <ConfigurarUtilidadesDialog onClose={cerrar} />
+    case 'ejecutar-informe':
+      return <EjecutarInformeDialog onClose={cerrar} />
     default:
       return null
   }

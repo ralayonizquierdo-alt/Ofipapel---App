@@ -9,7 +9,7 @@ import { ponerIconos } from './iconosMenu'
 export type MenuAction = 'signout' | 'close-window' | 'hide-window' | 'show-all' | 'cycle-window' | 'about' | 'undo' | 'redo' | 'cut' | 'copy' | 'delete' | 'selectAll' | 'generar-peticion' | 'paste' | 'find' | 'replace' | 'cambiar-grupo' | 'cambiar-area' | AccionUtilidad
 
 /** Diálogos de Utilidades (y Seleccionar Periodo) que abre UtilidadesHost con el evento «gw:utilidad». */
-export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales', 'preparar-pagina', 'presentacion-preliminar', 'elegir-impresora'] as const
+export const ACCIONES_UTILIDAD = ['cambio-tienda', 'cambio-fecha', 'cambio-fecha-hora', 'seleccionar-periodo', 'hacer-copia', 'testear-copia', 'eliminar-temporales', 'preparar-pagina', 'presentacion-preliminar', 'elegir-impresora', 'configurar-utilidades', 'ejecutar-informe'] as const
 export type AccionUtilidad = (typeof ACCIONES_UTILIDAD)[number]
 export const esAccionUtilidad = (a: MenuAction | undefined): a is AccionUtilidad => (ACCIONES_UTILIDAD as readonly string[]).includes(a ?? '')
 
@@ -45,7 +45,10 @@ const off = (labels: string[]): MenuItem[] => labels.map((l) => item(l))
 export const MENUS: TopMenu[] = [
   {
     label: 'Archivo',
-    // Calcado de GeminisWin (captura 05-00). Además, «Cambiar Contraseña» (propio del ERP).
+    // Calcado de GeminisWin (captura 05-00 y capturas ZIP 7: 36 con empleado normal y 82 con clave de
+    // administrador, 04/11/2026). Orden, nombres y separadores de GeminisWin; además, opciones propias del
+    // ERP (Auditoría… Diccionario, Cambiar de Área, Cambiar Contraseña, Fichaje y Grupos de Acceso). Lo que
+    // en GeminisWin sale en gris al empleado normal lo apagan aquí los grupos de acceso.
     items: [
       // SIN CAPTURA (Seleccionar Periodo y Periodos o Ejercicios): tabla `ejercicio`, ver pages/utilidades.
       item('Seleccionar Periodo', { action: 'seleccionar-periodo', description: 'Crea, modifica, elimina, establece el período de trabajo actual' }),
@@ -93,8 +96,15 @@ export const MENUS: TopMenu[] = [
       // Propio del ERP (en GeminisWin los grupos se eligen en Empleados → Seguridad): qué opciones puede usar cada grupo.
       item('Grupos de Acceso', { to: '/grupos-acceso', description: 'Grupos de acceso: opciones de menú permitidas a cada grupo' }),
       'sep',
-      item('Traspaso Información', { description: 'No aplica en el ERP web: todas las tiendas trabajan sobre la misma base de datos, no hay que traspasar información entre ellas' }),
-      item('Traspaso a Contabilidad'),
+      // Traspaso Información → Enviar / Recibir (captura 86): no aplica, una sola base de datos para todas las tiendas.
+      item('Traspaso Información', {
+        description: 'No aplica en el ERP web: todas las tiendas trabajan sobre la misma base de datos, no hay que traspasar información entre ellas',
+        children: ['Enviar', 'Recibir'].map((l) =>
+          item(l, { description: 'No aplica en el ERP web: todas las tiendas trabajan sobre la misma base de datos, no hay que enviar ni recibir información entre ellas' }),
+        ),
+      }),
+      // Captura 87-89: solo la ventana; los asientos los lleva el plan de contabilidad (Luis).
+      item('Traspaso a Contabilidad', { to: '/archivo/traspaso-contabilidad', description: 'Traspaso a contabilidad externa (solo la ventana: lo prepara el plan de contabilidad)' }),
       'sep',
       item('Preparar página...', { action: 'preparar-pagina', description: 'Tamaño, orientación y márgenes del papel en este puesto' }),
       item('Presentación preliminar', { action: 'presentacion-preliminar', description: 'Vista previa del listado o documento de la ventana activa' }),
@@ -357,8 +367,10 @@ export const MENUS: TopMenu[] = [
   },
   {
     label: 'Utilidades',
-    // Calcado de GeminisWin (capturas 05-20 y 05-21). SIN CAPTURA de sus ventanas: Examinar, Copia de
-    // Seguridad, Cambio de Fecha (y Hora), Cambio de Tienda y Eliminar Ficheros Temporales (pages/utilidades).
+    // Calcado de GeminisWin (capturas 05-20, 05-21 y ZIP 7: 26-29, 04/11/2026). Ventanas calcadas (ZIP 7):
+    // Examinar («Usar»), Cambio de Fecha (y Hora), Configurar Utilidades y Informes → Ejecutar. Sin captura:
+    // Cambio de Tienda, Copia de Seguridad y Eliminar Ficheros Temporales (pages/utilidades). Además,
+    // «Generador de listados» (propio del ERP).
     items: [
       item('Generador de listados', { to: '/listados', description: 'Cualquier listado del ERP: columnas, filtros, agrupar y sumar; imprimir, PDF y Excel; guardar y compartir' }),
       item('Examinar', { to: '/utilidades/examinar', shortcut: 'F11', description: 'Examina las tablas de la base de datos (solo lectura, administradores)' }),
@@ -379,18 +391,29 @@ export const MENUS: TopMenu[] = [
       ...['Act. Tablas del Terminal', 'Act.Tablas y Ejecutable del Terminal', 'Actualizar Tabla...', 'Ejecutar Programa'].map((l) =>
         item(l, { description: 'No aplica en el ERP web: no hay terminales que actualizar, el programa se publica solo en la web' }),
       ),
+      // Captura 28. Los informes del ERP son los listados guardados del Generador de listados.
       item('Informes', {
-        children: ['Crear', 'Modificar', 'Crear Etiqueta', 'Mod. Etiqueta', 'Ejecutar'].map((l) =>
-          item(l, { description: 'Pendiente: el diseñador de informes de GeminisWin no existe en el ERP; los informes se piden a Claude' }),
-        ),
+        children: [
+          item('Crear', { to: '/listados', description: 'Crear un informe: Generador de listados' }),
+          item('Modificar', { to: '/listados', description: 'Modificar un informe: Generador de listados (elige el listado guardado)' }),
+          ...['Crear Etiqueta', 'Mod. Etiqueta'].map((l) =>
+            item(l, { description: 'Pendiente: el diseñador de etiquetas de GeminisWin no existe en el ERP; las etiquetas se imprimen en Almacén → Etiquetas de Cód. de Barras' }),
+          ),
+          item('Ejecutar', { action: 'ejecutar-informe', description: 'Ejecutar un informe (listado guardado)' }),
+        ],
       }),
       item('Control de Módulos', { description: 'No aplica en el ERP web: los módulos se controlan con los grupos de acceso' }),
       item('Opciones de tablas', { description: 'No aplica en el ERP web: la base de datos es única, central y la mantiene Supabase' }),
       'sep',
-      item('Enviar Información a IdsSoft, S.L.', { description: 'No aplica: el ERP propio no depende de IdsSoft' }),
+      // Captura 29: submenú de tres opciones, ninguna aplica.
+      item('Enviar Información a IdsSoft, S.L.', {
+        description: 'No aplica: el ERP propio no depende de IdsSoft',
+        children: ['Enviar Sólo base de datos', 'Enviar Sólo Ficheros del programa', 'Enviar Todo'].map((l) => item(l, { description: 'No aplica: el ERP propio no depende de IdsSoft' })),
+      }),
       item('Eliminar Ficheros Temporales', { action: 'eliminar-temporales', description: 'Limpia los datos temporales del ERP en este navegador' }),
       'sep',
-      item('Configurar Utilidades', { description: 'No aplica en el ERP web' }),
+      // Captura 30-35: lista de las utilidades de abajo (en el ERP son pantallas, no programas de Windows).
+      item('Configurar Utilidades', { action: 'configurar-utilidades', description: 'Utilidades del final de este menú y la pantalla que abre cada una' }),
       'sep',
       // Etiquetas y Listado De Ventas abren las pantallas que ya existen (Almacén y Ventas).
       item('Etiquetas', { to: '/almacen/etiquetas', description: 'Listados de Etiquetas de Artículos' }),
@@ -465,6 +488,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/archivo/zonas-servicio', title: 'Zonas de servicio' },
   { prefix: '/archivo/carga-cotizacion', title: 'Carga Cotización' },
   { prefix: '/archivo/importar', title: 'Importar' },
+  { prefix: '/archivo/traspaso-contabilidad', title: 'Traspaso a Contabilidad' },
   { prefix: '/liquidacion', title: 'Liquidación de Comisiones' },
   { prefix: '/tipos-cliente', title: 'Tipos de Cliente' },
   { prefix: '/stock', title: 'Listados de Artículos' },
