@@ -1857,7 +1857,7 @@ function applyCloudDataset(key, payload){
   } else if(key==='ventascaja'){
     ventasCaja = payload;
     try{ localStorage.setItem('op_ventascaja', JSON.stringify(ventasCaja)); }catch(e){}
-    renderVentas();
+    renderVentas(); try{ renderAlertas(); }catch(e){}
   } else if(key==='ventasanual'){
     ventasAnual = payload;
     try{ localStorage.setItem('op_ventasanual', JSON.stringify(ventasAnual)); }catch(e){}
@@ -3054,6 +3054,19 @@ function renderAlertas(){
     alerts.push({type:alerta?'err':'warn', ico:alerta?'🚨':'📅', ttl:`${d.nombre} — ${alerta?'EN ALERTA':'VENCIDO'} (${d.vto})`,
       txt:`Saldo pendiente: ${fmt(d.pendiente)}. Cuota mensual: ${fmt(d.cuota)}.${d.nota?' '+d.nota+'.':''} Confirma la situación con ${d.banco}; cuando esté resuelto, actualízalo en Pool de Deuda.`});
   });
+
+  // Importes negativos en el fichero de Ventas caja (devoluciones, abonos o errores de ticket)
+  try{
+    const negs=((ventasCaja&&ventasCaja.porAlerta)||[]).filter(a=>a.tipo==='negativo');
+    if(negs.length){
+      const nTot=negs.reduce((t,a)=>t+a.n,0), impTot=negs.reduce((t,a)=>t+a.total,0);
+      const grande=negs.reduce((m,a)=>Math.min(m,a.total/(a.n||1)),0);
+      const fm=ventasCaja.meta&&ventasCaja.meta.importado?new Date(ventasCaja.meta.importado).toLocaleDateString('es-ES'):'';
+      const hasta=((ventasCaja.porDia||[]).map(d=>d.fecha).sort().pop()||'').split('-').reverse().join('/');
+      alerts.push({type:'err', ico:'🔴', ttl:`Importes negativos en caja — ${nTot} movimiento(s), ${fmt(impTot)}`,
+        txt:`${negs.map(a=>`Tienda ${a.tienda}: ${a.n} (${fmt(a.total)})`).join(' · ')}. Revisa si son devoluciones o abonos normales o un error de ticket (el detalle está en Ventas → «Importes a 0 o Negativos»). Datos del fichero cargado el ${fm}${hasta?', hasta el '+hasta:''}.`});
+    }
+  }catch(e){}
 
   // Santander volatilidad
   if(sorted.length>=2){
@@ -5736,8 +5749,10 @@ function importVentasCajaExcel(input){
         if(ingreso===0 || ingreso<0){
           const tipoAlerta = ingreso===0 ? 'cero' : 'negativo';
           const ka=tienda+'|'+empleado+'|'+tipoAlerta;
-          porAlertaMap[ka]=porAlertaMap[ka]||{tienda,empleado,tipo:tipoAlerta,total:0,n:0};
+          porAlertaMap[ka]=porAlertaMap[ka]||{tienda,empleado,tipo:tipoAlerta,total:0,n:0,detalle:[]};
           porAlertaMap[ka].total+=ingreso; porAlertaMap[ka].n++;
+          // qué movimiento es (fecha, tipo, forma de pago e importe) para poder localizarlo; máx. 150 por grupo
+          if(porAlertaMap[ka].detalle.length<150) porAlertaMap[ka].detalle.push({fecha,tipomov:tipomov||'',descrtipo:descrtipo||'',tipcondes,importe:ingreso});
         }
       });
 
@@ -5753,7 +5768,7 @@ function importVentasCajaExcel(input){
         porEmpMes: Object.values(porEmpMesMap),
         meta:{ importado:new Date().toISOString(), nFilas }
       };
-      saveVentasCaja(); renderVentas();
+      saveVentasCaja(); renderVentas(); try{ renderAlertas(); }catch(e){}
       stampImport('ventasCaja', file.name);
       alert(nFilas+' movimientos procesados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
@@ -5898,10 +5913,20 @@ function renderVentas(){
     </div>` : '<div class="empty-state"><div class="e-ico">🧑‍💼</div><h3>Sin datos</h3></div>';
 
   const alertaOrd=[...porAlerta].sort((a,b)=>String(a.tienda).localeCompare(String(b.tienda))||String(a.empleado||'').localeCompare(String(b.empleado||''))||a.tipo.localeCompare(b.tipo));
+  const _fAl=f=>{ const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:(f||''); };
+  const _detAl=a=>{
+    const d=a.detalle||[];
+    if(!d.length) return '<span style="color:var(--text3);font-size:12px;">Vuelve a subir el fichero de Ventas caja para ver fecha y tipo</span>';
+    const tipos=[...new Set(d.map(x=>[x.descrtipo||x.tipomov,x.tipcondes].filter(Boolean).join(' · ')))].join(' / ');
+    const fs=d.map(x=>x.fecha).filter(Boolean).sort();
+    const rango=fs.length?(fs[0]===fs[fs.length-1]?_fAl(fs[0]):_fAl(fs[0])+' → '+_fAl(fs[fs.length-1])):'';
+    const lista=[...d].sort((x,y)=>String(x.fecha).localeCompare(String(y.fecha))).map(x=>`<div>${_fAl(x.fecha)} · ${x.descrtipo||x.tipomov||'—'}${x.tipcondes?' · '+x.tipcondes:''} · <b>${fmt(x.importe)}</b></div>`).join('');
+    return `<details><summary style="cursor:pointer;">${tipos||'—'} · ${rango}${d.length<a.n?` (primeros ${d.length})`:''}</summary><div style="font-size:12px;margin-top:4px;max-height:180px;overflow:auto;">${lista}</div></details>`;
+  };
   document.getElementById('ventAlertaTabla').innerHTML = alertaOrd.length ? `
     <div style="overflow-x:auto;">
     <table class="tabla">
-      <thead><tr><th>Tienda</th><th>Empleado</th><th>Tipo</th><th style="text-align:right;">Nº</th><th style="text-align:right;">Importe</th></tr></thead>
+      <thead><tr><th>Tienda</th><th>Empleado</th><th>Tipo</th><th style="text-align:right;">Nº</th><th style="text-align:right;">Importe</th><th>Qué movimiento y cuándo</th></tr></thead>
       <tbody>
         ${alertaOrd.map(a=>`<tr>
           <td>Tienda ${a.tienda}</td>
@@ -5909,6 +5934,7 @@ function renderVentas(){
           <td>${a.tipo==='cero'?'⚪ Importe a 0':'🔴 Importe negativo'}</td>
           <td style="text-align:right;">${a.n}</td>
           <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${a.tipo==='negativo'?'#c0392b':'inherit'};">${fmt(a.total)}</td>
+          <td>${_detAl(a)}</td>
         </tr>`).join('')}
       </tbody>
     </table>
