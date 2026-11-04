@@ -124,6 +124,30 @@ global.PAUSADO=false;
     if(!/<img/.test(foto)){ fallos++; console.log('   ✗ una foto guardada ANTES ya no se ve'); }
     else console.log('    ✔ las fotos de antes se siguen viendo igual');
     if(/<audio/.test(foto)){ fallos++; console.log('   ✗ una foto sale como audio'); }
+
+    // LO QUE MANDAMOS NOSOTROS TAMBIÉN SE VE (4/11/2026).
+    //
+    // El propietario fue a revisar un presupuesto que había mandado el día
+    // antes —«📎 Lo Squalo Tenerife SL.pdf — Te adjunto el presupuesto»— y
+    // detrás no había nada. No es que se hubiera perdido: el panel subía el
+    // fichero a Meta, se lo enviaba al cliente y en el historial dejaba solo
+    // ese renglón. Nunca se guardaba.
+    //
+    // Ahora se guarda con la misma marca que los del cliente, así que el panel
+    // lo pinta igual sin tocar nada más. El nombre y el texto siguen a la
+    // vista, que es lo que identifica el documento de un vistazo.
+    const { marcaDeAdjunto } = require(require('path').join(__dirname,'..','netlify/functions/whatsapp-media.js'));
+    const enviado = pintar('34600777222', `${marcaDeAdjunto('9911', 'application/pdf')}📎 Lo Squalo Tenerife SL.pdf — Te adjunto el presupuesto`);
+    if(!/vista=media[^"]*id=9911/.test(enviado)){ fallos++; console.log('   ✗ el PDF que mandamos no se puede abrir desde el panel'); }
+    else console.log('    ✔ el PDF que mandamos se abre desde el panel');
+    if(!/Lo Squalo Tenerife SL\.pdf/.test(enviado)){ fallos++; console.log('   ✗ se perdió el nombre del fichero'); }
+    if(!/Te adjunto el presupuesto/.test(enviado)){ fallos++; console.log('   ✗ se perdió el texto que lo acompañaba'); }
+
+    // Y los renglones de ANTES del arreglo no se rompen: siguen saliendo como
+    // texto, sin marca y sin fichero. No hay forma de recuperarlos.
+    const viejo = pintar('34600777222', '📎 Lo Squalo Tenerife SL.pdf — Te adjunto el presupuesto');
+    if(/<img|<a /.test(viejo)){ fallos++; console.log('   ✗ un envío antiguo intenta abrir un fichero que no existe'); }
+    else console.log('    ✔ los envíos antiguos siguen saliendo como texto');
     console.log();
   }
 

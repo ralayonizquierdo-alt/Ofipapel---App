@@ -307,6 +307,81 @@ function mensajeFalloDeLaWeb(idioma = 'es') {
   return idioma === 'en' ? FALLO_WEB_INFO_EN : FALLO_WEB_INFO;
 }
 
+// «¿ES CORRECTA ESTA DIRECCIÓN?» — UNA PREGUNTA QUE EL BOT SABE CONTESTAR.
+//
+// Visto en real el 4/11/2026. Fabiana escribió:
+//
+//   «anoche envié un email para pedir un presupuesto. Querría SOLO saber si el
+//    email que he encontrado en su sitio web "pedidos@ofipapel.net" es el
+//    correcto.»
+//
+// Y el bot le contestó su presentación entera —«soy el asistente virtual,
+// puedo consultarte precios, disponibilidad… We also speak English»— y
+// «¿quieres que te ponga en contacto con una persona?». Ni sí, ni no, ni el
+// correo bueno. Ella había dicho «solo saber»: lo que menos quería era una
+// persona.
+//
+// Por qué: la palabra «presupuesto» dispara el escalado, y ese camino NO
+// contesta — solo ofrece una persona, diga lo que diga el mensaje. Es el mismo
+// fallo del 3/11 con «me sale verificando»: una palabra suelta decide el turno
+// entero y nadie lee la frase.
+//
+// Y es de lo más fácil de contestar que hay: las direcciones de la casa están
+// en este mismo fichero. Si la que nombra es una de las nuestras, se le dice
+// que sí; si no, se le da la buena. NUNCA se afirma que la suya «no existe»
+// —eso no lo sabemos— y se le ofrece igualmente una persona, porque lo que de
+// verdad le preocupa es si llegó su presupuesto, y eso solo lo puede mirar
+// alguien.
+const CORREOS_DE_LA_CASA = [
+  'pedidos@ofipapelsl.com',
+  'compras@ofipapelsl.com',
+  'comercial@ofipapelsl.com',
+  'administracion@ofipapelsl.com',
+  'impresion.ofipapel@gmail.com',
+];
+
+const UN_CORREO = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+
+// Preguntar si algo es correcto, no anunciar que se ha escrito a una dirección.
+// El bot atiende también en inglés, así que «correct», «right» y «valid»
+// cuentan igual: sin ellas, «is this the correct email?» no se reconocía.
+const PREGUNTA_SI_VALE =
+  /\b(correct[oa]?s?|right|valid|v[áa]lid[oa]s?|buen[oa]s?|bien|works?)\b|\bes\s+(?:el|la)\s+(?:vuestr|suy)|\bsigue\s+(?:siendo|activ)|\bfunciona\b|\bexiste\b|\bes\s+esa?\b/i;
+
+// Devuelve { correo, esNuestro } si el cliente pregunta por una dirección
+// nuestra, o null. Hacen falta las dos cosas: una dirección escrita Y la
+// pregunta de si vale — «mándame el presupuesto a juan@gmail.com» no es esto.
+function preguntaSiEsNuestroCorreo(texto) {
+  const t = String(texto || '');
+  if (!PREGUNTA_SI_VALE.test(t)) return null;
+  UN_CORREO.lastIndex = 0;
+  const encontrados = t.match(UN_CORREO);
+  if (!encontrados || encontrados.length === 0) return null;
+  const correo = encontrados[0].toLowerCase().replace(/[.,;:]+$/, '');
+  return { correo, esNuestro: CORREOS_DE_LA_CASA.includes(correo) };
+}
+
+// EN ofipapel.net NO HAY CORREO. Confirmado por el propietario el 4/11/2026:
+// «pedidos.net no existe». La web publica esa dirección y todo lo que se manda
+// ahí se pierde sin que nadie se entere — a Fabiana le pasó con un presupuesto.
+// Con el dominio equivocado se puede ser tajante y decirle que lo reenvíe, que
+// es lo único que le sirve.
+const DOMINIO_QUE_NO_EXISTE = /@ofipapel\.net$/i;
+
+function mensajeSobreElCorreo({ correo, esNuestro }, idioma = 'es') {
+  const inexistente = DOMINIO_QUE_NO_EXISTE.test(correo);
+  if (idioma === 'en') {
+    if (esNuestro) return `Yes, ${correo} is ours — that's the right address for orders and quotes. `;
+    return inexistente
+      ? `No — we have no mailboxes at ofipapel.net (that's just our website). Anything sent to ${correo} never reached us. Please resend it to pedidos@ofipapelsl.com. `
+      : `${correo} isn't an address I have on record for us. The one we use for orders and quotes is pedidos@ofipapelsl.com — if you sent something to the other one, it's safest to resend it there. `;
+  }
+  if (esNuestro) return `Sí, ${correo} es nuestra: es la dirección correcta para pedidos y presupuestos. `;
+  return inexistente
+    ? `No, esa no existe: en ofipapel.net no tenemos correo (es solo nuestra web). Lo que mandaste a ${correo} no nos ha llegado — vuelve a mandarlo a pedidos@ofipapelsl.com y así no se pierde. `
+    : `${correo} no me consta como dirección nuestra. La que usamos para pedidos y presupuestos es pedidos@ofipapelsl.com — si mandaste algo a la otra, lo más seguro es que lo reenvíes ahí. `;
+}
+
 function esProblemaDeCuenta(texto) {
   return /\b(contrase[nñ]a|password|restablec|recuperar (?:mi )?(?:cuenta|acceso)|iniciar sesi[oó]n|login|no puedo (?:entrar|acceder)|no me deja (?:entrar|acceder)|mi cuenta|correo de confirmaci[oó]n|no me llega (?:el|ning[uú]n) (?:correo|email|mail))\b/i.test(
     String(texto || '')
@@ -1224,7 +1299,7 @@ const FAQ_RULES = [
       'silla', 'sillas', 'sillon', 'sillones',
       'silla de oficina', 'sillas de oficina', 'silla oficina', 'sillas oficina',
       'silla ergonomica', 'sillas ergonomicas', 'silla ergonomicas',
-      'silla gaming', 'sillas gaming', 'silla de escritorio', 'sillas de escritorio',
+      'silla de escritorio', 'sillas de escritorio',
     ],
     // NO lleva `familiaDeProducto`, y es una decisión, no un olvido.
     //
@@ -1239,9 +1314,26 @@ const FAQ_RULES = [
     // («la silla Topstar Syncro») también recibe el enlace en vez de su ficha
     // del catálogo. Aceptado a sabiendas — el enlace lleva a todas las sillas,
     // así que la encuentra igual.
-    // «Mesilla» y «mesillas» contienen «silla»/«sillas», y la coincidencia de
-    // palabras clave no mira fronteras de palabra. Aquí sí.
-    reply: (normalizedText) => (/\bsillas?\b|\bsillones?\b/.test(normalizedText) ? SILLAS_INFO : null),
+    // LAS GAMING NO VAN EN ESTE ENLACE.
+    //
+    // Aviso del propietario (4/11/2026): «esas son sólo las sillas de oficina,
+    // las de gaming tienen otro enlace, ojo con eso». Y tenía razón: estaban
+    // entre las palabras clave, así que a quien pedía una silla gaming se le
+    // mandaba el enlace de las de oficina — el cliente abre la página y no
+    // encuentra lo suyo.
+    //
+    // Hasta que llegue el enlace bueno, una gaming se aparta de aquí y la
+    // contesta el catálogo, que busca en la web de verdad. Mandar el enlace
+    // equivocado es peor que buscar.
+    //
+    // Y «mesilla»/«mesillas» llevan «silla»/«sillas» dentro: la coincidencia de
+    // palabras clave no mira fronteras de palabra, aquí sí.
+    reply: (normalizedText) =>
+      /\bgaming\b|\bgamer\b/.test(normalizedText)
+        ? null
+        : /\bsillas?\b|\bsillones?\b/.test(normalizedText)
+          ? SILLAS_INFO
+          : null,
   },
   {
     // 'que regalo'/'qué regalo' a secas se quitaron: coincidían con preguntas
@@ -1712,6 +1804,8 @@ module.exports = {
   mensajeProblemaDeCuenta,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
+  preguntaSiEsNuestroCorreo,
+  mensajeSobreElCorreo,
   isAgenteInfoMessage,
   isWithinBusinessHours,
   SELLOS_QUESTION,

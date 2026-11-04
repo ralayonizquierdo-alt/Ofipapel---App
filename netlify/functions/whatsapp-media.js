@@ -169,6 +169,7 @@ function marcaDeAdjunto(mediaId, tipo) {
 
 module.exports = {
   guardarAdjuntoDeCliente,
+  guardar,
   MARCA_ADJUNTO,
   marcaDeAdjunto,
   esAudio,

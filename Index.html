@@ -1552,7 +1552,7 @@ const IMPORT_LOG_LABELS = {
   ventasClientes:'Ventas Clientes (Excel)', compras:'Compras (Excel)',
   comprasAnual:'Compras Anuales (Excel)', comprasProveedores:'Compras Proveedores (Excel)',
   proveedores:'Pagos Proveedores (Excel/PDF)', familias:'Familias de Productos (Excel)',
-  forzarSubida:'Forzar subida de datos'
+  forzarSubida:'Forzar subida de datos', deuda:'Pool de Deuda (editado)', pagares:'Pagarés (editado)', confirming:'Confirming Santander (editado)', pagaresTotales:'Total histórico de pagarés (editado)'
 };
 
 const _ILG_ENTRADA  = ['volcado','cajaCierres','cajaBancoRecibos','forzarSubida'];
@@ -1857,7 +1857,7 @@ function applyCloudDataset(key, payload){
   } else if(key==='ventascaja'){
     ventasCaja = payload;
     try{ localStorage.setItem('op_ventascaja', JSON.stringify(ventasCaja)); }catch(e){}
-    renderVentas();
+    renderVentas(); try{ renderAlertas(); }catch(e){}
   } else if(key==='ventasanual'){
     ventasAnual = payload;
     try{ localStorage.setItem('op_ventasanual', JSON.stringify(ventasAnual)); }catch(e){}
@@ -1911,6 +1911,18 @@ function applyCloudDataset(key, payload){
   } else if(key==='ventasweb_det'){
     ventasWebDetalle = payload;
     try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
+  } else if(key==='pagares'){
+    if(Array.isArray(payload)){ PAGARES_DATA=payload; try{ localStorage.setItem('op_pagares',JSON.stringify(PAGARES_DATA)); }catch(e){} renderPagares(); renderAlertas(); }
+  } else if(key==='confirming'){
+    if(Array.isArray(payload)){ CONF_SANT_DATA=payload; try{ localStorage.setItem('op_confirming',JSON.stringify(CONF_SANT_DATA)); }catch(e){} renderPagares(); renderAlertas(); }
+  } else if(key==='pagarestotales'){
+    if(payload&&typeof payload.total==='number'){ PAG_TOTALES=payload; try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} renderPagares(); }
+  } else if(key==='pagareshistorial'){
+    _mergePCHist(payload); renderPagares();
+  } else if(key==='deudahistorial'){
+    _mergeDeudaHist(payload); renderDeuda();
+  } else if(key==='deuda'){
+    if(Array.isArray(payload)&&payload.length){ DEUDA_DATA=payload; try{ localStorage.setItem('op_deuda',JSON.stringify(DEUDA_DATA)); }catch(e){} renderDeuda(); renderAlertas(); }
   } else if(key==='importlog'){
     _mergeImportLog(payload); _renderTodosLosRegistros();
   } else if(key==='importstamps'){
@@ -1961,6 +1973,12 @@ async function loadAllSharedDatasets(){
     if(!existing.ventasweb_det && ventasWebDetalle.length) syncDatasetToCloud('ventasweb_det', ventasWebDetalle);
     if(!existing.importstamps && Object.keys(_importStamps).length) syncDatasetToCloud('importstamps', _importStamps);
     if(!existing.importlog && importLog.length) syncDatasetToCloud('importlog', importLog);
+    if(!existing.pagares) syncDatasetToCloud('pagares', PAGARES_DATA);
+    if(!existing.confirming) syncDatasetToCloud('confirming', CONF_SANT_DATA);
+    if(!existing.pagarestotales) syncDatasetToCloud('pagarestotales', PAG_TOTALES);
+    if(!existing.pagareshistorial && PAG_HIST.length) syncDatasetToCloud('pagareshistorial', PAG_HIST);
+    if(!existing.deuda) syncDatasetToCloud('deuda', DEUDA_DATA);
+    if(!existing.deudahistorial && DEUDA_HIST.length) syncDatasetToCloud('deudahistorial', DEUDA_HIST);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -2024,6 +2042,10 @@ async function forzarSyncCompleto(btn){
     if(ventasWebDetalle.length) ops.push(sube('ventasweb_det', ventasWebDetalle));
     if(cajaEfectivo.length)     ops.push(sube('cajaefectivo', cajaEfectivo));
     if(cajaFondoCambio.length)  ops.push(sube('cajafondocambio', cajaFondoCambio));
+    ops.push(sube('pagares', PAGARES_DATA)); ops.push(sube('confirming', CONF_SANT_DATA)); ops.push(sube('pagarestotales', PAG_TOTALES));
+    if(PAG_HIST.length) ops.push(sube('pagareshistorial', PAG_HIST));
+    ops.push(sube('deuda', DEUDA_DATA));
+    if(DEUDA_HIST.length) ops.push(sube('deudahistorial', DEUDA_HIST));
     const res = await Promise.all(ops);
     if(res.every(Boolean)){
       // Aunque sea «forzar», tiene que quedar apuntado quién subió qué y cuándo
@@ -2100,7 +2122,7 @@ function updateStorageStatus(){
   }catch(e){ el.textContent=''; }
 }
 
-const DEUDA_DATA = [
+const DEUDA_INICIAL = [
   { nombre:'ICO Préstamo 435 · Santander', tipo:'ico2', nominal:700000, pendiente:356144, cuota:9540.69, vto:'20/05/2025', banco:'Santander', pct:49, detalle:'Capital 9.189€ + Interés 352€' },
   { nombre:'Préstamo Empresa BBVA (3220)', tipo:'', nominal:290000, pendiente:271711, cuota:3930.67, vto:'31/08/2031', banco:'BBVA', pct:6, detalle:'Capital 3.072€ + Interés 859€' },
   { nombre:'Hipoteca Naves · CaixaBank (3257)', tipo:'hip', nominal:692000, pendiente:268971, cuota:3083.76, vto:'20/01/2033', banco:'CaixaBank', pct:61, detalle:'Capital 2.584€ + Interés 500€' },
@@ -2109,6 +2131,55 @@ const DEUDA_DATA = [
   { nombre:'Préstamo IGIC · BBVA (2440)', tipo:'alerta', nominal:44281, pendiente:44281, cuota:14760.19, vto:'07/05/2025', banco:'BBVA', pct:100, detalle:'⚠ VENCIDO — Revisar con BBVA urgente' },
   { nombre:'Préstamo Renta 2023 · BBVA (Luis)', tipo:'', nominal:27100, pendiente:11453, cuota:2318.72, vto:'31/07/2025', banco:'BBVA', pct:58, detalle:'IRPF / Patrimonio · Capital 2.263€ + Interés 56€' },
 ];
+// El Pool de Deuda se edita desde la pantalla y se comparte en la nube (app_sync, id «deuda»); DEUDA_INICIAL es solo la semilla de la primera vez.
+// Campos nuevos por préstamo: estado ('normal' | 'alerta' | 'resuelto'), nota y editado {por, ts}.
+const EDITAN_DEUDA = ['admin','rober','luis'];
+let DEUDA_DATA = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_deuda')||'null'); if(Array.isArray(g)&&g.length) return g; }catch(e){} return JSON.parse(JSON.stringify(DEUDA_INICIAL)); })();
+// Historial de cambios del Pool de Deuda (app_sync, id «deudahistorial»): quién, cuándo y qué cambió (antes → después)
+let DEUDA_HIST = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_deudahist')||'null'); if(Array.isArray(g)) return g; }catch(e){} return []; })();
+const DEUDA_CAMPOS = {nombre:'Nombre',banco:'Banco',tipo:'Tipo',nominal:'Importe inicial',pendiente:'Pendiente',cuota:'Cuota mensual',vto:'Vencimiento',estado:'Estado',nota:'Nota',detalle:'Detalle'};
+function _valDeuda(k,v){
+  if(k==='tipo'&&(v===''||v==null)) return 'Préstamo';
+  if(v==null||v==='') return '—';
+  if(k==='nominal'||k==='pendiente'||k==='cuota') return fmt(Number(v));
+  if(k==='estado') return {normal:'Normal',alerta:'En alerta',resuelto:'Resuelto'}[v]||v;
+  if(k==='tipo') return {hip:'Hipoteca',ico2:'ICO','':'Préstamo',alerta:'Préstamo'}[v]||v;
+  return String(v);
+}
+function _mergeDeudaHist(extra){
+  const k=e=>[e.ts,e.user||'',e.prestamo||'',e.accion||''].join('|'), m=new Map();
+  [...DEUDA_HIST,...(Array.isArray(extra)?extra:[])].forEach(e=>{ if(e&&e.ts) m.set(k(e),e); });
+  DEUDA_HIST=[...m.values()].sort((a,b)=>String(a.ts).localeCompare(String(b.ts))).slice(-500);
+  try{ localStorage.setItem('op_deudahist',JSON.stringify(DEUDA_HIST)); }catch(e){}
+}
+function registrarCambioDeuda(prestamo,accion,cambios){
+  _mergeDeudaHist([{ts:new Date().toISOString(),user:currentUser||'—',prestamo,accion,cambios:cambios||[]}]);
+  syncDatasetToCloud('deudahistorial',DEUDA_HIST);
+}
+function historialDeudaHtml(){
+  const filtro=(document.getElementById('deudaHistFiltro')||{}).value||'';
+  const nombres=[...new Set(DEUDA_HIST.map(e=>e.prestamo))];
+  const filas=[...DEUDA_HIST].filter(e=>!filtro||e.prestamo===filtro).reverse().slice(0,100);
+  const acc={editado:'✏️ Editado',añadido:'➕ Añadido',quitado:'🗑️ Quitado'};
+  return `<div class="sec-title" style="display:flex;align-items:center;gap:12px;">🕘 Historial de cambios
+    <select id="deudaHistFiltro" onchange="renderDeuda()" style="margin-left:auto;padding:5px 8px;border:1px solid var(--borde);border-radius:8px;font-size:12px;text-transform:none;letter-spacing:0;"><option value="">Todos los préstamos</option>${nombres.map(n=>`<option value="${escapeHtml(n)}"${n===filtro?' selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div style="overflow-x:auto;">${filas.length?`<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);"><th style="text-align:left;padding:7px 10px;white-space:nowrap;">Fecha/Hora</th><th style="text-align:left;padding:7px 10px;">Usuario</th><th style="text-align:left;padding:7px 10px;">Préstamo</th><th style="text-align:left;padding:7px 10px;">Qué cambió</th></tr></thead><tbody>
+    ${filas.map(e=>`<tr style="border-bottom:1px solid var(--borde);vertical-align:top;"><td style="padding:7px 10px;white-space:nowrap;font-weight:500;">${new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td><td style="padding:7px 10px;white-space:nowrap;">👤 ${escapeHtml(e.user||'—')}</td><td style="padding:7px 10px;">${escapeHtml(e.prestamo||'')}</td><td style="padding:7px 10px;"><strong>${acc[e.accion]||escapeHtml(e.accion||'')}</strong>${(e.cambios||[]).map(c=>`<div>${escapeHtml(DEUDA_CAMPOS[c.campo]||c.campo)}: <span style="color:var(--texto2);">${escapeHtml(_valDeuda(c.campo,c.antes))}</span> → <strong>${escapeHtml(_valDeuda(c.campo,c.despues))}</strong></div>`).join('')}</td></tr>`).join('')}
+    </tbody></table>`:'<div style="padding:18px;text-align:center;color:var(--texto2);font-size:12px;">Todavía no se ha cambiado nada desde la pantalla.</div>'}</div></div>`;
+}
+function guardarDeuda(){ try{ localStorage.setItem('op_deuda',JSON.stringify(DEUDA_DATA)); }catch(e){} syncDatasetToCloud('deuda',DEUDA_DATA); }
+function _vtoDeuda(s){ const m=String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m?new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`):null; }
+// null = sin alerta; 'alerta' = marcado en alerta; 'vencido' = su vencimiento ya pasó (y no está marcado como resuelto)
+function estadoAlertaDeuda(d){
+  const e=d.estado||(d.tipo==='alerta'?'alerta':'normal');
+  if(e==='resuelto') return null;
+  if(e==='alerta') return 'alerta';
+  const v=_vtoDeuda(d.vto), hoy=new Date(); hoy.setHours(0,0,0,0);
+  return (v&&v<hoy)?'vencido':null;
+}
+function alertasDeDeuda(){ return DEUDA_DATA.filter(d=>estadoAlertaDeuda(d)); }
+
 
 // ═══════════════════════════════════════════════════════
 // LOGIN
@@ -2403,7 +2474,7 @@ const G = {
 // ═══════════════════════════════════════════════════════
 // PAGARÉS — pendientes de cobro (activos 2026)
 // ═══════════════════════════════════════════════════════
-const PAGARES_DATA = [
+const PAGARES_INICIAL = [
   // 🔴 Vencidos recientes sin cobrar
   { vto:'2026-03-20', pagare:'T/093-3CSIETE', importe:875.28,  banco:'BS',   estado:'vencido' },
   { vto:'2026-04-20', pagare:'T/632-2BBVA',   importe:34.50,   banco:'—',    estado:'vencido' },
@@ -2434,7 +2505,7 @@ const PAGARES_DATA = [
 // ═══════════════════════════════════════════════════════
 // CONFIRMING SANTANDER — pendientes de pago
 // ═══════════════════════════════════════════════════════
-const CONF_SANT_DATA = [
+const CONF_INICIAL = [
   { vto:'2026-06-11', proveedor:'Cartonaje Unión S.L.',        importe:2899.64,  comision:13.90 },
   { vto:'2026-06-12', proveedor:'Marcos Gregorio (Bolsas)',    importe:2887.79,  comision:16.41 },
   { vto:'2026-06-15', proveedor:'Marcos Gregorio (Bolsas)',    importe:2887.79,  comision:18.77 },
@@ -2462,7 +2533,114 @@ const CONF_SANT_DATA = [
 // ═══════════════════════════════════════════════════════
 // RESUMEN HISTÓRICO PAGARÉS (fila 1 del Excel)
 // ═══════════════════════════════════════════════════════
-const PAG_TOTALES = { total: 2739894.34, ingresado: 2729045.79, en_caja: 10848.55 };
+const PAG_TOTALES_INICIAL = { total: 2739894.34, ingresado: 2729045.79, en_caja: 10848.55 };
+
+// ── Pagarés y Confirming: viven en la nube (app_sync ids pagares, confirming, pagarestotales, pagareshistorial); lo de arriba es solo la semilla de la primera vez ──
+// Cada línea: pagaré {vto 'AAAA-MM-DD', pagare, importe, banco, marca, nota}; confirming {vto, proveedor, importe, comision, marca, nota}.
+// marca: '' = por fecha (vencimiento pasado = cobrado/pagado); 'cobrado'/'pagado' o 'pendiente' lo fija a mano (pendiente + vencido = aviso).
+const EDITAN_PAGARES = ['admin','rober','luis','monica'];
+function _cargarListaPC(clave, ini){ try{ const g=JSON.parse(localStorage.getItem(clave)||'null'); if(Array.isArray(g)) return g; }catch(e){} return JSON.parse(JSON.stringify(ini)); }
+let PAGARES_DATA = _cargarListaPC('op_pagares', PAGARES_INICIAL.map(({estado,...r})=>r));
+let CONF_SANT_DATA = _cargarListaPC('op_confirming', CONF_INICIAL);
+let PAG_TOTALES = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_pagarestotales')||'null'); if(g&&typeof g.total==='number') return g; }catch(e){} return {...PAG_TOTALES_INICIAL}; })();
+let PAG_HIST = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_pagareshist')||'null'); if(Array.isArray(g)) return g; }catch(e){} return []; })();
+// 'ok' = cobrado/pagado · 'pend' = por vencer · 'vencido' = pasó el vencimiento y está marcado como pendiente
+function _estPC(x,hoyStr){ const m=x.marca||''; if(m==='cobrado'||m==='pagado') return 'ok'; if(m==='pendiente') return x.vto<hoyStr?'vencido':'pend'; return x.vto>=hoyStr?'pend':'ok'; }
+function _isoDeES(t){ const m=String(t||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/); if(!m) return null; const y=m[3].length===2?'20'+m[3]:m[3]; const d=new Date(`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`); return isNaN(d)?null:`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+function _esDeIso(i){ const m=String(i||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:''; }
+function _numEs(t){ let raw=String(t).replace(/[^\d.,-]/g,''); if(raw.includes(',')) raw=raw.replace(/\./g,'').replace(',','.'); else if(/^-?\d{1,3}(\.\d{3})+$/.test(raw)) raw=raw.replace(/\./g,''); const n=parseFloat(raw); return isNaN(n)?NaN:n; }
+const PC_CAMPOS = {vto:'Vencimiento',pagare:'Nº pagaré',proveedor:'Proveedor',importe:'Importe',comision:'Comisión',banco:'Banco',marca:'Estado',nota:'Nota'};
+function _valPC(k,v){ if(v==null||v==='') return k==='marca'?'Por fecha':'—'; if(k==='vto') return _esDeIso(v)||String(v); if(k==='importe'||k==='comision') return fmt(Number(v)); if(k==='marca') return {cobrado:'Cobrado',pagado:'Pagado',pendiente:'Pendiente'}[v]||v; return String(v); }
+function _mergePCHist(extra){
+  const k=e=>[e.ts,e.user||'',e.tipo||'',e.concepto||'',e.accion||''].join('|'), m=new Map();
+  [...PAG_HIST,...(Array.isArray(extra)?extra:[])].forEach(e=>{ if(e&&e.ts) m.set(k(e),e); });
+  PAG_HIST=[...m.values()].sort((a,b)=>String(a.ts).localeCompare(String(b.ts))).slice(-500);
+  try{ localStorage.setItem('op_pagareshist',JSON.stringify(PAG_HIST)); }catch(e){}
+}
+function registrarCambioPC(tipo,concepto,accion,cambios){ _mergePCHist([{ts:new Date().toISOString(),user:currentUser||'—',tipo,concepto,accion,cambios:cambios||[]}]); syncDatasetToCloud('pagareshistorial',PAG_HIST); }
+function guardarPC(tipo){
+  if(tipo==='pag'){ try{ localStorage.setItem('op_pagares',JSON.stringify(PAGARES_DATA)); }catch(e){} syncDatasetToCloud('pagares',PAGARES_DATA); }
+  else { try{ localStorage.setItem('op_confirming',JSON.stringify(CONF_SANT_DATA)); }catch(e){} syncDatasetToCloud('confirming',CONF_SANT_DATA); }
+}
+function historialPCHtml(){
+  const filas=[...PAG_HIST].reverse().slice(0,60), acc={editado:'✏️ Editado',añadido:'➕ Añadido',quitado:'🗑️ Quitado'};
+  return `<div class="sec-title" style="margin-top:24px;">🕘 Historial de cambios</div>
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div style="overflow-x:auto;">${filas.length?`<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);"><th style="text-align:left;padding:7px 10px;white-space:nowrap;">Fecha/Hora</th><th style="text-align:left;padding:7px 10px;">Usuario</th><th style="text-align:left;padding:7px 10px;">Qué</th><th style="text-align:left;padding:7px 10px;">Cambio</th></tr></thead><tbody>
+    ${filas.map(e=>`<tr style="border-bottom:1px solid var(--borde);vertical-align:top;"><td style="padding:7px 10px;white-space:nowrap;font-weight:500;">${new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td><td style="padding:7px 10px;">${escapeHtml(e.user||'—')}</td><td style="padding:7px 10px;"><b>${escapeHtml(e.tipo||'')}</b> · ${escapeHtml(e.concepto||'')}</td><td style="padding:7px 10px;">${acc[e.accion]||e.accion}${(e.cambios||[]).length?'<br>'+e.cambios.map(c=>`${PC_CAMPOS[c.campo]||c.campo}: ${escapeHtml(_valPC(c.campo,c.antes))} → ${escapeHtml(_valPC(c.campo,c.despues))}`).join('<br>'):''}</td></tr>`).join('')}
+    </tbody></table>`:'<div style="padding:18px;text-align:center;color:var(--texto2);font-size:12px;">Todavía no se ha cambiado nada desde la pantalla.</div>'}</div></div>`;
+}
+const _inpPC=(id,lbl,val,ph)=>`<label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">${lbl}</label><input id="${id}" value="${escapeHtml(val==null?'':String(val))}" placeholder="${ph||''}" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;box-sizing:border-box;">`;
+function abrirEditarPC(tipo,i){
+  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('No tienes permiso para editar Pagarés y Confirming','err'); return; }
+  const pag=tipo==='pag', lista=pag?PAGARES_DATA:CONF_SANT_DATA, nuevo=i<0;
+  const x=nuevo?(pag?{vto:'',pagare:'',importe:0,banco:'',marca:'',nota:''}:{vto:'',proveedor:'',importe:0,comision:0,marca:'',nota:''}):lista[i];
+  const num=v=>String(v==null?'':v).replace('.',',');
+  let m=document.getElementById('pcEditor'); if(m) m.remove();
+  m=document.createElement('div'); m.id='pcEditor';
+  m.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.6);padding:16px;overflow-y:auto;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="font-size:17px;font-weight:700;color:var(--azul);">${nuevo?'➕ Añadir ':'✏️ Editar '}${pag?'pagaré':'pago de Confirming'}</div>
+    ${_inpPC('pcVto','Vencimiento (dd/mm/aaaa)',_esDeIso(x.vto),'25/11/2026')}
+    ${pag?_inpPC('pcPagare','Nº de pagaré',x.pagare,'T/535-1BS')+_inpPC('pcImporte','Importe (€)',num(x.importe))+_inpPC('pcBanco','Banco',x.banco||'','BS, BBVA…'):_inpPC('pcProveedor','Proveedor',x.proveedor)+_inpPC('pcImporte','Importe (€)',num(x.importe))+_inpPC('pcComision','Comisión (€)',num(x.comision))}
+    <label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">Estado</label>
+    <select id="pcMarca" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;"><option value="">Por fecha (pasado el vencimiento = ${pag?'cobrado':'pagado'})</option><option value="${pag?'cobrado':'pagado'}">${pag?'Cobrado':'Pagado'} (aunque no haya vencido)</option><option value="pendiente">Pendiente (avisa si pasa el vencimiento)</option></select>
+    ${_inpPC('pcNota','Nota',x.nota||'')}
+    <div id="pcError" style="color:var(--rojo);font-size:12px;margin-top:8px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+      <button onclick="guardarEditarPC('${tipo}',${i})" style="flex:1;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button>
+      <button onclick="document.getElementById('pcEditor').remove()" style="background:#eee;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;">Cancelar</button>
+      ${nuevo?'':`<button onclick="quitarPC('${tipo}',${i})" style="background:#fdecea;color:#c0392b;border:none;border-radius:8px;padding:10px 14px;font-size:13px;cursor:pointer;">🗑️ Quitar</button>`}
+    </div></div>`;
+  document.body.appendChild(m);
+  document.getElementById('pcMarca').value=x.marca||'';
+}
+function guardarEditarPC(tipo,i){
+  const pag=tipo==='pag', lista=pag?PAGARES_DATA:CONF_SANT_DATA, g=id=>document.getElementById(id).value.trim(), err=t=>{ document.getElementById('pcError').textContent=t; };
+  const vto=_isoDeES(g('pcVto')); if(!vto) return err('El vencimiento se escribe así: 25/11/2026');
+  const importe=_numEs(g('pcImporte')); if(isNaN(importe)||importe<0) return err('El importe tiene que ser un número');
+  const nuevoX=pag?{vto,pagare:g('pcPagare'),importe,banco:g('pcBanco'),marca:g('pcMarca'),nota:g('pcNota')}:{vto,proveedor:g('pcProveedor'),importe,comision:0,marca:g('pcMarca'),nota:g('pcNota')};
+  if(pag&&!nuevoX.pagare) return err('Pon el nº de pagaré');
+  if(!pag){ if(!nuevoX.proveedor) return err('Pon el proveedor'); const c=g('pcComision')===''?0:_numEs(g('pcComision')); if(isNaN(c)||c<0) return err('La comisión tiene que ser un número'); nuevoX.comision=c; }
+  const antes=i<0?null:{...lista[i]};
+  if(i<0) lista.push(nuevoX); else Object.assign(lista[i],nuevoX);
+  const campos=Object.keys(PC_CAMPOS).filter(k=>k in nuevoX), cambios=campos.filter(k=>antes?String(antes[k]==null?'':antes[k])!==String(nuevoX[k]==null?'':nuevoX[k]):(nuevoX[k]!==''&&nuevoX[k]!=null)).map(k=>({campo:k,antes:antes?antes[k]:null,despues:nuevoX[k]}));
+  const concepto=pag?nuevoX.pagare:nuevoX.proveedor+' '+_esDeIso(vto);
+  guardarPC(tipo); registrarCambioPC(pag?'Pagaré':'Confirming',concepto,antes?'editado':'añadido',cambios);
+  logImport(pag?'pagares':'confirming',concepto+(antes?' ('+cambios.map(c=>PC_CAMPOS[c.campo]+': '+_valPC(c.campo,c.antes)+' → '+_valPC(c.campo,c.despues)).join('; ')+')':' (nuevo)'));
+  document.getElementById('pcEditor').remove(); renderPagares(); renderAlertas(); showToast('✅ Guardado','ok');
+}
+function quitarPC(tipo,i){
+  const pag=tipo==='pag', lista=pag?PAGARES_DATA:CONF_SANT_DATA, x=lista[i]; if(!x) return;
+  const concepto=pag?x.pagare:x.proveedor+' '+_esDeIso(x.vto);
+  if(!confirm('¿Quitar «'+concepto+'»?\nSe borra para todos.')) return;
+  lista.splice(i,1); guardarPC(tipo);
+  registrarCambioPC(pag?'Pagaré':'Confirming',concepto,'quitado',['vto','importe'].map(k=>({campo:k,antes:x[k],despues:null})));
+  logImport(pag?'pagares':'confirming',concepto+' (quitado)');
+  document.getElementById('pcEditor')?.remove(); renderPagares(); renderAlertas(); showToast('Quitado','ok');
+}
+function abrirEditarTotalesPC(){
+  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('No tienes permiso para editarlo','err'); return; }
+  const num=v=>String(v==null?'':v).replace('.',',');
+  let m=document.getElementById('pcEditor'); if(m) m.remove();
+  m=document.createElement('div'); m.id='pcEditor';
+  m.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.6);padding:16px;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:420px;"><div style="font-size:17px;font-weight:700;color:var(--azul);">✏️ Total histórico de pagarés</div>
+    ${_inpPC('pcTot','Total histórico (€)',num(PAG_TOTALES.total))}${_inpPC('pcIng','Ingresado (€)',num(PAG_TOTALES.ingresado))}${_inpPC('pcCaja','En caja (€)',num(PAG_TOTALES.en_caja))}
+    <div id="pcError" style="color:var(--rojo);font-size:12px;margin-top:8px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;"><button onclick="guardarTotalesPC()" style="flex:1;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button><button onclick="document.getElementById('pcEditor').remove()" style="background:#eee;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;">Cancelar</button></div></div>`;
+  document.body.appendChild(m);
+}
+function guardarTotalesPC(){
+  const v=id=>_numEs(document.getElementById(id).value), t=v('pcTot'), ing=v('pcIng'), caja=v('pcCaja');
+  if([t,ing,caja].some(isNaN)) { document.getElementById('pcError').textContent='Los tres importes tienen que ser números'; return; }
+  const antes={...PAG_TOTALES}; PAG_TOTALES={total:t,ingresado:ing,en_caja:caja};
+  try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} syncDatasetToCloud('pagarestotales',PAG_TOTALES);
+  const camb=[['total','Total'],['ingresado','Ingresado'],['en_caja','En caja']].filter(([k])=>antes[k]!==PAG_TOTALES[k]);
+  registrarCambioPC('Totales','Total histórico de pagarés','editado',camb.map(([k,l])=>({campo:'importe',antes:antes[k],despues:PAG_TOTALES[k]})));
+  logImport('pagaresTotales','Total histórico de pagarés ('+camb.map(([k,l])=>l+': '+fmt(antes[k])+' → '+fmt(PAG_TOTALES[k])).join('; ')+')');
+  document.getElementById('pcEditor').remove(); renderPagares(); showToast('✅ Guardado','ok');
+}
 
 // Horizonte seleccionado para el panel de próximos vencimientos (persiste entre renders)
 let pagaresHorizonte = 5;
@@ -2981,9 +3159,6 @@ function renderAlertas(){
   if(polPct > 50) alerts.push({type:'warn', ico:'⚠️', ttl:'Póliza CaixaBank por encima del 50%', txt:`Dispuesto: ${fmt(Math.abs(last.caixa_pol))} / 300.000 €. Disponible: ${fmt(last.caixa_disp||0)}.`});
   else alerts.push({type:'ok', ico:'✅', ttl:'Póliza CaixaBank bajo control', txt:`Dispuesto: ${fmt(Math.abs(last.caixa_pol))}. Disponible: ${fmt(last.caixa_disp||0)}.`});
 
-  // Préstamo IGIC vencido
-  alerts.push({type:'err', ico:'🚨', ttl:'Préstamo IGIC BBVA — VENCIDO (07/05/2025)', txt:'Saldo pendiente: 44.281 €. Cuota mensual: 14.760 €. Requiere revisión urgente del estado con BBVA.'});
-
   // BBVA Ofipapel tendencia
   if(prev){
     const d = (last.bbva_ofip||0)-(prev.bbva_ofip||0);
@@ -2994,8 +3169,25 @@ function renderAlertas(){
   // Pagarés en caja: lo emitido menos lo ya ingresado en el banco (no es efectivo, no tiene «nivel mínimo»)
   alerts.push({type:'ok', ico:'🧾', ttl:'Pagarés en Caja — pendientes de ingresar', txt:`Total en caja: ${fmt(last.caja_central)}.`});
 
-  // ICO Vencimiento
-  alerts.push({type:'warn', ico:'📅', ttl:'ICO Préstamo 435 — Fecha vencimiento pasada', txt:'Vencimiento: 20/05/2025. Saldo pendiente: 356.144 €. Confirmar situación actual con Santander.'});
+  // Pool de deuda: un aviso por cada préstamo en alerta o vencido (sale de los datos editables de «Pool de Deuda»)
+  alertasDeDeuda().forEach(d=>{
+    const alerta=estadoAlertaDeuda(d)==='alerta';
+    alerts.push({type:alerta?'err':'warn', ico:alerta?'🚨':'📅', ttl:`${d.nombre} — ${alerta?'EN ALERTA':'VENCIDO'} (${d.vto})`,
+      txt:`Saldo pendiente: ${fmt(d.pendiente)}. Cuota mensual: ${fmt(d.cuota)}.${d.nota?' '+d.nota+'.':''} Confirma la situación con ${d.banco}; cuando esté resuelto, actualízalo en Pool de Deuda.`});
+  });
+
+  // Importes negativos en el fichero de Ventas caja (devoluciones, abonos o errores de ticket)
+  try{
+    const negs=((ventasCaja&&ventasCaja.porAlerta)||[]).filter(a=>a.tipo==='negativo');
+    if(negs.length){
+      const nTot=negs.reduce((t,a)=>t+a.n,0), impTot=negs.reduce((t,a)=>t+a.total,0);
+      const grande=negs.reduce((m,a)=>Math.min(m,a.total/(a.n||1)),0);
+      const fm=ventasCaja.meta&&ventasCaja.meta.importado?new Date(ventasCaja.meta.importado).toLocaleDateString('es-ES'):'';
+      const hasta=((ventasCaja.porDia||[]).map(d=>d.fecha).sort().pop()||'').split('-').reverse().join('/');
+      alerts.push({type:'err', ico:'🔴', ttl:`Importes negativos en caja — ${nTot} movimiento(s), ${fmt(impTot)}`,
+        txt:`${negs.map(a=>`Tienda ${a.tienda}: ${a.n} (${fmt(a.total)})`).join(' · ')}. Revisa si son devoluciones o abonos normales o un error de ticket (el detalle está en Ventas → «Importes a 0 o Negativos»). Datos del fichero cargado el ${fm}${hasta?', hasta el '+hasta:''}.`});
+    }
+  }catch(e){}
 
   // Santander volatilidad
   if(sorted.length>=2){
@@ -3012,18 +3204,22 @@ function renderAlertas(){
   const hoyAlStrStr = hoyAlStr.toISOString().slice(0,10);
   const in7AlStr = new Date(hoyAlStr); in7AlStr.setDate(hoyAlStr.getDate()+7);
   const in7AlStrStr = in7AlStr.toISOString().slice(0,10);
-  const pagProxAl = PAGARES_DATA.filter(p=>p.vto>=hoyAlStrStr&&p.vto<=in7AlStrStr);
+  const pagProxAl = PAGARES_DATA.filter(p=>_estPC(p,hoyAlStrStr)==='pend'&&p.vto>=hoyAlStrStr&&p.vto<=in7AlStrStr);
+  const pagVencAl = PAGARES_DATA.filter(p=>_estPC(p,hoyAlStrStr)==='vencido');
+  if(pagVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`${pagVencAl.length} pagaré(s) vencido(s) sin cobrar`, txt:`${pagVencAl.map(p=>p.pagare+' ('+fmt(p.importe)+', '+_esDeIso(p.vto)+')').join(' · ')}. Cuando se cobren, márcalos como cobrados en Pagarés y Confirming.`});
   const sumPagProxAl = pagProxAl.reduce((s,p)=>s+p.importe,0);
   if(pagProxAl.length>0) alerts.push({type:'warn', ico:'🔴', ttl:`${pagProxAl.length} pagaré(s) vencen en los próximos 7 días`, txt:`Total pendiente: ${fmt(sumPagProxAl)}. Próximo vencimiento: ${new Date(pagProxAl[0].vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}.`});
 
   // Confirming próximos 7 días
   const today7 = new Date(); const next7 = new Date(); next7.setDate(next7.getDate()+7);
-  const confProx = CONF_SANT_DATA.filter(c=>{ const d=new Date(c.vto); return d>=today7&&d<=next7; });
+  const confProx = CONF_SANT_DATA.filter(c=>{ const d=new Date(c.vto); return _estPC(c,hoyAlStrStr)==='pend'&&d>=today7&&d<=next7; });
+  const confVencAl = CONF_SANT_DATA.filter(c=>_estPC(c,hoyAlStrStr)==='vencido');
+  if(confVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`Confirming Santander — ${confVencAl.length} pago(s) vencido(s) sin pagar`, txt:`${confVencAl.map(c=>c.proveedor+' ('+fmt(c.importe)+', '+_esDeIso(c.vto)+')').join(' · ')}. Cuando se paguen, márcalos como pagados en Pagarés y Confirming.`});
   const sumConf7 = confProx.reduce((s,c)=>s+c.importe,0);
   if(confProx.length>0) alerts.push({type:'warn', ico:'🏦', ttl:`Confirming Santander — ${confProx.length} pago(s) esta semana`, txt:`Total a pagar en los próximos 7 días: ${fmt(sumConf7)}. Proveedores: ${confProx.map(c=>c.proveedor).join(', ')}.`});
 
   // Carga financiera
-  const cargaMes = 9540+3930+3083+2661+2266+2318;
+  const cargaMes = DEUDA_DATA.filter(d=>d.tipo!=='alerta'&&(d.estado||'normal')!=='alerta'&&d.estado!=='resuelto').reduce((t,d)=>t+d.cuota,0);
   alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.`});
 
   const fiscalAlerts = getFiscalAlertas();
@@ -3313,29 +3509,32 @@ function renderDeuda(){
     </div>
   </div>`;
 
-  const cards = DEUDA_DATA.map(d=>`
-  <div class="deuda-card ${d.tipo}">
-    <div class="deuda-name">${d.tipo==='hip'?'🏠 ':d.tipo==='alerta'?'🚨 ':d.tipo==='ico2'?'💼 ':'📄 '}${d.nombre}</div>
-    <div class="d-row"><span class="d-k">Banco:</span><span class="d-v">${d.banco}</span></div>
+  const puedeEditar=EDITAN_DEUDA.includes(currentUser);
+  const cards = DEUDA_DATA.map((d,i)=>{ const ea=estadoAlertaDeuda(d), cls=ea==='alerta'?'alerta':(d.tipo==='alerta'?'':d.tipo); return `
+  <div class="deuda-card ${cls}">
+    <div class="deuda-name">${cls==='hip'?'🏠 ':cls==='alerta'?'🚨 ':cls==='ico2'?'💼 ':'📄 '}${escapeHtml(d.nombre)}${ea==='vencido'?' <span style="font-size:11px;background:#f5a623;color:#fff;border-radius:6px;padding:1px 7px;">VENCIDO</span>':''}${d.estado==='resuelto'?' <span style="font-size:11px;background:#27ae60;color:#fff;border-radius:6px;padding:1px 7px;">✅ Resuelto</span>':''}</div>
+    <div class="d-row"><span class="d-k">Banco:</span><span class="d-v">${escapeHtml(d.banco||'')}</span></div>
     <div class="d-row"><span class="d-k">Nominal:</span><span class="d-v">${fmt(d.nominal)}</span></div>
     <div class="d-row"><span class="d-k">Pendiente:</span><span class="d-v" style="color:var(--rojo)">${fmt(d.pendiente)}</span></div>
     <div class="d-row"><span class="d-k">Cuota/mes:</span><span class="d-v">${fmt(d.cuota)}</span></div>
     <div class="d-row"><span class="d-k">Vencimiento:</span><span class="d-v">${d.vto}</span></div>
     <div class="d-bar-wrap"><div class="d-bar ${d.tipo==='hip'?'hip':''}" style="width:${d.pct}%"></div></div>
-    <div class="d-sub">${d.detalle}</div>
-  </div>`).join('');
+    <div class="d-sub">${escapeHtml(d.detalle||'')}${d.nota?`<div style="margin-top:4px;color:var(--texto);font-weight:600;">📝 ${escapeHtml(d.nota)}</div>`:''}${d.editado?`<div style="margin-top:4px;font-size:10px;color:var(--texto2);">Actualizado por ${escapeHtml(d.editado.por||'—')} el ${new Date(d.editado.ts).toLocaleDateString('es-ES')}</div>`:''}</div>
+    ${puedeEditar?`<div style="margin-top:8px;"><button onclick="abrirEditarDeuda(${i})" style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;">✏️ Editar</button></div>`:''}
+  </div>`;}).join('');
 
   destroyChart('cDeuda');
   document.getElementById('deudaContent').innerHTML = `
   ${kpis}
-  <div class="sec-title">📋 Detalle por Instrumento</div>
+  <div class="sec-title" style="display:flex;align-items:center;gap:12px;">📋 Detalle por Instrumento ${puedeEditar?`<button onclick="abrirEditarDeuda(-1)" style="margin-left:auto;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;">➕ Añadir préstamo</button>`:''}</div>
   <div class="deuda-grid">${cards}</div>
   <div class="sec-title">📊 Distribución Visual</div>
   <div class="chart-card">
     <div class="chart-ttl">Deuda pendiente por instrumento</div>
     <div class="chart-desc">Total: ${fmt(totalDeuda)}</div>
     <canvas id="cDeuda" height="90"></canvas>
-  </div>`;
+  </div>
+  ${historialDeudaHtml()}`;
 
   charts['cDeuda'] = new Chart(document.getElementById('cDeuda'),{
     type:'bar',
@@ -3345,6 +3544,64 @@ function renderDeuda(){
     },
     options:{ indexAxis:'y', responsive:true, plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toLocaleString('es-ES')} €`}} }, scales:{ x:{grid:G.grid,ticks:{...G.ticks,callback:v=>(v/1000).toFixed(0)+'K €'}}, y:{grid:{display:false},ticks:{...G.ticks,font:{size:10}}} } }
   });
+}
+
+// ── Editar el Pool de Deuda (solo EDITAN_DEUDA) ──
+function abrirEditarDeuda(i){
+  if(!EDITAN_DEUDA.includes(currentUser)){ showToast('Solo Rober y Luis pueden editar el Pool de Deuda','err'); return; }
+  const nuevo=i<0, d=nuevo?{nombre:'',banco:'',tipo:'',nominal:0,pendiente:0,cuota:0,vto:'',detalle:'',estado:'normal',nota:''}:DEUDA_DATA[i];
+  const est=d.estado||(d.tipo==='alerta'?'alerta':'normal'), tipoSel=d.tipo==='alerta'?'':(d.tipo||'');
+  const num=v=>String(v==null?'':v).replace('.',',');
+  const f=(id,lbl,val,ph)=>`<label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">${lbl}</label><input id="${id}" value="${escapeHtml(val)}" placeholder="${ph||''}" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;">`;
+  let m=document.getElementById('deudaEditor'); if(m) m.remove();
+  m=document.createElement('div'); m.id='deudaEditor';
+  m.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.6);padding:16px;overflow-y:auto;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="font-size:17px;font-weight:700;color:var(--azul);">${nuevo?'➕ Añadir préstamo':'✏️ Editar préstamo'}</div>
+    ${f('dNombre','Nombre',d.nombre,'Ej.: Préstamo ICO · Santander')}${f('dBanco','Banco',d.banco||'')}
+    <label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">Tipo</label>
+    <select id="dTipo" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;"><option value="">Préstamo</option><option value="ico2">ICO</option><option value="hip">Hipoteca</option></select>
+    ${f('dNominal','Importe inicial (€)',num(d.nominal))}${f('dPend','Pendiente hoy (€)',num(d.pendiente))}${f('dCuota','Cuota mensual (€)',num(d.cuota))}${f('dVto','Vencimiento (dd/mm/aaaa)',d.vto||'','15/06/2031')}
+    <label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">Estado</label>
+    <select id="dEstado" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;"><option value="normal">Normal (avisa solo si pasa el vencimiento)</option><option value="alerta">En alerta (avisa siempre)</option><option value="resuelto">Resuelto o renegociado (no avisa)</option></select>
+    ${f('dNota','Nota (se ve en la tarjeta y en el aviso)',d.nota||'','Ej.: renovado con Santander hasta 2030')}${f('dDetalle','Detalle de la tarjeta (texto pequeño de debajo)',d.detalle||'')}
+    <div id="dError" style="color:var(--rojo);font-size:12px;margin-top:8px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+      <button onclick="guardarEditarDeuda(${i})" style="flex:1;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button>
+      <button onclick="document.getElementById('deudaEditor').remove()" style="background:#eee;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;">Cancelar</button>
+      ${nuevo?'':`<button onclick="quitarDeuda(${i})" style="background:#fdecea;color:#c0392b;border:none;border-radius:8px;padding:10px 14px;font-size:13px;cursor:pointer;">🗑️ Quitar</button>`}
+    </div></div>`;
+  document.body.appendChild(m);
+  document.getElementById('dTipo').value=tipoSel; document.getElementById('dEstado').value=est;
+}
+function guardarEditarDeuda(i){
+  const g=id=>document.getElementById(id).value.trim(), err=t=>{ document.getElementById('dError').textContent=t; };
+  const num=id=>{
+    let raw=g(id).replace(/[^\d.,-]/g,'');
+    if(raw.includes(',')) raw=raw.replace(/\./g,'').replace(',','.');          // 1.234,56  →  1234.56
+    else if(/^-?\d{1,3}(\.\d{3})+$/.test(raw)) raw=raw.replace(/\./g,'');      // 9.000 / 356.144  →  9000 / 356144
+    const n=parseFloat(raw); return isNaN(n)?NaN:n; };
+  if(!g('dNombre')) return err('Pon el nombre del préstamo');
+  const nominal=num('dNominal'), pend=num('dPend'), cuota=num('dCuota');
+  if([nominal,pend,cuota].some(isNaN)||nominal<0||pend<0||cuota<0) return err('Importe inicial, pendiente y cuota tienen que ser números');
+  const vto=g('dVto'); if(vto&&!_vtoDeuda(vto)) return err('El vencimiento se escribe así: 15/06/2031');
+  const antes=i<0?null:{...DEUDA_DATA[i]};
+  if(antes){ antes.estado=antes.estado||(antes.tipo==='alerta'?'alerta':'normal'); if(antes.tipo==='alerta') antes.tipo=''; }
+  const d=i<0?{}:DEUDA_DATA[i];
+  const eraAlertaFija=d.tipo==='alerta';
+  Object.assign(d,{nombre:g('dNombre'),banco:g('dBanco'),tipo:g('dTipo'),nominal,pendiente:pend,cuota,vto,estado:g('dEstado'),nota:g('dNota'),detalle:g('dDetalle')});
+  d.pct=(eraAlertaFija&&d.estado==='alerta')?100:(nominal>0?Math.max(0,Math.min(100,Math.round((1-pend/nominal)*100))):0);
+  d.editado={por:currentUser,ts:new Date().toISOString()};
+  if(i<0) DEUDA_DATA.push(d);
+  const lista=Object.keys(DEUDA_CAMPOS).filter(k=>antes?String(antes[k]==null?'':antes[k])!==String(d[k]==null?'':d[k]):(d[k]!==''&&d[k]!=null)).map(k=>({campo:k,antes:antes?antes[k]:null,despues:d[k]}));
+  const cambios=antes?lista.map(c=>DEUDA_CAMPOS[c.campo]+': '+_valDeuda(c.campo,c.antes)+' → '+_valDeuda(c.campo,c.despues)).join('; '):'préstamo nuevo';
+  guardarDeuda(); registrarCambioDeuda(d.nombre,antes?'editado':'añadido',lista); logImport('deuda',d.nombre+(cambios?' ('+cambios+')':''));
+  document.getElementById('deudaEditor').remove(); renderDeuda(); renderAlertas(); showToast('✅ Pool de Deuda actualizado','ok');
+}
+function quitarDeuda(i){
+  const d=DEUDA_DATA[i]; if(!d||!confirm('¿Quitar «'+d.nombre+'» del Pool de Deuda?\nSe borra para todos.')) return;
+  DEUDA_DATA.splice(i,1); guardarDeuda(); registrarCambioDeuda(d.nombre,'quitado',['nominal','pendiente','cuota','vto','estado'].filter(k=>d[k]!=null&&d[k]!=='').map(k=>({campo:k,antes:d[k],despues:null}))); logImport('deuda',d.nombre+' (quitado del pool)');
+  document.getElementById('deudaEditor')?.remove(); renderDeuda(); renderAlertas(); showToast('Préstamo quitado','ok');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3419,12 +3676,12 @@ function checkAlertasArrastre(){
   // 1. Pagarés próximos a vencer (próximos 15 días, clasificación automática por fecha)
   const hoy15Arr = new Date(hoy); hoy15Arr.setDate(hoy15Arr.getDate()+15);
   const hoy15ArrStr = hoy15Arr.toISOString().slice(0,10);
-  const pagProxArr = PAGARES_DATA.filter(p => p.vto >= hoyStr && p.vto <= hoy15ArrStr);
+  const pagProxArr = PAGARES_DATA.filter(p => _estPC(p,hoyStr)!=='ok' && p.vto <= hoy15ArrStr);
   if(pagProxArr.length){
     const sum = pagProxArr.reduce((s,p)=>s+p.importe,0);
     alertas.push({
       cat:'pagares',
-      titulo:`${pagProxArr.length} pagaré(s) vencen en los próximos 15 días`,
+      titulo:`${pagProxArr.length} pagaré(s) vencen en los próximos 15 días o están vencidos sin cobrar`,
       items: pagProxArr.map(p=>`${p.pagare} — ${fmt(p.importe)} · Vto: ${new Date(p.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
       sumario:`Total: ${fmt(sum)}`,
       nav:'pagares'
@@ -3434,12 +3691,12 @@ function checkAlertasArrastre(){
   // 2. Confirming próximo a vencer (próximos 15 días, clasificación automática por fecha)
   const hoy15ConfDate = new Date(hoy); hoy15ConfDate.setDate(hoy15ConfDate.getDate()+15);
   const hoy15ConfStr = hoy15ConfDate.toISOString().slice(0,10);
-  const confVenc = CONF_SANT_DATA.filter(c => c.vto >= hoyStr && c.vto <= hoy15ConfStr);
+  const confVenc = CONF_SANT_DATA.filter(c => _estPC(c,hoyStr)!=='ok' && c.vto <= hoy15ConfStr);
   if(confVenc.length){
     const sum = confVenc.reduce((s,c)=>s+c.importe,0);
     alertas.push({
       cat:'confirming',
-      titulo:`${confVenc.length} Confirming vence(n) en los próximos 15 días`,
+      titulo:`${confVenc.length} Confirming vence(n) en los próximos 15 días o están vencidos sin pagar`,
       items: confVenc.map(c=>`${c.proveedor} — ${fmt(c.importe)} · Vto: ${new Date(c.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
       sumario:`Total: ${fmt(sum)}`,
       nav:'pagares'
@@ -3447,12 +3704,7 @@ function checkAlertasArrastre(){
   }
 
   // 3. Pool bancario: tipo 'alerta' o fecha vto superada
-  const parseVtoES = s => { const m=(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`):null; };
-  const deudaAlerta = DEUDA_DATA.filter(d => {
-    if(d.tipo==='alerta') return true;
-    const v = parseVtoES(d.vto);
-    return v && v < hoy;
-  });
+  const deudaAlerta = alertasDeDeuda();
   if(deudaAlerta.length){
     alertas.push({
       cat:'deuda',
@@ -5622,8 +5874,10 @@ function importVentasCajaExcel(input){
         if(ingreso===0 || ingreso<0){
           const tipoAlerta = ingreso===0 ? 'cero' : 'negativo';
           const ka=tienda+'|'+empleado+'|'+tipoAlerta;
-          porAlertaMap[ka]=porAlertaMap[ka]||{tienda,empleado,tipo:tipoAlerta,total:0,n:0};
+          porAlertaMap[ka]=porAlertaMap[ka]||{tienda,empleado,tipo:tipoAlerta,total:0,n:0,detalle:[]};
           porAlertaMap[ka].total+=ingreso; porAlertaMap[ka].n++;
+          // qué movimiento es (fecha, tipo, forma de pago e importe) para poder localizarlo; máx. 150 por grupo
+          if(porAlertaMap[ka].detalle.length<150) porAlertaMap[ka].detalle.push({fecha,tipomov:tipomov||'',descrtipo:descrtipo||'',tipcondes,importe:ingreso});
         }
       });
 
@@ -5639,7 +5893,7 @@ function importVentasCajaExcel(input){
         porEmpMes: Object.values(porEmpMesMap),
         meta:{ importado:new Date().toISOString(), nFilas }
       };
-      saveVentasCaja(); renderVentas();
+      saveVentasCaja(); renderVentas(); try{ renderAlertas(); }catch(e){}
       stampImport('ventasCaja', file.name);
       alert(nFilas+' movimientos procesados desde Excel.');
     }catch(err){ alert('Error al procesar el Excel: '+err.message); }
@@ -5784,10 +6038,20 @@ function renderVentas(){
     </div>` : '<div class="empty-state"><div class="e-ico">🧑‍💼</div><h3>Sin datos</h3></div>';
 
   const alertaOrd=[...porAlerta].sort((a,b)=>String(a.tienda).localeCompare(String(b.tienda))||String(a.empleado||'').localeCompare(String(b.empleado||''))||a.tipo.localeCompare(b.tipo));
+  const _fAl=f=>{ const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:(f||''); };
+  const _detAl=a=>{
+    const d=a.detalle||[];
+    if(!d.length) return '<span style="color:var(--text3);font-size:12px;">Vuelve a subir el fichero de Ventas caja para ver fecha y tipo</span>';
+    const tipos=[...new Set(d.map(x=>[x.descrtipo||x.tipomov,x.tipcondes].filter(Boolean).join(' · ')))].join(' / ');
+    const fs=d.map(x=>x.fecha).filter(Boolean).sort();
+    const rango=fs.length?(fs[0]===fs[fs.length-1]?_fAl(fs[0]):_fAl(fs[0])+' → '+_fAl(fs[fs.length-1])):'';
+    const lista=[...d].sort((x,y)=>String(x.fecha).localeCompare(String(y.fecha))).map(x=>`<div>${_fAl(x.fecha)} · ${x.descrtipo||x.tipomov||'—'}${x.tipcondes?' · '+x.tipcondes:''} · <b>${fmt(x.importe)}</b></div>`).join('');
+    return `<details><summary style="cursor:pointer;">${tipos||'—'} · ${rango}${d.length<a.n?` (primeros ${d.length})`:''}</summary><div style="font-size:12px;margin-top:4px;max-height:180px;overflow:auto;">${lista}</div></details>`;
+  };
   document.getElementById('ventAlertaTabla').innerHTML = alertaOrd.length ? `
     <div style="overflow-x:auto;">
     <table class="tabla">
-      <thead><tr><th>Tienda</th><th>Empleado</th><th>Tipo</th><th style="text-align:right;">Nº</th><th style="text-align:right;">Importe</th></tr></thead>
+      <thead><tr><th>Tienda</th><th>Empleado</th><th>Tipo</th><th style="text-align:right;">Nº</th><th style="text-align:right;">Importe</th><th>Qué movimiento y cuándo</th></tr></thead>
       <tbody>
         ${alertaOrd.map(a=>`<tr>
           <td>Tienda ${a.tienda}</td>
@@ -5795,6 +6059,7 @@ function renderVentas(){
           <td>${a.tipo==='cero'?'⚪ Importe a 0':'🔴 Importe negativo'}</td>
           <td style="text-align:right;">${a.n}</td>
           <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:${a.tipo==='negativo'?'#c0392b':'inherit'};">${fmt(a.total)}</td>
+          <td>${_detAl(a)}</td>
         </tr>`).join('')}
       </tbody>
     </table>
@@ -7683,10 +7948,11 @@ function renderPagares(){
   const diasHasta = d => Math.round((new Date(d+'T12:00:00') - today) / MS);
 
   // Auto-classify by date — past vto = cobrado (blue), future = pendiente (red)
-  const pag_pend  = PAGARES_DATA.filter(p => p.vto >= todayStr);
-  const pag_cob   = PAGARES_DATA.filter(p => p.vto <  todayStr);
-  const conf_pend = CONF_SANT_DATA.filter(c => c.vto >= todayStr);
-  const conf_cob  = CONF_SANT_DATA.filter(c => c.vto <  todayStr);
+  const canEd = EDITAN_PAGARES.includes(currentUser);
+  const pag_pend  = PAGARES_DATA.filter(p => _estPC(p,todayStr)!=='ok');
+  const pag_cob   = PAGARES_DATA.filter(p => _estPC(p,todayStr)==='ok');
+  const conf_pend = CONF_SANT_DATA.filter(c => _estPC(c,todayStr)!=='ok');
+  const conf_cob  = CONF_SANT_DATA.filter(c => _estPC(c,todayStr)==='ok');
 
   // Próximos H días: pagarés AND confirming pendientes dentro del horizonte
   const pag_hor  = pag_pend.filter(p => p.vto <= horizStr);
@@ -7715,6 +7981,7 @@ function renderPagares(){
   ].sort((a,b)=>a.vto.localeCompare(b.vto));
 
   const html = `
+  ${canEd?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="abrirEditarPC('pag',-1)">➕ Añadir pagaré</button><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="abrirEditarPC('conf',-1)">➕ Añadir pago de Confirming</button><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="abrirEditarTotalesPC()">✏️ Total histórico</button></div>`:''}
   <!-- KPIs -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi" style="border-top-color:#E74C3C;background:linear-gradient(135deg,#FEF0EE,#FDE8E4);">
@@ -7733,7 +8000,7 @@ function renderPagares(){
       <div class="kpi-ico">🏦</div>
       <div class="kpi-lbl">Confirming Pendiente</div>
       <div class="kpi-val" style="color:#E31837;">${fmt(sumConfPend)}</div>
-      <div class="kpi-delta neg2">${conf_pend.length} operación${conf_pend.length!==1?'es':''} por pagar</div>
+      <div class="kpi-delta neg2">${conf_pend.length} operaci${conf_pend.length!==1?'ones':'ón'} por pagar</div>
       <div class="kpi-sub">Comisiones: ${fmt(comisConf)}</div>
     </div>
     <div class="kpi" style="border-top-color:#1A5C1A;">
@@ -7782,7 +8049,7 @@ function renderPagares(){
             <td style="text-align:left;font-size:12px;font-weight:500">${concepto}</td>
             <td style="font-weight:700;color:#E74C3C">${fmt(item.importe)}</td>
             <td style="text-align:center">${tipoBadge}</td>
-            <td style="text-align:center;font-weight:700;color:${col};font-size:12px;">${d}d</td>
+            <td style="text-align:center;font-weight:700;color:${col};font-size:12px;">${d<0?'vencido':d+'d'}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -7821,26 +8088,26 @@ function renderPagares(){
         <th>Importe</th>
         <th style="text-align:left">Banco</th>
         <th style="text-align:center">Estado</th>
-        <th style="text-align:center">Días</th>
+        <th style="text-align:center">Días</th>${canEd?'<th></th>':''}
       </tr></thead>
       <tbody>
         ${pagSorted.map(p=>{
-          const isPend = p.vto >= todayStr;
+          const isPend = _estPC(p,todayStr)!=='ok', venc = _estPC(p,todayStr)==='vencido';
           const d = diasHasta(p.vto);
           const rb = isPend ? 'background:#FFF8F8;' : 'background:#F0F7FF;';
           const badge = isPend
-            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 PENDIENTE</span>`
+            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">${venc?'🔴 VENCIDO':'🔴 PENDIENTE'}</span>`
             : `<span style="background:#E8F4FF;color:#4A8FC1;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔵 COBRADO</span>`;
           const diaCell = isPend
-            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d}d</span>`
+            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d<0?'hace '+(-d)+'d':d+'d'}</span>`
             : '—';
           return `<tr style="${rb}">
             <td style="text-align:left">${fmtDate(p.vto)}</td>
             <td style="text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texto2)">${p.pagare}</td>
             <td style="font-weight:600;color:${isPend?'#E74C3C':'#4A8FC1'}">${fmt(p.importe)}</td>
-            <td style="text-align:left;font-size:11px">${p.banco}</td>
+            <td style="text-align:left;font-size:11px">${p.banco}${p.nota?`<div style="color:var(--texto2);">${escapeHtml(p.nota)}</div>`:''}</td>
             <td style="text-align:center">${badge}</td>
-            <td style="text-align:center;font-size:11px">${diaCell}</td>
+            <td style="text-align:center;font-size:11px">${diaCell}</td>${canEd?`<td><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:2px 8px;cursor:pointer;" onclick="abrirEditarPC('pag',${PAGARES_DATA.indexOf(p)})">✏️</button></td>`:''}
           </tr>`;
         }).join('')}
       </tbody>
@@ -7864,26 +8131,26 @@ function renderPagares(){
         <th>Importe</th>
         <th>Comisión</th>
         <th style="text-align:center">Estado</th>
-        <th style="text-align:center">Días</th>
+        <th style="text-align:center">Días</th>${canEd?'<th></th>':''}
       </tr></thead>
       <tbody>
         ${confSorted.map(c=>{
-          const isPend = c.vto >= todayStr;
+          const isPend = _estPC(c,todayStr)!=='ok', venc = _estPC(c,todayStr)==='vencido';
           const d = diasHasta(c.vto);
           const rb = isPend ? 'background:#FFF8F8;' : 'background:#F0F7FF;';
           const badge = isPend
-            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 PENDIENTE</span>`
+            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">${venc?'🔴 VENCIDO':'🔴 PENDIENTE'}</span>`
             : `<span style="background:#E8F4FF;color:#4A8FC1;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔵 PAGADO</span>`;
           const diaCell = isPend
-            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d}d</span>`
+            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d<0?'hace '+(-d)+'d':d+'d'}</span>`
             : '—';
           return `<tr style="${rb}">
             <td style="text-align:left">${fmtDate(c.vto)}</td>
-            <td style="text-align:left;font-size:12px;font-weight:500">${c.proveedor}</td>
+            <td style="text-align:left;font-size:12px;font-weight:500">${c.proveedor}${c.nota?`<div style="color:var(--texto2);font-weight:400;font-size:11px;">${escapeHtml(c.nota)}</div>`:''}</td>
             <td style="font-weight:600;color:${isPend?'#E74C3C':'#4A8FC1'}">${fmt(c.importe)}</td>
             <td style="color:var(--texto2);font-size:11px">${fmt(c.comision)}</td>
             <td style="text-align:center">${badge}</td>
-            <td style="text-align:center;font-size:11px">${diaCell}</td>
+            <td style="text-align:center;font-size:11px">${diaCell}</td>${canEd?`<td><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:2px 8px;cursor:pointer;" onclick="abrirEditarPC('conf',${CONF_SANT_DATA.indexOf(c)})">✏️</button></td>`:''}
           </tr>`;
         }).join('')}
       </tbody>
@@ -7894,6 +8161,7 @@ function renderPagares(){
     </table>
     </div>
   </div>
+  ${historialPCHtml()}
   `;
 
   document.getElementById('pagaresContent').innerHTML = html;
