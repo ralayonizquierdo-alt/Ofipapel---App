@@ -2600,6 +2600,7 @@ function guardarEditarPC(tipo,i){
   const vto=_isoDeES(g('pcVto')); if(!vto) return err('El vencimiento se escribe así: 25/11/2026');
   const importe=_numEs(g('pcImporte')); if(isNaN(importe)||importe<0) return err('El importe tiene que ser un número');
   const nuevoX=pag?{vto,pagare:g('pcPagare'),importe,banco:g('pcBanco'),marca:g('pcMarca'),nota:g('pcNota')}:{vto,proveedor:g('pcProveedor'),importe,comision:0,marca:g('pcMarca'),nota:g('pcNota')};
+  if(i<0) nuevoX.origen='manual';
   if(pag&&!nuevoX.pagare) return err('Pon el nº de pagaré');
   if(!pag){ if(!nuevoX.proveedor) return err('Pon el proveedor'); const c=g('pcComision')===''?0:_numEs(g('pcComision')); if(isNaN(c)||c<0) return err('La comisión tiene que ser un número'); nuevoX.comision=c; }
   const antes=i<0?null:{...lista[i]};
@@ -3921,10 +3922,11 @@ function _ejecutarArrastre(input){
         }
       } catch(fcErr){ console.warn('Fondo Caja CAMBIOS parse error:', fcErr); }
 
+      let pcMsg = ''; try{ pcMsg = _importarPagConf(wb, file.name); }catch(e){ console.warn('Pagarés/Confirming:',e); }
       const ahoraLabel = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}${fondoMsg} · Subido ${ahoraLabel}</span>`;
+      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}${fondoMsg}${pcMsg} · Subido ${ahoraLabel}</span>`;
       stampImport('volcado', file.name);
-      renderDashboard(); renderAlertas(); renderCajaFondoCambio();
+      renderDashboard(); renderAlertas(); renderCajaFondoCambio(); try{ renderPagares(); }catch(e){}
       showToast(`✅ Importado: ${fechaLabel}`,'ok');
 
     } catch(err) {
@@ -3942,6 +3944,77 @@ function _ejecutarArrastre(input){
 // Tiendas Ofipapel: 43,44,45,46,48 (47 es admin pass-through)
 // Tiendas Aliz-1: A2,A3  — Tienda Aliz-2: AA
 // ═══════════════════════════════════════════════════════
+// ── Hojas «Pagares en Caja» y «Confirming Santander» del Excel diario ──
+// Estas hojas guardan TODA la historia (pagarés desde 2011): la hoja trae un rango declarado hasta XFD, así que se lee solo A:I.
+function _serialAIso(n){ if(typeof n!=='number'||n<20000||n>80000) return ''; const d=new Date(Math.round((n-25569)*86400000)); return d.toISOString().slice(0,10); }
+function _datosHoja(wb,nombre,cols){
+  const ws=wb.Sheets[nombre]; if(!ws||!ws['!ref']) return [];
+  const r=XLSX.utils.decode_range(ws['!ref']);
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,range:{s:{r:0,c:0},e:{r:r.e.r,c:cols-1}}});
+}
+// Pagarés: cada bloque de filas seguidas es un día de vencimiento; si alguna fila del bloque trae «ingresado» (F) el bloque está cobrado (H = día del ingreso).
+function _parsePagaresSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/pagar.*caja/i.test(n)); if(!nombre) return null;
+  const data=_datosHoja(wb,nombre,9), num=x=>typeof x==='number'?x:NaN;
+  const tot={total:num(data[1]&&data[1][4]),ingresado:num(data[1]&&data[1][5]),en_caja:num(data[1]&&data[1][6])};
+  const lotes=[]; let cur=[];
+  for(let i=4;i<data.length;i++){
+    const r=data[i], vacia=r.every(c=>c===''||c==null);
+    if(vacia){ if(cur.length) lotes.push(cur); cur=[]; } else cur.push(r);
+  }
+  if(cur.length) lotes.push(cur);
+  const items=[];
+  lotes.forEach(l=>{
+    const pags=l.filter(r=>typeof r[2]==='number'&&String(r[3]||'').trim()&&typeof r[4]==='number');
+    if(!pags.length) return;
+    const dep=l.find(r=>typeof r[5]==='number'&&r[5]>0);
+    pags.forEach(r=>{
+      const vto=_serialAIso(r[2]); if(!vto) return;
+      items.push({vto,pagare:String(r[3]).trim(),importe:Math.round(r[4]*100)/100,banco:dep?String(dep[6]||'').trim():'',emision:_serialAIso(r[1]),ingreso:dep?_serialAIso(dep[7]):'',marca:dep?'cobrado':'pendiente',origen:'excel'});
+    });
+  });
+  return {items,tot};
+}
+function _parseConfirmingSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/confirming/i.test(n)); if(!nombre) return null;
+  const data=_datosHoja(wb,nombre,9), items=[];
+  for(let i=1;i<data.length;i++){
+    const r=data[i], vto=_serialAIso(r[4]), imp=r[2], prov=String(r[1]||'').replace(/\s+/g,' ').trim();
+    if(!vto||typeof imp!=='number'||!prov) continue;
+    const pagado=typeof r[5]==='number'&&r[5]>=imp-0.01;
+    items.push({vto,proveedor:prov,importe:Math.round(imp*100)/100,comision:typeof r[7]==='number'?r[7]:0,factura:String(r[8]||'').trim(),emision:_serialAIso(r[0]),marca:pagado?'pagado':'pendiente',origen:'excel'});
+  }
+  return {items};
+}
+// Importa las dos hojas al subir el volcado diario: el Excel manda; solo se conservan lo apuntado a mano en la app (origen 'manual') y las notas.
+// Solo se guarda lo de los últimos 120 días y lo futuro: lo anterior sin marca de cobro (pagarés de 2011-2024 con el «ingresado» sin rellenar) es historia ya cuadrada en los totales del Excel y saldría como falsos pendientes.
+function _importarPagConf(wb,archivo){
+  const corte=new Date(Date.now()-120*86400000).toISOString().slice(0,10), msg=[];
+  const fusiona=(nuevos,actual,clave)=>{
+    const notas=new Map(actual.filter(x=>x.nota).map(x=>[clave(x),x.nota]));
+    const conserva=actual.filter(x=>x.origen==='manual');
+    const claves=new Set(nuevos.map(clave));
+    return [...nuevos.map(x=>notas.has(clave(x))?{...x,nota:notas.get(clave(x))}:x),...conserva.filter(x=>!claves.has(clave(x)))].sort((a,b)=>a.vto.localeCompare(b.vto));
+  };
+  try{
+    const pg=_parsePagaresSheet(wb);
+    if(pg&&pg.items.length){
+      const nuevos=pg.items.filter(x=>x.vto>=corte);
+      PAGARES_DATA=fusiona(nuevos,PAGARES_DATA,x=>x.pagare+'|'+x.vto); guardarPC('pag');
+      if(!isNaN(pg.tot.total)&&!isNaN(pg.tot.ingresado)&&!isNaN(pg.tot.en_caja)){ PAG_TOTALES=pg.tot; try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} syncDatasetToCloud('pagarestotales',PAG_TOTALES); }
+      logImport('pagares',archivo,PAGARES_DATA.length); msg.push(`Pagarés: ${nuevos.filter(x=>x.marca==='pendiente').length} pendientes`);
+    }
+  }catch(e){ console.warn('Hoja Pagares en Caja:',e); }
+  try{
+    const cf=_parseConfirmingSheet(wb);
+    if(cf&&cf.items.length){
+      const nuevos=cf.items.filter(x=>x.vto>=corte);
+      CONF_SANT_DATA=fusiona(nuevos,CONF_SANT_DATA,x=>x.proveedor+'|'+x.vto+'|'+x.importe); guardarPC('conf');
+      logImport('confirming',archivo,CONF_SANT_DATA.length); msg.push(`Confirming: ${nuevos.filter(x=>x.marca==='pendiente').length} pendientes`);
+    }
+  }catch(e){ console.warn('Hoja Confirming Santander:',e); }
+  return msg.length?' · '+msg.join(' · '):'';
+}
 function _parseFondoCambioSheet(wb){
   const nombre=(wb.SheetNames||[]).find(n=>/fondo.*caja.*cambio/i.test(n));
   if(!nombre) return null;
