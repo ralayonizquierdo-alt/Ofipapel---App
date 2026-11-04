@@ -1299,7 +1299,7 @@ const FAQ_RULES = [
       'silla', 'sillas', 'sillon', 'sillones',
       'silla de oficina', 'sillas de oficina', 'silla oficina', 'sillas oficina',
       'silla ergonomica', 'sillas ergonomicas', 'silla ergonomicas',
-      'silla gaming', 'sillas gaming', 'silla de escritorio', 'sillas de escritorio',
+      'silla de escritorio', 'sillas de escritorio',
     ],
     // NO lleva `familiaDeProducto`, y es una decisión, no un olvido.
     //
@@ -1314,9 +1314,26 @@ const FAQ_RULES = [
     // («la silla Topstar Syncro») también recibe el enlace en vez de su ficha
     // del catálogo. Aceptado a sabiendas — el enlace lleva a todas las sillas,
     // así que la encuentra igual.
-    // «Mesilla» y «mesillas» contienen «silla»/«sillas», y la coincidencia de
-    // palabras clave no mira fronteras de palabra. Aquí sí.
-    reply: (normalizedText) => (/\bsillas?\b|\bsillones?\b/.test(normalizedText) ? SILLAS_INFO : null),
+    // LAS GAMING NO VAN EN ESTE ENLACE.
+    //
+    // Aviso del propietario (4/11/2026): «esas son sólo las sillas de oficina,
+    // las de gaming tienen otro enlace, ojo con eso». Y tenía razón: estaban
+    // entre las palabras clave, así que a quien pedía una silla gaming se le
+    // mandaba el enlace de las de oficina — el cliente abre la página y no
+    // encuentra lo suyo.
+    //
+    // Hasta que llegue el enlace bueno, una gaming se aparta de aquí y la
+    // contesta el catálogo, que busca en la web de verdad. Mandar el enlace
+    // equivocado es peor que buscar.
+    //
+    // Y «mesilla»/«mesillas» llevan «silla»/«sillas» dentro: la coincidencia de
+    // palabras clave no mira fronteras de palabra, aquí sí.
+    reply: (normalizedText) =>
+      /\bgaming\b|\bgamer\b/.test(normalizedText)
+        ? null
+        : /\bsillas?\b|\bsillones?\b/.test(normalizedText)
+          ? SILLAS_INFO
+          : null,
   },
   {
     // 'que regalo'/'qué regalo' a secas se quitaron: coincidían con preguntas
