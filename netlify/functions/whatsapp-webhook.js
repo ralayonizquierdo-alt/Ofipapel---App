@@ -67,6 +67,8 @@ const {
   esProblemaDeCuenta,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
+  preguntaSiEsNuestroCorreo,
+  mensajeSobreElCorreo,
   mensajeProblemaDeCuenta,
   STORES,
   GREETING,
@@ -1315,6 +1317,26 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       botReply: reply,
     });
     await notifyOwnerByWhatsapp(message.from, `🛒 Fallo en la web: ${text}`);
+    return;
+  }
+
+  // «¿ES CORRECTA ESTA DIRECCIÓN?»: se contesta ANTES de ofrecer a nadie.
+  //
+  // Fabiana, 4/11/2026: «querría SOLO saber si el email que he encontrado en su
+  // sitio web es el correcto», y se llevó la presentación entera y un «¿quieres
+  // hablar con una persona?». Ni sí, ni no, ni el correo bueno — y el bot lo
+  // tiene escrito en once sitios.
+  //
+  // Va aquí, delante del escalado, porque la palabra «presupuesto» de su
+  // mensaje ya había decidido el turno: ese camino no contesta, solo ofrece una
+  // persona. Ahora contesta PRIMERO lo que se puede contestar y DESPUÉS ofrece
+  // la persona, que para su caso sigue haciendo falta (si su correo llegó o no,
+  // eso solo lo puede mirar alguien).
+  const sobreElCorreo = preguntaSiEsNuestroCorreo(text);
+  if (sobreElCorreo) {
+    const prefijo = greeting + mensajeSobreElCorreo(sobreElCorreo, idioma);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
     return;
   }
 

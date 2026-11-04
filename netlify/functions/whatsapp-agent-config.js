@@ -307,6 +307,71 @@ function mensajeFalloDeLaWeb(idioma = 'es') {
   return idioma === 'en' ? FALLO_WEB_INFO_EN : FALLO_WEB_INFO;
 }
 
+// «¿ES CORRECTA ESTA DIRECCIÓN?» — UNA PREGUNTA QUE EL BOT SABE CONTESTAR.
+//
+// Visto en real el 4/11/2026. Fabiana escribió:
+//
+//   «anoche envié un email para pedir un presupuesto. Querría SOLO saber si el
+//    email que he encontrado en su sitio web "pedidos@ofipapel.net" es el
+//    correcto.»
+//
+// Y el bot le contestó su presentación entera —«soy el asistente virtual,
+// puedo consultarte precios, disponibilidad… We also speak English»— y
+// «¿quieres que te ponga en contacto con una persona?». Ni sí, ni no, ni el
+// correo bueno. Ella había dicho «solo saber»: lo que menos quería era una
+// persona.
+//
+// Por qué: la palabra «presupuesto» dispara el escalado, y ese camino NO
+// contesta — solo ofrece una persona, diga lo que diga el mensaje. Es el mismo
+// fallo del 3/11 con «me sale verificando»: una palabra suelta decide el turno
+// entero y nadie lee la frase.
+//
+// Y es de lo más fácil de contestar que hay: las direcciones de la casa están
+// en este mismo fichero. Si la que nombra es una de las nuestras, se le dice
+// que sí; si no, se le da la buena. NUNCA se afirma que la suya «no existe»
+// —eso no lo sabemos— y se le ofrece igualmente una persona, porque lo que de
+// verdad le preocupa es si llegó su presupuesto, y eso solo lo puede mirar
+// alguien.
+const CORREOS_DE_LA_CASA = [
+  'pedidos@ofipapelsl.com',
+  'compras@ofipapelsl.com',
+  'comercial@ofipapelsl.com',
+  'administracion@ofipapelsl.com',
+  'impresion.ofipapel@gmail.com',
+];
+
+const UN_CORREO = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+
+// Preguntar si algo es correcto, no anunciar que se ha escrito a una dirección.
+// El bot atiende también en inglés, así que «correct», «right» y «valid»
+// cuentan igual: sin ellas, «is this the correct email?» no se reconocía.
+const PREGUNTA_SI_VALE =
+  /\b(correct[oa]?s?|right|valid|v[áa]lid[oa]s?|buen[oa]s?|bien|works?)\b|\bes\s+(?:el|la)\s+(?:vuestr|suy)|\bsigue\s+(?:siendo|activ)|\bfunciona\b|\bexiste\b|\bes\s+esa?\b/i;
+
+// Devuelve { correo, esNuestro } si el cliente pregunta por una dirección
+// nuestra, o null. Hacen falta las dos cosas: una dirección escrita Y la
+// pregunta de si vale — «mándame el presupuesto a juan@gmail.com» no es esto.
+function preguntaSiEsNuestroCorreo(texto) {
+  const t = String(texto || '');
+  if (!PREGUNTA_SI_VALE.test(t)) return null;
+  UN_CORREO.lastIndex = 0;
+  const encontrados = t.match(UN_CORREO);
+  if (!encontrados || encontrados.length === 0) return null;
+  const correo = encontrados[0].toLowerCase().replace(/[.,;:]+$/, '');
+  return { correo, esNuestro: CORREOS_DE_LA_CASA.includes(correo) };
+}
+
+function mensajeSobreElCorreo({ correo, esNuestro }, idioma = 'es') {
+  if (idioma === 'en') {
+    return esNuestro
+      ? `Yes, ${correo} is ours — that's the right address for orders and quotes. `
+      : `The address we use for orders and quotes is pedidos@ofipapelsl.com. I can't tell from here whether anything sent to ${correo} reached us. `;
+  }
+  return esNuestro
+    ? `Sí, ${correo} es nuestra: es la dirección correcta para pedidos y presupuestos. `
+    : `La dirección que usamos para pedidos y presupuestos es pedidos@ofipapelsl.com. Desde aquí no puedo saber si lo que mandaste a ${correo} nos ha llegado. `;
+}
+
 function esProblemaDeCuenta(texto) {
   return /\b(contrase[nñ]a|password|restablec|recuperar (?:mi )?(?:cuenta|acceso)|iniciar sesi[oó]n|login|no puedo (?:entrar|acceder)|no me deja (?:entrar|acceder)|mi cuenta|correo de confirmaci[oó]n|no me llega (?:el|ning[uú]n) (?:correo|email|mail))\b/i.test(
     String(texto || '')
@@ -1712,6 +1777,8 @@ module.exports = {
   mensajeProblemaDeCuenta,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
+  preguntaSiEsNuestroCorreo,
+  mensajeSobreElCorreo,
   isAgenteInfoMessage,
   isWithinBusinessHours,
   SELLOS_QUESTION,
