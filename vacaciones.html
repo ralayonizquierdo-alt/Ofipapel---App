@@ -224,11 +224,13 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .p-legend .sw{ display:inline-block; width:3mm; height:3mm; border-radius:0.8mm; margin-right:1mm; vertical-align:middle; }
 
 .p-monthrow{ display:flex; border-bottom:0.5mm solid #1A5C1A; padding-bottom:0.8mm; margin-bottom:1mm; }
-.p-namecell{ width:44mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; align-self:flex-end; }
+.p-namecell{ width:50mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; align-self:flex-end; }
 .p-daysheadcell{ width:14mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; text-align:right; align-self:flex-end; }
 .p-months{ flex:1; display:flex; }
 .p-month{ text-align:center; font-size:6.6pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; border-right:0.2mm solid #D3E9D3; padding:1mm 0; }
 
+.p-line{ position:absolute; top:0; bottom:0; border-left:0.12mm solid #999; z-index:2; pointer-events:none; }
+.p-line-month{ border-left:0.3mm solid #444; }
 .p-dayrow{ flex:1; position:relative; height:3.2mm; border-bottom:0.2mm solid #ddd; margin-bottom:1.5mm; }
 .p-daytick{ position:absolute; top:0; font-size:5pt; color:#7a9a7a; transform:translateX(-50%); white-space:nowrap; }
 .p-daytick::after{ content:''; position:absolute; left:50%; top:2.4mm; width:0.15mm; height:1mm; background:#ccc; }
@@ -236,17 +238,48 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .p-unit{ break-inside:avoid; margin-top:2.2mm; }
 .p-unit-title{ font-size:8pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; padding:1mm 2mm; border-radius:0.6mm; }
 
-.p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #eee; break-inside:avoid; }
-.p-name{ width:44mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.p-track{ flex:1; position:relative; height:3.6mm; background:#fafafa; }
-.p-block{ position:absolute; top:0; height:3.6mm; border-radius:0.5mm;
+.p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #777; break-inside:avoid; }
+.p-name{ width:50mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.p-track{ flex:1; position:relative; height:5mm; background:#fff; }
+.p-month-tiny{ font-size:5pt !important; white-space:nowrap; overflow:visible; padding-left:0; padding-right:0; position:relative; z-index:2; }
+#printArea.fmt-a4 .p-month-tiny{ font-size:3.8pt !important; }
+.p-block{ position:absolute; top:0.5mm; height:4mm; min-width:0.8mm; border-radius:0.5mm; z-index:3;
   display:flex; align-items:center; justify-content:center; overflow:hidden;
   font-size:5pt; font-weight:700; color:#fff; white-space:nowrap; }
-.p-blocked{ position:absolute; top:0; height:3.6mm;
+.p-blocked{ position:absolute; top:0; height:5mm; opacity:.7;
   background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
 .p-days{ width:14mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
 
 .p-footer{ margin-top:4mm; text-align:center; font-size:6.5pt; color:#999; }
+
+/* calendario en A4 apaisado: el mismo contenido, más apretado */
+#printArea.fmt-a4{ width:297mm; min-height:210mm; padding:7mm; }
+#printArea.fmt-a4 .p-header{ margin-bottom:2mm; }
+#printArea.fmt-a4 .p-header h1{ font-size:12pt; }
+#printArea.fmt-a4 .p-namecell, #printArea.fmt-a4 .p-name{ width:44mm; font-size:6pt; }
+#printArea.fmt-a4 .p-daysheadcell, #printArea.fmt-a4 .p-days{ width:9mm; font-size:6pt; }
+#printArea.fmt-a4 .p-month{ font-size:5.5pt; }
+#printArea.fmt-a4 .p-daytick{ font-size:3.6pt; }
+#printArea.fmt-a4 .p-unit{ margin-top:1mm; }
+#printArea.fmt-a4 .p-unit-title{ font-size:6.5pt; padding:0.5mm 1.5mm; }
+#printArea.fmt-a4 .p-emp-row, #printArea.fmt-a4 .p-track, #printArea.fmt-a4 .p-blocked{ height:4mm; }
+#printArea.fmt-a4 .p-block{ height:3mm; font-size:3.6pt; }
+
+/* hoja del Listado, A4 vertical */
+#listadoPrintArea{
+  display:none; box-sizing:border-box; width:210mm; min-height:297mm; padding:9mm;
+  background:#fff; font-family:'Inter',sans-serif; color:#1A2E1A;
+}
+.lv-title{ font-size:12pt; font-weight:700; color:#1A5C1A; margin-bottom:3mm; }
+.lv-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:.74rem; }
+.lv-table th{ font-weight:700; color:#1A5C1A; padding:2px 3px; text-align:center; }
+.lv-table th, .lv-table td.lv-c{ border:1px solid #777; }
+.lv-table td{ padding:2px 3px; }
+.lv-table td.lv-c{ text-align:center; white-space:nowrap; }
+.lv-table td.lv-name{ border:1px solid #777; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lv-table td.lv-total{ background:#CFEBCF; font-weight:700; color:#1A5C1A; }
+.lv-table tr.lv-gap td{ height:12px; border:none; padding:0; }
+#listadoPrintArea .lv-table{ font-size:8pt; }
 
 /* ── hoja imprimible de turnos de sábado (A4, activa siempre para previsualizar) ── */
 #turnosPrintArea{
@@ -272,29 +305,19 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 #ppmPageWrap{ flex-shrink:0; box-shadow:0 4px 24px rgba(0,0,0,.35); }
 #ppmPageWrap #printArea{ transform-origin:top left; }
 
-/* ── modal "Plan anual" (vista rápida, muy escueta) ── */
-#annualViewList .rules-log-cat{ display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.5px; color:var(--verde); font-weight:700; margin:14px 0 6px; }
-#annualViewList .rules-log-cat:first-child{ margin-top:0; }
-#annualViewList .av-item{ padding:6px 4px; border-bottom:1px solid #f0f0f0; font-size:.78rem; }
-#annualViewList .av-item small{ color:var(--texto2); }
-#annualViewList .av-dates{ color:var(--texto2); }
-
-/* ── impresión real: solo se ve la hoja, a tamaño físico ── */
+/* ── impresión real: solo la hoja, a tamaño físico. Se mueve al body al imprimir (ver beforeprint): lo que
+   queda oculto sigue ocupando sitio y el navegador encogía la hoja para que cupiese. ── */
 @media print{
-  @page{ size:A3 landscape; margin:0; }
-  html, body{ background:#fff !important; }
-  body *{ visibility:hidden; }
-  #printArea, #printArea *, #turnosPrintArea, #turnosPrintArea *{ visibility:visible; }
-  #printArea{
-    position:absolute; top:0; left:0;
-    transform:none !important; width:420mm; min-height:297mm;
+  html, body{ background:#fff !important; height:auto !important; overflow:visible !important; }
+  body > *{ display:none !important; }
+  body > .print-sheet{
+    display:block !important; position:static !important; transform:none !important; min-height:0 !important;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
-  #turnosPrintArea{
-    position:absolute; top:0; left:0;
-    transform:none !important; width:210mm; min-height:297mm;
-  }
+  body > .print-sheet *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
 </style>
+<style id="printPageSize">@media print{ @page{ size:A3 landscape; margin:0; } }</style>
 </head>
 <body>
 <div id="newVersionBar" style="display:none;position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:9999;max-width:94vw;align-items:center;gap:10px;background:#FFF6BF;border:1px solid #D4B106;border-radius:8px;padding:5px 12px;font-size:.78rem;color:var(--texto);box-shadow:var(--sombra);">
@@ -330,12 +353,17 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <span id="cloudStatus" style="font-size:1.1rem;cursor:default;" title="Conectando con la nube…">🔄</span>
     <button class="secondary" id="btnLogout" title="Cerrar sesión" style="display:none;">🔒 Salir</button>
     <select id="yearSelect"></select>
+    <select id="planningSelect" title="Planning que se ve e imprime">
+      <option value="tiendas">Tiendas</option>
+      <option value="ventas">Ventas</option>
+    </select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
     <button class="secondary" id="btnRotation">Prioridad rotación</button>
     <button class="secondary" id="btnSaturdays">🔄 Turnos sábado</button>
     <button class="secondary" id="btnHolidays">🎉 Festivos</button>
     <button class="secondary" id="btnPermisos">📋 Permisos</button>
-    <button class="secondary" id="btnAnnualView">📆 Plan anual</button>
+    <button class="secondary" id="btnPeticiones">🙋 Peticiones</button>
+    <button class="secondary" id="btnListado">📄 Listado</button>
     <button id="btnPrint">🖨 Vista previa</button>
   </header>
   <div id="body">
@@ -365,11 +393,9 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         </div>
 
         <h3>Generador automático</h3>
-        <p class="hint">Genera un borrador de vacaciones (hasta completar los días de cada ficha) usando las
-          reglas de abajo y las fechas preferidas de cada persona. Reparte lo que no tiene preferencia
-          buscando siempre la fecha menos concurrida de toda la empresa, para no amontonar a mucha gente en
-          los mismos días. Respeta el filtro de Unidad de arriba: con "Todas" genera la plantilla entera;
-          eligiendo una unidad, solo esa.</p>
+        <p class="hint">Reparte el año elegido en el planning elegido: primero las fechas fijas, luego las peticiones aprobadas y después la
+          lista rotada, desde el 15 de enero. Si eliges una unidad arriba, solo esa.
+        </p>
         <div class="check-row">
           <input type="checkbox" id="genOverwrite">
           <label for="genOverwrite">Sobrescribir a quien ya tenga vacaciones asignadas este año</label>
@@ -427,6 +453,24 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </div>
 </div>
 
+<div class="overlay" id="peticionesOverlay">
+  <div class="modal" style="width:760px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3 id="operativaPeticiones">Peticiones de vacaciones</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;flex-shrink:0;">
+      <div class="field" style="flex:2;min-width:170px;"><label>Empleado</label><select id="ptEmp"></select></div>
+      <div class="field" style="flex:1;min-width:120px;"><label>Desde</label><input type="date" id="ptStart"></div>
+      <div class="field" style="flex:1;min-width:120px;"><label>Hasta</label><input type="date" id="ptEnd"></div>
+      <div class="field" style="flex:2;min-width:150px;"><label>Motivo</label><input type="text" id="ptMotivo" placeholder="Ej: viaje con pasajes comprados"></div>
+      <button class="btn btn-primary" id="ptAdd" style="margin-bottom:10px;">+ Añadir</button>
+    </div>
+    <div id="peticionesList" style="overflow-y:auto;flex:1;min-height:0;"></div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn btn-ghost" id="ptClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="periodOverlay">
   <div class="modal">
     <h3 id="pmTitle">Nuevo periodo</h3>
@@ -454,13 +498,12 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   <div class="modal" style="width:860px;max-height:88vh;display:flex;flex-direction:column;">
     <h3 id="operativaRotacion">Prioridad de rotación sugerida</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
-      Marca quién disfrutó ya de este mismo periodo el año pasado. La prioridad combina "no repetir" con antigüedad
-      (más antigüedad = más prioridad en caso de empate). Es solo una sugerencia: la propuesta no se guarda en el
-      cuadrante y la decisión final es manual.
+      Lo que tuvo cada persona, por fechas de enero a diciembre, y una propuesta para el año siguiente. En rojo, quien tiene fechas fijas.
+      Es solo una sugerencia: la propuesta no se guarda en el cuadrante y la decisión final es manual.
     </p>
     <div id="rotationList" style="flex:1;min-height:0;overflow:auto;"></div>
     <div class="modal-actions">
-      <div></div>
+      <button class="btn btn-primary" id="rotSave">💾 Guardar la propuesta</button>
       <button class="btn btn-ghost" id="rotClose">Cerrar</button>
     </div>
   </div>
@@ -487,34 +530,40 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 
 <div class="overlay" id="holidaysOverlay">
-  <div class="modal" style="width:640px;max-height:88vh;display:flex;flex-direction:column;">
-    <h3 id="operativaFestivos">Festivos trabajados</h3>
-    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
-      Festivos nacionales/locales en los que la tienda abre en horario reducido. A quien asignes como
-      trabajador de un festivo se le suma automáticamente <b>1 día</b> a su total de vacaciones del año,
-      como compensación.
-    </p>
-    <div id="holidaysList" style="max-height:280px;overflow-y:auto;margin-bottom:12px;"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-      <div class="field" style="flex:1;min-width:110px;"><label>Fecha</label><input type="date" id="hNewDate"></div>
-      <div class="field" style="flex:2;min-width:140px;"><label>Festividad</label><input type="text" id="hNewName" placeholder="Ej: La Candelaria"></div>
-      <div class="field" style="flex:1;min-width:90px;"><label>Tienda</label><input type="text" id="hNewTienda" placeholder="Ej: Aliz-1"></div>
-      <button class="mini-btn" id="btnAddHoliday" style="margin-bottom:8px;">+ Añadir</button>
-    </div>
-    <div style="border-top:1px solid #e4e8e1;margin-top:6px;padding-top:10px;">
-      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);font-weight:700;margin-bottom:6px;">
-        Registro de compensaciones — qué día se compensó, cuándo y cómo
+  <div class="modal" style="width:880px;max-height:92vh;display:flex;flex-direction:column;">
+    <h3 id="operativaFestivos">Festivos</h3>
+    <div id="holidaysList" style="overflow-y:auto;flex:1;min-height:0;"></div>
+    <div class="modal-actions">
+      <div class="left">
+        <button class="btn btn-ghost" id="btnAddHoliday">+ Añadir festivo</button>
+        <button class="btn btn-ghost" id="btnPrintHolidays">🖨 Imprimir</button>
       </div>
-      <p style="font-size:.7rem;color:var(--texto2);margin-bottom:8px;">
-        Marca cada festivo trabajado como "Compensado" en cuanto la persona disfrute ese día de más, indicando
-        si se lo llevó como vacaciones o como permiso y en qué fecha. Así queda constancia de que ya se le dio,
-        y no se le vuelve a dar dos veces.
-      </p>
-      <div id="compensationsSummary" style="max-height:200px;overflow-y:auto;"></div>
+      <button class="btn btn-ghost" id="holidaysClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="festivoEditOverlay">
+  <div class="modal" style="width:520px;max-height:90vh;display:flex;flex-direction:column;">
+    <h3 id="feTitle">Festivo</h3>
+    <div style="overflow-y:auto;flex:1;min-height:0;">
+      <div style="display:flex;gap:8px;">
+        <div class="field" style="flex:1;"><label>Fecha</label><input type="date" id="feDate"></div>
+        <div class="field" style="flex:2;"><label>Festividad</label><input type="text" id="feName" placeholder="Ej: La Candelaria"></div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div class="field" style="flex:1;"><label>Tienda (vacía si no abre)</label><input type="text" id="feTienda" placeholder="Ej: Aliz-1"></div>
+        <div class="field" style="flex:1;"><label>Horario</label><input type="text" id="feHorario" placeholder="Ej: 09:30 a 13:30"></div>
+      </div>
+      <div class="check-row"><input type="checkbox" id="feLaborable"><label for="feLaborable">Día laborable: trabaja todo el personal y no suma días</label></div>
+      <div id="fePeople"></div>
     </div>
     <div class="modal-actions">
-      <div></div>
-      <button class="btn btn-ghost" id="holidaysClose">Cerrar</button>
+      <button class="btn btn-danger" id="feDelete">🗑 Eliminar</button>
+      <div class="left">
+        <button class="btn btn-ghost" id="feCancel">Cancelar</button>
+        <button class="btn btn-primary" id="feSave">💾 Guardar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -560,7 +609,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         <input type="checkbox" id="empShowInactive">
         <label for="empShowInactive">Mostrar también los dados de baja</label>
       </div>
-      <div id="empListBox" style="max-height:360px;overflow-y:auto;margin:8px 0;"></div>
+      <div id="empListBox" style="max-height:calc(88vh - 270px);overflow-y:auto;margin:8px 0;"></div>
       <div class="modal-actions">
         <button class="mini-btn" id="btnAddEmployee">+ Nuevo empleado</button>
         <button class="btn btn-ghost" id="empListClose">Cerrar</button>
@@ -586,7 +635,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       </div>
       <div class="check-row"><input type="checkbox" id="ecFloater"><label for="ecFloater">🔁 Comodín: cambia de tienda/puesto según necesidad</label></div>
       <div class="check-row"><input type="checkbox" id="ecSinSustituto"><label for="ecSinSustituto">🚫 Sin sustituto (nadie cubre su puesto)</label></div>
-      <div class="check-row"><input type="checkbox" id="ecHijos"><label for="ecHijos">👶 Tiene hijos a cargo (prioridad en la rotación, por delante de la antigüedad)</label></div>
+      <div class="check-row"><input type="checkbox" id="ecPideFechas"><label for="ecPideFechas">🙋 Pide sus fechas: no entra en la lista rotada</label></div>
+      <div class="check-row"><input type="checkbox" id="ecHijos"><label for="ecHijos">👶 Tiene hijos a cargo</label></div>
       <div class="check-row"><input type="checkbox" id="ecActive"><label for="ecActive">Activo (desmarcar = de baja, deja de aparecer en el cuadrante)</label></div>
       <div class="modal-actions" style="position:sticky;bottom:0;background:#fff;padding-top:8px;margin-top:6px;flex-wrap:wrap;">
         <div class="left" style="flex-wrap:wrap;">
@@ -636,20 +686,34 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </div>
 </div>
 
+<div class="overlay" id="cargaOverlay">
+  <div class="modal" style="width:760px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3 id="operativaCarga">Cargar vacaciones desde Excel</h3>
+    <input type="file" id="cargaFile" accept=".xlsx,.xls" style="margin-bottom:10px;flex-shrink:0;">
+    <div id="cargaBox" style="overflow-y:auto;flex:1;min-height:0;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cargaClose">Cerrar</button>
+      <button class="btn btn-primary" id="cargaOk" disabled>Sustituir las fechas de estas personas</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="printPreviewOverlay">
   <div class="modal print-preview-modal">
     <div class="ppm-header">
       <div>
-        <h3 id="operativaImpresion">Vista previa de impresión · A3 apaisado</h3>
+        <h3 id="operativaImpresion">Vista previa de impresión del calendario</h3>
         <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
-          Empleados ordenados por fecha de inicio dentro de cada unidad (efecto "escalera", igual que en el Excel de
-          dirección). Ambos abren el cuadro de impresión del navegador (ya en A3 apaisado) — en "Guardar como PDF"
-          elige el destino "Guardar como PDF" (o "Microsoft Print to PDF") en ese cuadro.
+          Empleados ordenados por fecha de inicio dentro de cada unidad. Imprimir y Guardar como PDF abren el cuadro de impresión del navegador.
         </div>
       </div>
       <div class="left" style="display:flex;gap:8px;">
         <button class="btn btn-ghost" id="ppmClose">Cerrar</button>
         <button class="btn btn-ghost" id="ppmWhatsapp">📱 WhatsApp</button>
+        <select id="ppmFormat" title="Tamaño de papel" style="padding:6px 8px;border:1px solid var(--borde);border-radius:7px;font-size:.8rem;">
+          <option value="A3">A3</option>
+          <option value="A4">A4</option>
+        </select>
         <button class="btn btn-ghost" id="ppmSavePdf">💾 Guardar como PDF</button>
         <button class="btn btn-primary" id="ppmPrintNow">🖨 Imprimir</button>
       </div>
@@ -688,19 +752,23 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   </div>
 </div>
 
-<div class="overlay" id="annualViewOverlay">
-  <div class="modal" style="width:520px;max-height:88vh;display:flex;flex-direction:column;">
-    <h3 id="operativaPlanAnual">📆 Plan anual — vista rápida</h3>
-    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
-      De un vistazo, quién tiene vacaciones asignadas este año y en qué fechas, por bloques.
-    </p>
-    <div id="annualViewList" style="overflow-y:auto;flex:1;margin-bottom:10px;"></div>
+<div class="overlay" id="listadoOverlay">
+  <div class="modal" style="width:820px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3 id="operativaListado">📄 Listado de vacaciones</h3>
+    <div id="listadoBox" style="overflow:auto;flex:1;min-height:0;margin-bottom:10px;"></div>
     <div class="modal-actions">
-      <button class="mini-btn" id="avmWhatsapp">📱 WhatsApp</button>
-      <button class="btn btn-ghost" id="avmClose">Cerrar</button>
+      <div class="left">
+        <button class="btn btn-ghost" id="lvWhatsapp">📱 WhatsApp</button>
+        <button class="btn btn-ghost" id="lvCargar">📥 Cargar Excel</button>
+      </div>
+      <div class="left">
+        <button class="btn btn-primary" id="lvPrint">🖨 Imprimir</button>
+        <button class="btn btn-ghost" id="lvClose">Cerrar</button>
+      </div>
     </div>
   </div>
 </div>
+<div id="listadoPrintArea"></div>
 
 <script>
 /* ═══════════════════ DATOS DE EJEMPLO ═══════════════════ */
@@ -718,13 +786,15 @@ const UNITS = [
   {id:'limpieza',          name:'Limpieza',                group:'Limpieza',      defaultMax:1},
 ];
 
-/* Bloques organizativos (según dirección): agrupan unidades para el "Planning en escalera" y el
-   "Plan anual" — el turno normal de vacaciones (15 ene–15 ago) se organiza así, por bloque. */
-const BLOQUES = [
-  {id:'bloque1', name:'1º Bloque · Tiendas',            unitIds:['ofipapel_detalle','ofipapel_info','mobiliario','aliz1','aliz2']},
-  {id:'bloque2', name:'2º Bloque · Oficina',             unitIds:['oficina']},
-  {id:'bloque3', name:'3º Bloque · Reparto y almacén',   unitIds:['repartidores','comerciales','almacen','pedidos']},
-];
+/* Dos plannings separados (Luis, 03/11/2026): cada uno con su personal. Los datos siguen juntos, para que
+   cobertura y parejas no se rompan. */
+const PLANNINGS = {
+  tiendas: {name:'Tiendas', unitIds:['ofipapel_detalle','ofipapel_info','aliz1','aliz2','mobiliario','oficina','limpieza']},
+  ventas:  {name:'Ventas',  unitIds:['comerciales','repartidores','pedidos','almacen']},
+};
+let currentPlanning = 'tiendas';
+try{ const saved = localStorage.getItem('ofipapel_vacaciones_planning'); if(PLANNINGS[saved]) currentPlanning = saved; }catch(e){}
+function inPlanning(emp){ return PLANNINGS[currentPlanning].unitIds.includes(emp.unitId); }
 
 /* Plantilla de partida — solo se usa para poblar state.employees la primera vez.
    A partir de ahí la lista real y editable vive en state.employees (ver "Empleados" en la barra lateral). */
@@ -794,7 +864,6 @@ function defaultState(){
     ],
     unitOverrides: [],
     unitMax: Object.fromEntries(UNITS.map(u=>[u.id,u.defaultMax])),
-    lastYearFlags: {},
     categories: [
       {id:'cat_jefe_area',   name:'Jefe/a de área'},
       {id:'cat_jefe_tienda', name:'Jefe/a de tienda'},
@@ -825,6 +894,10 @@ function defaultState(){
       {id:'h7', date:'2026-12-08', festividad:'Inmaculada Concepción', tienda:'Aliz-1', empIds:[]},
     ],
     permisos: [],
+    peticiones: [],
+    festivosReady: {},
+    rotationOrder: {},
+    nameAliases: {},
   };
 }
 /* Migraciones puntuales para datos ya guardados en el navegador del usuario, sin tener que resetear
@@ -851,6 +924,15 @@ function applyMigrations(state){
     const b1 = state.blockedRanges.find(b=>b.id==='b1');
     if(b1 && b1.endMD==='09-30'){ b1.endMD = '10-15'; b1.label = 'Vuelta al cole y campaña de otoño'; }
     state._migrations.blockRangeOtono202607 = true;
+  }
+  if(!state._migrations.mariaPideFechas202611){
+    const maria = state.employees.find(e=>e.id==='e25');
+    if(maria) maria.pideFechas = true;
+    state._migrations.mariaPideFechas202611 = true;
+  }
+  if(!state._migrations.fijaSoleJulio202611){
+    state.employeePrefs.e29 = {preferredText:'01/07-15/07', fixed:true};
+    state._migrations.fijaSoleJulio202611 = true;
   }
   if(!state._migrations.categoriaJefaMobiliario202611){
     const patricia = state.employees.find(e=>e.id==='e24');
@@ -1220,17 +1302,76 @@ function isBlockedIndex(y, idx){
 /* Regla: un periodo no puede empezar ni terminar en sábado (el domingo sí vale para terminar,
    así se reincorpora el lunes). */
 function weekendEdgeConflict(startIdx, endIdx, y){
-  const startDay = dateFromIndex(y, startIdx).getUTCDay(); // 0=domingo ... 5=viernes, 6=sábado
-  if(startDay===5) return 'El periodo no puede empezar en viernes.';
-  if(startDay===6) return 'El periodo no puede empezar en sábado.';
-  if(startDay===0) return 'El periodo no puede empezar en domingo.';
-  if(dateFromIndex(y, endIdx).getUTCDay()===6) return 'El periodo no puede terminar en sábado.';
+  const start = dateFromIndex(y, startIdx), end = dateFromIndex(y, endIdx);
+  const startDay = start.getUTCDay(); // 0=domingo ... 5=viernes, 6=sábado
+  const firstTurn = start.getUTCMonth()===0 && start.getUTCDate()===15; // el primer turno empieza siempre el 15 de enero
+  if(!firstTurn){
+    if(startDay===5) return 'El periodo no puede empezar en viernes: elige un lunes, martes, miércoles o jueves.';
+    if(startDay===6) return 'El periodo no puede empezar en sábado: elige un lunes, martes, miércoles o jueves.';
+    if(startDay===0) return 'El periodo no puede empezar en domingo: elige un lunes, martes, miércoles o jueves.';
+  }
+  if(end.getUTCDay()===6) return 'El periodo no puede terminar en sábado: termínalo el viernes o el domingo.';
+  if(isFestivo(start)) return 'El periodo no puede empezar en festivo: elige otro día (la lista está en Festivos).';
+  if(isFestivo(end)) return 'El periodo no puede terminar en festivo: elige otro día (la lista está en Festivos).';
   return null;
+}
+/* Festivos que impiden empezar o terminar. Provisionales hasta que se confirmen en la ventana Festivos. */
+function easterSunday(y){
+  const a=y%19, b=Math.floor(y/100), c=y%100, d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3);
+  const h=(19*a+b-d-g+15)%30, i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451);
+  return new Date(Date.UTC(y, Math.floor((h+l-7*m+114)/31)-1, ((h+l-7*m+114)%31)+1));
+}
+/* Festivos de partida de un año. Provisionales: se corrigen en la ventana Festivos. */
+function defaultFestivos(y){
+  const iso = (m,d)=> `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const fromEaster = n=>{ const d=easterSunday(y); d.setUTCDate(d.getUTCDate()+n); return toISO(d); };
+  const manana = '09:30 a 13:30', tarde = '16:00 a 20:00';
+  return [
+    {date:iso(1,1),  festividad:'Año Nuevo'},
+    {date:iso(1,5),  festividad:'Víspera de Reyes', tienda:'Aliz-1', horario:tarde, laborable:true},
+    {date:iso(1,5),  festividad:'Víspera de Reyes', tienda:'Aliz-2', horario:tarde, laborable:true},
+    {date:iso(1,5),  festividad:'Víspera de Reyes', tienda:'Ofi', horario:tarde, laborable:true},
+    {date:iso(1,6),  festividad:'Reyes'},
+    {date:iso(2,2),  festividad:'La Candelaria', tienda:'Aliz-1', horario:manana},
+    {date:fromEaster(-47), festividad:'Carnaval', tienda:'Aliz-1', horario:manana},
+    {date:fromEaster(-3),  festividad:'Jueves Santo', tienda:'Aliz-1', horario:manana},
+    {date:fromEaster(-2),  festividad:'Viernes Santo'},
+    {date:iso(5,1),  festividad:'Día del Trabajo'},
+    {date:iso(5,30), festividad:'Día de Canarias', tienda:'Aliz-1', horario:manana},
+    {date:iso(8,15), festividad:'Asunción'},
+    {date:iso(10,5), festividad:'Fiesta de Arona', tienda:'Aliz-1', horario:manana},
+    {date:iso(10,12),festividad:'Hispanidad', tienda:'Aliz-1', horario:manana},
+    {date:iso(11,1), festividad:'Todos los Santos'},
+    {date:iso(12,6), festividad:'Constitución', tienda:'Aliz-1', horario:manana},
+    {date:iso(12,8), festividad:'Inmaculada', tienda:'Aliz-1', horario:manana},
+    {date:iso(12,25),festividad:'Navidad'},
+  ];
+}
+/* La primera vez que se abre un año se completa su lista; lo ya apuntado no se toca. */
+function ensureYearFestivos(y){
+  state.festivosReady = state.festivosReady || {};
+  if(state.festivosReady[y]) return;
+  const existing = state.holidaysWorked.filter(h=>h.date.startsWith(y+'-'));
+  const dates = new Set(existing.map(h=>h.date));
+  existing.forEach(h=>{ if(!h.horario && h.tienda) h.horario = '09:30 a 13:30'; });
+  defaultFestivos(y).forEach((d,i)=>{
+    if(!dates.has(d.date)) state.holidaysWorked.push({id:'h'+y+'d'+i, date:d.date, festividad:d.festividad, tienda:d.tienda||'', horario:d.horario||'', laborable:!!d.laborable, empIds:[], comp:{}});
+  });
+  state.festivosReady[y] = true;
+}
+function festivosOf(y){
+  const prefix = y+'-';
+  const dates = state.holidaysWorked.filter(h=>h.date.startsWith(prefix) && !h.laborable).map(h=>h.date);
+  if(!(state.festivosReady && state.festivosReady[y])) defaultFestivos(y).filter(d=>!d.laborable).forEach(d=>dates.push(d.date));
+  return dates;
+}
+function isFestivo(d){
+  return festivosOf(d.getUTCFullYear()).includes(toISO(d));
 }
 
 /* ═══════════════════ COLORES DE PERIODO ═══════════════════ */
 const NAME_W = 250; // debe coincidir con --name-w en CSS
-const PERIOD_COLORS = ['#3DAF3D','#4A90D9','#F5A623','#9B59B6','#E4667A','#16A085','#D9822B'];
+const PERIOD_COLORS = ['#4A90D9','#3DAF3D','#E8854A','#F5C242','#9B59B6','#16A085','#D9822B']; // por turno, como en el Excel de Luis
 function periodColor(n){ return PERIOD_COLORS[(n-1) % PERIOD_COLORS.length]; }
 
 /* ═══════════════════ VALIDACIÓN DE COBERTURA ═══════════════════ */
@@ -1263,8 +1404,8 @@ function unitCoverageForDay(unitId, idx, y, excludePeriodId){
 }
 
 /* ═══════════════════ FESTIVOS TRABAJADOS (compensan +1 día cada uno) ═══════════════════ */
-function holidaysWorkedBy(empId){
-  return state.holidaysWorked.filter(h => h.empIds.includes(empId));
+function holidaysWorkedBy(empId, y=state.year){
+  return state.holidaysWorked.filter(h => h.empIds.includes(empId) && h.date.startsWith(y+'-'));
 }
 function effectiveDaysPerYear(emp){
   return emp.daysPerYear + holidaysWorkedBy(emp.id).length;
@@ -1305,6 +1446,10 @@ function findTogetherPartners(empId){
 function hasFixedPref(empId){
   return !!(state.employeePrefs[empId] && state.employeePrefs[empId].fixed && state.employeePrefs[empId].preferredText);
 }
+/* Nombre en rojo si tiene fechas fijas (Luis, 03/11/2026). */
+function empNameHtml(emp){
+  return hasFixedPref(emp.id) ? `<i style="font-style:normal;color:var(--rojo);">${escapeHtml(emp.name)}</i>` : escapeHtml(emp.name);
+}
 function pairOverlapConflict(empId, startISO, endISO, excludePeriodId){
   for(const {partnerId, label} of findPairPartners(empId)){
     const overlap = state.periods.find(p=> p.employeeId===partnerId && p.id!==excludePeriodId && !(endISO<p.start || startISO>p.end));
@@ -1334,6 +1479,8 @@ function render(){
   renderOnLeave();
   renderGrid();
   renderSummary();
+  if(isModalOpen('holidaysOverlay')) renderHolidaysList();
+  if(isModalOpen('peticionesOverlay')) renderPeticiones();
   saveState();
 }
 
@@ -1447,8 +1594,10 @@ function renderYearSelect(){
 
 function renderUnitFilter(){
   const sel = document.getElementById('unitFilter');
-  if(sel.options.length>1) return;
-  for(const u of UNITS){
+  const units = UNITS.filter(u=>PLANNINGS[currentPlanning].unitIds.includes(u.id));
+  if(sel.options.length===units.length+1 && [...sel.options].slice(1).every((o,i)=>o.value===units[i].id)) return;
+  sel.options.length = 1;
+  for(const u of units){
     const o=document.createElement('option'); o.value=u.id; o.textContent=u.name+' ('+u.group+')';
     sel.appendChild(o);
   }
@@ -1553,7 +1702,7 @@ function renderGrid(){
 
   // unit groups
   const filteredEmployees = EMPLOYEES.filter(e=>{
-    if(e.active===false) return false;
+    if(e.active===false || !inPlanning(e)) return false;
     if(filterUnit && e.unitId!==filterUnit) return false;
     if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
     return true;
@@ -1601,7 +1750,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
   const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
   nameCell.title = emp.note || '';
-  nameCell.innerHTML = `<b>${escapeHtml(emp.name)}${badges}</b><span>${used}/${effectiveDaysPerYear(emp)} días · ${escapeHtml(senLabel)}</span>`;
+  nameCell.innerHTML = `<b>${empNameHtml(emp)}${badges}</b><span>${used}/${effectiveDaysPerYear(emp)} días · ${escapeHtml(senLabel)}</span>`;
   row.appendChild(nameCell);
 
   const track = document.createElement('div'); track.className='track';
@@ -1970,11 +2119,19 @@ const UNSAVED_GUARDS = {
     dirty: ()=> hasText('pmzStart','pmzEnd','pmzMotivo'),
     save: ()=>{ document.getElementById('btnAddPermiso').click(); return !UNSAVED_GUARDS.permisosOverlay.dirty(); },
   },
-  holidaysOverlay: {
-    dirty: ()=> hasText('hNewDate','hNewName','hNewTienda'),
-    save: ()=>{ document.getElementById('btnAddHoliday').click(); return !UNSAVED_GUARDS.holidaysOverlay.dirty(); },
+  peticionesOverlay: {
+    dirty: ()=> hasText('ptStart','ptEnd','ptMotivo'),
+    save: ()=>{ document.getElementById('ptAdd').click(); return !UNSAVED_GUARDS.peticionesOverlay.dirty(); },
+  },
+  festivoEditOverlay: {
+    dirty: ()=> feValues()!==feSnapshot || JSON.stringify(feDraft)!==feDraftSnapshot(),
+    save: saveFestivoEditor,
   },
 };
+function feDraftSnapshot(){
+  const h = feEditingId ? state.holidaysWorked.find(x=>x.id===feEditingId) : null;
+  return JSON.stringify(h ? {empIds:h.empIds, comp:h.comp||{}} : {empIds:[], comp:{}});
+}
 let unsavedActions = null;
 function leaveForm(guard, done){
   if(!guard.dirty()){ done(); return; }
@@ -2036,7 +2193,7 @@ function renderEmployeeList(){
         +'border-bottom:1px solid #f0f0f0;font-size:.78rem;cursor:pointer;';
       const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
       const category = state.categories.find(c=>c.id===emp.categoryId);
-      row.innerHTML = `<span>${escapeHtml(emp.name)}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${category ? escapeHtml(category.name)+' · ' : ''}${escapeHtml(senLabel)}</small></span>
+      row.innerHTML = `<span>${empNameHtml(emp)}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${category ? escapeHtml(category.name)+' · ' : ''}${escapeHtml(senLabel)}</small></span>
         <span style="color:var(--verde);">✎</span>`;
       row.onclick = ()=> openEmployeeCard(emp.id);
       box.appendChild(row);
@@ -2171,6 +2328,7 @@ function openEmployeeCard(empId){
   fillCategorySelect(emp ? emp.categoryId : '');
   document.getElementById('ecFloater').checked = emp ? !!emp.floater : false;
   document.getElementById('ecSinSustituto').checked = emp ? !!emp.sinSustituto : false;
+  document.getElementById('ecPideFechas').checked = emp ? !!emp.pideFechas : false;
   document.getElementById('ecHijos').checked = emp ? !!emp.hijos : false;
   document.getElementById('ecActive').checked = emp ? emp.active!==false : true;
   setCardEditing(!emp);
@@ -2232,6 +2390,7 @@ function saveEmployeeCard(){
   const categoryId = document.getElementById('ecCategory').value;
   const floater = document.getElementById('ecFloater').checked;
   const sinSustituto = document.getElementById('ecSinSustituto').checked;
+  const pideFechas = document.getElementById('ecPideFechas').checked;
   const hijos = document.getElementById('ecHijos').checked;
   const active = document.getElementById('ecActive').checked;
 
@@ -2250,6 +2409,7 @@ function saveEmployeeCard(){
   if(categoryId) emp.categoryId = categoryId; else delete emp.categoryId;
   if(floater) emp.floater = true; else delete emp.floater;
   if(sinSustituto) emp.sinSustituto = true; else delete emp.sinSustituto;
+  if(pideFechas) emp.pideFechas = true; else delete emp.pideFechas;
   if(hijos) emp.hijos = true; else delete emp.hijos;
   emp.active = active;
 
@@ -2413,10 +2573,9 @@ function parsePreferredRanges(text, year){
   return out;
 }
 function rotationScore(emp){
-  const flag = state.lastYearFlags[emp.id] ? 1000 : 0;
   const hijos = emp.hijos ? 200 : 0;
   const sen = emp.seniorityYear ? (new Date().getFullYear()-emp.seniorityYear) : 0;
-  return -flag + hijos + sen;
+  return hijos + sen;
 }
 function unitFitsRange(unitId, startIdx, endIdx, y){
   for(let idx=startIdx; idx<=endIdx; idx++){
@@ -2510,70 +2669,147 @@ function findFallbackSlot(emp, y, lengthDays){
   }
   return best;
 }
-/* Reparte las vacaciones de `targets` en el año `y` añadiéndolas a state.periods. Las fechas fijas se
-   colocan antes que nada, para que nadie con más prioridad les quite el hueco. */
+/* Listas que ruedan por separado: Tiendas por un lado y Oficina, Limpieza y cada unidad de Ventas por otro. */
+function rotationListKey(emp){
+  if(['ofipapel_detalle','ofipapel_info','aliz1','aliz2','mobiliario'].includes(emp.unitId)) return 'tiendas';
+  return emp.unitId;
+}
+/* Cada año rueda un puesto: el primero pasa al final. Se parte del orden guardado del año anterior y, si
+   no lo hay, del orden de sus fechas de ese año. */
+function rotationOrderFor(key, emps, y){
+  const stored = (state.rotationOrder && state.rotationOrder[y] && state.rotationOrder[y][key]) || null;
+  const rank = list=> [...emps].sort((a,b)=>{
+    const ia = list.indexOf(a.id), ib = list.indexOf(b.id);
+    return (ia<0?9999:ia)-(ib<0?9999:ib) || rotationScore(b)-rotationScore(a);
+  });
+  if(stored) return rank(stored);
+  let prev = (state.rotationOrder && state.rotationOrder[y-1] && state.rotationOrder[y-1][key]) || null;
+  if(!prev){
+    const first = e=> periodsOfYear(e.id, y-1).map(p=>p.start).sort()[0] || '9999';
+    prev = [...emps].sort((a,b)=> first(a).localeCompare(first(b)) || rotationScore(b)-rotationScore(a)).map(e=>e.id);
+  }
+  const ordered = rank(prev).map(e=>e.id);
+  if(periodsOfYear(ordered[0], y-1).length || (state.rotationOrder && state.rotationOrder[y-1])) ordered.push(ordered.shift());
+  return rank(ordered);
+}
+/* Tramos de la persona: los del año anterior, ajustados a sus días y sin los ya colocados (fijas, peticiones). */
+function tramosFor(emp, y, alreadyPlaced){
+  const holidays = holidaysWorkedBy(emp.id, y).length;
+  const target = emp.daysPerYear + holidays - alreadyPlaced.reduce((t,d)=>t+d,0);
+  if(target<=0) return [];
+  const base = periodsOfYear(emp.id, y-1).sort((a,b)=>a.start.localeCompare(b.start)).map(p=>isoToIndex(y-1,p.end)-isoToIndex(y-1,p.start)+1);
+  for(const days of alreadyPlaced){
+    if(!base.length) break;
+    let best = 0;
+    base.forEach((d,i)=>{ if(Math.abs(d-days)<Math.abs(base[best]-days)) best=i; });
+    base.splice(best,1);
+  }
+  if(!base.length){
+    const out = [];
+    for(let left=target; left>0; left-=15) out.push(Math.min(15,left));
+    return out;
+  }
+  const diff = target - base.reduce((t,d)=>t+d,0);
+  if(Math.abs(diff)<=2){ // poca diferencia: se ajusta el tramo más largo si sobran días, el más corto si faltan
+    const i = base.indexOf(diff<0 ? Math.max(...base) : Math.min(...base));
+    base[i] += diff;
+    return base.filter(d=>d>0);
+  }
+  const each = Math.floor(target/base.length);
+  return base.map((_,i)=> each + (i<target%base.length ? 1 : 0));
+}
+function listConcurrency(listIds, startIso, endIso){
+  let max = 0;
+  const others = state.periods.filter(p=> listIds.has(p.employeeId) && !(endIso<p.start || startIso>p.end));
+  const start = new Date(startIso+'T00:00:00Z'), end = new Date(endIso+'T00:00:00Z');
+  for(let d=new Date(start); d<=end; d.setUTCDate(d.getUTCDate()+1)){
+    const iso = toISO(d);
+    max = Math.max(max, others.filter(p=> iso>=p.start && iso<=p.end).length);
+  }
+  return max;
+}
+/* Reparte `targets` en el año `y` añadiendo a state.periods, por este orden: fechas fijas, peticiones
+   aprobadas y lista rotada. Cada persona toma el primer hueco desde el 15 de enero, turno a turno. */
 function placeEmployees(targets, y){
   const newPeriod = (employeeId, start, end)=> state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId, start, end});
-  const ordered = [...targets].sort((a,b)=> rotationScore(b) - rotationScore(a));
-  const fixedFailed = [], fixedCount = {}, fixedDays = {};
-
-  for(const emp of ordered){
+  const fixedFailed = [], placed = {}, fromFixedCount = {}, fromPrefsCount = {}, fromFallbackCount = {}, usedPeticiones = [];
+  const add = (emp, start, end)=>{
+    newPeriod(emp.id, start, end);
+    (placed[emp.id] = placed[emp.id] || []).push(isoToIndex(y,end)-isoToIndex(y,start)+1);
+  };
+  for(const emp of targets){
     const prefObj = state.employeePrefs[emp.id] || {};
     if(!prefObj.fixed) continue;
     for(const r of parsePreferredRanges(prefObj.preferredText || '', y)){
-      const placed = tryPlaceRangeExact(emp, r, y);
-      if(placed){
-        newPeriod(emp.id, placed.start, placed.end);
-        fixedCount[emp.id] = (fixedCount[emp.id]||0) + 1;
-        fixedDays[emp.id] = (fixedDays[emp.id]||0) + isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
-      } else {
-        fixedFailed.push({emp, range:r});
-      }
+      const ok = tryPlaceRangeExact(emp, r, y);
+      if(ok){ add(emp, ok.start, ok.end); fromFixedCount[emp.id] = (fromFixedCount[emp.id]||0)+1; }
+      else fixedFailed.push({emp, range:r});
     }
   }
-
-  const results = [];
-  for(const emp of ordered){
+  for(const pet of (state.peticiones||[])){
+    if(pet.status!=='aprobada' || pet.applied || !pet.start.startsWith(y+'-')) continue;
+    const emp = targets.find(e=>e.id===pet.employeeId);
+    if(!emp) continue;
+    add(emp, pet.start, pet.end);
+    usedPeticiones.push(pet.id);
+  }
+  for(const emp of targets){
     const prefObj = state.employeePrefs[emp.id] || {};
-    const ranges = prefObj.fixed ? [] : parsePreferredRanges(prefObj.preferredText || '', y);
-    const fromFixed = fixedCount[emp.id] || 0;
-    let daysPlaced = fixedDays[emp.id] || 0, fromPrefs = 0, fromFallback = 0, fromPartner = 0;
-
-    // pareja que sale junta: intenta replicar primero las fechas ya asignadas a su pareja
-    for(const {partnerId} of findTogetherPartners(emp.id)){
-      for(const pp of periodsOfYear(partnerId, y)){
-        const s = isoToIndex(y, pp.start), e = isoToIndex(y, pp.end);
-        if(!rangeOk(emp, s, e, y)) continue;
-        newPeriod(emp.id, pp.start, pp.end);
-        daysPlaced += e-s+1;
-        fromPartner++;
-      }
+    if(prefObj.fixed) continue;
+    for(const r of parsePreferredRanges(prefObj.preferredText || '', y)){
+      const ok = tryPlaceRange(emp, r, y);
+      if(ok){ add(emp, ok.start, ok.end); fromPrefsCount[emp.id] = (fromPrefsCount[emp.id]||0)+1; }
     }
-
-    for(const r of ranges){
-      const placed = tryPlaceRange(emp, r, y);
-      if(placed){
-        newPeriod(emp.id, placed.start, placed.end);
-        daysPlaced += isoToIndex(y,placed.end)-isoToIndex(y,placed.start)+1;
-        fromPrefs++;
-      }
-    }
-
-    const targetDays = effectiveDaysPerYear(emp);
-    let remaining = targetDays - daysPlaced;
-    while(remaining > 0){
-      const chunk = Math.min(15, remaining);
-      const fallback = findFallbackSlot(emp, y, chunk);
-      if(!fallback) break;
-      newPeriod(emp.id, fallback.start, fallback.end);
-      const chunkDays = isoToIndex(y,fallback.end)-isoToIndex(y,fallback.start)+1;
-      daysPlaced += chunkDays;
-      remaining -= chunkDays;
-      fromFallback++;
-    }
-    results.push({emp, daysPlaced, targetDays, fromFixed, fromPartner, fromPrefs, fromFallback});
   }
-  return {results, fixedFailed};
+  const lists = {};
+  for(const emp of EMPLOYEES.filter(e=>e.active!==false && !e.pideFechas)){
+    (lists[rotationListKey(emp)] = lists[rotationListKey(emp)] || []).push(emp);
+  }
+  const orders = {};
+  const firstIdx = isoToIndex(y, y+'-01-15');
+  for(const [key, emps] of Object.entries(lists)){
+    const order = rotationOrderFor(key, emps, y);
+    orders[key] = order.map(e=>e.id);
+    const listIds = new Set(emps.map(e=>e.id));
+    const pending = order.filter(e=>targets.includes(e)).map(emp=>({emp, tramos:tramosFor(emp, y, placed[emp.id]||[])}));
+    const turns = Math.max(0, ...pending.map(x=>x.tramos.length));
+    const totalDays = pending.reduce((t,x)=>t+x.tramos.reduce((a,b)=>a+b,0),0);
+    let cursor = firstIdx;
+    for(let t=0;t<turns;t++){
+      if(totalDays<120) cursor = firstIdx + Math.floor(t*330/Math.max(turns,1)); // listas pequeñas: repartidas por el año
+      for(const {emp, tramos} of pending){
+        if(t>=tramos.length) continue;
+        const L = tramos[t];
+        let got = null;
+        for(const [cap, from, gap] of [[1,cursor,30],[2,cursor,30],[2,firstIdx,30],[2,firstIdx,14],[3,firstIdx,14],[4,firstIdx,7]]){
+          for(let s=from; s+L-1<daysInYear(y) && !got; s++){
+            const e = s+L-1;
+            if(!rangeOk(emp, s, e, y)) continue;
+            const sISO = toISO(dateFromIndex(y,s)), eISO = toISO(dateFromIndex(y,e));
+            if(listConcurrency(listIds, sISO, eISO)>=cap) continue;
+            const gMin = toISO(dateFromIndex(y,s-gap)), gMax = toISO(dateFromIndex(y,e+gap));
+            if(periodsOfYear(emp.id, y).some(p=> !(gMax<p.start || gMin>p.end))) continue;
+            got = {s, e, sISO, eISO, cap};
+          }
+          if(got) break;
+        }
+        if(!got) continue;
+        add(emp, got.sISO, got.eISO);
+        fromFallbackCount[emp.id] = (fromFallbackCount[emp.id]||0)+1;
+        if(got.cap===1) cursor = got.e+1;
+      }
+    }
+  }
+  const results = targets.map(emp=>({
+    emp, daysPlaced:(placed[emp.id]||[]).reduce((a,b)=>a+b,0), targetDays:emp.daysPerYear + holidaysWorkedBy(emp.id, y).length,
+    fromFixed:fromFixedCount[emp.id]||0, fromPartner:0, fromPrefs:fromPrefsCount[emp.id]||0, fromFallback:fromFallbackCount[emp.id]||0,
+  }));
+  return {results, fixedFailed, usedPeticiones, orders};
+}
+function commitPlacement(y, usedPeticiones, orders){
+  state.rotationOrder = state.rotationOrder || {};
+  state.rotationOrder[y] = Object.assign({}, state.rotationOrder[y], orders);
+  for(const pet of (state.peticiones||[])) if(usedPeticiones.includes(pet.id)) pet.applied = true;
 }
 /* Propuesta para un año sin escribir nada: se reparte sobre una copia y state.periods vuelve a quedar como estaba. */
 function proposeYear(y){
@@ -2581,8 +2817,8 @@ function proposeYear(y){
   try{
     state.periods = [...saved];
     const targets = EMPLOYEES.filter(e=> e.active!==false && !periodsOfYear(e.id, y).length);
-    const {fixedFailed} = placeEmployees(targets, y);
-    return {proposed: state.periods.slice(saved.length), fixedFailed};
+    const out = placeEmployees(targets, y);
+    return {proposed: state.periods.slice(saved.length), ...out};
   } finally {
     state.periods = saved;
   }
@@ -2590,7 +2826,7 @@ function proposeYear(y){
 function generatePlan(){
   const y = state.year;
   const overwrite = document.getElementById('genOverwrite').checked;
-  let targets = EMPLOYEES.filter(e=> e.active!==false && (!filterUnit || e.unitId===filterUnit));
+  let targets = EMPLOYEES.filter(e=> e.active!==false && inPlanning(e) && (!filterUnit || e.unitId===filterUnit));
   if(filterText) targets = targets.filter(e=> e.name.toLowerCase().includes(filterText.toLowerCase()));
 
   if(!targets.length){
@@ -2605,7 +2841,8 @@ function generatePlan(){
     targets = targets.filter(e=> !periodsOfYear(e.id, y).length);
   }
 
-  const {results, fixedFailed} = placeEmployees(targets, y);
+  const {results, fixedFailed, usedPeticiones, orders} = placeEmployees(targets, y);
+  commitPlacement(y, usedPeticiones, orders);
   const assignedLines = [], failedLines = [];
   const fixedFailedLines = fixedFailed.map(({emp, range})=> `${escapeHtml(emp.name)} — ${fmtRange(range.start,range.end)}`);
   for(const {emp, daysPlaced, targetDays, fromFixed, fromPartner, fromPrefs, fromFallback} of results){
@@ -2635,10 +2872,10 @@ function generatePlan(){
 document.getElementById('btnGenerate').onclick = generatePlan;
 
 function clearGeneratedPeriods(){
-  let targets = EMPLOYEES.filter(e=> e.active!==false && (!filterUnit || e.unitId===filterUnit));
+  let targets = EMPLOYEES.filter(e=> e.active!==false && inPlanning(e) && (!filterUnit || e.unitId===filterUnit));
   if(filterText) targets = targets.filter(e=> e.name.toLowerCase().includes(filterText.toLowerCase()));
   if(!targets.length){ showToast('No hay empleados que coincidan con el filtro actual.'); return; }
-  const scopeLabel = filterUnit ? (UNITS.find(u=>u.id===filterUnit)||{}).name : 'toda la plantilla filtrada';
+  const scopeLabel = filterUnit ? (UNITS.find(u=>u.id===filterUnit)||{}).name : 'todo el planning '+PLANNINGS[currentPlanning].name;
   const y = state.year;
   const affected = targets.filter(e=> periodsOfYear(e.id, y).length).length;
   const ok = confirm(`¿Borrar TODAS las vacaciones ya asignadas de ${scopeLabel} (afecta a ${affected} persona(s) con periodos)? Esta acción no se puede deshacer.`);
@@ -2677,7 +2914,9 @@ document.getElementById('btnRotation').onclick = ()=>{
   const box = document.getElementById('rotationList');
   const scrollTop = box.scrollTop;
   const yBase = state.year, yNext = yBase+1;
-  const {proposed, fixedFailed} = proposeYear(yNext);
+  const {proposed, fixedFailed, results} = proposeYear(yNext);
+  document.getElementById('rotSave').textContent = `💾 Guardar la propuesta en ${yNext}`;
+  document.getElementById('rotSave').disabled = !proposed.some(p=>inPlanning(EMPLOYEES.find(e=>e.id===p.employeeId)));
   const fixedBase = (state.fixedByYear||{})[yBase] || {};
   const byStart = (a,b)=> a.start.localeCompare(b.start);
   const th = 'position:sticky;top:0;background:#fff;padding:6px 4px;text-align:left;font-size:.72rem;color:var(--texto2);font-weight:600;border-bottom:1px solid var(--borde);';
@@ -2687,15 +2926,24 @@ document.getElementById('btnRotation').onclick = ()=>{
     <th style="${th}width:26px;">Nº</th><th style="${th}">Empleado</th>
     <th style="${th}width:135px;">Tuvo en ${yBase}</th><th style="${th}width:44px;text-align:center;">Fija ${yBase}</th>
     <th style="${th}${thNext}width:135px;">Propuesta ${yNext}</th><th style="${th}width:44px;text-align:center;">Fija ${yNext}</th>
-    <th style="${th}width:50px;text-align:center;">Marcar</th>
   </tr></thead><tbody></tbody></table>`;
   const tbody = box.querySelector('tbody');
-  const list = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=> rotationScore(b) - rotationScore(a));
+  // de enero a diciembre por su primera fecha del año; quien no tenga ninguna, al final
+  const shortOf = emp=>{
+    const r = (results||[]).find(x=>x.emp.id===emp.id);
+    if(!r || emp.pideFechas || !r.daysPlaced || r.daysPlaced>=r.targetDays) return '';
+    return `<br><small style="color:var(--rojo);">⚠ faltan ${r.targetDays-r.daysPlaced} días</small>`;
+  };
+  const firstStart = emp=> periodsOfYear(emp.id, yBase).map(p=>p.start).sort()[0] || '9999';
+  const list = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e))
+    .sort((a,b)=> firstStart(a).localeCompare(firstStart(b)) || rotationScore(b) - rotationScore(a));
   list.forEach((emp,i)=>{
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
     const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
     const hijosLabel = emp.hijos ? ' · 👶 hijos a cargo' : '';
     const base = periodsOfYear(emp.id, yBase).sort(byStart);
+    // azul solo si de verdad tuvo esa fecha fija ese año: la ficha pudo fijársela después
+    const hadFixed = parsePreferredRanges(fixedBase[emp.id]||'', yBase).some(r=> base.some(p=>p.start===r.start && p.end===r.end));
     const next = [...periodsOfYear(emp.id, yNext), ...proposed.filter(p=>p.employeeId===emp.id)].sort(byStart);
     const fixedNow = hasFixedPref(emp.id) ? parsePreferredRanges(state.employeePrefs[emp.id].preferredText, yNext) : [];
     const baseHtml = base.map(p=>fmtRange(p.start,p.end)).join('<br>') || '<small>Sin vacaciones asignadas</small>';
@@ -2706,25 +2954,32 @@ document.getElementById('btnRotation').onclick = ()=>{
     }
     const row = document.createElement('tr');
     row.innerHTML = `<td style="${td}"><b style="color:var(--verde);">${i+1}</b></td>
-      <td style="${td}">${escapeHtml(emp.name)}<br><small style="color:var(--texto2);">${escapeHtml(unit)} · ${escapeHtml(senLabel)}${hijosLabel}</small></td>
+      <td style="${td}">${empNameHtml(emp)}<br><small style="color:var(--texto2);">${escapeHtml(unit)} · ${escapeHtml(senLabel)}${hijosLabel}</small></td>
       <td style="${td}color:var(--texto2);">${baseHtml}</td>
-      <td style="${td}text-align:center;">${fixedBase[emp.id] ? pinIcon('#2F6FCF', 14, 'Fecha fija en '+yBase+': '+fixedBase[emp.id]) : ''}</td>
-      <td style="${td}background:var(--verde-pale);color:var(--verde);font-weight:600;">${nextHtml.join('<br>') || '<small>Sin hueco disponible</small>'}</td>
+      <td style="${td}text-align:center;">${hadFixed ? pinIcon('#2F6FCF', 14, 'Fecha fija en '+yBase+': '+fixedBase[emp.id]) : ''}</td>
+      <td style="${td}background:var(--verde-pale);color:var(--verde);font-weight:600;">${nextHtml.join('<br>') || (emp.pideFechas ? '<small>Pendiente de su solicitud</small>' : '<small>Sin hueco disponible</small>')}${shortOf(emp)}</td>
       <td style="${td}text-align:center;">${fixedNow.length ? pinIcon('#E74C3C', 24, 'Fecha fija en '+yNext+': '+state.employeePrefs[emp.id].preferredText) : ''}</td>`;
-    const chkCell = document.createElement('td');
-    chkCell.style.cssText = td+'text-align:center;';
-    const chk = document.createElement('input'); chk.type='checkbox';
-    chk.checked = !!state.lastYearFlags[emp.id];
-    chk.title='Tuvo esta época el año pasado';
-    chk.onchange = ()=>{ state.lastYearFlags[emp.id] = chk.checked; saveState(); document.getElementById('btnRotation').click(); };
-    chkCell.appendChild(chk);
-    row.appendChild(chkCell);
     tbody.appendChild(row);
   });
   openModal('rotationOverlay');
   box.scrollTop = scrollTop;
 };
 document.getElementById('rotClose').onclick = ()=> closeModal('rotationOverlay');
+document.getElementById('rotSave').onclick = ()=>{
+  const y = state.year+1;
+  const all = proposeYear(y);
+  const mine = id=> inPlanning(EMPLOYEES.find(e=>e.id===id));
+  const proposed = all.proposed.filter(p=>mine(p.employeeId));
+  if(!proposed.length) return;
+  const people = new Set(proposed.map(p=>p.employeeId)).size;
+  if(!confirm(`¿Guardar en el cuadrante de ${y} la propuesta de ${people} persona(s) de ${PLANNINGS[currentPlanning].name} que aún no tienen fechas ese año? Quien ya tiene fechas en ${y} y el otro planning no cambian.`)) return;
+  state.periods.push(...proposed);
+  const orders = Object.fromEntries(Object.entries(all.orders).filter(([key,ids])=> ids.some(mine)));
+  commitPlacement(y, (state.peticiones||[]).filter(p=>all.usedPeticiones.includes(p.id) && mine(p.employeeId)).map(p=>p.id), orders);
+  render();
+  showToast(`Propuesta guardada en ${y}.`);
+  document.getElementById('btnRotation').click();
+};
 
 /* ═══════════════════ TURNOS DE SÁBADO ═══════════════════ */
 function renderSaturdayList(){
@@ -2776,161 +3031,122 @@ document.getElementById('btnSaturdays').onclick = ()=>{ renderSaturdayList(); op
 document.getElementById('saturdayClose').onclick = ()=> closeModal('saturdayOverlay');
 
 /* ═══════════════════ FESTIVOS TRABAJADOS ═══════════════════ */
+const WEEKDAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+function festivosTableHtml(y, forPrint){
+  // Como en el Excel de Luis: el año sin su principio de enero y, al final, el principio de enero del siguiente
+  const rowsOf = year=> state.holidaysWorked.filter(h=>h.date.startsWith(year+'-'))
+    .sort((a,b)=> a.date.localeCompare(b.date) || (a.tienda||'').localeCompare(b.tienda||''));
+  const isEarlyJanuary = h=> h.date.slice(5)<='01-06';
+  const mainRows = rowsOf(y).filter(h=>!isEarlyJanuary(h)), nextRows = rowsOf(y+1).filter(isEarlyJanuary);
+  if(!mainRows.length && !nextRows.length) return '<p style="font-size:.8rem;color:var(--texto2);">No hay festivos: añade el primero con el botón de abajo.</p>';
+  const rowHtml = h=>{
+    const d = new Date(h.date+'T00:00:00Z');
+    const names = h.empIds.map(id=>(EMPLOYEES.find(e=>e.id===id)||{}).name).filter(Boolean);
+    const done = h.empIds.filter(id=>h.comp && h.comp[id]).length;
+    const compColor = !h.empIds.length ? 'var(--texto2)' : done===h.empIds.length ? '#0a6e4a' : '#8a5a00';
+    return `<tr data-festivo="${escapeHtml(h.id)}" style="${forPrint?'':'cursor:pointer;'}">
+      <td class="lv-c"><b>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}${d.getUTCFullYear()!==y?'/'+String(d.getUTCFullYear()).slice(2):''}</b></td>
+      <td class="lv-c">${WEEKDAYS[d.getUTCDay()]}</td>
+      <td class="lv-name">${escapeHtml(h.festividad)}</td>
+      <td class="lv-c">${escapeHtml(h.tienda||'—')}</td>
+      <td class="lv-c">${escapeHtml(h.horario||'—')}</td>
+      <td class="lv-name" style="font-weight:400;white-space:normal;${names.length||h.laborable?'':'color:var(--texto2);'}">${h.laborable ? 'Todo el personal' : names.map(escapeHtml).join('<br>') || (h.tienda?'Sin asignar':'—')}</td>
+      <td class="lv-c" style="color:${compColor};font-weight:700;">${h.empIds.length?`${done}/${h.empIds.length}`:'—'}</td>
+    </tr>`;
+  };
+  const body = mainRows.map(rowHtml).join('')+`<tr class="lv-gap"><td colspan="7"></td></tr>`+nextRows.map(rowHtml).join('');
+  return `<table class="lv-table"><colgroup><col style="width:9%"><col style="width:6%"><col style="width:22%"><col style="width:9%"><col style="width:14%"><col><col style="width:7%"></colgroup>
+    <thead><tr><th>Fecha</th><th>Día</th><th style="text-align:left;">Festividad</th><th>Tienda</th><th>Horario</th><th style="text-align:left;">Personal</th><th title="Cuántos de los que lo trabajaron ya lo tienen compensado">Comp.</th></tr></thead>
+    <tbody>${body}</tbody></table>`;
+}
 function renderHolidaysList(){
+  document.getElementById('operativaFestivos').textContent = `Festivos ${state.year}`;
   const box = document.getElementById('holidaysList');
+  box.innerHTML = festivosTableHtml(state.year);
+  box.querySelectorAll('[data-festivo]').forEach(tr=>{
+    tr.onclick = ()=> openFestivoEditor(state.holidaysWorked.find(h=>h.id===tr.dataset.festivo));
+  });
+}
+/* Editor de una fila: no toca nada hasta pulsar Guardar. */
+let feEditingId = null, feDraft = null, feSnapshot = '';
+function feValues(){
+  return JSON.stringify([...document.querySelectorAll('#festivoEditOverlay input,#festivoEditOverlay select')].map(el=> el.type==='checkbox'?el.checked:el.value));
+}
+function openFestivoEditor(h){
+  feEditingId = h ? h.id : null;
+  feDraft = h ? {empIds:[...h.empIds], comp:JSON.parse(JSON.stringify(h.comp||{}))} : {empIds:[], comp:{}};
+  document.getElementById('feTitle').textContent = h ? 'Editar festivo' : 'Nuevo festivo';
+  document.getElementById('feDate').value = h ? h.date : '';
+  document.getElementById('feName').value = h ? h.festividad : '';
+  document.getElementById('feTienda').value = h ? (h.tienda||'') : '';
+  document.getElementById('feHorario').value = h ? (h.horario||'') : '';
+  document.getElementById('feLaborable').checked = !!(h && h.laborable);
+  document.getElementById('feDelete').style.visibility = h ? 'visible' : 'hidden';
+  renderFestivoPeople();
+  feSnapshot = feValues();
+  openModal('festivoEditOverlay');
+}
+function renderFestivoPeople(){
+  const box = document.getElementById('fePeople');
+  box.style.display = document.getElementById('feLaborable').checked ? 'none' : 'block';
+  const emps = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
   box.innerHTML = '';
-  const sorted = [...state.holidaysWorked].sort((a,b)=>a.date.localeCompare(b.date));
-  const activeEmps = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
-  for(const h of sorted){
-    h.comp = h.comp || {};
-    const card = document.createElement('div'); card.className='block-item';
-    card.style.cssText='display:block;padding:8px 10px;';
-    const dateLabel = fmtDate(new Date(h.date+'T00:00:00Z'));
-    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
-      <b>${h.festividad}</b><button data-del="${h.id}" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>
-    </div>
-    <small style="color:var(--texto2);">${dateLabel} · ${h.tienda||'—'}</small>`;
-    const selsWrap = document.createElement('div'); selsWrap.style.cssText='display:flex;gap:6px;margin-top:6px;';
-    for(let slot=0; slot<2; slot++){
-      const sel = document.createElement('select'); sel.style.cssText='flex:1;padding:4px;font-size:.72rem;';
-      sel.innerHTML = '<option value="">— sin asignar —</option>' + activeEmps.map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
-      sel.value = h.empIds[slot] || '';
-      sel.onchange = ()=>{
-        const oldId = h.empIds[slot];
-        const newIds = [h.empIds[0]||'', h.empIds[1]||''];
-        newIds[slot] = sel.value;
-        h.empIds = newIds.filter(Boolean);
-        if(oldId && !h.empIds.includes(oldId)) delete h.comp[oldId];
-        render();
-        renderHolidaysList();
+  [0,1].forEach(slot=>{
+    const id = feDraft.empIds[slot]||'';
+    const c = feDraft.comp[id]||null;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'border-top:1px solid var(--borde);padding-top:8px;margin-top:4px;';
+    wrap.innerHTML = `<div class="field"><label>Persona ${slot+1} (suma 1 día de vacaciones ese año)</label>
+        <select data-slot>${'<option value="">— Sin asignar —</option>'+emps.map(e=>`<option value="${escapeHtml(e.id)}"${e.id===id?' selected':''}>${escapeHtml(e.name)}</option>`).join('')}</select></div>
+      ${id?`<div class="check-row"><input type="checkbox" data-done id="feDone${slot}"${c?' checked':''}><label for="feDone${slot}">Ya tiene compensado este día</label></div>
+      <div style="display:${c?'flex':'none'};gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+        <select data-tipo style="flex:1;min-width:120px;padding:5px;"><option value="vacaciones"${c&&c.tipo==='permiso'?'':' selected'}>Día de vacaciones</option><option value="permiso"${c&&c.tipo==='permiso'?' selected':''}>Día de permiso</option></select>
+        <input type="date" data-fecha value="${escapeHtml(c&&c.fecha||'')}" style="flex:1;min-width:120px;padding:5px;">
+        <input type="text" data-nota placeholder="Nota" value="${escapeHtml(c&&c.nota||'')}" style="flex:2;min-width:120px;padding:5px;">
+      </div>`:''}`;
+    wrap.querySelector('[data-slot]').onchange = (e)=>{
+      const ids = [feDraft.empIds[0]||'', feDraft.empIds[1]||''];
+      ids[slot] = e.target.value;
+      if(id && !ids.includes(id)) delete feDraft.comp[id];
+      feDraft.empIds = ids.filter(Boolean);
+      renderFestivoPeople();
+    };
+    const done = wrap.querySelector('[data-done]');
+    if(done){
+      done.onchange = ()=>{
+        if(done.checked) feDraft.comp[id] = feDraft.comp[id] || {tipo:'vacaciones', fecha:'', nota:''};
+        else delete feDraft.comp[id];
+        renderFestivoPeople();
       };
-      selsWrap.appendChild(sel);
+      const field = (sel,key)=>{ const el = wrap.querySelector(sel); if(el) el.oninput = el.onchange = ()=>{ feDraft.comp[id][key] = el.value; }; };
+      field('[data-tipo]','tipo'); field('[data-fecha]','fecha'); field('[data-nota]','nota');
     }
-    card.appendChild(selsWrap);
-
-    const compWrap = document.createElement('div'); compWrap.style.cssText='margin-top:8px;display:flex;flex-direction:column;gap:6px;';
-    for(const empId of h.empIds){
-      const emp = EMPLOYEES.find(e=>e.id===empId);
-      if(!emp) continue;
-      const c = h.comp[empId] || null;
-      const key = h.id+'|'+empId;
-      const row = document.createElement('div');
-      row.style.cssText='background:#F7F9F6;border:1px solid #e4e8e1;border-radius:6px;padding:6px 8px;font-size:.72rem;';
-      row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-        <span>${escapeHtml(emp.name)}</span>
-        <label style="display:flex;align-items:center;gap:4px;font-weight:600;white-space:nowrap;color:${c?'#0a6e4a':'#8a5a00'};">
-          <input type="checkbox" data-compchk="${key}" ${c?'checked':''}> ${c?'Compensado':'Pendiente'}
-        </label>
-      </div>
-      <div style="display:${c?'flex':'none'};gap:6px;margin-top:6px;flex-wrap:wrap;">
-        <select data-comptipo="${key}" style="flex:1;min-width:120px;padding:3px;">
-          <option value="vacaciones" ${(!c||c.tipo==='vacaciones')?'selected':''}>Día de vacaciones</option>
-          <option value="permiso" ${c&&c.tipo==='permiso'?'selected':''}>Día de permiso</option>
-        </select>
-        <input type="date" data-compfecha="${key}" value="${c&&c.fecha?c.fecha:''}" style="flex:1;min-width:120px;padding:3px;">
-        <input type="text" data-compnota="${key}" placeholder="Nota (opcional)" value="${c&&c.nota?c.nota.replace(/"/g,'&quot;'):''}" style="flex:2;min-width:120px;padding:3px;">
-      </div>`;
-      compWrap.appendChild(row);
-    }
-    if(compWrap.children.length) card.appendChild(compWrap);
-
-    card.querySelector('[data-del]').onclick = ()=>{
-      state.holidaysWorked = state.holidaysWorked.filter(x=>x.id!==h.id);
-      render();
-      renderHolidaysList();
-    };
-    box.appendChild(card);
-  }
-  if(!sorted.length) box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">No hay festivos cargados.</p>';
-
-  box.querySelectorAll('[data-compchk]').forEach(chk=>{
-    chk.onchange = ()=>{
-      const [hid, empId] = chk.dataset.compchk.split('|');
-      const h2 = state.holidaysWorked.find(x=>x.id===hid);
-      if(!h2) return;
-      h2.comp = h2.comp || {};
-      if(chk.checked) h2.comp[empId] = h2.comp[empId] || {tipo:'vacaciones', fecha:'', nota:''};
-      else delete h2.comp[empId];
-      saveState();
-      renderHolidaysList();
-    };
+    box.appendChild(wrap);
   });
-  box.querySelectorAll('[data-comptipo]').forEach(sel=>{
-    sel.onchange = ()=>{
-      const [hid, empId] = sel.dataset.comptipo.split('|');
-      const h2 = state.holidaysWorked.find(x=>x.id===hid);
-      if(!h2 || !h2.comp || !h2.comp[empId]) return;
-      h2.comp[empId].tipo = sel.value;
-      saveState();
-      renderCompensationsSummary();
-    };
-  });
-  box.querySelectorAll('[data-compfecha]').forEach(inp=>{
-    inp.onchange = ()=>{
-      const [hid, empId] = inp.dataset.compfecha.split('|');
-      const h2 = state.holidaysWorked.find(x=>x.id===hid);
-      if(!h2 || !h2.comp || !h2.comp[empId]) return;
-      h2.comp[empId].fecha = inp.value;
-      saveState();
-      renderCompensationsSummary();
-    };
-  });
-  box.querySelectorAll('[data-compnota]').forEach(inp=>{
-    inp.oninput = ()=>{
-      const [hid, empId] = inp.dataset.compnota.split('|');
-      const h2 = state.holidaysWorked.find(x=>x.id===hid);
-      if(!h2 || !h2.comp || !h2.comp[empId]) return;
-      h2.comp[empId].nota = inp.value;
-      saveState();
-      renderCompensationsSummary();
-    };
-  });
-
-  renderCompensationsSummary();
 }
-
-function renderCompensationsSummary(){
-  const box = document.getElementById('compensationsSummary');
-  if(!box) return;
-  const rows = [];
-  for(const h of state.holidaysWorked){
-    h.comp = h.comp || {};
-    for(const empId of h.empIds){
-      const emp = EMPLOYEES.find(e=>e.id===empId);
-      if(!emp) continue;
-      rows.push({emp, h, c: h.comp[empId]||null});
-    }
-  }
-  if(!rows.length){
-    box.innerHTML = '<p style="font-size:.72rem;color:var(--texto2);">Todavía no hay festivos trabajados asignados a nadie.</p>';
-    return;
-  }
-  rows.sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es') || a.h.date.localeCompare(b.h.date));
-  box.innerHTML = rows.map(({emp,h,c})=>{
-    const dateLabel = fmtDate(new Date(h.date+'T00:00:00Z'));
-    if(c){
-      const tipoLabel = c.tipo==='permiso' ? 'día de permiso' : 'día de vacaciones';
-      const compDateLabel = c.fecha ? fmtDate(new Date(c.fecha+'T00:00:00Z')) : '(sin fecha indicada)';
-      return `<div class="onleave-item"><b>${escapeHtml(emp.name)} <span style="color:#0a6e4a;">✔ Compensado</span></b>
-        <small>${h.festividad} (${dateLabel}) → se lo llevó como ${tipoLabel} el ${compDateLabel}${c.nota?' · '+c.nota:''}</small></div>`;
-    }
-    return `<div class="onleave-item"><b>${escapeHtml(emp.name)} <span style="color:#8a5a00;">⏳ Pendiente</span></b>
-      <small>${h.festividad} (${dateLabel}) — todavía no se ha marcado cómo se compensó</small></div>`;
-  }).join('');
-}
-document.getElementById('btnHolidays').onclick = ()=>{ renderHolidaysList(); openModal('holidaysOverlay'); };
-document.getElementById('holidaysClose').onclick = ()=> requestClose('holidaysOverlay');
-document.getElementById('btnAddHoliday').onclick = ()=>{
-  const date = document.getElementById('hNewDate').value;
-  const name = document.getElementById('hNewName').value.trim();
-  const tienda = document.getElementById('hNewTienda').value.trim();
-  if(!date || !name){ showToast('Indica al menos la fecha y la festividad.'); return; }
-  state.holidaysWorked.push({id:'h'+Date.now(), date, festividad:name, tienda, empIds:[]});
-  document.getElementById('hNewDate').value='';
-  document.getElementById('hNewName').value='';
-  document.getElementById('hNewTienda').value='';
+function saveFestivoEditor(){
+  const date = document.getElementById('feDate').value, festividad = document.getElementById('feName').value.trim();
+  if(!date || !festividad){ showToast('Indica la fecha y la festividad para poder guardar.'); return false; }
+  const laborable = document.getElementById('feLaborable').checked;
+  const data = {date, festividad, tienda:document.getElementById('feTienda').value.trim(), horario:document.getElementById('feHorario').value.trim(), laborable, empIds:laborable?[]:feDraft.empIds, comp:laborable?{}:feDraft.comp};
+  if(feEditingId) Object.assign(state.holidaysWorked.find(h=>h.id===feEditingId), data);
+  else state.holidaysWorked.push({id:'h'+Date.now(), ...data});
+  closeModal('festivoEditOverlay');
   render();
-  renderHolidaysList();
+  return true;
+}
+document.getElementById('btnHolidays').onclick = ()=>{ ensureYearFestivos(state.year); ensureYearFestivos(state.year+1); renderHolidaysList(); openModal('holidaysOverlay'); saveState(); };
+document.getElementById('holidaysClose').onclick = ()=> closeModal('holidaysOverlay');
+document.getElementById('btnAddHoliday').onclick = ()=> openFestivoEditor(null);
+document.getElementById('btnPrintHolidays').onclick = ()=>{ activePrintTarget = 'festivos'; window.print(); };
+document.getElementById('feLaborable').onchange = renderFestivoPeople;
+document.getElementById('feSave').onclick = saveFestivoEditor;
+document.getElementById('feCancel').onclick = ()=> closeModal('festivoEditOverlay');
+document.getElementById('feDelete').onclick = ()=>{
+  if(!confirm('¿Eliminar este festivo? Quien lo trabajó pierde el día que se le sumaba. Si no era festivo, también deja de contar para las vacaciones.')) return;
+  state.holidaysWorked = state.holidaysWorked.filter(h=>h.id!==feEditingId);
+  closeModal('festivoEditOverlay');
+  render();
 };
 
 /* ═══════════════════ PERMISOS ═══════════════════ */
@@ -3050,24 +3266,62 @@ document.getElementById('btnToggleHeader').onclick = ()=>{
   document.getElementById('btnToggleHeader').textContent = collapsed ? '▼' : '▲';
 };
 document.getElementById('searchInput').oninput = (e)=>{ filterText=e.target.value; renderGrid(); };
+document.getElementById('planningSelect').value = currentPlanning;
+document.getElementById('planningSelect').onchange = (e)=>{
+  currentPlanning = e.target.value;
+  try{ localStorage.setItem('ofipapel_vacaciones_planning', currentPlanning); }catch(err){}
+  filterUnit = '';
+  document.getElementById('unitFilter').value = '';
+  render();
+};
 document.getElementById('unitFilter').onchange = (e)=>{ filterUnit=e.target.value; renderGrid(); };
 document.getElementById('onlyConflicts').onchange = (e)=>{ onlyConflicts=e.target.checked; renderGrid(); };
 
 /* ═══════════════════ HOJA IMPRIMIBLE ═══════════════════ */
+/* Escala del calendario impreso: cada tramo de fechas bloqueadas ocupa lo que 5 días y el resto del año se
+   ensancha (Luis, 04/11/2026). Devuelve la posición en % del inicio de un día; pos(n) es el final del año. */
+function printScale(y, n){
+  const weight = new Array(n).fill(1);
+  for(let i=0;i<n;){
+    if(!isBlockedIndex(y,i)){ i++; continue; }
+    let j = i;
+    while(j<n && isBlockedIndex(y,j)) j++;
+    if(j-i>5) for(let k=i;k<j;k++) weight[k] = 5/(j-i);
+    i = j;
+  }
+  const cum = [0];
+  weight.forEach(w=> cum.push(cum[cum.length-1]+w));
+  return idx=> cum[Math.max(0,Math.min(n,idx))]/cum[n]*100;
+}
+/* Casillas de 5 en 5 días (1, 6, 11, 16, 21 y 26 de cada mes), con el principio de mes más marcado. Dentro de
+   lo bloqueado no hay casillas: es una sola. */
+function appendCellLines(el, y, n, pos){
+  for(let idx=0; idx<n; idx++){
+    const dom = dateFromIndex(y, idx).getUTCDate();
+    if(dom%5!==1 || dom===31) continue;
+    if(isBlockedIndex(y, idx) && idx>0 && isBlockedIndex(y, idx-1)) continue;
+    const line = document.createElement('div');
+    line.className = 'p-line'+(dom===1?' p-line-month':'');
+    line.style.left = pos(idx)+'%';
+    el.appendChild(line);
+  }
+}
 function buildPrintArea(){
   const container = document.getElementById('printArea');
   container.innerHTML = '';
+  container.classList.toggle('fmt-a4', printFormat==='A4');
   const y = state.year;
   const n = daysInYear(y);
   const ml = monthLengths(y);
+  const pos = printScale(y, n);
 
   const header = document.createElement('div'); header.className='p-header';
   const now = new Date();
-  header.innerHTML = `<h1>Ofipapel · Cuadrante de Vacaciones ${y}</h1>
+  header.innerHTML = `<h1>Ofipapel · Cuadrante de Vacaciones ${y} · ${PLANNINGS[currentPlanning].name}</h1>
     <div class="p-sub">Generado el ${now.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>`;
   const legend = document.createElement('div'); legend.className='p-legend';
   let legendHtml='';
-  for(let i=1;i<=4;i++) legendHtml += `<span><span class="sw" style="background:${periodColor(i)}"></span>Periodo ${i}º</span>`;
+  for(let i=1;i<=4;i++) legendHtml += `<span><span class="sw" style="background:${periodColor(i)}"></span>Turno ${i}º</span>`;
   legendHtml += `<span><span class="sw" style="background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 40%,#FBCFCB 40%,#FBCFCB 80%)"></span>Fecha bloqueada</span>`;
   legend.innerHTML = legendHtml;
   header.appendChild(legend);
@@ -3079,11 +3333,15 @@ function buildPrintArea(){
   const nameHead = document.createElement('div'); nameHead.className='p-namecell'; nameHead.textContent='Empleado';
   monthRow.appendChild(nameHead);
   const monthsWrap = document.createElement('div'); monthsWrap.className='p-months';
+  let monthStart = 0;
   ml.forEach((days,i)=>{
     const m = document.createElement('div'); m.className='p-month';
-    m.style.width = (days/n*100)+'%';
-    m.textContent = MONTH_NAMES[i];
+    const width = pos(monthStart+days)-pos(monthStart);
+    m.style.width = width+'%';
+    m.textContent = width<4 ? MONTH_NAMES[i].slice(0,3) : MONTH_NAMES[i]; // septiembre queda casi todo bloqueado
+    if(width<2) m.classList.add('p-month-tiny');
     monthsWrap.appendChild(m);
+    monthStart += days;
   });
   monthRow.appendChild(monthsWrap);
   const daysHead = document.createElement('div'); daysHead.className='p-daysheadcell'; daysHead.textContent='Días';
@@ -3091,22 +3349,19 @@ function buildPrintArea(){
   grid.appendChild(monthRow);
 
   const gridDayIndices = gridLineDayIndices(y, n);
-  const allDayIndices = Array.from({length:n}, (_,i)=>i);
 
   // regla de números de día, para poder leer el inicio/fin exacto de cada periodo
   const dayRowWrap = document.createElement('div'); dayRowWrap.style.display='flex';
   const daySpacerL = document.createElement('div'); daySpacerL.className='p-namecell';
   dayRowWrap.appendChild(daySpacerL);
   const dayTicks = document.createElement('div'); dayTicks.className='p-dayrow';
-  dayTicks.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#b0b0b0', '%')
-    + ', ' + gridLinesBackground(allDayIndices, n, '#dedede', '%')
-    + ', ' + weekendGradient(n, y, '#e2e2e2');
+  appendCellLines(dayTicks, y, n, pos);
   for(let idx=0; idx<n; idx++){
     const d = dateFromIndex(y, idx);
     const dom = d.getUTCDate();
-    if(dom===1 || dom%5===0){
+    if(dom%5===1 && dom!==31 && !isBlockedIndex(y, idx)){ // el número de cada casilla: 1, 6, 11, 16, 21, 26
       const t = document.createElement('div'); t.className='p-daytick';
-      t.style.left = (idx/n*100)+'%';
+      t.style.left = pos(idx)+'%';
       t.textContent = dom;
       dayTicks.appendChild(t);
     }
@@ -3117,7 +3372,7 @@ function buildPrintArea(){
   grid.appendChild(dayRowWrap);
 
   const filteredEmployees = EMPLOYEES.filter(e=>{
-    if(e.active===false) return false;
+    if(e.active===false || !inPlanning(e)) return false;
     if(filterUnit && e.unitId!==filterUnit) return false;
     if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
     return true;
@@ -3144,18 +3399,17 @@ function buildPrintArea(){
       const nameCell = document.createElement('div'); nameCell.className='p-name';
       const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
       nameCell.textContent = emp.name + pBadges;
+      if(hasFixedPref(emp.id)) nameCell.style.color = "#E74C3C";
       row.appendChild(nameCell);
 
       const track = document.createElement('div'); track.className='p-track';
-      track.style.backgroundImage = gridLinesBackground(gridDayIndices, n, '#b8b8b8', '%')
-        + ', ' + gridLinesBackground(allDayIndices, n, '#e6e6e6', '%')
-        + ', ' + weekendGradient(n, y, '#eee');
+      appendCellLines(track, y, n, pos);
       for(const b of state.blockedRanges){
         const segs = blockedSegmentsForYear(b, y, n);
         for(const seg of segs){
           const ov = document.createElement('div'); ov.className='p-blocked';
-          ov.style.left = (seg.start/n*100)+'%';
-          ov.style.width = ((seg.end-seg.start+1)/n*100)+'%';
+          ov.style.left = pos(seg.start)+'%';
+          ov.style.width = (pos(seg.end+1)-pos(seg.start))+'%';
           track.appendChild(ov);
         }
       }
@@ -3165,12 +3419,15 @@ function buildPrintArea(){
         const e = Math.min(n-1, isoToIndex(y,p.end));
         if(e<0||s>=n) return;
         const blk = document.createElement('div'); blk.className='p-block';
-        blk.style.left = (s/n*100)+'%';
-        blk.style.width = ((e-s+1)/n*100)+'%';
+        blk.style.left = pos(s)+'%';
+        blk.style.width = (pos(e+1)-pos(s))+'%';
         blk.style.background = periodColor(i+1);
         const dStart = dateFromIndex(y, s), dEnd = dateFromIndex(y, e);
+        const blkMm = (pos(e+1)-pos(s))/100*(printFormat==='A4' ? 230 : 328); // ancho de la barra en el papel
+        const mmPerChar = printFormat==='A4' ? 0.8 : 1.15;
+        const fitsLabel = text=> text.length*mmPerChar <= blkMm ? text : '';
         blk.textContent = dStart.getUTCMonth()===dEnd.getUTCMonth()
-          ? `${dStart.getUTCDate()}–${dEnd.getUTCDate()}`
+          ? fitsLabel(`${dStart.getUTCDate()}–${dEnd.getUTCDate()}`)
           : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
         blk.title = fmtRange(p.start,p.end);
         track.appendChild(blk);
@@ -3194,7 +3451,12 @@ function buildPrintArea(){
   container.appendChild(footer);
 }
 
-let activePrintTarget = 'vacaciones'; // 'vacaciones' | 'turnos' — cuál hoja se imprime con Ctrl+P
+let printFormat = 'A3'; // tamaño del calendario: 'A3' | 'A4'
+function setPrintPageSize(){
+  const size = activePrintTarget==='vacaciones' ? printFormat+' landscape' : 'A4 portrait';
+  document.getElementById('printPageSize').textContent = `@media print{ @page{ size:${size}; margin:0; } }`;
+}
+let activePrintTarget = 'vacaciones'; // 'vacaciones' | 'turnos' | 'listado' — cuál hoja se imprime con Ctrl+P
 
 function scalePrintPreview(){
   const pa = document.getElementById('printArea');
@@ -3211,6 +3473,7 @@ function scalePrintPreview(){
 
 function openPrintPreview(){
   activePrintTarget = 'vacaciones';
+  setPrintPageSize();
   document.getElementById('turnosPrintArea').style.display = 'none';
   buildPrintArea();
   const pa = document.getElementById('printArea');
@@ -3251,6 +3514,12 @@ function closeTurnosPrintPreview(){
 
 document.getElementById('btnPrint').onclick = openPrintPreview;
 document.getElementById('ppmClose').onclick = closePrintPreview;
+document.getElementById('ppmFormat').onchange = (e)=>{
+  printFormat = e.target.value;
+  setPrintPageSize();
+  buildPrintArea();
+  requestAnimationFrame(scalePrintPreview);
+};
 document.getElementById('ppmPrintNow').onclick = ()=> window.print();
 document.getElementById('ppmSavePdf').onclick = ()=> window.print();
 document.getElementById('ppmWhatsapp').onclick = ()=> shareVacationsWhatsapp();
@@ -3261,20 +3530,50 @@ document.getElementById('tpmPrintNow').onclick = ()=> window.print();
 document.getElementById('tpmSavePdf').onclick = ()=> window.print();
 document.getElementById('tpmWhatsapp').onclick = ()=> shareTurnosWhatsapp();
 
+let printSheet = null, printSheetHome = null;
+function holdPrintSheet(el){
+  printSheet = el;
+  printSheetHome = el.parentElement;
+  el.classList.add('print-sheet');
+  document.body.appendChild(el);
+}
+function releasePrintSheet(){
+  if(!printSheet) return;
+  printSheet.classList.remove('print-sheet');
+  printSheetHome.appendChild(printSheet);
+  printSheet = null;
+}
 window.addEventListener('beforeprint', ()=>{
+  setPrintPageSize();
   document.getElementById('printArea').style.display = 'none';
   document.getElementById('turnosPrintArea').style.display = 'none';
-  if(activePrintTarget==='turnos'){
+  document.getElementById('listadoPrintArea').style.display = 'none';
+  releasePrintSheet();
+  if(activePrintTarget==='festivos'){
+    const pa = document.getElementById('listadoPrintArea');
+    pa.innerHTML = `<div class="lv-title">Festivos ${state.year}</div>`+festivosTableHtml(state.year, true);
+    pa.style.display = 'block';
+    holdPrintSheet(pa);
+  } else if(activePrintTarget==='listado'){
+    const pa = document.getElementById('listadoPrintArea');
+    pa.innerHTML = `<div class="lv-title">Listado de vacaciones ${state.year} · ${PLANNINGS[currentPlanning].name}</div>`+listadoTableHtml(state.year);
+    pa.style.display = 'block';
+    holdPrintSheet(pa);
+  } else if(activePrintTarget==='turnos'){
     buildTurnosPrintArea();
     const pa = document.getElementById('turnosPrintArea');
     pa.style.display = 'block'; pa.style.transform = 'none';
+    holdPrintSheet(pa);
   } else {
     buildPrintArea();
     const pa = document.getElementById('printArea');
     pa.style.display = 'block'; pa.style.transform = 'none';
+    holdPrintSheet(pa);
   }
 });
 window.addEventListener('afterprint', ()=>{
+  releasePrintSheet();
+  document.getElementById('listadoPrintArea').style.display = 'none';
   if(!document.getElementById('printPreviewOverlay').classList.contains('open')){
     document.getElementById('printArea').style.display = 'none';
   }
@@ -3352,58 +3651,80 @@ function shareVacationsWhatsapp(){
   }
   openWhatsapp(text);
 }
-/* ═══════════════════ PLAN ANUAL (vista rápida y escueta del año completo) ═══════════════════ */
-function renderAnnualView(){
-  const box = document.getElementById('annualViewList');
-  const y = state.year;
-  let html = '';
-  const bloqueUnitIds = new Set();
-  for(const bloque of BLOQUES){
-    const emps = EMPLOYEES.filter(e=>e.active!==false && bloque.unitIds.includes(e.unitId))
-      .sort((a,b)=>a.name.localeCompare(b.name,'es'));
-    bloque.unitIds.forEach(id=>bloqueUnitIds.add(id));
-    if(!emps.length) continue;
-    html += `<div class="rules-log-cat">${bloque.name}</div>`;
-    for(const emp of emps) html += annualViewRow(emp, y);
-  }
-  const otherUnits = UNITS.filter(u=>!bloqueUnitIds.has(u.id));
-  const otherEmps = EMPLOYEES.filter(e=>e.active!==false && otherUnits.some(u=>u.id===e.unitId))
-    .sort((a,b)=>a.name.localeCompare(b.name,'es'));
-  if(otherEmps.length){
-    html += `<div class="rules-log-cat">Otras unidades</div>`;
-    for(const emp of otherEmps) html += annualViewRow(emp, y);
-  }
-  box.innerHTML = html || '<p style="font-size:.78rem;color:var(--texto2);">Sin empleados.</p>';
+/* ═══════════════════ LISTADO (el extracto que se imprime, como el Excel de Luis) ═══════════════════
+   Turno = 1º, 2º, 3º... periodo de cada persona por fechas. Las tiendas van separadas por turno y repiten
+   en cada fila los días de la persona; Oficina va al final, intercalada por fechas. */
+function listadoData(y){
+  const emps = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e)).map(emp=>{
+    const fixed = hasFixedPref(emp.id) ? parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y) : [];
+    const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start)).map((p,i)=>({
+      emp, start:p.start, end:p.end, turno:i+1,
+      days: isoToIndex(y,p.end)-isoToIndex(y,p.start)+1,
+      fixed: fixed.some(r=>r.start===p.start && r.end===p.end),
+    }));
+    return {emp, periods, days:periods.map(p=>p.days), total:periods.reduce((t,p)=>t+p.days,0)};
+  }).filter(x=>x.periods.length);
+  const byDate = (a,b)=> a.start.localeCompare(b.start) || a.emp.name.localeCompare(b.emp.name,'es');
+  const main = emps.filter(x=>x.emp.unitId!=='oficina'), office = emps.filter(x=>x.emp.unitId==='oficina');
+  const maxTurno = Math.max(0, ...main.map(x=>x.periods.length));
+  const turnos = [];
+  for(let t=1;t<=maxTurno;t++) turnos.push(main.flatMap(x=>x.periods.filter(p=>p.turno===t)).sort(byDate));
+  return {emps, turnos, office:office.flatMap(x=>x.periods).sort(byDate), columns:Math.max(6, ...emps.map(x=>x.periods.length))};
 }
-function annualViewRow(emp, y){
-  const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-  const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
-  const datesHtml = periods.length
-    ? periods.map(p=>fmtRange(p.start,p.end)).join(' · ')
-    : 'Sin vacaciones asignadas todavía';
-  return `<div class="av-item"><b>${escapeHtml(emp.name)}</b> <small>(${escapeHtml(unitName)})</small><br><span class="av-dates">${datesHtml}</span></div>`;
-}
-function shareAnnualViewWhatsapp(){
-  const y = state.year;
-  let text = `📆 *Plan anual de vacaciones — Ofipapel ${y}*\n`;
-  const bloqueUnitIds = new Set();
-  for(const bloque of BLOQUES){
-    const emps = EMPLOYEES.filter(e=>e.active!==false && bloque.unitIds.includes(e.unitId))
-      .sort((a,b)=>a.name.localeCompare(b.name,'es'));
-    bloque.unitIds.forEach(id=>bloqueUnitIds.add(id));
-    if(!emps.length) continue;
-    text += `\n*${bloque.name.toUpperCase()}*\n`;
-    for(const emp of emps){
-      const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
-      const datesText = periods.length ? periods.map(p=>fmtRange(p.start,p.end)).join(' · ') : 'sin asignar';
-      text += `• ${emp.name} — ${datesText}\n`;
-    }
+function shortDate(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4); }
+function listadoTableHtml(y){
+  const {emps, turnos, office, columns} = listadoData(y);
+  if(!emps.length) return `<p style="font-size:.8rem;color:var(--texto2);">No hay vacaciones guardadas en ${y} en este planning.</p>`;
+  const tint = n=> periodColor(n)+'40';
+  const byEmp = new Map(emps.map(x=>[x.emp.id,x]));
+  // festivos trabajados ese año: cada uno es un día más que se le debe, aparte del total disfrutado
+  const festivos = emp=>{ const n = holidaysWorkedBy(emp.id, y).length; return n ? '+'+n : ''; };
+  const row = (p, days, total, fest)=>{
+    const color = `background:${tint(p.turno)};${p.fixed?'color:var(--rojo);font-weight:700;':''}`;
+    const cols = Array.from({length:columns},(_,i)=>`<td class="lv-c" style="background:${tint(i+1)};">${days[i]??''}</td>`).join('');
+    return `<tr><td class="lv-c">${p.turno}</td><td class="lv-name">${empNameHtml(p.emp)}</td>
+      <td class="lv-c" style="${color}">${shortDate(p.start)}</td><td class="lv-c" style="${color}">${shortDate(p.end)}</td>
+      ${cols}<td class="lv-c lv-total">${total}</td><td class="lv-c" style="font-weight:700;color:var(--verde);">${fest}</td></tr>`;
+  };
+  const gap = `<tr class="lv-gap"><td colspan="${columns+6}"></td></tr>`;
+  const blocks = turnos.map(list=> list.map(p=>{ const x = byEmp.get(p.emp.id); return row(p, x.days, x.total, festivos(p.emp)); }).join(''));
+  if(office.length){
+    blocks.push(office.map(p=>{
+      const x = byEmp.get(p.emp.id), days = [];
+      days[p.turno-1] = p.days;
+      const last = p.turno===x.periods.length;
+      return row(p, days, last ? x.total : '', last ? festivos(p.emp) : '');
+    }).join(''));
   }
+  const heads = Array.from({length:columns},(_,i)=>`<th style="background:${tint(i+1)};">${i+1}º</th>`).join('');
+  return `<table class="lv-table"><colgroup><col style="width:5%"><col><col style="width:12%"><col style="width:12%">${'<col style="width:4.5%">'.repeat(columns)}<col style="width:5.5%"><col style="width:7.5%"></colgroup>
+    <thead><tr><th>Turno</th><th style="text-align:left;">Empleado</th><th>Desde</th><th>Hasta</th>${heads}<th class="lv-total" style="background:#CFEBCF;">Total</th><th title="Días de más por festivos trabajados ese año">Festivos</th></tr></thead>
+    <tbody>${blocks.join(gap)}</tbody></table>`;
+}
+function openListado(){
+  document.getElementById('operativaListado').textContent = `📄 Listado de vacaciones ${state.year} · ${PLANNINGS[currentPlanning].name}`;
+  document.getElementById('listadoBox').innerHTML = listadoTableHtml(state.year);
+  openModal('listadoOverlay');
+}
+function shareListadoWhatsapp(){
+  const y = state.year;
+  const {turnos, office} = listadoData(y);
+  const line = p=> `• ${p.emp.name} — ${fmtRange(p.start,p.end)} (${p.days} días)
+`;
+  let text = `📄 *Listado de vacaciones ${y} — ${PLANNINGS[currentPlanning].name}*
+`;
+  turnos.forEach((list,i)=>{ text += `
+*Turno ${i+1}*
+`+list.map(line).join(''); });
+  if(office.length) text += `
+*Oficina*
+`+office.map(line).join('');
   openWhatsapp(text);
 }
-document.getElementById('btnAnnualView').onclick = ()=>{ renderAnnualView(); openModal('annualViewOverlay'); };
-document.getElementById('avmClose').onclick = ()=> closeModal('annualViewOverlay');
-document.getElementById('avmWhatsapp').onclick = ()=> shareAnnualViewWhatsapp();
+document.getElementById('btnListado').onclick = openListado;
+document.getElementById('lvClose').onclick = ()=> closeModal('listadoOverlay');
+document.getElementById('lvWhatsapp').onclick = shareListadoWhatsapp;
+document.getElementById('lvPrint').onclick = ()=>{ activePrintTarget = 'listado'; window.print(); };
 
 /* ═══════════════════ TOAST ═══════════════════ */
 let toastTimer=null;
@@ -3437,13 +3758,270 @@ if(/^https?:$/.test(location.protocol)){
   document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkNewVersion(); });
 }
 
+/* ═══════════════════ PETICIONES ═══════════════════
+   Quien pide unas fechas concretas. La jefa de tienda ve con quién se pisa y decide; la lista ya programada
+   no se recalcula: si hace falta, se cambia de fechas a una compañera. */
+function peticionClashes(pet){
+  const y = parseInt(pet.start.slice(0,4),10);
+  const emp = EMPLOYEES.find(e=>e.id===pet.employeeId);
+  const problems = [], peers = [];
+  const s = isoToIndex(y,pet.start), e = isoToIndex(y,pet.end);
+  for(let i=s;i<=e;i++){
+    const blocked = isBlockedIndex(y,i);
+    if(blocked && !problems.includes(`Fechas bloqueadas: ${blocked.label}`)) problems.push(`Fechas bloqueadas: ${blocked.label}`);
+  }
+  const edge = weekendEdgeConflict(s, e, y);
+  if(edge) problems.push(edge);
+  for(const p of state.periods){
+    if(p.employeeId===pet.employeeId || pet.end<p.start || pet.start>p.end) continue;
+    const other = EMPLOYEES.find(x=>x.id===p.employeeId);
+    if(!other || other.active===false) continue;
+    const sameUnit = emp && other.unitId===emp.unitId;
+    const pair = findPairPartners(pet.employeeId).some(x=>x.partnerId===other.id);
+    if(sameUnit || pair || PLANNINGS[currentPlanning].unitIds.includes(other.unitId)) peers.push({period:p, other, sameUnit, pair});
+  }
+  return {problems, peers};
+}
+function renderPeticiones(){
+  const box = document.getElementById('peticionesList');
+  const list = (state.peticiones||[]).filter(p=>{
+    const emp = EMPLOYEES.find(e=>e.id===p.employeeId);
+    return emp && inPlanning(emp);
+  }).sort((a,b)=>a.start.localeCompare(b.start));
+  if(!list.length){
+    box.innerHTML = '<p style="font-size:.78rem;color:var(--texto2);">Sin peticiones en este planning.</p>';
+    return;
+  }
+  const ST = {pendiente:['Pendiente','#8a5a00','#FFF6BF'], aprobada:['Aprobada','#0a6e4a','#DFF3DF'], rechazada:['Rechazada','#b03a2e','#FDECEA']};
+  box.innerHTML = '';
+  for(const pet of list){
+    const emp = EMPLOYEES.find(e=>e.id===pet.employeeId);
+    const {problems, peers} = peticionClashes(pet);
+    const [label, color, bg] = ST[pet.status];
+    const card = document.createElement('div');
+    card.style.cssText = 'border:1px solid var(--borde);border-radius:7px;padding:10px;margin-top:10px;font-size:.78rem;';
+    const peerHtml = peers.map((x,i)=>`<li>${x.sameUnit||x.pair?'<b style="color:var(--rojo);">':''}${escapeHtml(x.other.name)} (${escapeHtml((UNITS.find(u=>u.id===x.other.unitId)||{}).name||'')}): ${fmtRange(x.period.start,x.period.end)}${x.pair?' · pareja que no puede coincidir':x.sameUnit?' · misma unidad':''}${x.sameUnit||x.pair?'</b>':''}
+      ${pet.status==='aprobada' ? `<button class="mini-btn" data-mover="${i}" style="margin:0 0 0 6px;">✏️ Cambiar sus fechas</button>` : ''}</li>`).join('');
+    const own = periodsOfYear(pet.employeeId, parseInt(pet.start.slice(0,4),10)).filter(p=>!(p.start===pet.start && p.end===pet.end));
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <b>${escapeHtml(emp.name)} · ${fmtRange(pet.start,pet.end)}</b>
+        <span style="background:${bg};color:${color};padding:1px 9px;border-radius:6px;font-weight:600;">${label}${pet.status==='aprobada'&&!pet.applied?' · sin colocar':''}</span></div>
+      ${pet.motivo?`<div style="color:var(--texto2);">Motivo: ${escapeHtml(pet.motivo)}</div>`:''}
+      <div style="margin-top:6px;font-weight:600;">Con quién se pisa</div>
+      <ul style="margin:2px 0 6px 18px;">
+        ${problems.map(x=>`<li style="color:var(--rojo);">${escapeHtml(x)}</li>`).join('')}
+        ${peerHtml || (problems.length?'':'<li>No se pisa con nadie.</li>')}
+      </ul>
+      ${pet.status==='aprobada' && peers.length && own.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
+        <span>Intercambiar:</span>
+        <select data-swap-peer>${peers.map((x,i)=>`<option value="${i}">${escapeHtml(x.other.name)} (${fmtRange(x.period.start,x.period.end)})</option>`).join('')}</select>
+        <span>con</span>
+        <select data-swap-own>${own.map(p=>`<option value="${escapeHtml(p.id)}">${fmtRange(p.start,p.end)}</option>`).join('')}</select>
+        <button class="mini-btn" data-swap style="margin:0;">⇄ Intercambiar fechas</button></div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <input type="text" data-nota placeholder="Nota de la jefa de tienda" value="${escapeHtml(pet.nota||'')}" style="flex:1;min-width:170px;padding:5px 7px;border:1px solid var(--borde);border-radius:6px;">
+        ${pet.status!=='aprobada'?'<button class="btn btn-primary" data-ok>Aprobar</button>':''}
+        ${pet.status!=='rechazada'?'<button class="btn btn-ghost" data-no>Rechazar</button>':''}
+        <button class="btn btn-danger" data-del>Borrar</button>
+      </div>`;
+    card.querySelector('[data-nota]').onchange = (e)=>{ pet.nota = e.target.value.trim(); saveState(); };
+    const ok = card.querySelector('[data-ok]'), no = card.querySelector('[data-no]');
+    if(ok) ok.onclick = ()=> approvePeticion(pet);
+    if(no) no.onclick = ()=> rejectPeticion(pet);
+    card.querySelector('[data-del]').onclick = ()=>{
+      if(!confirm('¿Borrar esta petición? Si ya se colocó en el cuadrante, sus fechas se quedan: se quitan pulsando en la barra.')) return;
+      state.peticiones = state.peticiones.filter(p=>p.id!==pet.id);
+      render();
+    };
+    card.querySelectorAll('[data-mover]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const x = peers[+btn.dataset.mover];
+        openPeriodModal(x.other, x.period);
+        openModal('periodOverlay');
+      };
+    });
+    const swap = card.querySelector('[data-swap]');
+    if(swap) swap.onclick = ()=>{
+      const x = peers[+card.querySelector('[data-swap-peer]').value];
+      const mine = state.periods.find(p=>p.id===card.querySelector('[data-swap-own]').value);
+      if(!x || !mine) return;
+      if(!confirm(`¿Intercambiar? ${x.other.name} pasará a ${fmtRange(mine.start,mine.end)} y ${emp.name} a ${fmtRange(x.period.start,x.period.end)}.`)) return;
+      [x.period.start, mine.start] = [mine.start, x.period.start];
+      [x.period.end, mine.end] = [mine.end, x.period.end];
+      render();
+      showToast('Fechas intercambiadas.');
+    };
+    box.appendChild(card);
+  }
+}
+function approvePeticion(pet){
+  const y = pet.start.slice(0,4);
+  const emp = EMPLOYEES.find(e=>e.id===pet.employeeId);
+  pet.status = 'aprobada';
+  const programmed = EMPLOYEES.some(e=> PLANNINGS[currentPlanning].unitIds.includes(e.unitId) && periodsOfYear(e.id, +y).length);
+  if(programmed && !pet.applied){
+    const overlap = state.periods.some(p=>p.employeeId===emp.id && !(pet.end<p.start || pet.start>p.end));
+    if(overlap){
+      showToast('Ya tiene vacaciones en esas fechas: cambia las suyas pulsando en la barra y aprueba de nuevo.');
+      pet.status = 'pendiente';
+      render();
+      return;
+    }
+    state.periods.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6), employeeId:emp.id, start:pet.start, end:pet.end});
+    pet.applied = true;
+  }
+  render();
+  showToast(pet.applied ? 'Petición aprobada y colocada en el cuadrante. La lista no se mueve.' : 'Petición aprobada: se respetará al repartir ese año.');
+}
+function rejectPeticion(pet){
+  pet.status = 'rechazada';
+  render();
+  showToast(pet.applied ? 'Rechazada. Sus fechas siguen en el cuadrante: se quitan pulsando en la barra.' : 'Petición rechazada.');
+}
+document.getElementById('btnPeticiones').onclick = ()=>{
+  const sel = document.getElementById('ptEmp');
+  sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e)).sort((a,b)=>a.name.localeCompare(b.name,'es'))
+    .map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
+  ['ptStart','ptEnd','ptMotivo'].forEach(id=>{ document.getElementById(id).value=''; });
+  renderPeticiones();
+  openModal('peticionesOverlay');
+};
+document.getElementById('ptClose').onclick = ()=> requestClose('peticionesOverlay');
+document.getElementById('ptAdd').onclick = ()=>{
+  const start = document.getElementById('ptStart').value, end = document.getElementById('ptEnd').value;
+  if(!start || !end || end<start){ showToast('Elige la fecha de inicio y una de fin igual o posterior.'); return; }
+  state.peticiones = state.peticiones || [];
+  state.peticiones.push({id:'pet'+Date.now(), employeeId:document.getElementById('ptEmp').value, start, end, motivo:document.getElementById('ptMotivo').value.trim(), status:'pendiente'});
+  ['ptStart','ptEnd','ptMotivo'].forEach(id=>{ document.getElementById(id).value=''; });
+  render();
+};
+
+/* ═══════════════════ CARGAR VACACIONES DESDE EXCEL ═══════════════════
+   Hoja «x Fechas» (columnas D nombre, F desde, H hasta; el año sale de F1). Enseña lo leído y solo guarda al
+   confirmar. Las fechas ya decididas entran tal cual aunque no cumplan las reglas: se avisa, no se bloquea. */
+const CARGA_ALIAS = {'sonia':'e27','maria':'e25','angeles':'e20','evelyn':'e30','evelin':'e30','m.ª teresa':'e26','ma teresa':'e26','mª teresa':'e26','herminia':'e17','joani':'e28','natalia':'e19','dunia':'e21','cande m.':'e31','rosi':'e18','sole':'e29','monica':'e23','cande':'e22'};
+let cargaRows = null, cargaYear = null;
+function loadXlsxLibrary(){
+  if(window.XLSX) return Promise.resolve();
+  return new Promise((resolve, reject)=>{
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = resolve;
+    sc.onerror = ()=> reject(new Error('No se pudo cargar el lector de Excel: comprueba la conexión a internet y vuelve a intentarlo.'));
+    document.head.appendChild(sc);
+  });
+}
+function excelSerialToIso(n, year){
+  const d = new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000);
+  return {iso: `${year}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`, fixedYear: d.getUTCFullYear()!==year};
+}
+function matchEmployeeName(raw){
+  const norm = normalizeText(raw);
+  const saved = (state.nameAliases||{})[norm];
+  const byId = id=> EMPLOYEES.find(e=>e.id===id && e.active!==false);
+  if(saved && byId(saved)) return saved;
+  if(CARGA_ALIAS[norm] && byId(CARGA_ALIAS[norm])) return CARGA_ALIAS[norm];
+  const hits = EMPLOYEES.filter(e=>e.active!==false && normalizeText(e.name).includes(norm));
+  return hits.length===1 ? hits[0].id : '';
+}
+function parseVacationSheet(wb){
+  const name = wb.SheetNames.find(n=>/x fechas/i.test(n) && !/imprimir/i.test(n));
+  if(!name) throw new Error('No encuentro la hoja «x Fechas» en este Excel: comprueba que es el fichero de vacaciones.');
+  const sheet = wb.Sheets[name];
+  const range = XLSX.utils.decode_range(sheet['!ref']);
+  range.s.c = 0; range.s.r = 0; // que las columnas y filas cuenten desde A1 aunque la hoja empiece en B
+  const rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:true, blankrows:true, range});
+  const year = (rows[0]||[]).map(Number).find(v=>v>2000 && v<2100);
+  if(!year) throw new Error('No encuentro el año en la primera fila de la hoja: debería estar en la celda F1.');
+  const out = [];
+  rows.forEach(r=>{
+    const nombre = typeof r[3]==='string' ? r[3].trim() : '';
+    if(!nombre || typeof r[5]!=='number' || typeof r[7]!=='number') return;
+    const a = excelSerialToIso(r[5], year), b = excelSerialToIso(r[7], year);
+    out.push({nombre, start:a.iso, end:b.iso, fixedYear:a.fixedYear||b.fixedYear, employeeId:matchEmployeeName(nombre)});
+  });
+  out.sort((x,y)=>x.start.localeCompare(y.start));
+  return {year, rows:out};
+}
+function renderCarga(){
+  const box = document.getElementById('cargaBox');
+  const ok = document.getElementById('cargaOk');
+  if(!cargaRows){ box.innerHTML=''; ok.disabled = true; return; }
+  const options = id=> `<option value="">— No cargar —</option>`+EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'))
+    .map(e=>`<option value="${escapeHtml(e.id)}"${e.id===id?' selected':''}>${escapeHtml(e.name)}</option>`).join('');
+  const people = new Set(cargaRows.filter(r=>r.employeeId).map(r=>r.employeeId));
+  const current = state.periods.filter(p=>people.has(p.employeeId) && p.start.startsWith(cargaYear+'-')).length;
+  const warnings = r=>{
+    if(r.end<r.start) return 'La fecha de fin es anterior: se omite';
+    const out = [];
+    if(r.fixedYear) out.push(`Año corregido a ${cargaYear}`);
+    const s=isoToIndex(cargaYear,r.start), e=isoToIndex(cargaYear,r.end);
+    const edge = weekendEdgeConflict(s,e,cargaYear);
+    if(edge) out.push(edge.split(':')[0]);
+    for(let i=s;i<=e;i++){ if(isBlockedIndex(cargaYear,i)){ out.push('En fechas bloqueadas'); break; } }
+    return out.join(' · ');
+  };
+  box.innerHTML = `<p style="font-size:.78rem;margin-bottom:8px;"><b>${cargaRows.length}</b> fechas de ${cargaYear}, de ${people.size} personas. Se sustituirán sus <b>${current}</b> periodos actuales de ${cargaYear}. El resto del personal no cambia.</p>
+    <table class="lv-table"><colgroup><col style="width:14%"><col style="width:32%"><col style="width:13%"><col style="width:13%"><col></colgroup>
+    <thead><tr><th style="text-align:left;">Excel</th><th style="text-align:left;">Persona en la app</th><th>Desde</th><th>Hasta</th><th style="text-align:left;">Avisos</th></tr></thead>
+    <tbody>${cargaRows.map((r,i)=>`<tr><td class="lv-name">${escapeHtml(r.nombre)}</td><td class="lv-c"><select data-carga="${i}" style="width:100%;font-size:.74rem;">${options(r.employeeId)}</select></td><td class="lv-c">${shortDate(r.start)}</td><td class="lv-c">${shortDate(r.end)}</td><td class="lv-c" style="white-space:normal;text-align:left;color:var(--rojo);">${escapeHtml(warnings(r))}</td></tr>`).join('')}</tbody></table>`;
+  box.querySelectorAll('[data-carga]').forEach(sel=>{
+    sel.onchange = ()=>{
+      const row = cargaRows[+sel.dataset.carga];
+      const norm = normalizeText(row.nombre);
+      state.nameAliases = state.nameAliases || {};
+      state.nameAliases[norm] = sel.value;
+      cargaRows.filter(r=>normalizeText(r.nombre)===norm).forEach(r=>{ r.employeeId = sel.value; });
+      renderCarga();
+    };
+  });
+  ok.disabled = !people.size;
+  ok.textContent = `Sustituir las fechas de ${cargaYear} de estas ${people.size} personas`;
+}
+document.getElementById('lvCargar').onclick = ()=>{
+  closeModal('listadoOverlay');
+  cargaRows = null;
+  document.getElementById('cargaFile').value = '';
+  renderCarga();
+  openModal('cargaOverlay');
+};
+document.getElementById('cargaClose').onclick = ()=>{ cargaRows = null; closeModal('cargaOverlay'); openListado(); };
+document.getElementById('cargaFile').onchange = async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    await loadXlsxLibrary();
+    const parsed = parseVacationSheet(XLSX.read(await file.arrayBuffer(), {type:'array'}));
+    cargaRows = parsed.rows; cargaYear = parsed.year;
+    renderCarga();
+  }catch(err){
+    cargaRows = null;
+    renderCarga();
+    document.getElementById('cargaBox').innerHTML = `<div class="err-box">${escapeHtml(err.message)}</div>`;
+  }
+};
+document.getElementById('cargaOk').onclick = ()=>{
+  const rows = cargaRows.filter(r=>r.employeeId && r.end>=r.start);
+  const people = new Set(rows.map(r=>r.employeeId));
+  if(!confirm(`¿Sustituir las vacaciones de ${cargaYear} de ${people.size} personas por las del Excel? Sus fechas actuales de ${cargaYear} se perderán.`)) return;
+  state.periods = state.periods.filter(p=> !(people.has(p.employeeId) && p.start.startsWith(cargaYear+'-')));
+  rows.forEach((r,i)=> state.periods.push({id:'x'+Date.now()+i, employeeId:r.employeeId, start:r.start, end:r.end}));
+  const year = cargaYear, n = rows.length;
+  state.year = year;
+  cargaRows = null;
+  closeModal('cargaOverlay');
+  render();
+  openListado();
+  showToast(`Cargadas ${n} fechas de ${year}.`);
+};
+
 /* ═══════════════════ OPERATIVA (norma de Luis, 03/11/2026) ═══════════════════
    Cada pantalla nueva o que se cambie lleva aquí cómo se usa: pasos numerados y "Bueno es saber".
    La clave es el título tras el que aparece; queda plegada hasta que se pulsa. */
 const OPERATIVAS = {
   '#operativaCuadrante': {
     pasos: [
-      'Elige el año arriba. Cada año guarda sus vacaciones por separado.',
+      'Elige arriba el año y el planning, <b>Tiendas</b> o <b>Ventas</b>. Cada año guarda sus vacaciones por separado.',
       'Arrastra sobre una fila vacía para crear un periodo entre las dos fechas.',
       'Arrastra una barra para moverla, o su borde para cambiar solo el inicio o el fin.',
       'Pulsa una barra, sin arrastrar, para cambiar sus fechas a mano o eliminarla.',
@@ -3453,7 +4031,7 @@ const OPERATIVAS = {
       'La franja de color sobre cada grupo es la cobertura: verde, gente fuera dentro del máximo; rojo, se supera.',
       'El rayado rosa son fechas bloqueadas: nadie puede coger vacaciones en ellas.',
       'Generar y «Borrar todo» solo tocan el año que estás viendo.',
-      'El generador coloca primero las fechas fijas 📌 y procura no repetir las fechas del año anterior.',
+      'El generador reparte igual que la propuesta de Prioridad de rotación.',
       'Si sale arriba el aviso amarillo de versión nueva, pulsa <b>Actualizar</b> para recargar la página.',
     ],
   },
@@ -3470,15 +4048,18 @@ const OPERATIVAS = {
   '#operativaRotacion': {
     pasos: [
       'Elige arriba el año de partida: 2026 enseña lo que hubo en 2026 y propone 2027.',
-      'Mira el orden: arriba está quien tiene más prioridad.',
-      'Pulsa <b>Marcar</b> en quien ya disfrutó de la época que se reparte: baja detrás de los no marcados y la propuesta se recalcula.',
+      'La lista va por fechas: de enero a diciembre, por la primera fecha de cada persona.',
+      'Los nombres en rojo tienen fechas fijas: se colocan antes que nadie.',
+      'Pulsa <b>Guardar la propuesta</b> para llevarla al cuadrante del año siguiente.',
     ],
     notas: [
-      'La propuesta no se guarda: para crear las vacaciones, ve a ese año y usa <b>Generar plan</b> o ponlas a mano.',
+      'Reparto: primero las fijas, luego las peticiones aprobadas y después la lista, que rueda un puesto cada año.',
+      'El primer turno empieza el 15 de enero. Nadie empieza ni termina en festivo. Tiendas, Oficina y cada unidad de Ventas ruedan por separado.',
+      'Quien pide sus fechas no entra en la lista: va por Peticiones.',
+      'Hasta que la guardes, la propuesta no cambia nada. Guardarla no toca a quien ya tiene fechas ese año.',
       'Chincheta azul: tuvo fecha fija ese año. Chincheta roja: tiene fecha fija en la propuesta, y esa fecha sale en rojo.',
       '«No cabe» en rojo: esa fecha fija no cumple las reglas ese año y hay que revisarla a mano.',
       'Si no hay hueco, una persona puede salir con menos días de los que le tocan.',
-      'A igualdad, va antes quien tiene hijos a cargo y luego quien tiene más antigüedad.',
     ],
   },
   '#operativaSabados': {
@@ -3494,13 +4075,16 @@ const OPERATIVAS = {
   },
   '#operativaFestivos': {
     pasos: [
-      'En cada festivo, elige quién lo trabajó: se le suma 1 día de vacaciones al año.',
-      'Cuando se le dé ese día, márcalo como compensado e indica si fue vacaciones o permiso, la fecha y una nota.',
-      'Si falta un festivo, añádelo con el formulario de abajo.',
+      'La tabla va por fechas. Al final, tras una línea en blanco, salen Año Nuevo y Reyes del año siguiente. Pulsa una fila para cambiar sus datos, poner quién lo trabaja o marcar la compensación.',
+      'Con <b>+ Añadir festivo</b> creas uno nuevo. Pulsa <b>Imprimir</b> para sacar la lista en A4.',
     ],
     notas: [
-      'El registro de abajo enseña lo compensado y lo pendiente, para no dar el mismo día dos veces.',
-      'Marcarlo como compensado es solo un apunte: no cambia el total de días.',
+      'Quien trabaja un festivo suma 1 día de vacaciones ese año.',
+      'Ninguna vacación empieza ni termina en un festivo de esta tabla. Si no abre ninguna tienda, deja la tienda vacía.',
+      'La víspera de Reyes, el 5 de enero, es laborable: trabaja todo el personal, con el horario que indica la tabla, y no suma días.',
+      'Comp. dice cuántos de los que trabajaron ese festivo ya han recibido su día a cambio: 1/2 es que de dos personas, a una ya se le dio.',
+      'Año Nuevo y Reyes de este año salen en la lista del año anterior, pero siguen contando como festivos.',
+      'Los festivos de un año nuevo salen de una lista de partida: revísalos con el calendario oficial.',
     ],
   },
   '#operativaPermisos': {
@@ -3536,6 +4120,7 @@ const OPERATIVAS = {
     ],
     notas: [
       'Si sales con cambios sin guardar, la app te pregunta si guardarlos o cancelarlos.',
+      'Marca <b>Pide sus fechas</b> si no debe entrar en la lista rotada.',
       'Las categorías se guardan al momento, aunque luego canceles la ficha.',
       'Para dar de baja sin perder su historial, desmarca <b>Activo</b>. Eliminar la ficha la borra de verdad.',
       'Una fecha preferida se puede correr unos días; una fija 📌 no se mueve nunca.',
@@ -3555,7 +4140,7 @@ const OPERATIVAS = {
   },
   '#operativaImpresion': {
     pasos: [
-      'Comprueba cómo saldrá la hoja, en A3 apaisado.',
+      'Elige el papel, <b>A3</b> o <b>A4</b>, y comprueba cómo saldrá la hoja.',
       'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
     ],
     notas: [
@@ -3571,13 +4156,46 @@ const OPERATIVAS = {
       '<b>WhatsApp</b> prepara un resumen en texto, sin la imagen del cuadro.',
     ],
   },
-  '#operativaPlanAnual': {
+  '#operativaPeticiones': {
     pasos: [
-      'Consulta quién tiene vacaciones en el año elegido y en qué fechas, por bloques.',
-      'Pulsa <b>WhatsApp</b> si quieres compartirlo en texto.',
+      'Apunta quién pide, las fechas y el motivo, y pulsa <b>+ Añadir</b>. Queda pendiente.',
+      'Mira con quién se pisa. En rojo, lo más importante: misma unidad, parejas y fechas bloqueadas.',
+      'La jefa de tienda decide <b>Aprobar</b> o <b>Rechazar</b>, con una nota si hace falta.',
+      'Si hace falta sitio, pulsa <b>Cambiar sus fechas</b> o <b>Intercambiar fechas</b> con una compañera.',
+    ],
+    notas: [
+      'La lista ya programada no se recalcula: solo cambia lo que se cambie aquí.',
+      'Si el año aún no está repartido, la petición aprobada se respeta al repartir, justo después de las fijas.',
+      'Rechazar o borrar no quita unas fechas ya colocadas: se quitan pulsando en su barra del cuadrante.',
+    ],
+  },
+  '#operativaCarga': {
+    pasos: [
+      'Elige el Excel de vacaciones. Se lee la hoja «x Fechas».',
+      'Comprueba persona y fechas. Si un nombre no se reconoce, elige la persona en el desplegable.',
+      'Pulsa el botón verde para sustituir las fechas de esas personas en ese año.',
+    ],
+    notas: [
+      'El resto del personal y los demás años no cambian. Las fechas sustituidas se pierden.',
+      'Las fechas ya decididas entran aunque no cumplan las reglas: se avisa, no se bloquea.',
+      'El año lo manda la primera fila del Excel: si una fecha trae otro año, se corrige y se avisa.',
+      'El fichero no se guarda en ningún sitio, solo sus fechas.',
+    ],
+  },
+  '#operativaListado': {
+    pasos: [
+      'Elige arriba el año y el planning, Tiendas o Ventas.',
+      'Mira las vacaciones por turnos, con los días de cada turno y el total a la derecha.',
+      'Pulsa <b>Imprimir</b> para sacarlo en A4, o <b>WhatsApp</b> para compartirlo en texto.',
+      'Con <b>Cargar Excel</b> metes las fechas de un año desde tu fichero.',
     ],
     notas: [
       'Esta ventana solo enseña: las fechas se cambian en el cuadrante.',
+      'El turno es el 1º, 2º, 3º... periodo de cada persona por fechas. Cada color es un turno.',
+      'Oficina va aparte al final, por fechas.',
+      'Los días se cuentan de fecha a fecha. En rojo, las fechas fijas.',
+      'La columna Festivos, tras el Total, dice cuántos días de más tiene por festivos trabajados ese año: +1 por cada uno.',
+      'Quien no tenga fechas ese año no sale.',
     ],
   },
 };

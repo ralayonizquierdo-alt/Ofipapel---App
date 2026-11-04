@@ -92,7 +92,8 @@ Comerciales (máx. 1 fuera a la vez), que ya evita que dos falten el mismo día.
   preferencia a quien no la tuvo. En empate, prioridad para quien tenga más antigüedad.
 - Es una sugerencia de apoyo a la decisión (panel "Prioridad rotación"), no una asignación automática.
 - El panel enseña, por persona, lo que tuvo el año del cuadrante y una propuesta para el siguiente, calculada
-  con las mismas reglas que el generador pero sin guardar nada. La casilla "Marcar" sigue siendo manual.
+  con las mismas reglas que el generador pero sin guardar nada. La lista va por fechas, de enero a diciembre, y
+  los nombres de quien tiene fechas fijas salen en rojo. La casilla "Marcar" se quitó (Luis, 03/11/2026).
 - Las **fechas fijas** se colocan antes que nadie, en el generador y en la propuesta. Chincheta azul = fija ese
   año (`fixedByYear`, se guarda aparte por año porque la ficha solo sabe las de ahora); chincheta roja = fija en
   la propuesta. Si una fija no cumple las reglas ese año, sale en rojo «no cabe» para revisarla a mano.
@@ -355,6 +356,34 @@ tenga la app abierta ve un aviso amarillo con **Actualizar** al publicarse una v
 La ficha de empleado lleva botonera como GeminisWin (Nuevo, Editar, Guardar, Cancelar, Eliminar, Salir) y se abre
 solo para mirar. Ficha, periodo y los formularios de Permisos y Festivos preguntan al salir si hay algo sin
 guardar (`UNSAVED_GUARDS`). Turnos de sábado, compensación de festivos y Categorías guardan cada cambio al momento.
+
+### Reparto, peticiones y carga del Excel (Luis, 03/11/2026)
+
+Este orden sustituye a lo que digan las secciones anteriores sobre prioridad, hijos, antigüedad y parejas que salen juntas:
+
+1. **Fijados** (nombre en rojo): no se mueven.
+2. **Peticiones aprobadas** (ventana Peticiones): si el año ya está programado se colocan sin mover a nadie, y la jefa de
+   tienda decide a quién cambiar de fecha o con quién intercambiar. Si no, se respetan al repartir.
+3. **Lista rodada**: cada año el primero pasa al final. Rueda aparte Tiendas (Ofipapel, Informática, Aliz, Mobiliario),
+   Oficina, Limpieza y cada unidad de Ventas. El orden queda guardado en `rotationOrder`.
+
+- Tramos: los del año anterior ajustados a 30 días; sin historial, de 15 en 15. Primer turno: siempre el 15 de enero.
+- Nadie empieza ni termina en festivo. Festivos es una sola tabla por fechas (fecha, tienda, horario, personal y compensación):
+  sus fechas son las que cuentan para esta regla, y las de un año nuevo salen de una lista de partida provisional.
+- **Pide sus fechas** (casilla de la ficha): no entra en la lista y va por Peticiones.
+- **Cargar Excel** (en Listado): lee la hoja «x Fechas», enseña lo leído y sustituye solo ese año de esas personas.
+- Guardar la propuesta solo afecta al planning elegido y a quien aún no tiene fechas ese año.
+
+### Plannings e impresiones (Luis, 03/11/2026)
+
+Selector **Tiendas | Ventas** en la cabecera: Tiendas lleva Ofipapel, Informática, Aliz 1 y 2, Mobiliario, Oficina y
+Limpieza; Ventas lleva Comerciales, Repartidores, Pedidos y Almacén. Cuadrante, impresiones, generador y Prioridad de
+rotación muestran solo ese planning; la cobertura y las parejas siguen mirando a toda la plantilla.
+
+- **Vista previa**: calendario con cuadrícula de 5 en 5 días, en A3 o A4 apaisado.
+- **Listado**, que sustituye al Plan anual: turnos separados, fechas del color de su turno, días por turno y total, con
+  Oficina aparte al final por fechas. Se imprime en A4 vertical con cuadrícula. El turno es el orden de cada periodo de
+  la persona por fechas, y los días se cuentan de fecha a fecha. Las secciones antiguas de Plan anual ya no aplican.
 
 ### Categorías de empleado
 
