@@ -2538,7 +2538,7 @@ const PAG_TOTALES_INICIAL = { total: 2739894.34, ingresado: 2729045.79, en_caja:
 // ── Pagarés y Confirming: viven en la nube (app_sync ids pagares, confirming, pagarestotales, pagareshistorial); lo de arriba es solo la semilla de la primera vez ──
 // Cada línea: pagaré {vto 'AAAA-MM-DD', pagare, importe, banco, marca, nota}; confirming {vto, proveedor, importe, comision, marca, nota}.
 // marca: '' = por fecha (vencimiento pasado = cobrado/pagado); 'cobrado'/'pagado' o 'pendiente' lo fija a mano (pendiente + vencido = aviso).
-const EDITAN_PAGARES = ['admin','rober','luis'];
+const EDITAN_PAGARES = ['admin','rober','luis','monica'];
 function _cargarListaPC(clave, ini){ try{ const g=JSON.parse(localStorage.getItem(clave)||'null'); if(Array.isArray(g)) return g; }catch(e){} return JSON.parse(JSON.stringify(ini)); }
 let PAGARES_DATA = _cargarListaPC('op_pagares', PAGARES_INICIAL.map(({estado,...r})=>r));
 let CONF_SANT_DATA = _cargarListaPC('op_confirming', CONF_INICIAL);
@@ -2572,7 +2572,7 @@ function historialPCHtml(){
 }
 const _inpPC=(id,lbl,val,ph)=>`<label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">${lbl}</label><input id="${id}" value="${escapeHtml(val==null?'':String(val))}" placeholder="${ph||''}" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;box-sizing:border-box;">`;
 function abrirEditarPC(tipo,i){
-  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('Solo Rober y Luis pueden editar Pagarés y Confirming','err'); return; }
+  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('No tienes permiso para editar Pagarés y Confirming','err'); return; }
   const pag=tipo==='pag', lista=pag?PAGARES_DATA:CONF_SANT_DATA, nuevo=i<0;
   const x=nuevo?(pag?{vto:'',pagare:'',importe:0,banco:'',marca:'',nota:''}:{vto:'',proveedor:'',importe:0,comision:0,marca:'',nota:''}):lista[i];
   const num=v=>String(v==null?'':v).replace('.',',');
@@ -2620,7 +2620,7 @@ function quitarPC(tipo,i){
   document.getElementById('pcEditor')?.remove(); renderPagares(); renderAlertas(); showToast('Quitado','ok');
 }
 function abrirEditarTotalesPC(){
-  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('Solo Rober y Luis pueden editarlo','err'); return; }
+  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('No tienes permiso para editarlo','err'); return; }
   const num=v=>String(v==null?'':v).replace('.',',');
   let m=document.getElementById('pcEditor'); if(m) m.remove();
   m=document.createElement('div'); m.id='pcEditor';
