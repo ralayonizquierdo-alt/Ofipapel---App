@@ -461,7 +461,7 @@ function AreaParametros({
             className={`gw-boton-barra min-h-[30px] flex-1 justify-center gap-1.5 px-2 py-[3px] text-center text-[14px] leading-[18px] ${cls}`}
           >
             <span className={`text-[15px] font-bold ${on ? 'text-[#127a12]' : 'text-[#c42b1c]'}`}>{on ? '✔' : '✖'}</span>
-            {d.etiqueta}
+            {!sinEtiqueta && d.etiqueta}
           </button>
           {punto(d)}
           {propio}
