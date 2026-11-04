@@ -51,7 +51,12 @@ const crypto = require('crypto');
 const { isAgenteInfoEnCualquierIdioma: isAgenteInfoMessage } = require('./whatsapp-agent-config');
 const { esHistorialMolesto } = require('./whatsapp-hostilidad');
 const { todasLasNotas } = require('./whatsapp-notas');
-const { leer: leerMedia, adjuntoDelHistorial } = require('./whatsapp-media');
+const {
+  leer: leerMedia,
+  adjuntoDelHistorial,
+  guardar: guardarMedia,
+  marcaDeAdjunto,
+} = require('./whatsapp-media');
 const { sendWhatsappMessage, sendWhatsappTemplate, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
 
 // Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
@@ -1773,7 +1778,7 @@ function cuerpoDeBurbuja(phone, contenidoBruto) {
   // icono roto. Si el navegador no puede pintarlo, la imagen se cambia sola por
   // un enlace: el <a> de fuera ya lleva a abrirlo.
   return `<a class="adjunto-foto" href="${src}" target="_blank" rel="noopener">
-    <img src="${src}" alt="Adjunto enviado por el cliente" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'adjunto-enlace',textContent:'📎 Abrir el archivo'}))">
+    <img src="${src}" alt="Archivo adjunto de la conversación" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'adjunto-enlace',textContent:'📎 Abrir el archivo'}))">
   </a>${pie}`;
 }
 
@@ -2403,8 +2408,31 @@ const manejarPanel = async (event) => {
         const send = await sendWhatsappMedia(phone, upload.id, kind, { caption: message || undefined, filename: file.filename });
         if (!send.ok) return redirect('send');
 
+        // LO QUE MANDAMOS NOSOTROS TAMBIÉN SE GUARDA.
+        //
+        // Hasta el 4/11/2026 no se guardaba: se subía a Meta, se enviaba y en
+        // el historial quedaba solo el renglón «📎 nombre.pdf». El propietario
+        // fue a revisar un presupuesto que había mandado el día antes («Lo
+        // Squalo Tenerife SL.pdf») y no había nada detrás — y no es que se
+        // hubiera perdido, es que nunca se guardó.
+        //
+        // Se guarda en el mismo almacén y con la misma marca que los adjuntos
+        // del cliente, así que el panel lo pinta igual, sin tocar nada más.
+        // La clave es el id que devuelve Meta al subirlo.
+        //
+        // Si el guardado falla NO se pierde el envío: el cliente ya lo tiene,
+        // y el renglón de siempre sigue quedando en el historial. Lo único que
+        // se pierde es poder volver a verlo aquí.
         const label = kind === 'image' ? '📷' : '📎';
-        await appendAgentMessage(phone, `${label} ${file.filename}${message ? ` — ${message}` : ''}`);
+        const pie = `${label} ${file.filename}${message ? ` — ${message}` : ''}`;
+        let marca = '';
+        try {
+          await guardarMedia(event, phone, upload.id, file.data, file.contentType);
+          marca = marcaDeAdjunto(upload.id, file.contentType);
+        } catch (err) {
+          console.error('conversations: no se pudo guardar el adjunto enviado:', err.message);
+        }
+        await appendAgentMessage(phone, `${marca}${pie}`);
         await pauseBot(phone, 24);
       } else {
         // Si se está respondiendo a un mensaje concreto, se manda citándolo:
