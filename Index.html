@@ -1911,6 +1911,8 @@ function applyCloudDataset(key, payload){
   } else if(key==='ventasweb_det'){
     ventasWebDetalle = payload;
     try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
+  } else if(key==='deudahistorial'){
+    _mergeDeudaHist(payload); renderDeuda();
   } else if(key==='deuda'){
     if(Array.isArray(payload)&&payload.length){ DEUDA_DATA=payload; try{ localStorage.setItem('op_deuda',JSON.stringify(DEUDA_DATA)); }catch(e){} renderDeuda(); renderAlertas(); }
   } else if(key==='importlog'){
@@ -1964,6 +1966,7 @@ async function loadAllSharedDatasets(){
     if(!existing.importstamps && Object.keys(_importStamps).length) syncDatasetToCloud('importstamps', _importStamps);
     if(!existing.importlog && importLog.length) syncDatasetToCloud('importlog', importLog);
     if(!existing.deuda) syncDatasetToCloud('deuda', DEUDA_DATA);
+    if(!existing.deudahistorial && DEUDA_HIST.length) syncDatasetToCloud('deudahistorial', DEUDA_HIST);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
 }
 
@@ -2028,6 +2031,7 @@ async function forzarSyncCompleto(btn){
     if(cajaEfectivo.length)     ops.push(sube('cajaefectivo', cajaEfectivo));
     if(cajaFondoCambio.length)  ops.push(sube('cajafondocambio', cajaFondoCambio));
     ops.push(sube('deuda', DEUDA_DATA));
+    if(DEUDA_HIST.length) ops.push(sube('deudahistorial', DEUDA_HIST));
     const res = await Promise.all(ops);
     if(res.every(Boolean)){
       // Aunque sea «forzar», tiene que quedar apuntado quién subió qué y cuándo
@@ -2117,6 +2121,39 @@ const DEUDA_INICIAL = [
 // Campos nuevos por préstamo: estado ('normal' | 'alerta' | 'resuelto'), nota y editado {por, ts}.
 const EDITAN_DEUDA = ['admin','rober','luis'];
 let DEUDA_DATA = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_deuda')||'null'); if(Array.isArray(g)&&g.length) return g; }catch(e){} return JSON.parse(JSON.stringify(DEUDA_INICIAL)); })();
+// Historial de cambios del Pool de Deuda (app_sync, id «deudahistorial»): quién, cuándo y qué cambió (antes → después)
+let DEUDA_HIST = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_deudahist')||'null'); if(Array.isArray(g)) return g; }catch(e){} return []; })();
+const DEUDA_CAMPOS = {nombre:'Nombre',banco:'Banco',tipo:'Tipo',nominal:'Importe inicial',pendiente:'Pendiente',cuota:'Cuota mensual',vto:'Vencimiento',estado:'Estado',nota:'Nota',detalle:'Detalle'};
+function _valDeuda(k,v){
+  if(k==='tipo'&&(v===''||v==null)) return 'Préstamo';
+  if(v==null||v==='') return '—';
+  if(k==='nominal'||k==='pendiente'||k==='cuota') return fmt(Number(v));
+  if(k==='estado') return {normal:'Normal',alerta:'En alerta',resuelto:'Resuelto'}[v]||v;
+  if(k==='tipo') return {hip:'Hipoteca',ico2:'ICO','':'Préstamo',alerta:'Préstamo'}[v]||v;
+  return String(v);
+}
+function _mergeDeudaHist(extra){
+  const k=e=>[e.ts,e.user||'',e.prestamo||'',e.accion||''].join('|'), m=new Map();
+  [...DEUDA_HIST,...(Array.isArray(extra)?extra:[])].forEach(e=>{ if(e&&e.ts) m.set(k(e),e); });
+  DEUDA_HIST=[...m.values()].sort((a,b)=>String(a.ts).localeCompare(String(b.ts))).slice(-500);
+  try{ localStorage.setItem('op_deudahist',JSON.stringify(DEUDA_HIST)); }catch(e){}
+}
+function registrarCambioDeuda(prestamo,accion,cambios){
+  _mergeDeudaHist([{ts:new Date().toISOString(),user:currentUser||'—',prestamo,accion,cambios:cambios||[]}]);
+  syncDatasetToCloud('deudahistorial',DEUDA_HIST);
+}
+function historialDeudaHtml(){
+  const filtro=(document.getElementById('deudaHistFiltro')||{}).value||'';
+  const nombres=[...new Set(DEUDA_HIST.map(e=>e.prestamo))];
+  const filas=[...DEUDA_HIST].filter(e=>!filtro||e.prestamo===filtro).reverse().slice(0,100);
+  const acc={editado:'✏️ Editado',añadido:'➕ Añadido',quitado:'🗑️ Quitado'};
+  return `<div class="sec-title" style="display:flex;align-items:center;gap:12px;">🕘 Historial de cambios
+    <select id="deudaHistFiltro" onchange="renderDeuda()" style="margin-left:auto;padding:5px 8px;border:1px solid var(--borde);border-radius:8px;font-size:12px;text-transform:none;letter-spacing:0;"><option value="">Todos los préstamos</option>${nombres.map(n=>`<option value="${escapeHtml(n)}"${n===filtro?' selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div style="overflow-x:auto;">${filas.length?`<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);"><th style="text-align:left;padding:7px 10px;white-space:nowrap;">Fecha/Hora</th><th style="text-align:left;padding:7px 10px;">Usuario</th><th style="text-align:left;padding:7px 10px;">Préstamo</th><th style="text-align:left;padding:7px 10px;">Qué cambió</th></tr></thead><tbody>
+    ${filas.map(e=>`<tr style="border-bottom:1px solid var(--borde);vertical-align:top;"><td style="padding:7px 10px;white-space:nowrap;font-weight:500;">${new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td><td style="padding:7px 10px;white-space:nowrap;">👤 ${escapeHtml(e.user||'—')}</td><td style="padding:7px 10px;">${escapeHtml(e.prestamo||'')}</td><td style="padding:7px 10px;"><strong>${acc[e.accion]||escapeHtml(e.accion||'')}</strong>${(e.cambios||[]).map(c=>`<div>${escapeHtml(DEUDA_CAMPOS[c.campo]||c.campo)}: <span style="color:var(--texto2);">${escapeHtml(_valDeuda(c.campo,c.antes))}</span> → <strong>${escapeHtml(_valDeuda(c.campo,c.despues))}</strong></div>`).join('')}</td></tr>`).join('')}
+    </tbody></table>`:'<div style="padding:18px;text-align:center;color:var(--texto2);font-size:12px;">Todavía no se ha cambiado nada desde la pantalla.</div>'}</div></div>`;
+}
 function guardarDeuda(){ try{ localStorage.setItem('op_deuda',JSON.stringify(DEUDA_DATA)); }catch(e){} syncDatasetToCloud('deuda',DEUDA_DATA); }
 function _vtoDeuda(s){ const m=String(s||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m?new Date(`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`):null; }
 // null = sin alerta; 'alerta' = marcado en alerta; 'vencido' = su vencimiento ya pasó (y no está marcado como resuelto)
@@ -3358,7 +3395,8 @@ function renderDeuda(){
     <div class="chart-ttl">Deuda pendiente por instrumento</div>
     <div class="chart-desc">Total: ${fmt(totalDeuda)}</div>
     <canvas id="cDeuda" height="90"></canvas>
-  </div>`;
+  </div>
+  ${historialDeudaHtml()}`;
 
   charts['cDeuda'] = new Chart(document.getElementById('cDeuda'),{
     type:'bar',
@@ -3400,25 +3438,31 @@ function abrirEditarDeuda(i){
 }
 function guardarEditarDeuda(i){
   const g=id=>document.getElementById(id).value.trim(), err=t=>{ document.getElementById('dError').textContent=t; };
-  const num=id=>{ const raw=g(id).replace(/[^\d.,-]/g,''); const n=/,\d{1,2}$/.test(raw)?parseFloat(raw.replace(/\./g,'').replace(',','.')):parseFloat(raw.replace(/,/g,'')); return isNaN(n)?NaN:n; };
+  const num=id=>{
+    let raw=g(id).replace(/[^\d.,-]/g,'');
+    if(raw.includes(',')) raw=raw.replace(/\./g,'').replace(',','.');          // 1.234,56  →  1234.56
+    else if(/^-?\d{1,3}(\.\d{3})+$/.test(raw)) raw=raw.replace(/\./g,'');      // 9.000 / 356.144  →  9000 / 356144
+    const n=parseFloat(raw); return isNaN(n)?NaN:n; };
   if(!g('dNombre')) return err('Pon el nombre del préstamo');
   const nominal=num('dNominal'), pend=num('dPend'), cuota=num('dCuota');
   if([nominal,pend,cuota].some(isNaN)||nominal<0||pend<0||cuota<0) return err('Importe inicial, pendiente y cuota tienen que ser números');
   const vto=g('dVto'); if(vto&&!_vtoDeuda(vto)) return err('El vencimiento se escribe así: 15/06/2031');
   const antes=i<0?null:{...DEUDA_DATA[i]};
+  if(antes){ antes.estado=antes.estado||(antes.tipo==='alerta'?'alerta':'normal'); if(antes.tipo==='alerta') antes.tipo=''; }
   const d=i<0?{}:DEUDA_DATA[i];
   const eraAlertaFija=d.tipo==='alerta';
   Object.assign(d,{nombre:g('dNombre'),banco:g('dBanco'),tipo:g('dTipo'),nominal,pendiente:pend,cuota,vto,estado:g('dEstado'),nota:g('dNota'),detalle:g('dDetalle')});
   d.pct=(eraAlertaFija&&d.estado==='alerta')?100:(nominal>0?Math.max(0,Math.min(100,Math.round((1-pend/nominal)*100))):0);
   d.editado={por:currentUser,ts:new Date().toISOString()};
   if(i<0) DEUDA_DATA.push(d);
-  const cambios=antes?['pendiente','cuota','vto','estado','nota','detalle'].filter(k=>String(antes[k]||'')!==String(d[k]||'')).map(k=>k+': '+(antes[k]||'—')+' → '+(d[k]||'—')).join('; '):'préstamo nuevo';
-  guardarDeuda(); logImport('deuda',d.nombre+(cambios?' ('+cambios+')':''));
+  const lista=Object.keys(DEUDA_CAMPOS).filter(k=>antes?String(antes[k]==null?'':antes[k])!==String(d[k]==null?'':d[k]):(d[k]!==''&&d[k]!=null)).map(k=>({campo:k,antes:antes?antes[k]:null,despues:d[k]}));
+  const cambios=antes?lista.map(c=>DEUDA_CAMPOS[c.campo]+': '+_valDeuda(c.campo,c.antes)+' → '+_valDeuda(c.campo,c.despues)).join('; '):'préstamo nuevo';
+  guardarDeuda(); registrarCambioDeuda(d.nombre,antes?'editado':'añadido',lista); logImport('deuda',d.nombre+(cambios?' ('+cambios+')':''));
   document.getElementById('deudaEditor').remove(); renderDeuda(); renderAlertas(); showToast('✅ Pool de Deuda actualizado','ok');
 }
 function quitarDeuda(i){
   const d=DEUDA_DATA[i]; if(!d||!confirm('¿Quitar «'+d.nombre+'» del Pool de Deuda?\nSe borra para todos.')) return;
-  DEUDA_DATA.splice(i,1); guardarDeuda(); logImport('deuda',d.nombre+' (quitado del pool)');
+  DEUDA_DATA.splice(i,1); guardarDeuda(); registrarCambioDeuda(d.nombre,'quitado',['nominal','pendiente','cuota','vto','estado'].filter(k=>d[k]!=null&&d[k]!=='').map(k=>({campo:k,antes:d[k],despues:null}))); logImport('deuda',d.nombre+' (quitado del pool)');
   document.getElementById('deudaEditor')?.remove(); renderDeuda(); renderAlertas(); showToast('Préstamo quitado','ok');
 }
 
