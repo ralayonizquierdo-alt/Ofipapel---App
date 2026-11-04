@@ -113,6 +113,7 @@ main{overflow-wrap:anywhere}
 .paso-n{font-size:18px;font-weight:bold;color:#b42318}
 .paso-t{flex:1;min-width:200px}
 .paso .fila{margin:0;gap:6px;align-items:center}
+.entregas{margin:10px 0;padding:10px;border:1px solid #cfe3d2;background:#f5fbf6;border-radius:10px}
 .vacio{color:var(--texto2);font-style:italic;padding:8px 0}
 #vistaImportar{padding:0 12px 12px}
 #vistaImportar iframe{display:block;width:100%;height:calc(100vh - 150px);min-height:600px;border:1px solid var(--borde);border-radius:12px;background:#fff}
@@ -554,7 +555,7 @@ function chipsFaltasSobras(p) {
   if (!filas) return '';
   const sobran = sobrasPendientes(p, filas);
   const faltan = CP.faltasPendientes(filas, p.decisiones);
-  return ` <span class="chip ${faltan.length ? 'mal' : 'ok'}">${faltan.length} faltan</span> <span class="chip ${sobran.length ? 'aviso' : 'ok'}">${sobran.length} sobran</span>`;
+  return (faltan.length ? ` <span class="chip mal">${faltan.length} faltan</span>` : '') + (sobran.length ? ` <span class="chip aviso">${sobran.length} sobran</span>` : '');
 }
 /** Lo que sobra y aún hay que decidir (o está reclamado): lo aceptado ya se le factura al cliente. */
 function sobrasPendientes(p, filas) {
@@ -642,20 +643,8 @@ function bloquePasos(g) {
     subir(repo ? '📄 Subir propuesta o factura' : '📄 Subir propuesta del proveedor', 'cargarPropuestasVarias', true)));
   if (por.has('validar')) filas.push(fila('②', 'Revisar y validar', 'pedidos ' + nums('validar')));
   if (por.has('reclamar')) filas.push(fila('②', 'Reclamación pendiente', 'pedidos ' + nums('reclamar')));
-  if (por.has('factura') || por.has('liquidacion')) filas.push(fila('③', 'Llegada de mercancía',
-    [por.has('factura') ? 'sin factura: pedidos ' + nums('factura') : '', fras('liquidacion').length ? 'falta liquidación de la Fra ' + fras('liquidacion').join(', ') : ''].filter(Boolean).join(' · '),
-    subir('📦 Ha llegado mercancía: factura + liquidación', 'llegadaMercancia', true)));
-  if (por.has('excel') || por.has('guia')) {
-    const docs = documentosCampana(g.pedidos);
-    const idx = (f) => docs.findIndex((d) => d.campo === 'factura' && d.nombre.replace(/^Factura /, '') === f);
-    const botones = [...new Set([...fras('excel'), ...fras('guia')])].map((f) => {
-      const i = idx(f);
-      return `<span class="pequeno"><b>Fra ${h(f)}</b></span>` +
-        (fras('excel').includes(f) && i >= 0 ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})">📥 Excel Géminis</button>` : '') +
-        (fras('guia').includes(f) && i >= 0 ? `<button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})">🧾 Guía</button>` : '');
-    }).join('');
-    filas.push(fila('④', 'Cierre', '', botones));
-  }
+  // Comercial: las entregas del proveedor en una tabla, siempre a la vista.
+  const entregas = repo ? '' : tablaEntregas(g, por);
   if (por.has('geminis')) filas.push(fila('③', 'Subir a Géminis', '',
     `<button class="btn peque" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel Géminis</button>` +
     (por.get('geminis') || []).map(({ p }) => `<button class="btn peque" onclick="subidoAGeminis('${p.id}')">☐ Subido a Géminis${p.numero ? ' · nº ' + h(p.numero) : ''}</button>`).join('')));
@@ -663,8 +652,37 @@ function bloquePasos(g) {
   const cu = repo ? { difs: [] } : cuadreCampana(g.pedidos);
   if (cu.difs.length) filas.push(fila('⚠️', 'Facturado sin cliente', cu.difs.map((d) =>
     `<a href="#" onclick="event.preventDefault(); abrirPedido('${(g.pedidos.find((p) => p.numero === d.numero) || {}).id}')">${h(nPed(d.numero))}</a> ${h(d.ref)} (${d.facturado - d.aCliente} ud.)`).join(', ')));
-  if (!filas.length) return '<div class="aviso-caja ok no-imprimir" style="margin:8px 0">✅ No queda nada por hacer.</div>';
-  return `<div class="pasos no-imprimir">${filas.join('')}</div>`;
+  if (!filas.length && !entregas) return '<div class="aviso-caja ok no-imprimir" style="margin:8px 0">✅ No queda nada por hacer.</div>';
+  return `<div class="pasos no-imprimir">${filas.join('')}</div>${entregas}`;
+}
+/** Cada factura del proveedor (una entrega): qué pedidos trae y si tiene
+ *  liquidación, Excel de Géminis y guía; lo que falta, con su botón al lado.
+ *  Debajo, los pedidos validados que aún no han llegado. */
+function tablaEntregas(g, por) {
+  const docs = documentosCampana(g.pedidos).map((d, i) => [d, i]).filter(([d]) => d.campo === 'factura');
+  const sinLlegar = [...new Map((por.get('factura') || []).map(({ p }) => [p.id, p])).values()];
+  if (!docs.length && !sinLlegar.length) return '';
+  const ok = '<span class="chip ok">✓</span>';
+  const filas = docs.map(([d, i]) => {
+    const f = d.nombre.replace(/^Factura /, '');
+    const ls = d.pedidos.flatMap((p) => ((p.factura && p.factura.lineas) || []).filter((l) => String(fraDeLinea(l, p)) === f && !l.deMas && Number(l.precio) > 0).map((l) => [p, l]));
+    const sinCod = ls.filter(([p, l]) => !codigoDe(p, l.ref)).length;
+    const liqHecha = d.pedidos.every((p) => hecho(p, 'liquidacion', f) || facturaCodificada(p, f));
+    const excel = d.pedidos.every((p) => hecho(p, 'excel', f));
+    const guia = d.pedidos.every((p) => hecho(p, 'guia', f));
+    return `<tr><td><b>${h(f)}</b></td><td>${d.pedidos.map((p) => `<a href="#" onclick="event.preventDefault(); abrirPedido('${p.id}')">${h(nPed(p.numero))}</a>`).join(', ')}</td>
+      <td class="num">${d.lineas}</td><td class="num">${fmt(d.importe)} €</td>
+      <td>${liqHecha ? ok : `<span class="chip mal">${sinCod} sin código</span> <button class="btn peque" onclick="subirLiquidacion(${js(g.clave)})">🏷️ Subir</button>`}</td>
+      <td>${excel ? `<a href="#" class="chip ok" title="Hecho. Pulsa para volver a sacarlo" onclick="event.preventDefault(); excelDeFactura(${js(g.clave)}, ${i})">✓</a>` : `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})">📥 Excel</button>`}</td>
+      <td>${guia ? `<a href="#" class="chip ok" title="Hecha. Pulsa para volver a imprimirla" onclick="event.preventDefault(); guiaDeFactura(${js(g.clave)}, ${i})">✓</a>` : `<button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})">🧾 Guía</button>`}</td></tr>`;
+  }).join('');
+  return `<div class="entregas no-imprimir"><div class="fila" style="justify-content:space-between;align-items:center;margin:0">
+      <b>📦 Entregas del proveedor</b>
+      <label class="btn primario peque" style="flex-direction:row;align-items:center;gap:6px;color:#fff">📦 Ha llegado mercancía: factura + liquidación
+        <input type="file" multiple class="oculto" onchange="llegadaMercancia(this.files, ${js(g.clave)}); this.value=''"></label></div>
+    ${docs.length ? `<div class="tabla-scroll"><table style="margin-top:6px"><tr><th>Factura</th><th>Pedidos</th><th class="num">Líneas</th><th class="num">Importe</th><th>Liquidación</th><th>Excel Géminis</th><th>Guía</th></tr>${filas}</table></div>` : ''}
+    ${sinLlegar.length ? `<div style="margin-top:6px">⏳ <b>Sin llegar todavía:</b> pedidos ${sinLlegar.map((p) => `<a href="#" onclick="event.preventDefault(); abrirPedido('${p.id}')">${h(nPed(p.numero))}</a>`).join(', ')}</div>` : ''}
+  </div>`;
 }
 /** Una entrega del proveedor: factura(s) y liquidación(es) de Géminis a la vez;
  *  cada PDF se reconoce solo (la liquidación es la «Propuesta de Pedido» de Géminis). */
@@ -866,7 +884,7 @@ function vistaGrupo(g, i) {
         <td class="num c-d">${p.lineas.length}</td>
         <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${envioDe(p) ? ` <span class="chip info" title="Enviado a ${h(envioDe(p).para || '')}">📧 ${h(fmtFecha(String(envioDe(p).fecha).slice(0, 10)).slice(0, 5))}</span>` : ''}</td>
+        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
         <td class="c-movil">${filaMovil(p, e)}</td>
         <td class="no-imprimir c-borrar">${esRepo(p) ? `<button class="btn peque" title="Archivar este pedido (queda abajo, en Archivados)" onclick="event.stopPropagation(); archivarPedido('${p.id}', true)">📦</button> ` : ''}<button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
@@ -3129,7 +3147,7 @@ function revisarFactura(p) {
 function chipFactura(p) {
   const r = revisarFactura(p);
   if (!r) return '';
-  if (r.cuadra) return ' <span class="chip ok">Factura ✓</span>';
+  if (r.cuadra) return '';
   const partes = [];
   if (r.faltan.length) partes.push(r.faltan.length + ' no vienen');
   if (r.sobran.length) partes.push(r.sobran.length + ' de más');
