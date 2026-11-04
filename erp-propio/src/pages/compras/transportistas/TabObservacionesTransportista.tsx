@@ -24,7 +24,7 @@ export function TabObservacionesTransportista({ transportista, editing, onChange
         <span className="text-[15px]">Observaciones</span>
         <GwTextArea
           title="TRANSPOR.OBSERV"
-          className="h-[240px] resize-none"
+          className="h-[240px]! resize-none!"
           disabled={ro}
           value={transportista.observaciones ?? ''}
           onChange={(e) => onChange({ observaciones: e.target.value === '' ? null : e.target.value })}
@@ -61,7 +61,7 @@ export function TabObservacionesTransportista({ transportista, editing, onChange
         <div className="flex gap-1">
           <GwTextArea
             rows={1}
-            className="h-[28px] resize-none"
+            className="h-[28px]! resize-none!"
             title="TRANSPOR.IMAGEN — ruta o dirección de la imagen"
             disabled={ro}
             value={transportista.imagen_url ?? ''}

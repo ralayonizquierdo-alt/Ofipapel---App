@@ -199,7 +199,7 @@ export function EjecutarInformeDialog({ onClose }: { onClose: () => void }) {
           <table className="gw-grid">
             <thead className="sticky top-0">
               <tr>
-                <th className="w-[70px]">Código</th>
+                <th className="w-[84px]">Código</th>
                 <th>Listado guardado</th>
               </tr>
             </thead>
@@ -214,7 +214,7 @@ export function EjecutarInformeDialog({ onClose }: { onClose: () => void }) {
                     setExaminando(false)
                   }}
                 >
-                  <td>{l.codigo}</td>
+                  <td className="whitespace-nowrap">{l.codigo}</td>
                   <td className="truncate">{l.nombre}</td>
                 </tr>
               ))}

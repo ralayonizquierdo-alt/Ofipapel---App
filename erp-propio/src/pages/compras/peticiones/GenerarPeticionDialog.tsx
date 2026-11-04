@@ -109,7 +109,7 @@ interface Entrega {
 /** Botón de filtro de la barra: ✓ verde activo, ✗ rojo apagado (como GeminisWin). */
 function Interruptor({ on, label, onClick, title }: { on: boolean; label: string; onClick: () => void; title: string }) {
   return (
-    <button type="button" className="gw-btn h-[24px] w-full text-[14px]" onClick={onClick} title={title} aria-pressed={on}>
+    <button type="button" className="gw-btn h-[24px] w-full whitespace-nowrap text-[14px]" onClick={onClick} title={title} aria-pressed={on}>
       {on ? <Check size={14} strokeWidth={3} className="text-[#127a12]" /> : <X size={14} strokeWidth={3} className="text-[#c42b1c]" />}
       {label}
     </button>
@@ -455,7 +455,7 @@ function GenerarPeticionDialog({ articuloInicial, onClose }: { articuloInicial: 
             </div>
             <div className="flex flex-col">
               <span className={`${leg} font-bold`}>Observaciones Petición</span>
-              <GwTextArea className="h-full min-h-[80px] resize-none" value={obs} title="PETICION.OBSERV" onChange={(e) => setObs(e.target.value)} />
+              <GwTextArea className="h-full! min-h-[80px] resize-none!" value={obs} title="PETICION.OBSERV" onChange={(e) => setObs(e.target.value)} />
             </div>
           </div>
 
@@ -522,7 +522,7 @@ function GenerarPeticionDialog({ articuloInicial, onClose }: { articuloInicial: 
           </div>
 
           {/* Barra «Mostrar Peticiones» */}
-          <div className="grid grid-cols-[minmax(0,1fr)_210px_120px_160px] items-center gap-x-0.5 border border-[var(--gw-border)] bg-[var(--gw-face)] px-1 py-0.5">
+          <div className="grid grid-cols-[minmax(0,1fr)_220px_140px_170px] items-center gap-x-0.5 border border-[var(--gw-border)] bg-[var(--gw-face)] px-1 py-0.5">
             <button type="button" className="flex items-center gap-2 text-left text-[15px] text-[#1a4fd0]" onClick={() => setMostrar((m) => !m)} title="Ver u ocultar la lista de peticiones">
               <span className="flex h-[14px] w-[14px] items-center justify-center border border-[#555] bg-white text-[#1d3a8a]">{mostrar ? <Minus size={11} strokeWidth={3} /> : <Plus size={11} strokeWidth={3} />}</span>
               Mostrar Peticiones
@@ -539,7 +539,7 @@ function GenerarPeticionDialog({ articuloInicial, onClose }: { articuloInicial: 
           {mostrar && (
             <>
               <div className="h-[150px] overflow-auto border border-[var(--gw-border)] bg-white">
-                <table className="gw-grid min-w-[1100px]" title="PETICION">
+                <table className="gw-grid min-w-[1100px] whitespace-nowrap" title="PETICION">
                   <thead className="sticky top-0">
                     <tr>
                       <th style={{ width: 50 }}>Emp.</th>
@@ -620,7 +620,7 @@ function GenerarPeticionDialog({ articuloInicial, onClose }: { articuloInicial: 
                 </div>
                 <div className="flex flex-col">
                   <span className={leg}>Observ. de la entrega</span>
-                  <GwTextArea className="h-full resize-none" disabled value={entregaSel?.observ ?? ''} />
+                  <GwTextArea className="h-full! resize-none!" disabled value={entregaSel?.observ ?? ''} />
                 </div>
               </GwGroup>
             </>

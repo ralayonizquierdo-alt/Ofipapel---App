@@ -1,5 +1,6 @@
-// Archivo → Periodos, como la ficha «Periodos» de GeminisWin: Código, Descripción, Fecha Inicio
-// y Fecha Final, con sus casillas-botón debajo. Un periodo dura lo que se quiera (en GeminisWin
+// Archivo → Periodos, calcada de la ficha «Periodos» de GeminisWin (captura ZIP 7, 83, 04/11/2026):
+// Código, Descripción, Fecha Inicio y Fecha Final, sus casillas-botón debajo, Carpeta Periodo y
+// Carpeta Local (en el ERP web no hay carpetas: se explica en gris) y la barra de registro. Un periodo dura lo que se quiera (en GeminisWin
 // se cierran cada ~3 años).
 //  · «En curso»: el periodo con el que trabajan todos los equipos. Solo uno.
 //  · «Cerrado»: archivado, solo consulta. La base de datos no deja grabar, modificar ni borrar
@@ -15,7 +16,7 @@ import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { supabase } from '../../lib/supabase'
 import { fijarEjercicioActivo } from '../../lib/sesionTrabajo'
 import { useEsSuperAdministrador } from '../archivo/comun'
-import { Mensaje } from './comun'
+import { Mensaje, OperativaDialogo } from './comun'
 import { fechaEs } from './datos'
 
 interface Periodo {
@@ -142,37 +143,18 @@ export function EjerciciosPage() {
             disabled={ro || draft.cerrado || lista.find((e) => e.anio === draft.anio)?.activo === true}
             onChange={(v) => set({ activo: v })}
           >
-            Este periodo es el que está en curso: con él trabajan todos los equipos
+            Este período es el que se carga al iniciar la aplicación en todos los equipos
+          </Casilla>
+          <Casilla on={false} disabled title="No aplica en el ERP web: todos los equipos trabajan con el periodo en curso. Para consultar uno cerrado, Archivo → Seleccionar Periodo." onChange={() => {}}>
+            Este período es el que se carga al iniciar la aplicación en el equipo actual
           </Casilla>
           <Casilla on={draft.cerrado} disabled={ro || draft.activo} onChange={(v) => set({ cerrado: v })}>
             Periodo cerrado: solo consulta (nadie puede grabar, modificar ni borrar en sus fechas)
           </Casilla>
+          <Carpeta etiqueta="Carpeta Periodo" texto="Base de datos central del ERP (no hay carpetas por periodo)" />
+          <Carpeta etiqueta="Carpeta Local" texto="No aplica en el ERP web: no se guarda nada en el equipo" />
         </>
       )}
-      <div className="h-[200px] overflow-auto border border-[var(--gw-border)] bg-white">
-        <table className="gw-grid">
-          <thead className="sticky top-0">
-            <tr>
-              <th className="w-[80px]">Código</th>
-              <th>Descripción</th>
-              <th className="w-[95px]">Fecha Inicio</th>
-              <th className="w-[95px]">Fecha Final</th>
-              <th className="w-[130px]">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.map((e, i) => (
-              <tr key={e.anio} className={i === idx && modo !== 'alta' ? 'gw-selected' : ''} onClick={() => ro && ir(i)}>
-                <td>{codigo(e.anio)}</td>
-                <td className="truncate">{e.descripcion}</td>
-                <td>{fechaEs(e.fecha_inicio)}</td>
-                <td>{fechaEs(e.fecha_fin)}</td>
-                <td className={e.cerrado ? 'text-[#a00]' : e.activo ? 'font-bold text-[#127a12]' : ''}>{e.cerrado ? 'Cerrado' : e.activo ? 'En curso' : 'Abierto'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
       {mensaje && <Mensaje {...mensaje} />}
       <GwRecordBar
         mode={modo}
@@ -196,7 +178,30 @@ export function EjerciciosPage() {
           setDraft(lista[idx] ?? null)
           setMensaje(null)
         }}
+        onPrint={() => window.print()}
         onExit={() => navigate('/')}
+      />
+      <span className="text-[12px] text-[#444]">
+        Registro {lista.length ? idx + 1 : 0}/{lista.length}
+        {draft ? ` · ${draft.cerrado ? 'Cerrado' : draft.activo ? 'En curso' : 'Abierto'}` : ''}
+      </span>
+      <OperativaDialogo
+        bloques={[
+          {
+            titulo: 'Periodos o Ejercicios',
+            pasos: [
+              'Muévete entre periodos con las flechas de la barra.',
+              '«Nuevo» crea el siguiente periodo (empieza el día después de que acabe el último); «Modificar» cambia descripción, fechas o casillas; «Aceptar» guarda.',
+              'Marca «…en todos los equipos» para que ese sea el periodo en curso (solo uno).',
+              'Marca «Periodo cerrado» para archivarlo: pide confirmación dos veces.',
+            ],
+            notas: [
+              'Solo los super administradores entran aquí.',
+              'En un periodo cerrado nadie puede grabar, modificar ni borrar documentos con fecha dentro de él; se consulta con Archivo → Seleccionar Periodo.',
+              'Los periodos no se borran. «…en el equipo actual» y las carpetas no aplican en el ERP web.',
+            ],
+          },
+        ]}
       />
     </div>
   )
@@ -209,10 +214,11 @@ function siguienteDia(iso: string) {
 }
 
 /** Casilla-botón de GeminisWin: ✔ verde activada, ✖ gris desactivada, a todo el ancho. */
-function Casilla({ on, disabled, onChange, children }: { on: boolean; disabled?: boolean; onChange: (v: boolean) => void; children: string }) {
+function Casilla({ on, disabled, onChange, children, title }: { on: boolean; disabled?: boolean; onChange: (v: boolean) => void; children: string; title?: string }) {
   return (
     <button
       type="button"
+      title={title}
       aria-disabled={disabled}
       tabIndex={disabled ? -1 : undefined}
       onClick={() => !disabled && onChange(!on)}
@@ -221,5 +227,17 @@ function Casilla({ on, disabled, onChange, children }: { on: boolean; disabled?:
       <span className={on ? 'text-[18px] font-bold text-[#127a12]' : 'text-[18px] font-bold text-[#909090]'}>{on ? '✔' : '✖'}</span>
       <span className={on ? 'text-black' : 'text-[#707070]'}>{children}</span>
     </button>
+  )
+}
+
+/** «Carpeta Periodo» / «Carpeta Local»: en GeminisWin, texto azul grande; aquí, explicación en gris. */
+function Carpeta({ etiqueta, texto }: { etiqueta: string; texto: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="gw-label text-[15px]">{etiqueta}</span>
+      <div className="border border-[var(--gw-border-light)] bg-[var(--gw-face)] px-1 text-[16px] leading-[26px] text-[#7a8aa8]" title="No aplica en el ERP web">
+        {texto}
+      </div>
+    </div>
   )
 }

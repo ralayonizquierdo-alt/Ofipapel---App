@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { DoorOpen, Printer, Save, Undo2, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { GwField, GwGroup, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
+import { GwOperativa } from '../../components/gw/GwOperativa'
 import { BloqueDireccion, GrupoSmtp, ObservacionesImagen, PestanaPendiente, useEsAdministrador } from './comun'
 
 interface Empresa {
@@ -41,6 +42,7 @@ const TABS: GwTabDef[][] = [
     { key: 'generales', label: 'Datos Generales' },
     { key: 'bancos', label: 'Bancos' },
     { key: 'obs', label: 'Observaciones y Logotipo' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 
@@ -48,7 +50,8 @@ const ALTO = 378
 const LOGO_DEFECTO = `${import.meta.env.BASE_URL}marca/logo-ofipapel.png`
 
 /**
- * Archivo → Datos de Empresa (capturas 05-07 y 05-08). Como en GeminisWin, se abre ya en
+ * Archivo → Datos de Empresa (capturas 05-07 y 05-08; repasada con las capturas ZIP 7, 84-85,
+ * 04/11/2026). Además de lo de GeminisWin, el apartado propio «Correo del ERP por Microsoft 365». Como en GeminisWin, se abre ya en
  * edición, con la barra corta: Imprimir · Guardar · Cancelar · Deshacer · Salir. Son los datos
  * legales de las facturas (NIF, VeriFactu): solo el grupo administrador puede guardarlos.
  */
@@ -164,6 +167,28 @@ export function EmpresaPage() {
                 </GwField>
               </GwGroup>
               <GrupoSmtp r={d} ro={ro} onChange={patch} />
+            </div>
+          )}
+          {tab === 'operativa' && (
+            <div className="h-full overflow-y-auto">
+              <GwOperativa
+                bloques={[
+                  {
+                    titulo: 'Datos de Empresa',
+                    pasos: [
+                      'La ventana se abre ya para modificar: cambia lo que haga falta en cada pestaña.',
+                      'Guardar (disquete) graba los cambios; Deshacer los descarta sin salir; Cancelar los descarta y cierra; Salir pregunta si hay cambios sin guardar.',
+                    ],
+                    notas: [
+                      'Son los datos legales que salen en las facturas y en VeriFactu: solo el grupo administrador puede guardarlos; el resto los ve en gris.',
+                      'Correo del ERP por Microsoft 365: buzones desde los que salen los avisos, listados y correos de NEXA, los pedidos a proveedores y los cobros a clientes.',
+                      'Servidor SMTP: los datos de correo que usaba GeminisWin; la contraseña no se guarda en el ERP.',
+                      'Bancos: pendiente, las cuentas bancarias no se cargan en el ERP.',
+                      'Observaciones y Logotipo: el logotipo sale en los documentos impresos; «Ver Imagen a…» cambia cómo se ajusta al marco.',
+                    ],
+                  },
+                ]}
+              />
             </div>
           )}
           {tab === 'bancos' && <PestanaPendiente texto="Bancos de la empresa: pendiente. Las cuentas bancarias no se cargan ni se muestran en el ERP." alto={ALTO} />}

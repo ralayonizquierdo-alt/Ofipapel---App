@@ -295,7 +295,7 @@ function UsarDialog({ tablas, actual, onAceptar, onCancelar }: { tablas: TablaEr
             {!tablas.length && <div className="px-1 text-[#777]">Cargando…</div>}
           </div>
         </div>
-        <div className="flex w-[80px] flex-none flex-col gap-1 pt-[14px]">
+        <div className="flex w-[92px] flex-none flex-col gap-1 whitespace-nowrap pt-[14px]">
           <button type="button" className={btn} disabled={!elegida} onClick={() => elegida && onAceptar(elegida)}>
             Aceptar
           </button>
@@ -303,26 +303,26 @@ function UsarDialog({ tablas, actual, onAceptar, onCancelar }: { tablas: TablaEr
             Cancelar
           </button>
           <button type="button" className={btn} disabled title="No aplica en el ERP web: hay una sola base de datos">
-            <u>O</u>tras...
+            <span><u>O</u>tras...</span>
           </button>
           <fieldset className="mt-1 border border-[var(--gw-border-light)] px-1 pb-1 pt-0">
             <legend className="px-0.5">Seleccionar</legend>
             <label className="flex items-center gap-1">
               <input type="radio" name="usar-tipo" checked readOnly />
-              <u>T</u>ablas
+              <span><u>T</u>ablas</span>
             </label>
             <label className="flex items-center gap-1 text-[#8a8a8a]" title="Examinar solo enseña tablas: las vistas no se listan">
               <input type="radio" name="usar-tipo" checked={false} disabled readOnly />
-              <u>V</u>istas
+              <span><u>V</u>istas</span>
             </label>
           </fieldset>
           <label className="flex items-center gap-1 text-[#8a8a8a]" title="No aplica en el ERP web: la base de datos es compartida y no se bloquea para un solo usuario">
             <input type="checkbox" checked={false} disabled readOnly />
-            E<u>x</u>clusivo
+            <span>E<u>x</u>clusivo</span>
           </label>
           <label className="flex items-center gap-1 text-[#8a8a8a]" title="Examinar en el ERP es siempre de solo lectura: para cambiar datos, usa su ficha">
             <input type="checkbox" checked disabled readOnly />
-            <u>S</u>ólo lectura
+            <span><u>S</u>ólo lectura</span>
           </label>
         </div>
       </div>

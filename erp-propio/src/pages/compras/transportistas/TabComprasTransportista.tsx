@@ -209,7 +209,7 @@ export function TabComprasTransportista({ codigo }: { codigo: string }) {
 
       {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
       <div className="h-[132px] overflow-auto border border-[var(--gw-border)] bg-white">
-        <table className="gw-grid min-w-[1300px]" title="PEDIDCAB">
+        <table className="gw-grid min-w-[1300px] whitespace-nowrap" title="PEDIDCAB">
           <thead className="sticky top-0">
             <tr>
               <th style={{ width: 40 }}>Idofic</th>

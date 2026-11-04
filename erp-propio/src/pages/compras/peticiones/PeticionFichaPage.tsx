@@ -666,7 +666,7 @@ export function PeticionFichaPage() {
             </div>
             <div className="flex flex-col">
               <span className={`${leg} font-bold`}>Observaciones Petición</span>
-              <GwTextArea className="h-full min-h-[96px] resize-none" value={d.observaciones ?? ''} disabled={ro} title="PETICION.OBSERV" onChange={(e) => patch({ observaciones: e.target.value || null })} />
+              <GwTextArea className="h-full! min-h-[96px] resize-none!" value={d.observaciones ?? ''} disabled={ro} title="PETICION.OBSERV" onChange={(e) => patch({ observaciones: e.target.value || null })} />
             </div>
           </div>
 
@@ -674,7 +674,7 @@ export function PeticionFichaPage() {
           <GwGroup title={<span className={leg}>Datos de Entrega</span>} className="grid grid-cols-[minmax(0,1fr)_230px] gap-x-2">
             <div className="flex flex-col gap-1">
               <div className="h-[140px] overflow-auto border border-[var(--gw-border)] bg-white">
-                <table className="gw-grid min-w-[900px]" title="PETIDETA">
+                <table className="gw-grid min-w-[900px] whitespace-nowrap" title="PETIDETA">
                   <thead className="sticky top-0">
                     <tr>
                       <th style={{ width: 45 }}>Of.P.</th>
@@ -786,7 +786,7 @@ export function PeticionFichaPage() {
             </div>
             <div className="flex flex-col">
               <span className={leg}>Observ. de la entrega</span>
-              <GwTextArea className="h-full min-h-[150px] resize-none" disabled value={entrega?.observ ?? ''} title="PETIDETA.OBSERV — de la entrega elegida en la rejilla" />
+              <GwTextArea className="h-full! min-h-[150px] resize-none!" disabled value={entrega?.observ ?? ''} title="PETIDETA.OBSERV — de la entrega elegida en la rejilla" />
             </div>
           </GwGroup>
         </>

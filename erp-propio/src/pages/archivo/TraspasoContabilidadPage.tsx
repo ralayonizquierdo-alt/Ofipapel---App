@@ -9,7 +9,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, DoorOpen, FolderOpen, Monitor, Printer, Search, Settings } from 'lucide-react'
+import { Check, DoorOpen, FolderOpen, Monitor, Printer, Search, Settings, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { sesionTrabajo } from '../../lib/sesionTrabajo'
 import { BotonOpcion, CampoFechaHora, GrupoRango, LST_INPUT, LstCheck, LstGrupo, LstRadio, rango, type Rango } from '../../components/gw/GwListado'
@@ -96,7 +96,15 @@ export function TraspasoContabilidadPage() {
   )
   const lado = (sinFact: boolean, setSinFact: (v: boolean) => void, efect: boolean, setEfect: (v: boolean) => void, disabled: boolean) => (
     <div className="flex w-[118px] flex-none flex-col gap-1 pt-2">
-      <BotonOpcion label="Incluir Pagos sin Factura" on={sinFact} set={setSinFact} disabled={disabled} className="h-[48px]! whitespace-normal text-[15px]!" />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setSinFact(!sinFact)}
+        className="flex h-[48px] items-center justify-center gap-1 border border-[var(--gw-border)] bg-[#f3f3f3] px-1 text-left text-[15px] leading-[17px] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a]"
+      >
+        {sinFact ? <Check size={13} strokeWidth={3} className="flex-none text-[#2a9d2a]" /> : <X size={13} strokeWidth={3} className="flex-none text-[#c42b1c]" />}
+        <span>Incluir Pagos sin Factura</span>
+      </button>
       <BotonOpcion label="Efect. Pend." on={efect} set={setEfect} disabled={disabled} title="Efectos pendientes" className="text-[15px]!" />
     </div>
   )
