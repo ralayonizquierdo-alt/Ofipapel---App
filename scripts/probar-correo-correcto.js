@@ -39,7 +39,11 @@ ok(visto && visto.esNuestro === false, 'se sabe que NO es una de las nuestras');
 
 const resp = visto ? c.mensajeSobreElCorreo(visto) : '';
 ok(/pedidos@ofipapelsl\.com/.test(resp), 'la respuesta le da la dirección buena');
-ok(!/no existe|es incorrect|est[áa]\s+mal/i.test(resp), 'NO afirma que la suya no exista — eso no lo sabemos');
+// El propietario confirmó el 4/11/2026: «pedidos.net no existe». En ofipapel.net
+// no hay correo, es solo la web. Con eso ya se le puede decir lo único que le
+// sirve: que lo reenvíe, porque lo suyo no llegó.
+ok(/no existe/i.test(resp), 'le dice que esa dirección no existe');
+ok(/vuelve a mandarlo|reenv/i.test(resp), 'y que lo reenvíe, que es lo que le salva el presupuesto');
 console.log(`     → «${resp.trim()}»`);
 
 console.log('\n=== Si la dirección SÍ es nuestra, se le dice que sí');
@@ -48,6 +52,14 @@ for (const correo of ['pedidos@ofipapelsl.com', 'compras@ofipapelsl.com', 'impre
   ok(r && r.esNuestro === true, correo);
   if (r) ok(/^S[ií],/.test(c.mensajeSobreElCorreo(r)), `   contesta que sí: «${c.mensajeSobreElCorreo(r).trim().slice(0, 60)}…»`);
 }
+
+console.log('\n=== Un dominio desconocido que NO es ofipapel.net: con prudencia');
+// Aquí no se puede ser tajante: puede ser una dirección nuestra que no esté en
+// la lista (la de alguien del equipo, una antigua). Se avisa sin afirmarlo.
+const otro = c.preguntaSiEsNuestroCorreo('¿es correcto escribiros a info@ofipapelsl.com?');
+const respOtro = otro ? c.mensajeSobreElCorreo(otro) : '';
+ok(/no me consta/i.test(respOtro), 'dice «no me consta», no «no existe»');
+ok(!/no existe/i.test(respOtro), 'NO afirma que no exista — eso no lo sabemos');
 
 console.log('\n=== En inglés');
 const en = c.preguntaSiEsNuestroCorreo('is orders@ofipapel.net the correct email?');
