@@ -1552,7 +1552,7 @@ const IMPORT_LOG_LABELS = {
   ventasClientes:'Ventas Clientes (Excel)', compras:'Compras (Excel)',
   comprasAnual:'Compras Anuales (Excel)', comprasProveedores:'Compras Proveedores (Excel)',
   proveedores:'Pagos Proveedores (Excel/PDF)', familias:'Familias de Productos (Excel)',
-  forzarSubida:'Forzar subida de datos', deuda:'Pool de Deuda (editado)'
+  forzarSubida:'Forzar subida de datos', deuda:'Pool de Deuda (editado)', pagares:'Pagarés (editado)', confirming:'Confirming Santander (editado)', pagaresTotales:'Total histórico de pagarés (editado)'
 };
 
 const _ILG_ENTRADA  = ['volcado','cajaCierres','cajaBancoRecibos','forzarSubida'];
@@ -1911,6 +1911,14 @@ function applyCloudDataset(key, payload){
   } else if(key==='ventasweb_det'){
     ventasWebDetalle = payload;
     try{ localStorage.setItem('op_ventasweb_det', JSON.stringify(ventasWebDetalle)); }catch(e){}
+  } else if(key==='pagares'){
+    if(Array.isArray(payload)){ PAGARES_DATA=payload; try{ localStorage.setItem('op_pagares',JSON.stringify(PAGARES_DATA)); }catch(e){} renderPagares(); renderAlertas(); }
+  } else if(key==='confirming'){
+    if(Array.isArray(payload)){ CONF_SANT_DATA=payload; try{ localStorage.setItem('op_confirming',JSON.stringify(CONF_SANT_DATA)); }catch(e){} renderPagares(); renderAlertas(); }
+  } else if(key==='pagarestotales'){
+    if(payload&&typeof payload.total==='number'){ PAG_TOTALES=payload; try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} renderPagares(); }
+  } else if(key==='pagareshistorial'){
+    _mergePCHist(payload); renderPagares();
   } else if(key==='deudahistorial'){
     _mergeDeudaHist(payload); renderDeuda();
   } else if(key==='deuda'){
@@ -1965,6 +1973,10 @@ async function loadAllSharedDatasets(){
     if(!existing.ventasweb_det && ventasWebDetalle.length) syncDatasetToCloud('ventasweb_det', ventasWebDetalle);
     if(!existing.importstamps && Object.keys(_importStamps).length) syncDatasetToCloud('importstamps', _importStamps);
     if(!existing.importlog && importLog.length) syncDatasetToCloud('importlog', importLog);
+    if(!existing.pagares) syncDatasetToCloud('pagares', PAGARES_DATA);
+    if(!existing.confirming) syncDatasetToCloud('confirming', CONF_SANT_DATA);
+    if(!existing.pagarestotales) syncDatasetToCloud('pagarestotales', PAG_TOTALES);
+    if(!existing.pagareshistorial && PAG_HIST.length) syncDatasetToCloud('pagareshistorial', PAG_HIST);
     if(!existing.deuda) syncDatasetToCloud('deuda', DEUDA_DATA);
     if(!existing.deudahistorial && DEUDA_HIST.length) syncDatasetToCloud('deudahistorial', DEUDA_HIST);
   } catch(e){ console.warn('Error cargando datasets compartidos:', e); }
@@ -2030,6 +2042,8 @@ async function forzarSyncCompleto(btn){
     if(ventasWebDetalle.length) ops.push(sube('ventasweb_det', ventasWebDetalle));
     if(cajaEfectivo.length)     ops.push(sube('cajaefectivo', cajaEfectivo));
     if(cajaFondoCambio.length)  ops.push(sube('cajafondocambio', cajaFondoCambio));
+    ops.push(sube('pagares', PAGARES_DATA)); ops.push(sube('confirming', CONF_SANT_DATA)); ops.push(sube('pagarestotales', PAG_TOTALES));
+    if(PAG_HIST.length) ops.push(sube('pagareshistorial', PAG_HIST));
     ops.push(sube('deuda', DEUDA_DATA));
     if(DEUDA_HIST.length) ops.push(sube('deudahistorial', DEUDA_HIST));
     const res = await Promise.all(ops);
@@ -2460,7 +2474,7 @@ const G = {
 // ═══════════════════════════════════════════════════════
 // PAGARÉS — pendientes de cobro (activos 2026)
 // ═══════════════════════════════════════════════════════
-const PAGARES_DATA = [
+const PAGARES_INICIAL = [
   // 🔴 Vencidos recientes sin cobrar
   { vto:'2026-03-20', pagare:'T/093-3CSIETE', importe:875.28,  banco:'BS',   estado:'vencido' },
   { vto:'2026-04-20', pagare:'T/632-2BBVA',   importe:34.50,   banco:'—',    estado:'vencido' },
@@ -2491,7 +2505,7 @@ const PAGARES_DATA = [
 // ═══════════════════════════════════════════════════════
 // CONFIRMING SANTANDER — pendientes de pago
 // ═══════════════════════════════════════════════════════
-const CONF_SANT_DATA = [
+const CONF_INICIAL = [
   { vto:'2026-06-11', proveedor:'Cartonaje Unión S.L.',        importe:2899.64,  comision:13.90 },
   { vto:'2026-06-12', proveedor:'Marcos Gregorio (Bolsas)',    importe:2887.79,  comision:16.41 },
   { vto:'2026-06-15', proveedor:'Marcos Gregorio (Bolsas)',    importe:2887.79,  comision:18.77 },
@@ -2519,7 +2533,114 @@ const CONF_SANT_DATA = [
 // ═══════════════════════════════════════════════════════
 // RESUMEN HISTÓRICO PAGARÉS (fila 1 del Excel)
 // ═══════════════════════════════════════════════════════
-const PAG_TOTALES = { total: 2739894.34, ingresado: 2729045.79, en_caja: 10848.55 };
+const PAG_TOTALES_INICIAL = { total: 2739894.34, ingresado: 2729045.79, en_caja: 10848.55 };
+
+// ── Pagarés y Confirming: viven en la nube (app_sync ids pagares, confirming, pagarestotales, pagareshistorial); lo de arriba es solo la semilla de la primera vez ──
+// Cada línea: pagaré {vto 'AAAA-MM-DD', pagare, importe, banco, marca, nota}; confirming {vto, proveedor, importe, comision, marca, nota}.
+// marca: '' = por fecha (vencimiento pasado = cobrado/pagado); 'cobrado'/'pagado' o 'pendiente' lo fija a mano (pendiente + vencido = aviso).
+const EDITAN_PAGARES = ['admin','rober','luis'];
+function _cargarListaPC(clave, ini){ try{ const g=JSON.parse(localStorage.getItem(clave)||'null'); if(Array.isArray(g)) return g; }catch(e){} return JSON.parse(JSON.stringify(ini)); }
+let PAGARES_DATA = _cargarListaPC('op_pagares', PAGARES_INICIAL.map(({estado,...r})=>r));
+let CONF_SANT_DATA = _cargarListaPC('op_confirming', CONF_INICIAL);
+let PAG_TOTALES = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_pagarestotales')||'null'); if(g&&typeof g.total==='number') return g; }catch(e){} return {...PAG_TOTALES_INICIAL}; })();
+let PAG_HIST = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_pagareshist')||'null'); if(Array.isArray(g)) return g; }catch(e){} return []; })();
+// 'ok' = cobrado/pagado · 'pend' = por vencer · 'vencido' = pasó el vencimiento y está marcado como pendiente
+function _estPC(x,hoyStr){ const m=x.marca||''; if(m==='cobrado'||m==='pagado') return 'ok'; if(m==='pendiente') return x.vto<hoyStr?'vencido':'pend'; return x.vto>=hoyStr?'pend':'ok'; }
+function _isoDeES(t){ const m=String(t||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/); if(!m) return null; const y=m[3].length===2?'20'+m[3]:m[3]; const d=new Date(`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}T12:00:00`); return isNaN(d)?null:`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+function _esDeIso(i){ const m=String(i||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}/${m[2]}/${m[1]}`:''; }
+function _numEs(t){ let raw=String(t).replace(/[^\d.,-]/g,''); if(raw.includes(',')) raw=raw.replace(/\./g,'').replace(',','.'); else if(/^-?\d{1,3}(\.\d{3})+$/.test(raw)) raw=raw.replace(/\./g,''); const n=parseFloat(raw); return isNaN(n)?NaN:n; }
+const PC_CAMPOS = {vto:'Vencimiento',pagare:'Nº pagaré',proveedor:'Proveedor',importe:'Importe',comision:'Comisión',banco:'Banco',marca:'Estado',nota:'Nota'};
+function _valPC(k,v){ if(v==null||v==='') return k==='marca'?'Por fecha':'—'; if(k==='vto') return _esDeIso(v)||String(v); if(k==='importe'||k==='comision') return fmt(Number(v)); if(k==='marca') return {cobrado:'Cobrado',pagado:'Pagado',pendiente:'Pendiente'}[v]||v; return String(v); }
+function _mergePCHist(extra){
+  const k=e=>[e.ts,e.user||'',e.tipo||'',e.concepto||'',e.accion||''].join('|'), m=new Map();
+  [...PAG_HIST,...(Array.isArray(extra)?extra:[])].forEach(e=>{ if(e&&e.ts) m.set(k(e),e); });
+  PAG_HIST=[...m.values()].sort((a,b)=>String(a.ts).localeCompare(String(b.ts))).slice(-500);
+  try{ localStorage.setItem('op_pagareshist',JSON.stringify(PAG_HIST)); }catch(e){}
+}
+function registrarCambioPC(tipo,concepto,accion,cambios){ _mergePCHist([{ts:new Date().toISOString(),user:currentUser||'—',tipo,concepto,accion,cambios:cambios||[]}]); syncDatasetToCloud('pagareshistorial',PAG_HIST); }
+function guardarPC(tipo){
+  if(tipo==='pag'){ try{ localStorage.setItem('op_pagares',JSON.stringify(PAGARES_DATA)); }catch(e){} syncDatasetToCloud('pagares',PAGARES_DATA); }
+  else { try{ localStorage.setItem('op_confirming',JSON.stringify(CONF_SANT_DATA)); }catch(e){} syncDatasetToCloud('confirming',CONF_SANT_DATA); }
+}
+function historialPCHtml(){
+  const filas=[...PAG_HIST].reverse().slice(0,60), acc={editado:'✏️ Editado',añadido:'➕ Añadido',quitado:'🗑️ Quitado'};
+  return `<div class="sec-title" style="margin-top:24px;">🕘 Historial de cambios</div>
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;"><div style="overflow-x:auto;">${filas.length?`<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead><tr style="color:var(--texto2);border-bottom:1px solid var(--borde);"><th style="text-align:left;padding:7px 10px;white-space:nowrap;">Fecha/Hora</th><th style="text-align:left;padding:7px 10px;">Usuario</th><th style="text-align:left;padding:7px 10px;">Qué</th><th style="text-align:left;padding:7px 10px;">Cambio</th></tr></thead><tbody>
+    ${filas.map(e=>`<tr style="border-bottom:1px solid var(--borde);vertical-align:top;"><td style="padding:7px 10px;white-space:nowrap;font-weight:500;">${new Date(e.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td><td style="padding:7px 10px;">${escapeHtml(e.user||'—')}</td><td style="padding:7px 10px;"><b>${escapeHtml(e.tipo||'')}</b> · ${escapeHtml(e.concepto||'')}</td><td style="padding:7px 10px;">${acc[e.accion]||e.accion}${(e.cambios||[]).length?'<br>'+e.cambios.map(c=>`${PC_CAMPOS[c.campo]||c.campo}: ${escapeHtml(_valPC(c.campo,c.antes))} → ${escapeHtml(_valPC(c.campo,c.despues))}`).join('<br>'):''}</td></tr>`).join('')}
+    </tbody></table>`:'<div style="padding:18px;text-align:center;color:var(--texto2);font-size:12px;">Todavía no se ha cambiado nada desde la pantalla.</div>'}</div></div>`;
+}
+const _inpPC=(id,lbl,val,ph)=>`<label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">${lbl}</label><input id="${id}" value="${escapeHtml(val==null?'':String(val))}" placeholder="${ph||''}" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;box-sizing:border-box;">`;
+function abrirEditarPC(tipo,i){
+  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('Solo Rober y Luis pueden editar Pagarés y Confirming','err'); return; }
+  const pag=tipo==='pag', lista=pag?PAGARES_DATA:CONF_SANT_DATA, nuevo=i<0;
+  const x=nuevo?(pag?{vto:'',pagare:'',importe:0,banco:'',marca:'',nota:''}:{vto:'',proveedor:'',importe:0,comision:0,marca:'',nota:''}):lista[i];
+  const num=v=>String(v==null?'':v).replace('.',',');
+  let m=document.getElementById('pcEditor'); if(m) m.remove();
+  m=document.createElement('div'); m.id='pcEditor';
+  m.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.6);padding:16px;overflow-y:auto;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <div style="font-size:17px;font-weight:700;color:var(--azul);">${nuevo?'➕ Añadir ':'✏️ Editar '}${pag?'pagaré':'pago de Confirming'}</div>
+    ${_inpPC('pcVto','Vencimiento (dd/mm/aaaa)',_esDeIso(x.vto),'25/11/2026')}
+    ${pag?_inpPC('pcPagare','Nº de pagaré',x.pagare,'T/535-1BS')+_inpPC('pcImporte','Importe (€)',num(x.importe))+_inpPC('pcBanco','Banco',x.banco||'','BS, BBVA…'):_inpPC('pcProveedor','Proveedor',x.proveedor)+_inpPC('pcImporte','Importe (€)',num(x.importe))+_inpPC('pcComision','Comisión (€)',num(x.comision))}
+    <label style="display:block;font-size:11px;font-weight:600;color:var(--texto2);margin:10px 0 3px;">Estado</label>
+    <select id="pcMarca" style="width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:14px;"><option value="">Por fecha (pasado el vencimiento = ${pag?'cobrado':'pagado'})</option><option value="${pag?'cobrado':'pagado'}">${pag?'Cobrado':'Pagado'} (aunque no haya vencido)</option><option value="pendiente">Pendiente (avisa si pasa el vencimiento)</option></select>
+    ${_inpPC('pcNota','Nota',x.nota||'')}
+    <div id="pcError" style="color:var(--rojo);font-size:12px;margin-top:8px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+      <button onclick="guardarEditarPC('${tipo}',${i})" style="flex:1;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button>
+      <button onclick="document.getElementById('pcEditor').remove()" style="background:#eee;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;">Cancelar</button>
+      ${nuevo?'':`<button onclick="quitarPC('${tipo}',${i})" style="background:#fdecea;color:#c0392b;border:none;border-radius:8px;padding:10px 14px;font-size:13px;cursor:pointer;">🗑️ Quitar</button>`}
+    </div></div>`;
+  document.body.appendChild(m);
+  document.getElementById('pcMarca').value=x.marca||'';
+}
+function guardarEditarPC(tipo,i){
+  const pag=tipo==='pag', lista=pag?PAGARES_DATA:CONF_SANT_DATA, g=id=>document.getElementById(id).value.trim(), err=t=>{ document.getElementById('pcError').textContent=t; };
+  const vto=_isoDeES(g('pcVto')); if(!vto) return err('El vencimiento se escribe así: 25/11/2026');
+  const importe=_numEs(g('pcImporte')); if(isNaN(importe)||importe<0) return err('El importe tiene que ser un número');
+  const nuevoX=pag?{vto,pagare:g('pcPagare'),importe,banco:g('pcBanco'),marca:g('pcMarca'),nota:g('pcNota')}:{vto,proveedor:g('pcProveedor'),importe,comision:0,marca:g('pcMarca'),nota:g('pcNota')};
+  if(pag&&!nuevoX.pagare) return err('Pon el nº de pagaré');
+  if(!pag){ if(!nuevoX.proveedor) return err('Pon el proveedor'); const c=g('pcComision')===''?0:_numEs(g('pcComision')); if(isNaN(c)||c<0) return err('La comisión tiene que ser un número'); nuevoX.comision=c; }
+  const antes=i<0?null:{...lista[i]};
+  if(i<0) lista.push(nuevoX); else Object.assign(lista[i],nuevoX);
+  const campos=Object.keys(PC_CAMPOS).filter(k=>k in nuevoX), cambios=campos.filter(k=>antes?String(antes[k]==null?'':antes[k])!==String(nuevoX[k]==null?'':nuevoX[k]):(nuevoX[k]!==''&&nuevoX[k]!=null)).map(k=>({campo:k,antes:antes?antes[k]:null,despues:nuevoX[k]}));
+  const concepto=pag?nuevoX.pagare:nuevoX.proveedor+' '+_esDeIso(vto);
+  guardarPC(tipo); registrarCambioPC(pag?'Pagaré':'Confirming',concepto,antes?'editado':'añadido',cambios);
+  logImport(pag?'pagares':'confirming',concepto+(antes?' ('+cambios.map(c=>PC_CAMPOS[c.campo]+': '+_valPC(c.campo,c.antes)+' → '+_valPC(c.campo,c.despues)).join('; ')+')':' (nuevo)'));
+  document.getElementById('pcEditor').remove(); renderPagares(); renderAlertas(); showToast('✅ Guardado','ok');
+}
+function quitarPC(tipo,i){
+  const pag=tipo==='pag', lista=pag?PAGARES_DATA:CONF_SANT_DATA, x=lista[i]; if(!x) return;
+  const concepto=pag?x.pagare:x.proveedor+' '+_esDeIso(x.vto);
+  if(!confirm('¿Quitar «'+concepto+'»?\nSe borra para todos.')) return;
+  lista.splice(i,1); guardarPC(tipo);
+  registrarCambioPC(pag?'Pagaré':'Confirming',concepto,'quitado',['vto','importe'].map(k=>({campo:k,antes:x[k],despues:null})));
+  logImport(pag?'pagares':'confirming',concepto+' (quitado)');
+  document.getElementById('pcEditor')?.remove(); renderPagares(); renderAlertas(); showToast('Quitado','ok');
+}
+function abrirEditarTotalesPC(){
+  if(!EDITAN_PAGARES.includes(currentUser)){ showToast('Solo Rober y Luis pueden editarlo','err'); return; }
+  const num=v=>String(v==null?'':v).replace('.',',');
+  let m=document.getElementById('pcEditor'); if(m) m.remove();
+  m=document.createElement('div'); m.id='pcEditor';
+  m.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.6);padding:16px;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:22px;width:100%;max-width:420px;"><div style="font-size:17px;font-weight:700;color:var(--azul);">✏️ Total histórico de pagarés</div>
+    ${_inpPC('pcTot','Total histórico (€)',num(PAG_TOTALES.total))}${_inpPC('pcIng','Ingresado (€)',num(PAG_TOTALES.ingresado))}${_inpPC('pcCaja','En caja (€)',num(PAG_TOTALES.en_caja))}
+    <div id="pcError" style="color:var(--rojo);font-size:12px;margin-top:8px;min-height:16px;"></div>
+    <div style="display:flex;gap:8px;"><button onclick="guardarTotalesPC()" style="flex:1;background:var(--azul);color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button><button onclick="document.getElementById('pcEditor').remove()" style="background:#eee;border:none;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;">Cancelar</button></div></div>`;
+  document.body.appendChild(m);
+}
+function guardarTotalesPC(){
+  const v=id=>_numEs(document.getElementById(id).value), t=v('pcTot'), ing=v('pcIng'), caja=v('pcCaja');
+  if([t,ing,caja].some(isNaN)) { document.getElementById('pcError').textContent='Los tres importes tienen que ser números'; return; }
+  const antes={...PAG_TOTALES}; PAG_TOTALES={total:t,ingresado:ing,en_caja:caja};
+  try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} syncDatasetToCloud('pagarestotales',PAG_TOTALES);
+  const camb=[['total','Total'],['ingresado','Ingresado'],['en_caja','En caja']].filter(([k])=>antes[k]!==PAG_TOTALES[k]);
+  registrarCambioPC('Totales','Total histórico de pagarés','editado',camb.map(([k,l])=>({campo:'importe',antes:antes[k],despues:PAG_TOTALES[k]})));
+  logImport('pagaresTotales','Total histórico de pagarés ('+camb.map(([k,l])=>l+': '+fmt(antes[k])+' → '+fmt(PAG_TOTALES[k])).join('; ')+')');
+  document.getElementById('pcEditor').remove(); renderPagares(); showToast('✅ Guardado','ok');
+}
 
 // Horizonte seleccionado para el panel de próximos vencimientos (persiste entre renders)
 let pagaresHorizonte = 5;
@@ -3083,13 +3204,17 @@ function renderAlertas(){
   const hoyAlStrStr = hoyAlStr.toISOString().slice(0,10);
   const in7AlStr = new Date(hoyAlStr); in7AlStr.setDate(hoyAlStr.getDate()+7);
   const in7AlStrStr = in7AlStr.toISOString().slice(0,10);
-  const pagProxAl = PAGARES_DATA.filter(p=>p.vto>=hoyAlStrStr&&p.vto<=in7AlStrStr);
+  const pagProxAl = PAGARES_DATA.filter(p=>_estPC(p,hoyAlStrStr)==='pend'&&p.vto>=hoyAlStrStr&&p.vto<=in7AlStrStr);
+  const pagVencAl = PAGARES_DATA.filter(p=>_estPC(p,hoyAlStrStr)==='vencido');
+  if(pagVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`${pagVencAl.length} pagaré(s) vencido(s) sin cobrar`, txt:`${pagVencAl.map(p=>p.pagare+' ('+fmt(p.importe)+', '+_esDeIso(p.vto)+')').join(' · ')}. Cuando se cobren, márcalos como cobrados en Pagarés y Confirming.`});
   const sumPagProxAl = pagProxAl.reduce((s,p)=>s+p.importe,0);
   if(pagProxAl.length>0) alerts.push({type:'warn', ico:'🔴', ttl:`${pagProxAl.length} pagaré(s) vencen en los próximos 7 días`, txt:`Total pendiente: ${fmt(sumPagProxAl)}. Próximo vencimiento: ${new Date(pagProxAl[0].vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}.`});
 
   // Confirming próximos 7 días
   const today7 = new Date(); const next7 = new Date(); next7.setDate(next7.getDate()+7);
-  const confProx = CONF_SANT_DATA.filter(c=>{ const d=new Date(c.vto); return d>=today7&&d<=next7; });
+  const confProx = CONF_SANT_DATA.filter(c=>{ const d=new Date(c.vto); return _estPC(c,hoyAlStrStr)==='pend'&&d>=today7&&d<=next7; });
+  const confVencAl = CONF_SANT_DATA.filter(c=>_estPC(c,hoyAlStrStr)==='vencido');
+  if(confVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`Confirming Santander — ${confVencAl.length} pago(s) vencido(s) sin pagar`, txt:`${confVencAl.map(c=>c.proveedor+' ('+fmt(c.importe)+', '+_esDeIso(c.vto)+')').join(' · ')}. Cuando se paguen, márcalos como pagados en Pagarés y Confirming.`});
   const sumConf7 = confProx.reduce((s,c)=>s+c.importe,0);
   if(confProx.length>0) alerts.push({type:'warn', ico:'🏦', ttl:`Confirming Santander — ${confProx.length} pago(s) esta semana`, txt:`Total a pagar en los próximos 7 días: ${fmt(sumConf7)}. Proveedores: ${confProx.map(c=>c.proveedor).join(', ')}.`});
 
@@ -3551,12 +3676,12 @@ function checkAlertasArrastre(){
   // 1. Pagarés próximos a vencer (próximos 15 días, clasificación automática por fecha)
   const hoy15Arr = new Date(hoy); hoy15Arr.setDate(hoy15Arr.getDate()+15);
   const hoy15ArrStr = hoy15Arr.toISOString().slice(0,10);
-  const pagProxArr = PAGARES_DATA.filter(p => p.vto >= hoyStr && p.vto <= hoy15ArrStr);
+  const pagProxArr = PAGARES_DATA.filter(p => _estPC(p,hoyStr)!=='ok' && p.vto <= hoy15ArrStr);
   if(pagProxArr.length){
     const sum = pagProxArr.reduce((s,p)=>s+p.importe,0);
     alertas.push({
       cat:'pagares',
-      titulo:`${pagProxArr.length} pagaré(s) vencen en los próximos 15 días`,
+      titulo:`${pagProxArr.length} pagaré(s) vencen en los próximos 15 días o están vencidos sin cobrar`,
       items: pagProxArr.map(p=>`${p.pagare} — ${fmt(p.importe)} · Vto: ${new Date(p.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
       sumario:`Total: ${fmt(sum)}`,
       nav:'pagares'
@@ -3566,12 +3691,12 @@ function checkAlertasArrastre(){
   // 2. Confirming próximo a vencer (próximos 15 días, clasificación automática por fecha)
   const hoy15ConfDate = new Date(hoy); hoy15ConfDate.setDate(hoy15ConfDate.getDate()+15);
   const hoy15ConfStr = hoy15ConfDate.toISOString().slice(0,10);
-  const confVenc = CONF_SANT_DATA.filter(c => c.vto >= hoyStr && c.vto <= hoy15ConfStr);
+  const confVenc = CONF_SANT_DATA.filter(c => _estPC(c,hoyStr)!=='ok' && c.vto <= hoy15ConfStr);
   if(confVenc.length){
     const sum = confVenc.reduce((s,c)=>s+c.importe,0);
     alertas.push({
       cat:'confirming',
-      titulo:`${confVenc.length} Confirming vence(n) en los próximos 15 días`,
+      titulo:`${confVenc.length} Confirming vence(n) en los próximos 15 días o están vencidos sin pagar`,
       items: confVenc.map(c=>`${c.proveedor} — ${fmt(c.importe)} · Vto: ${new Date(c.vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'})}`),
       sumario:`Total: ${fmt(sum)}`,
       nav:'pagares'
@@ -7823,10 +7948,11 @@ function renderPagares(){
   const diasHasta = d => Math.round((new Date(d+'T12:00:00') - today) / MS);
 
   // Auto-classify by date — past vto = cobrado (blue), future = pendiente (red)
-  const pag_pend  = PAGARES_DATA.filter(p => p.vto >= todayStr);
-  const pag_cob   = PAGARES_DATA.filter(p => p.vto <  todayStr);
-  const conf_pend = CONF_SANT_DATA.filter(c => c.vto >= todayStr);
-  const conf_cob  = CONF_SANT_DATA.filter(c => c.vto <  todayStr);
+  const canEd = EDITAN_PAGARES.includes(currentUser);
+  const pag_pend  = PAGARES_DATA.filter(p => _estPC(p,todayStr)!=='ok');
+  const pag_cob   = PAGARES_DATA.filter(p => _estPC(p,todayStr)==='ok');
+  const conf_pend = CONF_SANT_DATA.filter(c => _estPC(c,todayStr)!=='ok');
+  const conf_cob  = CONF_SANT_DATA.filter(c => _estPC(c,todayStr)==='ok');
 
   // Próximos H días: pagarés AND confirming pendientes dentro del horizonte
   const pag_hor  = pag_pend.filter(p => p.vto <= horizStr);
@@ -7855,6 +7981,7 @@ function renderPagares(){
   ].sort((a,b)=>a.vto.localeCompare(b.vto));
 
   const html = `
+  ${canEd?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="abrirEditarPC('pag',-1)">➕ Añadir pagaré</button><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="abrirEditarPC('conf',-1)">➕ Añadir pago de Confirming</button><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;" onclick="abrirEditarTotalesPC()">✏️ Total histórico</button></div>`:''}
   <!-- KPIs -->
   <div class="kpi-grid" style="margin-bottom:24px;">
     <div class="kpi" style="border-top-color:#E74C3C;background:linear-gradient(135deg,#FEF0EE,#FDE8E4);">
@@ -7873,7 +8000,7 @@ function renderPagares(){
       <div class="kpi-ico">🏦</div>
       <div class="kpi-lbl">Confirming Pendiente</div>
       <div class="kpi-val" style="color:#E31837;">${fmt(sumConfPend)}</div>
-      <div class="kpi-delta neg2">${conf_pend.length} operación${conf_pend.length!==1?'es':''} por pagar</div>
+      <div class="kpi-delta neg2">${conf_pend.length} operaci${conf_pend.length!==1?'ones':'ón'} por pagar</div>
       <div class="kpi-sub">Comisiones: ${fmt(comisConf)}</div>
     </div>
     <div class="kpi" style="border-top-color:#1A5C1A;">
@@ -7922,7 +8049,7 @@ function renderPagares(){
             <td style="text-align:left;font-size:12px;font-weight:500">${concepto}</td>
             <td style="font-weight:700;color:#E74C3C">${fmt(item.importe)}</td>
             <td style="text-align:center">${tipoBadge}</td>
-            <td style="text-align:center;font-weight:700;color:${col};font-size:12px;">${d}d</td>
+            <td style="text-align:center;font-weight:700;color:${col};font-size:12px;">${d<0?'vencido':d+'d'}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -7961,26 +8088,26 @@ function renderPagares(){
         <th>Importe</th>
         <th style="text-align:left">Banco</th>
         <th style="text-align:center">Estado</th>
-        <th style="text-align:center">Días</th>
+        <th style="text-align:center">Días</th>${canEd?'<th></th>':''}
       </tr></thead>
       <tbody>
         ${pagSorted.map(p=>{
-          const isPend = p.vto >= todayStr;
+          const isPend = _estPC(p,todayStr)!=='ok', venc = _estPC(p,todayStr)==='vencido';
           const d = diasHasta(p.vto);
           const rb = isPend ? 'background:#FFF8F8;' : 'background:#F0F7FF;';
           const badge = isPend
-            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 PENDIENTE</span>`
+            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">${venc?'🔴 VENCIDO':'🔴 PENDIENTE'}</span>`
             : `<span style="background:#E8F4FF;color:#4A8FC1;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔵 COBRADO</span>`;
           const diaCell = isPend
-            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d}d</span>`
+            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d<0?'hace '+(-d)+'d':d+'d'}</span>`
             : '—';
           return `<tr style="${rb}">
             <td style="text-align:left">${fmtDate(p.vto)}</td>
             <td style="text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--texto2)">${p.pagare}</td>
             <td style="font-weight:600;color:${isPend?'#E74C3C':'#4A8FC1'}">${fmt(p.importe)}</td>
-            <td style="text-align:left;font-size:11px">${p.banco}</td>
+            <td style="text-align:left;font-size:11px">${p.banco}${p.nota?`<div style="color:var(--texto2);">${escapeHtml(p.nota)}</div>`:''}</td>
             <td style="text-align:center">${badge}</td>
-            <td style="text-align:center;font-size:11px">${diaCell}</td>
+            <td style="text-align:center;font-size:11px">${diaCell}</td>${canEd?`<td><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:2px 8px;cursor:pointer;" onclick="abrirEditarPC('pag',${PAGARES_DATA.indexOf(p)})">✏️</button></td>`:''}
           </tr>`;
         }).join('')}
       </tbody>
@@ -8004,26 +8131,26 @@ function renderPagares(){
         <th>Importe</th>
         <th>Comisión</th>
         <th style="text-align:center">Estado</th>
-        <th style="text-align:center">Días</th>
+        <th style="text-align:center">Días</th>${canEd?'<th></th>':''}
       </tr></thead>
       <tbody>
         ${confSorted.map(c=>{
-          const isPend = c.vto >= todayStr;
+          const isPend = _estPC(c,todayStr)!=='ok', venc = _estPC(c,todayStr)==='vencido';
           const d = diasHasta(c.vto);
           const rb = isPend ? 'background:#FFF8F8;' : 'background:#F0F7FF;';
           const badge = isPend
-            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔴 PENDIENTE</span>`
+            ? `<span style="background:#FEE;color:#E74C3C;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">${venc?'🔴 VENCIDO':'🔴 PENDIENTE'}</span>`
             : `<span style="background:#E8F4FF;color:#4A8FC1;border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700;">🔵 PAGADO</span>`;
           const diaCell = isPend
-            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d}d</span>`
+            ? `<span style="font-weight:700;color:${d<=7?'#E74C3C':d<=30?'#F0A500':'#555'}">${d<0?'hace '+(-d)+'d':d+'d'}</span>`
             : '—';
           return `<tr style="${rb}">
             <td style="text-align:left">${fmtDate(c.vto)}</td>
-            <td style="text-align:left;font-size:12px;font-weight:500">${c.proveedor}</td>
+            <td style="text-align:left;font-size:12px;font-weight:500">${c.proveedor}${c.nota?`<div style="color:var(--texto2);font-weight:400;font-size:11px;">${escapeHtml(c.nota)}</div>`:''}</td>
             <td style="font-weight:600;color:${isPend?'#E74C3C':'#4A8FC1'}">${fmt(c.importe)}</td>
             <td style="color:var(--texto2);font-size:11px">${fmt(c.comision)}</td>
             <td style="text-align:center">${badge}</td>
-            <td style="text-align:center;font-size:11px">${diaCell}</td>
+            <td style="text-align:center;font-size:11px">${diaCell}</td>${canEd?`<td><button style="background:var(--azul-pale);color:var(--azul);border:1px solid var(--borde);border-radius:8px;padding:2px 8px;cursor:pointer;" onclick="abrirEditarPC('conf',${CONF_SANT_DATA.indexOf(c)})">✏️</button></td>`:''}
           </tr>`;
         }).join('')}
       </tbody>
@@ -8034,6 +8161,7 @@ function renderPagares(){
     </table>
     </div>
   </div>
+  ${historialPCHtml()}
   `;
 
   document.getElementById('pagaresContent').innerHTML = html;
