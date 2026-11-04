@@ -373,6 +373,7 @@ export function ObsImagen({
   editing,
   onChange,
   nombre,
+  tituloImagen = false,
 }: {
   observaciones: string | null
   imagenUrl: string | null
@@ -380,23 +381,26 @@ export function ObsImagen({
   editing: boolean
   onChange: (p: { observaciones?: string | null; imagen_url?: string | null; imagen_modo?: number }) => void
   nombre: string
+  /** Zonas y rutas: rótulo «Imagen» encima y observaciones estrechas, como en sus capturas. */
+  tituloImagen?: boolean
 }) {
   const [rota, setRota] = useState<string | null>(null)
   const ro = !editing
   const url = imagenUrl?.trim() || null
   const modo = MODOS.find((m) => m.valor === imagenModo) ?? MODOS[1]
   return (
-    <div className="grid min-h-[300px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+    <div className={`grid min-h-[300px] gap-3 ${tituloImagen ? 'grid-cols-[minmax(0,0.6fr)_minmax(0,1.4fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'}`}>
       <GwField label="Observaciones">
         <GwTextArea
           title="OBSERV"
-          className="h-[285px]"
+          style={{ height: tituloImagen ? 274 : 270, resize: "none" }}
           disabled={ro}
           value={observaciones ?? ''}
           onChange={(e) => onChange({ observaciones: e.target.value === '' ? null : e.target.value })}
         />
       </GwField>
-      <div className="flex flex-col gap-1 pt-1">
+      <div className={`flex flex-col gap-1 ${tituloImagen ? '' : 'pt-1'}`}>
+        {tituloImagen && <span className="gw-label">Imagen</span>}
         <div className="grid grid-cols-[minmax(0,1fr)_200px] gap-1">
           <div className="relative h-[245px] overflow-hidden border border-[var(--gw-border)] bg-[var(--gw-face)]">
             {url && rota !== url ? (

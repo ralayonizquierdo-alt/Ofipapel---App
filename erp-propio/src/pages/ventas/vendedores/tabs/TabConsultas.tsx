@@ -391,7 +391,7 @@ export function TabConsultas({ codigo: clienteCodigo, campo }: { codigo: string;
             key={t.key}
             type="button"
             disabled={t.disabled}
-            title={t.disabled ? 'Aún no disponible' : undefined}
+            title={t.disabled ? (t.key === 'facturas' ? 'Las facturas no guardan el técnico: sus ventas facturadas se ven en «Ventas» (columna Nº Factura).' : 'Aún no disponible: las reparaciones todavía no están en el programa.') : undefined}
             onClick={() => setSub(t.key)}
             className={`whitespace-nowrap border border-[var(--gw-border)] px-2.5 text-[14px] disabled:text-[#9a9a9a] ${
               sub === t.key ? 'z-10 h-[28px] border-t-transparent bg-[var(--gw-face)] font-bold' : 'h-[26px] bg-[#f6f6f6] enabled:hover:bg-[#e5f1fb]'

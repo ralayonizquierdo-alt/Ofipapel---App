@@ -4,31 +4,28 @@ import { RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximaAperturaCaja } from '../../lib/proximoNumero'
 import { ahoraTrabajo } from '../../lib/sesionTrabajo'
-import { GwInput, GwLookupButton, GwNumber, GwSelect, formatGw } from '../../components/gw'
+import { GwInput, GwLookupButton, GwNumber, GwSelect } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
-import { todasLasFilas } from '../../lib/todasLasFilas'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
+import { GwOperativa } from '../../components/gw/GwOperativa'
 import { Campo, Grupo, I, L } from './piezasCaja'
+import { CierreCajaDialog, type DocumentosCierre } from './CierreCajaDialog'
+import { ConsultaMovimientosCaja } from './ConsultaMovimientosCaja'
 import {
-  MOV_COLS,
   cajaAbiertaDe,
   cargarMaestrosCaja,
   errorTexto,
-  fechaGw,
   fechaHoraGw,
   nombreEmpleado,
   r3,
   recordarTiendaPuesto,
-  textoDocumento,
   tiendaPuesto,
   totalesCaja,
   totalesGuardados,
   type CajaApertura,
-  type FormaPagoCaja,
-  type MovimientoCaja,
   type TiendaCaja,
   type TotalesCaja,
 } from './cajaModel'
@@ -37,9 +34,10 @@ import {
 // «Aperturas y Cierres de Caja» de GeminisWin (CAJACIER → caja_apertura_cierre).
 // - Nuevo = Apertura de Caja: fondo inicial; el Número se asigna al guardar (fn_caja_abrir).
 //   Solo puede haber una caja abierta por tienda/terminal (índice único en BD).
-// - Cierre de Caja (?cerrar=1): se teclea el Total Arqueo (efectivo contado) y el Fondo al
-//   Cierre; Sobrante = arqueo − (fondo de apertura + efectivo neto); Efectivo Retirado =
-//   arqueo − fondo al cierre. Aceptar cierra la caja con los totales (fn_caja_cerrar).
+// - Cierre de Caja (?cerrar=1): abre encima la ventana «Cierre de Caja» (CierreCajaDialog, calcada
+//   de GeminisWin el 04/11): arqueo y fondo al cierre; Sobrante = arqueo − (fondo de apertura +
+//   efectivo neto); Efectivo Retirado = arqueo − fondo al cierre. Aceptar → fn_caja_cerrar.
+// - Pestaña «Consultas Movimientos de Caja»: ConsultaMovimientosCaja (filtro por fecha y tiendas).
 // - Con la caja abierta los totales se calculan en vivo (fn_caja_totales), como en GeminisWin.
 
 type Modo = 'consulta' | 'edicion' | 'alta' | 'cierre'
@@ -125,18 +123,16 @@ export function AperturasCierresPage() {
   const pedirCierre = new URLSearchParams(location.search).get('cerrar') === '1'
 
   const [tiendas, setTiendas] = useState<TiendaCaja[]>([])
-  const [formas, setFormas] = useState<FormaPagoCaja[]>([])
   const [empleadoActual, setEmpleadoActual] = useState<string | null>(null)
   const [maestros, setMaestros] = useState(false)
   const [caja, setCaja] = useState<CajaApertura | null>(null)
   const [orig, setOrig] = useState<CajaApertura | null>(null)
   const [tot, setTot] = useState<TotalesCaja>(CERO)
   const [nombres, setNombres] = useState({ apertura: '', cierre: '' })
-  const [arqueo, setArqueo] = useState<number | null>(null)
   const [fondoCierre, setFondoCierre] = useState<number | null>(null)
   const [modo, setModo] = useState<Modo>('consulta')
-  const [pestana, setPestana] = useState<'datos' | 'movs'>('datos')
-  const [movs, setMovs] = useState<MovimientoCaja[] | null>(null)
+  const [pestana, setPestana] = useState<'datos' | 'movs' | 'operativa'>('datos')
+  const [docsTras, setDocsTras] = useState<DocumentosCierre | null>(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState<{ texto: string; error: boolean } | null>(null)
@@ -144,9 +140,8 @@ export function AperturasCierresPage() {
   const lista = useListaOrdenada()
 
   useEffect(() => {
-    cargarMaestrosCaja().then(({ tiendas: t, formas: f, empleado }) => {
+    cargarMaestrosCaja().then(({ tiendas: t, empleado }) => {
       setTiendas(t)
-      setFormas(f)
       setEmpleadoActual(empleado)
       setMaestros(true)
     })
@@ -175,7 +170,6 @@ export function AperturasCierresPage() {
       setCargando(true)
       const aviso = tomarAvisoNumero()
       setMensaje(aviso ? { texto: aviso, error: false } : null)
-      setMovs(null)
       if (esNuevo) {
         const t = tiendaPuesto(tiendas)
         const nueva = await cajaNueva(t)
@@ -281,35 +275,14 @@ export function AperturasCierresPage() {
   async function empezarCierre(c: CajaApertura) {
     const t = await totalesCaja(c.tienda_terminal_codigo, c.ejercicio)
     setTot(t)
-    setArqueo(r3(t.efectivo_teorico))
     setFondoCierre(Number(tiendas.find((x) => x.codigo === c.tienda_terminal_codigo)?.fondo_caja_inicial ?? 0))
     setNombres((n) => ({ ...n, cierre: '' }))
     nombreEmpleado(empleadoActual).then((nom) => setNombres((n) => ({ ...n, cierre: nom })))
     setModo('cierre')
     setPestana('datos')
-    setMensaje({
-      texto: 'Cierre de caja: cuenta el efectivo del cajón, escribe el Total Arqueo y el Fondo al Cierre y pulsa Aceptar.',
-      error: false,
-    })
+    setDocsTras(null)
+    setMensaje(null)
   }
-
-  // Movimientos de la caja (pestaña «Consultas Movimientos de Caja»).
-  useEffect(() => {
-    if (pestana !== 'movs' || !caja || modo === 'alta') return
-    let cancel = false
-    // Todos los movimientos del turno, por bloques (Supabase corta cada respuesta en 1000 filas).
-    todasLasFilas<MovimientoCaja>(() =>
-      supabase
-        .from('movimiento_caja')
-        .select(MOV_COLS)
-        .eq('turno_tienda_codigo', caja.tienda_terminal_codigo)
-        .eq('turno_numero', caja.ejercicio)
-        .order('numero'),
-    ).then(({ data }) => !cancel && setMovs(data))
-    return () => {
-      cancel = true
-    }
-  }, [pestana, caja, modo])
 
   function patch(c: Partial<CajaApertura>) {
     setCaja((x) => (x ? { ...x, ...c } : x))
@@ -389,28 +362,6 @@ export function AperturasCierresPage() {
         navigate(`/caja/aperturas/${encodeURIComponent(caja.tienda_terminal_codigo)}/${data}`, { replace: true })
         return
       }
-      if (modo === 'cierre') {
-        const teorico = tot.efectivo_teorico
-        const desc = r3(Number(arqueo ?? 0) - teorico)
-        if (
-          !confirm(
-            `¿Cerrar la caja Nº ${caja.ejercicio} de la tienda ${caja.tienda_terminal_codigo}?\n\nTotal arqueo: ${formatGw(arqueo ?? 0, 3)}\nEfectivo según caja: ${formatGw(teorico, 3)}\nSobrante / descuadre: ${formatGw(desc, 3)}\nEfectivo retirado: ${formatGw(r3(Number(arqueo ?? 0) - Number(fondoCierre ?? 0)), 3)}`,
-          )
-        ) {
-          setGuardando(false)
-          return
-        }
-        const { error } = await supabase.rpc('fn_caja_cerrar', {
-          p_tienda: caja.tienda_terminal_codigo,
-          p_ejercicio: caja.ejercicio,
-          p_arqueo: r3(Number(arqueo ?? 0)),
-          p_fondo_cierre: r3(Number(fondoCierre ?? 0)),
-        })
-        if (error) throw new Error(error.message)
-        setGuardando(false)
-        navigate(`/caja/aperturas/${encodeURIComponent(caja.tienda_terminal_codigo)}/${caja.ejercicio}`, { replace: true })
-        return
-      }
       // Modificar (solo con la caja abierta): fondo de apertura y empleado de apertura.
       const { error } = await supabase
         .from('caja_apertura_cierre')
@@ -426,6 +377,21 @@ export function AperturasCierresPage() {
     } finally {
       setGuardando(false)
     }
+  }
+
+  async function cerrarCaja(arqueo: number, fondo: number, docs: DocumentosCierre) {
+    if (!caja) return
+    setGuardando(true)
+    const { error } = await supabase.rpc('fn_caja_cerrar', {
+      p_tienda: caja.tienda_terminal_codigo,
+      p_ejercicio: caja.ejercicio,
+      p_arqueo: r3(arqueo),
+      p_fondo_cierre: r3(fondo),
+    })
+    setGuardando(false)
+    if (error) return setMensaje({ texto: `No se ha cerrado la caja: ${errorTexto(error)}`, error: true })
+    setDocsTras(docs.caja || docs.articulo || docs.familia || docs.ventas ? docs : null)
+    navigate(`/caja/aperturas/${encodeURIComponent(caja.tienda_terminal_codigo)}/${caja.ejercicio}`, { replace: true })
   }
 
   async function eliminar() {
@@ -446,11 +412,6 @@ export function AperturasCierresPage() {
 
   const cierreVals = useMemo(() => {
     if (!caja) return { arqueo: 0, sobrante: 0, retirado: 0, fondo: 0 }
-    if (modo === 'cierre') {
-      const a = Number(arqueo ?? 0)
-      const f = Number(fondoCierre ?? 0)
-      return { arqueo: a, sobrante: r3(a - tot.efectivo_teorico), retirado: r3(a - f), fondo: f }
-    }
     if (caja.cerrado)
       return {
         arqueo: Number(caja.total_arqueo ?? 0),
@@ -460,7 +421,7 @@ export function AperturasCierresPage() {
       }
     // Caja abierta: el arqueo es el efectivo que debería haber en el cajón.
     return { arqueo: r3(tot.efectivo_teorico), sobrante: 0, retirado: r3(tot.efectivo_teorico), fondo: 0 }
-  }, [caja, modo, arqueo, fondoCierre, tot])
+  }, [caja, tot])
 
   // En alta (Apertura de Caja), el número que tendrá (lo da de verdad fn_caja_abrir al guardar).
   const proximo = useProximaAperturaCaja(modo === 'alta', caja?.tienda_terminal_codigo)
@@ -471,7 +432,6 @@ export function AperturasCierresPage() {
   const editarApertura = modo === 'alta' || modo === 'edicion'
   const tiendasOpc = tiendas.length ? tiendas.map((t) => t.codigo) : c ? [c.tienda_terminal_codigo] : []
   const ancla = c && modo !== 'alta' ? `${c.tienda_terminal_codigo}|${c.ejercicio}` : null
-  const nombreFp = (cod: string | null) => formas.find((f) => f.codigo === cod)?.descripcion ?? cod ?? ''
 
   return (
     <div className="flex flex-col gap-1 px-1 text-[18px]">
@@ -527,6 +487,7 @@ export function AperturasCierresPage() {
           [
             ['datos', 'Datos Generales'],
             ['movs', 'Consultas Movimientos de Caja'],
+            ['operativa', 'Operativa'],
           ] as const
         ).map(([k, l]) => (
           <button
@@ -534,7 +495,7 @@ export function AperturasCierresPage() {
             type="button"
             onClick={() => setPestana(k)}
             disabled={k === 'movs' && modo === 'alta'}
-            className={`-mb-px h-[38px] flex-1 border border-[var(--gw-border-light)] text-[20px] ${pestana === k ? 'z-10 border-b-transparent bg-[var(--gw-face)] font-bold' : 'bg-[var(--gw-face)] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a]'}`}
+            className={`-mb-px h-[38px] ${k === 'operativa' ? 'w-[140px] flex-none !text-[16px]' : 'flex-1'} border border-[var(--gw-border-light)] text-[20px] ${pestana === k ? 'z-10 border-b-transparent bg-[var(--gw-face)] font-bold' : 'bg-[var(--gw-face)] hover:bg-[#e5f1fb] disabled:text-[#9a9a9a]'}`}
           >
             {l}
           </button>
@@ -542,7 +503,9 @@ export function AperturasCierresPage() {
       </div>
 
       <div className="flex flex-col gap-1 border border-[var(--gw-border-light)] p-1.5">
-        {!c ? (
+        {pestana === 'operativa' ? (
+          <OperativaAperturas />
+        ) : !c ? (
           <p className={`${L} p-2`}>No hay aperturas de caja en esta tienda. Pulsa «Nuevo» para abrir la caja.</p>
         ) : pestana === 'datos' ? (
           <>
@@ -638,13 +601,13 @@ export function AperturasCierresPage() {
                     <Num v={cierreVals.sobrante} className={cierreVals.sobrante ? '!text-[#c42b1c]' : ''} />
                   </span>
                   <span title="Efectivo contado en el cajón">
-                    <Num v={cierreVals.arqueo} editar={modo === 'cierre' ? (v) => setArqueo(v) : undefined} className={modo === 'cierre' ? '!bg-[#fffbe0]' : ''} />
+                    <Num v={cierreVals.arqueo} />
                   </span>
                   <Fila>Efectivo Retirado:</Fila>
                   <Num v={cierreVals.retirado} />
                   <span className="col-span-2 my-0.5 border-t border-[var(--gw-border)]" />
                   <Fila>Fondo al Cierre:</Fila>
-                  <Num v={cierreVals.fondo} editar={modo === 'cierre' ? (v) => setFondoCierre(v) : undefined} className={modo === 'cierre' ? '!bg-[#fffbe0]' : ''} />
+                  <Num v={cierreVals.fondo} />
                 </div>
               </div>
             </Grupo>
@@ -665,77 +628,37 @@ export function AperturasCierresPage() {
               </Grupo>
             </div>
           </>
-        ) : (
-          <div className="flex min-h-0 flex-col gap-1">
-            <div className="h-[420px] overflow-auto border border-[var(--gw-border)] bg-white">
-              <table className="gw-grid table-fixed">
-                <thead className="sticky top-0 z-10">
-                  <tr>
-                    <th style={{ width: 90 }}>Número</th>
-                    <th style={{ width: 92 }}>Fecha</th>
-                    <th style={{ width: 70 }}>Hora</th>
-                    <th style={{ width: 48 }}>Tipo</th>
-                    <th style={{ width: 160 }}>Forma de pago</th>
-                    <th style={{ width: 150 }}>Documento</th>
-                    <th className="text-right!" style={{ width: 100 }}>
-                      Ingreso
-                    </th>
-                    <th className="text-right!" style={{ width: 100 }}>
-                      Gasto
-                    </th>
-                    <th>Concepto</th>
-                    <th style={{ width: 70 }}>Empl.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movs == null && (
-                    <tr>
-                      <td colSpan={10}>Cargando…</td>
-                    </tr>
-                  )}
-                  {movs?.length === 0 && (
-                    <tr>
-                      <td colSpan={10} className="text-center text-[#6d6d6d]">
-                        La caja no tiene movimientos.
-                      </td>
-                    </tr>
-                  )}
-                  {movs?.map((m) => (
-                    <tr
-                      key={m.numero}
-                      className={m.activo ? '' : 'text-[#8a8a8a] line-through'}
-                      onDoubleClick={() => navigate(`/caja/movimientos/${encodeURIComponent(m.tienda_terminal_codigo)}/${m.numero}`)}
-                      title="Doble clic: abrir el movimiento"
-                    >
-                      <td className="text-right tabular-nums">{m.numero}</td>
-                      <td>{fechaGw(m.fecha)}</td>
-                      <td>{m.hora}</td>
-                      <td>{m.tipo_movimiento}</td>
-                      <td className="truncate">{nombreFp(m.forma_pago_codigo)}</td>
-                      <td className="truncate">{textoDocumento(m)}</td>
-                      <td className="text-right tabular-nums">{Number(m.ingreso ?? 0) ? formatGw(m.ingreso, 3) : ''}</td>
-                      <td className="text-right tabular-nums">{Number(m.gasto ?? 0) ? formatGw(m.gasto, 3) : ''}</td>
-                      <td className="truncate">{m.concepto}</td>
-                      <td>{m.empleado_codigo}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex justify-end gap-6 pr-2 text-[16px]">
-              <span>{movs?.length ?? 0} movimientos</span>
-              <span>
-                Ingresos: <b className="tabular-nums">{formatGw((movs ?? []).reduce((s, m) => s + Number(m.ingreso ?? 0), 0), 3)}</b>
-              </span>
-              <span>
-                Gastos: <b className="tabular-nums">{formatGw((movs ?? []).reduce((s, m) => s + Number(m.gasto ?? 0), 0), 3)}</b>
-              </span>
-            </div>
-          </div>
+        ) : modo === 'alta' ? null : (
+          <ConsultaMovimientosCaja caja={c} />
         )}
       </div>
 
       {mensaje && <p className={`gw-label px-1 ${mensaje.error ? '!text-[#c42b1c]' : '!text-[#1a4fd0]'}`}>{mensaje.texto}</p>}
+      {docsTras && c?.cerrado && (
+        <p className="gw-label flex flex-wrap items-center gap-2 px-1 !text-[#127a12]">
+          Caja cerrada. Documentos a imprimir:
+          {docsTras.caja && (
+            <button type="button" className="gw-btn !h-[26px]" onClick={() => navigate('/caja/listado')}>
+              Listado de Caja
+            </button>
+          )}
+          {docsTras.articulo && (
+            <button type="button" className="gw-btn !h-[26px]" onClick={() => navigate('/listados-ventas/articulos')}>
+              List. ventas por Artículo
+            </button>
+          )}
+          {docsTras.familia && (
+            <button type="button" className="gw-btn !h-[26px]" title="En el listado de ventas por artículo, agrupa por familia" onClick={() => navigate('/listados-ventas/articulos')}>
+              List. ventas por Familia
+            </button>
+          )}
+          {docsTras.ventas && (
+            <button type="button" className="gw-btn !h-[26px]" onClick={() => navigate('/listados-ventas/ventas')}>
+              Listado de Ventas
+            </button>
+          )}
+        </p>
+      )}
 
       <GwRecordBar
         grande
@@ -790,6 +713,47 @@ export function AperturasCierresPage() {
         />
       )}
       {lista.dialogo}
+      {modo === 'cierre' && c && (
+        <CierreCajaDialog
+          caja={c}
+          tot={tot}
+          empleado={empleadoActual}
+          nombreEmpleado={nombres.cierre}
+          fondoPropuesto={Number(fondoCierre ?? 0)}
+          guardando={guardando}
+          onAceptar={cerrarCaja}
+          onCancelar={() => {
+            setMensaje(null)
+            setModo('consulta')
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function OperativaAperturas() {
+  return (
+    <GwOperativa
+      bloques={[
+        {
+          titulo: 'Aperturas y Cierres de Caja',
+          pasos: [
+            'Arriba eliges la Tienda y el Número de la caja (o te mueves con las flechas de abajo). Si la caja sigue abierta, los totales se calculan en vivo; el botón «Ejercicio» los recalcula.',
+            'Datos Generales: fondo y empleado de la apertura, totales por bancos, efectos, crédito y contado, desglose de cheques, tarjetas y efectivo, y el arqueo del cierre.',
+            'Consultas Movimientos de Caja: elige el periodo (Fecha y Hora Mov., Desde / Hasta) y las tiendas, y pulsa Aplicar. Doble clic en una fila abre el movimiento.',
+            'Nuevo abre una caja (Caja → Apertura de Caja hace lo mismo). Para cerrarla: Caja → Cierre de Caja.',
+          ],
+        },
+        {
+          titulo: 'A tener en cuenta',
+          notas: [
+            'Solo puede haber una caja abierta por tienda/terminal.',
+            'Con la caja abierta solo se puede cambiar el fondo y el empleado de la apertura (botón Modificar). Una caja cerrada no se modifica.',
+            'Solo se puede eliminar una caja abierta que no tenga ningún movimiento.',
+          ],
+        },
+      ]}
+    />
   )
 }

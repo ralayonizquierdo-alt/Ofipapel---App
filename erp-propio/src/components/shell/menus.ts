@@ -140,7 +140,7 @@ export const MENUS: TopMenu[] = [
       item('Listados', {
         // SIN CAPTURA: construidos con la pieza GwListado (filtros y columnas a confirmar con Luis).
         children: [
-          item('List. de Clientes', { to: '/listados-clientes/clientes', description: 'Listado de Clientes (sin captura)' }),
+          item('List. de Clientes', { to: '/listados-clientes/clientes', description: 'Listados de Clientes' }),
           item('List. de Ventas y Facturas por Cliente', { to: '/listados-clientes/ventas-facturas', description: 'Ventas y Facturas por Cliente (sin captura)' }),
           item('Por Zonas Terr., Vendedores, Facturas y Artículos Pend.', {
             to: '/listados-clientes/zonas',
@@ -181,8 +181,8 @@ export const MENUS: TopMenu[] = [
               item('Ventas por Artículo', { to: '/listados-ventas/articulos', shortcut: 'ALT+F9', description: 'Listado de Ventas por Artículo' }),
             ],
           }),
-          // «List Pedidos» (de clientes): sin captura, al estilo de los Informes de Pedidos de Compras.
-          item('List Pedidos', { to: '/listados-ventas/pedidos', description: 'Listado de Pedidos de Clientes (sin captura)' }),
+          // «List Pedidos» (de clientes): ventana «Informes» calcada (capturas ZIP 7, 04/11/2026).
+          item('List Pedidos', { to: '/listados-ventas/pedidos', description: 'Informes de Pedidos de Clientes' }),
           item('L. Reparaciones', { to: '/listados-ventas/reparaciones', description: 'Listado de Reparaciones' }),
           item('List. Presupuestos', { to: '/listados-ventas/presupuestos', description: 'Listado de presupuestos' }),
           item('List. Tarjetas', { to: '/listados-ventas/tarjetas', description: 'Listado de Cobros en Tarjetas' }),
@@ -457,8 +457,8 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/listados-ventas/cajon', title: 'Listado de Aperturas de Cajón' },
   { prefix: '/listados-compras/pedidos', title: 'Informes de Pedidos' },
   { prefix: '/listados-compras/proveedores', title: 'Informes de Proveedores' },
-  { prefix: '/listados-ventas/pedidos', title: 'Listado de Pedidos de Clientes' },
-  { prefix: '/listados-clientes/clientes', title: 'Listado de Clientes' },
+  { prefix: '/listados-ventas/pedidos', title: 'Informes' },
+  { prefix: '/listados-clientes/clientes', title: 'Listados de Clientes' },
   { prefix: '/listados-clientes/ventas-facturas', title: 'Ventas y Facturas por Cliente' },
   { prefix: '/listados-clientes/zonas', title: 'Clientes por Zonas, Vendedores, Facturas y Artículos Pendientes' },
   { prefix: '/listados-clientes/no-pagado', title: 'Clientes que no han pagado' },

@@ -10,6 +10,7 @@ import { PuntosRestauracionPage } from './PuntosRestauracionPage'
 import { RecalcularStockPage } from './RecalcularStockPage'
 import { EliminacionArticulosPage } from './EliminacionArticulosPage'
 import { ControlLotesPage } from './ControlLotesPage'
+import { ConsultaLotesPage } from './ConsultaLotesPage'
 import { StockCeroFamiliaPage } from './StockCeroFamiliaPage'
 import { ArticulosEnBlancoPage } from './ArticulosEnBlancoPage'
 
@@ -29,6 +30,7 @@ export function AlmacenUtilRoutes() {
       <Route path="recalcular-stock" element={<RecalcularStockPage />} />
       <Route path="eliminacion-articulos" element={<EliminacionArticulosPage />} />
       <Route path="lotes" element={<ControlLotesPage />} />
+      <Route path="lotes/consulta" element={<ConsultaLotesPage />} />
       {/* Del menú Utilidades */}
       <Route path="stock-cero-familia" element={<StockCeroFamiliaPage />} />
       <Route path="articulos-en-blanco" element={<ArticulosEnBlancoPage />} />

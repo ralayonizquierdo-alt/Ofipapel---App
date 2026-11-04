@@ -130,7 +130,7 @@ begin
     union all
     select cf.codigo, 'Cliente ' || cf.codigo || ' ' || coalesce(cf.nombre, ''), cf.codigo || '|' || lpad(cc.id::text, 12, '0'), coalesce(cc.nombre, ''),
            coalesce(cc.nombre, ''), coalesce(cc.tipo_contacto_codigo || ' ' || coalesce(tco.descripcion, ''), ''), cc.telefono_fijo, cc.telefono_movil, cc.email,
-           null, null, null, null
+           null, null, null, null, null
     from cf join cliente_contacto cc on cc.cliente_codigo = cf.codigo
     left join tipo_contacto tco on tco.codigo = cc.tipo_contacto_codigo
     where inf = 'contactos_cliente' and cc.fecha_baja is null
@@ -138,7 +138,7 @@ begin
     select upper(coalesce(nullif(trim(cc.nombre), ''), '—')), 'Contacto ' || coalesce(nullif(trim(cc.nombre), ''), '(sin nombre)'),
            lpad(cc.id::text, 12, '0'), cf.s,
            cf.codigo, cf.nombre, coalesce(cc.tipo_contacto_codigo || ' ' || coalesce(tco.descripcion, ''), ''), coalesce(cc.telefono_movil, cc.telefono_fijo), cc.email,
-           null, null, null, null
+           null, null, null, null, null
     from cf join cliente_contacto cc on cc.cliente_codigo = cf.codigo
     left join tipo_contacto tco on tco.codigo = cc.tipo_contacto_codigo
     where inf = 'clientes_contacto' and cc.fecha_baja is null
@@ -146,7 +146,7 @@ begin
     select coalesce(cc.tipo_contacto_codigo, '—'), 'Tipo de contacto ' || coalesce(cc.tipo_contacto_codigo, '(sin tipo)') || ' ' || coalesce(tco.descripcion, ''),
            lpad(cc.id::text, 12, '0'), cf.s,
            cf.codigo, cf.nombre, coalesce(cc.nombre, ''), coalesce(cc.telefono_movil, cc.telefono_fijo), cc.email,
-           null, null, null, null
+           null, null, null, null, null
     from cf join cliente_contacto cc on cc.cliente_codigo = cf.codigo
     left join tipo_contacto tco on tco.codigo = cc.tipo_contacto_codigo
     where inf = 'clientes_tipo_contacto' and cc.fecha_baja is null

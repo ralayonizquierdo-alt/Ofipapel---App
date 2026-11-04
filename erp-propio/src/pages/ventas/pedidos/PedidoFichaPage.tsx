@@ -10,6 +10,7 @@ import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { PedidoBar } from './PedidoBar'
+import { MenuImpresoraPedido } from './MenuImpresoraPedido'
 import { SeguimientoPresupuesto, type EstadoPresupuesto } from './SeguimientoPresupuesto'
 import { RelacionSeguimientos } from './RelacionSeguimientos'
 import { entregarPedido } from './entregar'
@@ -258,6 +259,8 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const [preciosNivel, setPreciosNivel] = useState<{ nivel: number; pvp: number }[]>([])
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  // Menú de la impresora del documento (Pedidos · Proforma · Presupuesto…): rectángulo del botón.
+  const [menuImpresora, setMenuImpresora] = useState<DOMRect | null>(null)
   // «Ver Presup.» / «Ver Pedido» (F5): buscar por nº, cliente o vendedor.
   const [verTexto, setVerTexto] = useState('')
   const [verAbierto, setVerAbierto] = useState(false)
@@ -1300,14 +1303,48 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         onLast={() => ir('ultimo')}
         onSort={() => setOrden((o) => (o === 'numero' ? 'cliente' : 'numero'))}
         onSearch={() => setDialogo('buscar')}
-        // Impresora: abre sus «Informes de…», como GeminisWin (Luis, 30/10/2026).
-        onPrint={() => navigate(presupuestos ? '/listados-ventas/presupuestos' : '/listados-ventas/pedidos')}
+        // Impresora: menú del documento como GeminisWin (capturas ZIP 7, 04/11/2026). Sus «Informes
+        // de…» (Luis, 30/10/2026) quedan en el botón Listados de la barra.
+        onPrint={() => {
+          const b = document.querySelector('[data-gw-estado="Imprimir"]')
+          if (cab && b) setMenuImpresora(b.getBoundingClientRect())
+        }}
+        onListados={() => navigate(presupuestos ? '/listados-ventas/presupuestos' : '/listados-ventas/pedidos')}
         onNew={() => navigate(`${base}/nuevo`)}
         onEdit={() => cab && setMode('edicion')}
         onSave={guardar}
         onCancel={cancelar}
         onExit={() => navigate('/')}
       />
+      {menuImpresora && cab && (
+        <MenuImpresoraPedido
+          ancla={menuImpresora}
+          onCerrar={() => setMenuImpresora(null)}
+          onAviso={setMensaje}
+          datos={() => ({
+            tienda: cab.tienda_terminal_codigo,
+            numero: cab.numero as number,
+            fecha: cab.fecha,
+            validoHasta: cab.fecha_fin,
+            clienteCodigo: cab.cliente_codigo,
+            clienteNombre: cab.nombre_cliente,
+            nif: cab.nif_cliente,
+            vendedor: cab.vendedor_codigo,
+            observaciones: cab.observaciones,
+            lineas: lineas.map((l, i) => ({
+              codigo: l.codigo_venta || l.articulo_codigo,
+              descripcion: l.descripcion,
+              cantidad: l.cantidad,
+              precio: l.precio,
+              descuento_pct: l.descuento_pct,
+              importe: tot.porLinea[i]?.sub ?? 0,
+            })),
+            base: tot.subtotal2 + tot.canon,
+            igic: tot.igic,
+            total: tot.total,
+          })}
+        />
+      )}
       <div className="flex justify-between text-[12px] text-[#444]">
         <span>
           {cargando

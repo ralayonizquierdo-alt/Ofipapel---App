@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { GwField, GwGroup, GwNumber, GwTabs, type GwTabDef } from '../../../components/gw'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { BarraFicha, BuscarEnFilas, FilasVacias, GridMiniBar, GridNavBar, ObsImagen, RejillaClientes, SelectorDialog, Tick, useFicha } from './common'
 
 export interface Zona {
@@ -22,6 +23,7 @@ const TABS: GwTabDef[][] = [
     { key: 'rutas', label: 'Rutas y Repartidores' },
     { key: 'clientes', label: 'Clientes de ésta Zona' },
     { key: 'obs', label: 'Observaciones e Imagen' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 const SATELITES = new Set(['rutas', 'clientes'])
@@ -83,7 +85,22 @@ export function ZonaFichaPage() {
 
       <div className="mt-1">
         <GwTabs rows={TABS} active={tab} onChange={setTab}>
-          {f.vacia && !SATELITES.has(tab) ? (
+          {tab === 'operativa' ? (
+            <GwOperativa
+              bloques={[
+                {
+                  titulo: 'Cómo se usa',
+                  pasos: [
+                    'Nuevo (F3): el código se propone solo (4 cifras); escribe la descripción y, si hace falta, el pedido mínimo de la zona. Acepta (F1).',
+                    'En «Rutas y Repartidores», con Modificar (F2), añade las rutas de reparto a las que pertenece la zona (Nueva línea). El botón Modificar línea habilita o deshabilita la zona en esa ruta.',
+                    'Al elegir una ruta, a la derecha salen los repartidores que la hacen.',
+                    '«Clientes de ésta Zona» lista los clientes que tienen puesta esta zona en su ficha.',
+                  ],
+                  notas: ['Una zona asignada a clientes o rutas no se puede eliminar.', 'Intro en Código o Descripción busca; Ctrl+Intro abre la lista ordenada.'],
+                },
+              ]}
+            />
+          ) : f.vacia && !SATELITES.has(tab) ? (
             <div className="min-h-[285px] p-3 text-[13px]">No hay ninguna zona territorial. Pulsa Nuevo para dar de alta la primera.</div>
           ) : (
             <>
@@ -92,6 +109,7 @@ export function ZonaFichaPage() {
               {tab === 'obs' && (
                 <ObsImagen
                   nombre="zona"
+                  tituloImagen
                   observaciones={d.observaciones}
                   imagenUrl={d.imagen_url}
                   imagenModo={d.imagen_modo}

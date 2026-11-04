@@ -24,15 +24,31 @@ import {
 } from '../../components/gw/GwListado'
 import { rpc } from './comun'
 
-// Ventas → Listados → L. Reparaciones (captura 06-03, ventana «Informes»). Filtros calcados;
-// columnas del informe sin captura: confirmar con Luis. Cálculo en fn_lst_reparaciones.
-// «Realizada» = marca Realizada de la ficha (preparado); fecha de realización = fecha_fin.
+// Ventas → Listados → L. Reparaciones (captura 06-03, ventana «Informes»; desplegables calcados de
+// las capturas ZIP 7, nº 78-80, 04/11/2026). Columnas del informe sin captura: confirmar con Luis.
+// Cálculo en fn_lst_reparaciones. «Realizada» = marca Realizada de la ficha (preparado); fecha de
+// realización = fecha_fin. «Aparatos con X días de demora de recogida» = realizadas sin entregar
+// cuya fecha de realización tiene X días o más.
 
 const INFORMES = [
   { value: 'desglosado', label: 'Desglosado' },
-  { value: 'tecnico', label: 'Desglosado Agrupado por Técnico' },
-  { value: 'cliente', label: 'Desglosado Agrupado por Cliente' },
-  { value: 'resumen_tecnico', label: 'Resumen por Técnico' },
+  { value: 'resumido', label: 'Resumido' },
+  { value: 'cuadrante', label: 'Cuadrante', disabled: true, title: 'Pendiente: cuadrante de horas de reparación (sin formato de GeminisWin todavía)' },
+  { value: 'cuadrante_tecnico', label: 'Cuadrante por técnico', disabled: true, title: 'Pendiente: cuadrante de horas por técnico (sin formato de GeminisWin todavía)' },
+  { value: 'tecnico', label: 'Reparaciones por Técnico' },
+  { value: 'demora', label: ' Aparatos con X días de demora de recogida' },
+]
+
+// La lista de GeminisWin tiene barra de desplazamiento y sale vacía al abrir: estos son los campos que se ven.
+const ORDENES = [
+  { value: '', label: '' },
+  { value: 'numero', label: 'Idpedido' },
+  { value: 'tienda', label: 'Idoficina' },
+  { value: 'almacen', label: 'Idalmacen' },
+  { value: 'fecha', label: 'Fecha' },
+  { value: 'fecha_entrega', label: 'Fecha_entr' },
+  { value: 'hora', label: 'Hora' },
+  { value: 'cliente', label: 'Idcliente' },
 ]
 
 interface Filtros {
@@ -72,13 +88,18 @@ const inicial = (): Filtros => ({
 export function ListadoReparacionesPage() {
   const inf = useInforme()
   const [informe, setInforme] = useState('desglosado')
+  const [orden, setOrden] = useState('')
+  const [dias, setDias] = useState('30')
   const [destino, setDestino] = useState<Destino>('pantalla')
   const [f, setF] = useState<Filtros>(inicial)
   const set = (p: Partial<Filtros>) => setF((x) => ({ ...x, ...p }))
 
   function procesar(fl: Filtros = f) {
+    const demora = informe === 'demora'
     const p = {
-      informe,
+      informe: demora || informe === 'resumido' ? 'desglosado' : informe,
+      orden,
+      diasDemora: demora ? String(Math.max(0, Number(dias) || 0)) : '',
       campoFecha: fl.campoFecha,
       fecha: fl.fecha,
       tecnicos: rangoSql(fl.tecnicos),
@@ -93,7 +114,15 @@ export function ListadoReparacionesPage() {
       tiendas: rangoSql(fl.tiendas),
     }
     const columnas: ColumnaInforme[] =
-      informe === 'resumen_tecnico'
+      informe === 'resumido'
+        ? [
+            { key: 'documento', titulo: 'Nº', ancho: 60 },
+            { key: 'fecha', titulo: 'F. Entrada', tipo: 'fecha', ancho: 66 },
+            { key: 'cliente', titulo: 'Cliente' },
+            { key: 'estado', titulo: 'Estado', ancho: 90 },
+            { key: 'total', titulo: 'Total', tipo: 'num', ancho: 70 },
+          ]
+        : informe === 'resumen_tecnico'
         ? [
             { key: 'documento', titulo: 'Técnico' },
             { key: 'n', titulo: 'Nº Reparaciones', tipo: 'entero', ancho: 90 },
@@ -117,11 +146,12 @@ export function ListadoReparacionesPage() {
           ]
     inf.procesar(
       {
-        titulo: `Listado de Reparaciones - ${INFORMES.find((i) => i.value === informe)?.label}`,
+        titulo: `Listado de Reparaciones - ${INFORMES.find((i) => i.value === informe)?.label.trim()}`,
         sinCaptura: true,
-        apaisado: informe !== 'resumen_tecnico',
+        apaisado: informe !== 'resumen_tecnico' && informe !== 'resumido',
         columnas,
         filtros: [
+          demora && `Realizadas sin recoger desde hace ${p.diasDemora} días o más`,
           describirFecha(fl.campoFecha === 'entrada' ? 'Fecha de entrada' : 'Fecha de realización', fl.fecha),
           describirRango('Técnicos', fl.tecnicos),
           describirRango('Clientes', fl.clientes),
@@ -152,6 +182,17 @@ export function ListadoReparacionesPage() {
         informe={informe}
         onInforme={setInforme}
         cabeceraDebajo={
+          informe === 'demora' ? (
+            <label className="flex items-center gap-2">
+              Días de demora (X):
+              <input
+                className="gw-input h-[26px]! w-[70px]! text-right text-[16px]!"
+                value={dias}
+                onChange={(e) => setDias(e.target.value.replace(/\D/g, ''))}
+                title="Aparatos realizados y sin recoger desde hace este número de días o más"
+              />
+            </label>
+          ) : (
           <LstCheck
             label="Emitir informe simple"
             on={false}
@@ -160,10 +201,27 @@ export function ListadoReparacionesPage() {
             className="text-[#8a8a8a]"
             title="Informe simple de GeminisWin: sin captura"
           />
+          )
         }
-        ordenes={[{ value: '', label: '' }]}
-        orden=""
-        onOrden={() => undefined}
+        ordenes={ORDENES}
+        orden={orden}
+        onOrden={setOrden}
+        operativa={[
+          {
+            titulo: 'Sacar un listado de reparaciones',
+            pasos: [
+              'Elige el informe en «Informe a procesar» (y, si quieres, el orden en «Orden de salida»).',
+              'Marca la fecha (De Entrada o De Realización) y el tramo, o deja Cualquiera.',
+              'Pulsa los botones de «Estado» que quieras (quedan hundidos). Sin ninguno pulsado en una pareja, no se filtra por ella.',
+              'Elige el destino y pulsa Procesar.',
+            ],
+            notas: [
+              '«Aparatos con X días de demora de recogida»: escribe X debajo del informe; salen las reparaciones realizadas y sin entregar desde hace X días o más.',
+              '«Eliminar todos los Filtros y procesar los de Hoy» saca al momento las reparaciones de hoy.',
+              'Los informes con «(Pendiente)» aún no los saca el ERP.',
+            ],
+          },
+        ]}
         destino={destino}
         onDestino={setDestino}
         onProcesar={() => procesar()}

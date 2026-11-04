@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { GwCheck, GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwNumber, GwSelect, GwTabs, type GwTabDef } from '../../../components/gw'
+import { GwField, GwGroup, GwInline, GwInput, GwLookupButton, GwSelect, GwTabs, type GwTabDef } from '../../../components/gw'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import { BancosEntidad } from './bancos'
 import {
@@ -76,6 +77,7 @@ const TABS: GwTabDef[][] = [
     { key: 'comisiones', label: 'Comisiones' },
     { key: 'bancos', label: 'Bancos' },
     { key: 'obs', label: 'Observaciones e Imagen' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 const SATELITES = new Set(['rutas', 'bancos'])
@@ -149,13 +151,30 @@ export function RepartidorFichaPage() {
 
       <div className="mt-1">
         <GwTabs rows={TABS} active={tab} onChange={setTab}>
-          {f.vacia && !SATELITES.has(tab) ? (
+          {tab === 'operativa' ? (
+            <GwOperativa
+              bloques={[
+                {
+                  titulo: 'Cómo se usa',
+                  pasos: [
+                    'Nuevo (F3): el código se propone solo (3 cifras); escribe nombre, nombre corto y los datos de contacto. Acepta (F1).',
+                    'En «Rutas de Reparto», con Modificar (F2), añade las rutas que hace el repartidor (Nueva línea). Modificar línea la habilita o deshabilita; a la derecha salen las zonas de la ruta elegida con su orden.',
+                    '«Reparto Deshabilitado» saca al repartidor del reparto sin borrarlo.',
+                  ],
+                  notas: [
+                    '«Comisiones» no está disponible, igual que en GeminisWin.',
+                    'El PIN de la app de reparto del móvil se pone en Ventas → Control de Repartos, no aquí.',
+                  ],
+                },
+              ]}
+            />
+          ) : f.vacia && !SATELITES.has(tab) ? (
             <div className="p-3 text-[13px]">No hay ningún repartidor. Pulsa Nuevo para dar de alta el primero.</div>
           ) : (
             <>
               {tab === 'generales' && <DatosGenerales r={d} ro={ro} onChange={f.patch} />}
               {tab === 'rutas' && aviso(<RutasRepartidor codigo={f.registro.codigo} editing={f.mode === 'edicion'} />)}
-              {tab === 'comisiones' && <Comisiones r={d} ro={ro} codigo={f.registro.codigo} alta={f.mode === 'alta'} onChange={f.patch} />}
+              {tab === 'comisiones' && <ComisionesNoDisponible />}
               {tab === 'bancos' && aviso(<BancosEntidad tipoEntidad="repartidor" codigo={f.registro.codigo} editing={f.mode === 'edicion'} />)}
               {tab === 'obs' && (
                 <ObsImagen
@@ -514,87 +533,14 @@ function RutasRepartidor({ codigo, editing }: { codigo: string; editing: boolean
   )
 }
 
-const NIVELES: { nivel: number; label: string }[] = [
-  { nivel: 0, label: 'General:' },
-  { nivel: 1, label: 'MAYOR  M-1:' },
-  { nivel: 2, label: 'MAYOR  M-2:' },
-  { nivel: 3, label: 'MAYOR  M-3:' },
-  { nivel: 4, label: 'Tarifa Dcto -4:' },
-  { nivel: 5, label: 'Tarifa Dcto -5:' },
-  { nivel: 6, label: 'Tarifa Dcto -6:' },
-]
-
 /**
- * Pestaña «Comisiones»: % por tarifa aplicada al artículo (REPARTIDOR.COMISION0..6) y de oferta.
- * En GeminisWin las comisiones de repartidores existen en la ficha pero no se calculan.
+ * Pestaña «Comisiones»: en GeminisWin no está disponible para repartidores (captura 04/11/2026).
+ * Las columnas comision_* de repartidor y la tabla repartidor_comision_nivel se conservan.
  */
-function Comisiones({
-  r,
-  ro,
-  codigo,
-  alta,
-  onChange,
-}: {
-  r: Repartidor
-  ro: boolean
-  codigo: string
-  alta: boolean
-  onChange: (p: Partial<Repartidor>) => void
-}) {
-  const [niveles, setNiveles] = useState<Record<number, number | null>>({})
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!codigo || alta) return setNiveles({})
-    supabase
-      .from('repartidor_comision_nivel')
-      .select('nivel, comision_pct')
-      .eq('repartidor_codigo', codigo)
-      .then(({ data }) => setNiveles(Object.fromEntries(((data ?? []) as { nivel: number; comision_pct: number | null }[]).map((n) => [n.nivel, n.comision_pct]))))
-  }, [codigo, alta])
-
-  async function guardarNivel(nivel: number, v: number | null) {
-    setError(null)
-    setNiveles((n) => ({ ...n, [nivel]: v }))
-    const { error: err } = await supabase
-      .from('repartidor_comision_nivel')
-      .upsert({ repartidor_codigo: codigo, nivel, comision_pct: v }, { onConflict: 'repartidor_codigo,nivel' })
-    if (err) setError(err.message)
-  }
-
-  const celda = (label: string, input: React.ReactNode) => (
-    <div className="grid grid-cols-[minmax(0,1fr)_90px] items-center gap-2">
-      <span className="gw-label text-right text-[14px]">{label}</span>
-      {input}
-    </div>
-  )
-
-  const nivelInput = (n: number) => (
-    <GwNumber value={niveles[n] ?? null} decimals={2} disabled={ro || alta} onChange={(v) => guardarNivel(n, v)} />
-  )
-
+function ComisionesNoDisponible() {
   return (
-    <div className="min-h-[260px]">
-      {error && <div className="mb-1 border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-      <GwGroup title="Comisiones según tarifa aplicada al artículo" className="flex flex-col gap-2">
-        <div className="grid grid-cols-4 gap-x-6 gap-y-2" title="COMISION0..6">
-          {celda('Precio de Oferta:', <GwNumber value={r.comision_oferta_pct} decimals={2} disabled={ro} onChange={(v) => onChange({ comision_oferta_pct: v })} />)}
-          {celda(NIVELES[1].label, nivelInput(1))}
-          {celda(NIVELES[3].label, nivelInput(3))}
-          {celda(NIVELES[5].label, nivelInput(5))}
-          {celda(NIVELES[0].label, nivelInput(0))}
-          {celda(NIVELES[2].label, nivelInput(2))}
-          {celda(NIVELES[4].label, nivelInput(4))}
-          {celda(NIVELES[6].label, nivelInput(6))}
-        </div>
-        <GwCheck
-          label="Aplicar el % de las comisiones sobre el Beneficio"
-          checked={r.compensa_beneficio}
-          disabled={ro}
-          onChange={(v) => onChange({ compensa_beneficio: v })}
-        />
-      </GwGroup>
-      {alta && <div className="mt-1 text-[13px]">Acepta el alta del repartidor para poder poner las comisiones por tarifa.</div>}
+    <div className="flex min-h-[260px] items-center px-14 text-[52px] leading-[60px] text-[#1a1ae6]" title="En GeminisWin tampoco se calculan comisiones de repartidores">
+      Esta opción no está disponible, se contemplará en el futuro
     </div>
   )
 }

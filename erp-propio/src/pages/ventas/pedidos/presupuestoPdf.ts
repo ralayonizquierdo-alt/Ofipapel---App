@@ -28,6 +28,8 @@ export interface DatosPdf {
   base: number
   igic: number
   total: number
+  /** Título del documento (menú de la impresora del pedido): por defecto «PRESUPUESTO». */
+  tituloDoc?: string
 }
 
 const eur = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -84,7 +86,8 @@ export async function presupuestoPdf(d: DatosPdf): Promise<Blob> {
   // Título
   doc.setFillColor(...AZUL).rect(14, y, W - 28, 11, 'F')
   doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(255)
-  doc.text(`PRESUPUESTO Nº ${d.tienda}-${d.numero}`, 18, y + 7.6)
+  const esPresupuesto = !d.tituloDoc || d.tituloDoc === 'PRESUPUESTO'
+  doc.text(`${d.tituloDoc ?? 'PRESUPUESTO'} Nº ${d.tienda}-${d.numero}`, 18, y + 7.6)
   doc.setFontSize(10).text(`Fecha: ${fecha(d.fecha)}${d.validoHasta ? `   ·   Válido hasta: ${fecha(d.validoHasta)}` : ''}`, W - 18, y + 7.3, { align: 'right' })
   y += 17
 
@@ -161,11 +164,15 @@ export async function presupuestoPdf(d: DatosPdf): Promise<Blob> {
     const obs = doc.splitTextToSize(d.observaciones, W - 28) as string[]
     doc.text(obs, 14, y + 5)
   }
-  const pie = [
-    d.validoHasta ? `Presupuesto válido hasta el ${fecha(d.validoHasta)}.` : 'Presupuesto válido durante 30 días.',
-    'Precios con IGIC detallado. Para aceptarlo, responda a este correo o llámenos.',
-    d.vendedor ? `Le atiende: vendedor nº ${d.vendedor}.` : '',
-  ].filter(Boolean)
+  const pie = (
+    esPresupuesto
+      ? [
+          d.validoHasta ? `Presupuesto válido hasta el ${fecha(d.validoHasta)}.` : 'Presupuesto válido durante 30 días.',
+          'Precios con IGIC detallado. Para aceptarlo, responda a este correo o llámenos.',
+          d.vendedor ? `Le atiende: vendedor nº ${d.vendedor}.` : '',
+        ]
+      : ['Precios con IGIC detallado.', d.vendedor ? `Le atiende: vendedor nº ${d.vendedor}.` : '']
+  ).filter(Boolean)
   doc.setFont('helvetica', 'normal').setFontSize(8.5).setTextColor(90)
   pie.forEach((t, i) => doc.text(t, W / 2, 280 + i * 4.2, { align: 'center' }))
   return doc.output('blob')

@@ -6,6 +6,7 @@ import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLocalizarDialog } from '../../../components/gw/GwLocalizarDialog'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { useBusquedaFicha } from '../../../components/gw/useBusquedaFicha'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { CONFIG, type Comisiones, type TipoFicha, type Vendedor, emptyVendedor } from './types'
 import { VendedoresListPage } from './VendedoresListPage'
 import { TabDatosGenerales } from './tabs/TabDatosGenerales'
@@ -26,10 +27,11 @@ const TAB_ROWS: GwTabDef[][] = [
     { key: 'bancos', label: 'Bancos' },
     { key: 'consultas', label: 'Consultas' },
     { key: 'obs', label: 'Observaciones e Imagen' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 
-const TABS_SATELITE = new Set(['bancos', 'consultas'])
+const TABS_SATELITE = new Set(['bancos', 'consultas', 'operativa'])
 const NIVELES = [0, 1, 2, 3, 4, 5, 6]
 
 const hoy = () => new Date().toISOString().slice(0, 10)
@@ -302,6 +304,22 @@ function Ficha({ tipo, codigo }: { tipo: TipoFicha; codigo?: string }) {
               {tab === 'bancos' && aviso(<TabBancos codigo={registro.codigo} tipoEntidad={tipo} editing={editing} />)}
               {tab === 'consultas' && aviso(<TabConsultas codigo={registro.codigo} campo={cfg.fk as 'vendedor_codigo' | 'tecnico_codigo'} />)}
               {tab === 'obs' && <TabObservaciones {...tabProps} />}
+              {tab === 'operativa' && (
+                <GwOperativa
+                  bloques={[
+                    {
+                      titulo: 'Cómo se usa',
+                      pasos: [
+                        `Nuevo (F3): el código se propone solo (3 cifras); escribe el nombre, el nombre corto, el DNI/NIF y los datos de contacto. Acepta (F1).`,
+                        'En «Comisiones», el % que cobra según la tarifa con la que se vende el artículo (Precio de Oferta, General, MAYOR M-1…M-3, Tarifa Dcto -4…-6). Marca «Aplicar el % … sobre el Beneficio» si se calcula sobre el margen y no sobre la venta.',
+                        'En «Bancos», las cuentas para pagarle; marca la principal.',
+                        `En «Consultas», filtra por fecha y tienda y pulsa Aplicar para ver ${tipo === 'tecnico' ? 'sus ventas, pedidos y presupuestos' : 'sus ventas, facturas, pedidos y presupuestos'}.`,
+                      ],
+                      notas: ['Eliminar no borra: lo da de baja con la fecha de hoy.', 'Intro en Código o Nombre busca; Ctrl+Intro abre la lista ordenada.'],
+                    },
+                  ]}
+                />
+              )}
             </>
           )}
         </GwTabs>

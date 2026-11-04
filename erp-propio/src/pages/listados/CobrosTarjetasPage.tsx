@@ -87,7 +87,24 @@ export function CobrosTarjetasPage() {
 
   return (
     <>
-      <DialogoListado titulo="Listado de Cobros en Tarjetas" ancho={284} onAceptar={aceptar} procesando={inf.cargando}>
+      <DialogoListado
+        titulo="Listado de Cobros en Tarjetas"
+        ancho={284}
+        onAceptar={aceptar}
+        procesando={inf.cargando}
+        operativa={[
+          {
+            titulo: 'Listado de Cobros en Tarjetas',
+            pasos: [
+              'Tarjeta: tramo de formas de pago de tipo tarjeta (sale de la primera a la última).',
+              'Fecha Vta.: días de las ventas cobradas (sale hoy). Tienda y Vendedor: vacíos = todos.',
+              'Agrupar por Tienda y/o Vendedor si quieres subtotales.',
+              'Desglosado (cada cobro) o Resumido (total por tarjeta); Pantalla o Impresora; Aceptar (Alt+A).',
+            ],
+            notas: ['En los códigos, Ctrl+Intro, F2 o doble clic abren la búsqueda.'],
+          },
+        ]}
+      >
         {inf.error && <div className="text-[11px] text-[#c42b1c]">{inf.error}</div>}
         <div>
           <div className={DLG.etiqueta}>Tarjeta:</div>

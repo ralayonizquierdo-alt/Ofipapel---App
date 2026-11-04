@@ -9,12 +9,12 @@ import { rpc } from './comun'
 // GeminisWin. La segunda columna de «Tienda» son los vendedores (desde/hasta).
 // Columnas del informe sin captura: confirmar con Luis. Cálculo en fn_lst_presupuestos.
 
+// «Agrupado por» calcado de la captura ZIP 7, nº 77 (04/11/2026): Secuencial, Cliente, Tienda, Vendedor.
 const AGRUPADO = [
   { value: 'secuencial', label: 'Secuencial' },
   { value: 'cliente', label: 'Cliente' },
-  { value: 'vendedor', label: 'Vendedor' },
   { value: 'tienda', label: 'Tienda' },
-  { value: 'fecha', label: 'Fecha' },
+  { value: 'vendedor', label: 'Vendedor' },
 ]
 
 async function extremo(tabla: string, col: string, asc: boolean, soloPresupuestos = false) {
@@ -104,7 +104,23 @@ export function ListadoPresupuestosPage() {
 
   return (
     <>
-      <DialogoListado titulo="Listado de presupuestos" ancho={322} onAceptar={aceptar} procesando={inf.cargando}>
+      <DialogoListado
+        titulo="Listado de presupuestos"
+        ancho={322}
+        onAceptar={aceptar}
+        procesando={inf.cargando}
+        operativa={[
+          {
+            titulo: 'Listado de presupuestos',
+            pasos: [
+              'Los campos salen con el primer y el último valor: cambia solo lo que quieras acotar (periodo, número, tiendas, vendedores, clientes).',
+              'Elige «Agrupado por»: Secuencial (por número), Cliente, Tienda o Vendedor.',
+              'Elige Pantalla o Impresora y pulsa Aceptar (Alt+A). Cancelar o Esc cierra.',
+            ],
+            notas: ['En los códigos, Ctrl+Intro, F2 o doble clic abren la búsqueda.'],
+          },
+        ]}
+      >
         {inf.error && <div className="text-[11px] text-[#c42b1c]">{inf.error}</div>}
         <div className="flex justify-between gap-2">
           <div>

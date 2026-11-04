@@ -20,6 +20,7 @@ export function PedidoBar({
   onSort,
   onSearch,
   onPrint,
+  onListados,
   onNew,
   onEdit,
   onSave,
@@ -36,6 +37,8 @@ export function PedidoBar({
   onSort?: () => void
   onSearch?: () => void
   onPrint?: () => void
+  /** Listados («Informes de…» del documento). */
+  onListados?: () => void
   onNew?: () => void
   onEdit?: () => void
   onSave?: () => void
@@ -82,7 +85,7 @@ export function PedidoBar({
       <Btn title={conTecla('Buscar (Localizar registros)', 'buscar')} onClick={onSearch} disabled={!consulta}>
         <GwBuscar />
       </Btn>
-      <Btn title="Listados — aún no disponible en el ERP propio" disabled>
+      <Btn title={onListados ? 'Listados (Informes)' : 'Listados — aún no disponible en el ERP propio'} onClick={onListados} disabled={!onListados || !consulta}>
         <ScrollText size={17} className="text-[#8a6d1d]" />
       </Btn>
       <Btn title="Imprimir" onClick={onPrint} disabled={!consulta}>

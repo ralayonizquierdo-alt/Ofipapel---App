@@ -7,6 +7,7 @@ import { GwDate, GwInput, GwLookupButton, GwRadio, GwSelect, GwWindow, formatGw 
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
 import { OptionButton } from '../ventas/gestores/comun'
+import { VentanaOperativa } from '../../components/gw/GwListado'
 import {
   MOV_COLS,
   TIPOS_MOV,
@@ -34,19 +35,32 @@ const I = '!h-[30px] !text-[17px]'
 type Rango = 'desdeHasta' | 'cualquiera' | 'seleccionar'
 type Salida = 'pantalla' | 'impresora' | 'examinar' | 'pdf'
 
+// Desplegables calcados de las capturas ZIP 7, nº 73-75 (04/11/2026).
 const INFORMES = [
   { v: 'movimientos', label: 'Listado de movimientos' },
-  { v: 'formas', label: 'Totales por forma de pago' },
-  { v: 'tipos', label: 'Totales por tipo de movimiento' },
-  { v: 'dias', label: 'Totales por día' },
+  { v: 'tickets', label: 'Listado de movimientos (impresora de Tickets)' },
+  { v: 'detallado', label: 'Listado de movimientos detallado' },
+  { v: 'tipos_pago', label: 'Listado por Tipos de Pago' },
+  { v: 'tipos_mov', label: 'Listado por Tipos de Movimiento' },
+  { v: 'tienda', label: 'Totales de movimientos por Tienda' },
+  { v: 'fecha_tienda', label: 'Totales de movimientos por Fecha y Tienda' },
+  { v: 'tienda_fecha', label: 'Totales de movimientos por Tienda y Fecha' },
+  { v: 'tienda_mes', label: 'Totales de movimientos por Tienda y Mes' },
+  { v: 'formas', label: 'Totales de movimientos por Formas de Pago' },
+  { v: 'formas_mes', label: 'Totales de movimientos por Formas de Pago y mes' },
 ] as const
 type Informe = (typeof INFORMES)[number]['v']
 
+// La lista de GeminisWin tiene barra de desplazamiento: los siete primeros son los de la captura.
 const ORDENES = [
   { v: 'tienda', label: 'Tienda y Movimiento' },
   { v: 'fecha', label: 'Fecha y Hora' },
+  { v: 'saldo_asc', label: 'Saldo de Menor a Mayor' },
+  { v: 'saldo_desc', label: 'Saldo de Mayor a Menor' },
+  { v: 'forma', label: 'Forma de Pago' },
+  { v: 'contado', label: 'Tipo contado' },
+  { v: 'tipo', label: 'Tipo Movimiento' },
   { v: 'empleado', label: 'Empleado' },
-  { v: 'forma', label: 'Forma de pago' },
 ] as const
 type Orden = (typeof ORDENES)[number]['v']
 
@@ -195,6 +209,7 @@ export function InformesCajaPage() {
   const [aviso, setAviso] = useState<string | null>(null)
   const [resultado, setResultado] = useState<{ filas: Fila[]; credito: number; truncado: boolean; imprimir: boolean } | null>(null)
   const listaOrd = useListaOrdenada()
+  const [verOperativa, setVerOperativa] = useState(false)
 
   useEffect(() => {
     cargarMaestrosCaja().then(({ tiendas: t, formas: fp }) => {
@@ -358,15 +373,29 @@ export function InformesCajaPage() {
         })
         .map((m) => ({ ...m, _fp: fpDe.get(m.forma_pago_codigo ?? '') }))
 
+      const fh = (m: Fila) => `${m.fecha} ${hora8(m.hora)}|${m.tienda_terminal_codigo}|${String(m.numero).padStart(12, '0')}`
+      // Saldo como texto ordenable: desplazado para que los negativos queden delante.
+      const saldoTxt = (m: Fila, signo: 1 | -1) => String(Math.round((signo * (Number(m.ingreso ?? 0) - Number(m.gasto ?? 0)) + 1e9) * 1000)).padStart(16, '0')
       const clave = (m: Fila) =>
         f.orden === 'fecha'
-          ? `${m.fecha} ${hora8(m.hora)} ${m.tienda_terminal_codigo} ${String(m.numero).padStart(12, '0')}`
+          ? fh(m)
           : f.orden === 'empleado'
-            ? `${m.empleado_codigo ?? ''}|${m.fecha} ${hora8(m.hora)}|${String(m.numero).padStart(12, '0')}`
+            ? `${m.empleado_codigo ?? ''}|${fh(m)}`
             : f.orden === 'forma'
-              ? `${m.forma_pago_codigo ?? ''}|${m.fecha} ${hora8(m.hora)}|${String(m.numero).padStart(12, '0')}`
-              : `${m.tienda_terminal_codigo}|${String(m.numero).padStart(12, '0')}`
-      filas.sort((a, b) => (clave(a) < clave(b) ? -1 : clave(a) > clave(b) ? 1 : 0))
+              ? `${m.forma_pago_codigo ?? ''}|${fh(m)}`
+              : f.orden === 'saldo_asc'
+                ? `${saldoTxt(m, 1)}|${fh(m)}`
+                : f.orden === 'saldo_desc'
+                  ? `${saldoTxt(m, -1)}|${fh(m)}`
+                  : f.orden === 'contado'
+                    ? `${m.tipo_contado ?? m._fp?.tipo_contado ?? 9}|${fh(m)}`
+                    : f.orden === 'tipo'
+                      ? `${m.tipo_movimiento ?? ''}|${fh(m)}`
+                      : `${m.tienda_terminal_codigo}|${String(m.numero).padStart(12, '0')}`
+      // Listados por Tipos de Pago / de Movimiento: primero el grupo, luego el orden elegido.
+      const grupoOrden = (m: Fila) => (f.informe === 'tipos_pago' ? String(m.tipo_forma_pago ?? m._fp?.tipo ?? 4) : f.informe === 'tipos_mov' ? (m.tipo_movimiento ?? '') : '')
+      const k = (m: Fila) => `${grupoOrden(m)}#${clave(m)}`
+      filas.sort((a, b) => (k(a) < k(b) ? -1 : k(a) > k(b) ? 1 : 0))
 
       // Ventas de crédito: lo pendiente de las ventas emitidas en el periodo y tiendas del filtro.
       let credito = 0
@@ -583,7 +612,12 @@ export function InformesCajaPage() {
 
       {/* Fila 6: ayuda F4 · salida · Procesar · Cerrar */}
       <div className="grid grid-cols-[236fr_784fr_198fr_198fr] items-stretch gap-2.5 border border-[var(--gw-border-light)] p-1">
-        <span className={`${L} self-center whitespace-normal pl-1 text-[19px] leading-[24px]`}>Pulse F4 para cerrar la ventana</span>
+        <span className={`${L} flex items-center gap-1 self-center whitespace-normal pl-1 text-[19px] leading-[24px]`}>
+          <span className="flex-1">Pulse F4 para cerrar la ventana</span>
+          <button type="button" className="gw-btn !h-[26px] !px-1.5 !text-[13px]" title="Cómo se usa esta ventana" onClick={() => setVerOperativa(true)}>
+            Operativa
+          </button>
+        </span>
         <div className="grid grid-cols-4 border border-[var(--gw-border)] p-0.5">
           {(
             [
@@ -645,6 +679,29 @@ export function InformesCajaPage() {
         />
       )}
       {listaOrd.dialogo}
+      {verOperativa && (
+        <VentanaOperativa
+          onCerrar={() => setVerOperativa(false)}
+          bloques={[
+            {
+              titulo: 'Sacar un informe de caja',
+              pasos: [
+                'Elige el informe y el orden de salida. «Sólo Ver los Totales» quita el detalle.',
+                'Fecha y Hora: tramo de los movimientos (sale de hoy a ahora). «Asignar un Horario de Apertura y/o Cierre Existente» copia las horas de una caja ya abierta o cerrada.',
+                'Tienda y Número de Movimiento, Documento/Tienda, Empleado y Forma de pago: Desde/Hasta, Cualquiera o Seleccionar (códigos separados por comas).',
+                'Botones ✓/× (Tipo Movimiento, Tipo de la forma de pago, Tipo Contado, Saldo): con ✓ se filtra por eso; todo en × = sin filtrar.',
+                'Elige el destino (Pantalla, Impresora, Examinar o Doc. PDF) y pulsa Procesar.',
+              ],
+              notas: [
+                '«(impresora de Tickets)» saca el listado en el ancho de 80 mm del ticket.',
+                '«Listado por Tipos de Pago / de Movimiento» lleva subtotal por cada tipo; los «Totales de movimientos por…» dan una línea por grupo.',
+                '«Incluir el Total de las Ventas de Crédito» añade lo pendiente de cobro de las ventas del periodo.',
+                'D.C. Fra. aún no filtra (pendiente de saber qué hace en GeminisWin).',
+              ],
+            },
+          ]}
+        />
+      )}
     </div>
   )
 }
@@ -702,6 +759,7 @@ function ResultadoInforme({
   tiendas: TiendaCaja[]
   onClose: () => void
 }) {
+  const nombreTienda = (t: string) => tiendas.find((x) => x.codigo === t)?.descripcion ?? ''
   const totIng = r3(filas.reduce((s, m) => s + Number(m.ingreso ?? 0), 0))
   const totGas = r3(filas.reduce((s, m) => s + Number(m.gasto ?? 0), 0))
   const titulo = INFORMES.find((x) => x.v === f.informe)!.label
@@ -729,10 +787,27 @@ function ResultadoInforme({
   }, [filas])
 
   const grupos: Grupo[] | null = useMemo(() => {
-    if (f.informe === 'formas') return agrupar(filas, (m) => [m.forma_pago_codigo ?? '', `${m.forma_pago_codigo ?? '(sin forma de pago)'} ${m._fp?.descripcion ?? ''}`])
-    if (f.informe === 'tipos') return agrupar(filas, (m) => [m.tipo_movimiento ?? '', `${m.tipo_movimiento ?? ''} ${TIPOS_MOV.find((t) => t.codigo === m.tipo_movimiento)?.descripcion ?? ''}`])
-    if (f.informe === 'dias') return agrupar(filas, (m) => [m.fecha ?? '', fechaGw(m.fecha)])
-    return null
+    const fp = (m: Fila) => `${m.forma_pago_codigo ?? '(sin forma de pago)'} ${m._fp?.descripcion ?? ''}`
+    const tie = (m: Fila) => `${m.tienda_terminal_codigo} ${nombreTienda(m.tienda_terminal_codigo)}`
+    const mes = (m: Fila) => (m.fecha ?? '').slice(0, 7)
+    const mesTxt = (m: Fila) => mes(m).split('-').reverse().join('/')
+    switch (f.informe) {
+      case 'formas':
+        return agrupar(filas, (m) => [m.forma_pago_codigo ?? '', fp(m)])
+      case 'formas_mes':
+        return agrupar(filas, (m) => [`${m.forma_pago_codigo ?? ''}|${mes(m)}`, `${fp(m)} · ${mesTxt(m)}`])
+      case 'tienda':
+        return agrupar(filas, (m) => [m.tienda_terminal_codigo, tie(m)])
+      case 'fecha_tienda':
+        return agrupar(filas, (m) => [`${m.fecha}|${m.tienda_terminal_codigo}`, `${fechaGw(m.fecha)} · ${tie(m)}`])
+      case 'tienda_fecha':
+        return agrupar(filas, (m) => [`${m.tienda_terminal_codigo}|${m.fecha}`, `${tie(m)} · ${fechaGw(m.fecha)}`])
+      case 'tienda_mes':
+        return agrupar(filas, (m) => [`${m.tienda_terminal_codigo}|${mes(m)}`, `${tie(m)} · ${mesTxt(m)}`])
+      default:
+        return null
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [f.informe, filas])
 
   useEffect(() => {
@@ -773,21 +848,34 @@ function ResultadoInforme({
 
   // Subtotales por tienda en el listado ordenado por tienda.
   const detalle: ({ tipo: 'fila'; m: Fila } | { tipo: 'sub'; t: string; ing: number; gas: number; n: number })[] = []
+  // Subtotal por grupo: tipo de forma de pago / tipo de movimiento en sus listados, y tienda en el
+  // listado ordenado por tienda.
+  const grupoDe = (m: Fila): [string, string] | null => {
+    if (f.informe === 'tipos_pago') {
+      const t = m.tipo_forma_pago ?? m._fp?.tipo ?? 4
+      return [String(t), `tipo de pago ${TIPOS_FP.find((x) => x.v === t)?.label ?? t}`]
+    }
+    if (f.informe === 'tipos_mov')
+      return [m.tipo_movimiento ?? '', `tipo de movimiento ${m.tipo_movimiento ?? ''} ${TIPOS_MOV.find((t) => t.codigo === m.tipo_movimiento)?.descripcion ?? ''}`]
+    if (f.orden === 'tienda') return [m.tienda_terminal_codigo, `tienda ${m.tienda_terminal_codigo} ${nombreTienda(m.tienda_terminal_codigo)}`]
+    return null
+  }
   if (!grupos && !f.soloTotales) {
-    let actual: string | null = null
+    let actual: [string, string] | null = null
     let acc = { ing: 0, gas: 0, n: 0 }
+    const claves = new Set(filas.map((x) => grupoDe(x)?.[0] ?? ''))
     for (const m of filas) {
-      if (f.orden === 'tienda' && actual != null && m.tienda_terminal_codigo !== actual) {
-        detalle.push({ tipo: 'sub', t: actual, ...acc })
+      const g = grupoDe(m)
+      if (g && actual && g[0] !== actual[0]) {
+        detalle.push({ tipo: 'sub', t: actual[1], ...acc })
         acc = { ing: 0, gas: 0, n: 0 }
       }
-      actual = m.tienda_terminal_codigo
+      actual = g
       acc = { ing: acc.ing + Number(m.ingreso ?? 0), gas: acc.gas + Number(m.gasto ?? 0), n: acc.n + 1 }
       detalle.push({ tipo: 'fila', m })
     }
-    if (f.orden === 'tienda' && actual != null && new Set(filas.map((x) => x.tienda_terminal_codigo)).size > 1) detalle.push({ tipo: 'sub', t: actual, ...acc })
+    if (actual && (claves.size > 1 || f.informe === 'tipos_pago' || f.informe === 'tipos_mov')) detalle.push({ tipo: 'sub', t: actual[1], ...acc })
   }
-  const nombreTienda = (t: string) => tiendas.find((x) => x.codigo === t)?.descripcion ?? ''
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-16" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
@@ -807,7 +895,7 @@ function ResultadoInforme({
                 <table className="gw-grid">
                   <thead className="sticky top-0">
                     <tr>
-                      <th>{f.informe === 'formas' ? 'Forma de pago' : f.informe === 'tipos' ? 'Tipo de movimiento' : 'Día'}</th>
+                      <th>{f.informe === 'formas' ? 'Forma de pago' : f.informe === 'formas_mes' ? 'Forma de pago · Mes' : f.informe === 'tienda' ? 'Tienda' : f.informe === 'fecha_tienda' ? 'Fecha · Tienda' : f.informe === 'tienda_mes' ? 'Tienda · Mes' : 'Tienda · Fecha'}</th>
                       <th className="text-right!" style={{ width: 110 }}>Movimientos</th>
                       <th className="text-right!" style={{ width: 130 }}>Ingresos</th>
                       <th className="text-right!" style={{ width: 130 }}>Gastos</th>
@@ -826,6 +914,35 @@ function ResultadoInforme({
                     ))}
                   </tbody>
                 </table>
+              ) : f.informe === 'tickets' ? (
+                // Formato de la impresora de tickets (80 mm): número, hora, concepto e importe.
+                <div className="mx-auto w-[80mm] bg-white p-1 font-mono text-[11px] leading-[14px]">
+                  <div className="text-center font-bold">INFORME DE CAJA</div>
+                  <div className="text-center">{periodo}</div>
+                  <div className="mb-1 border-b border-dashed border-black text-center">{tiendasTxt}</div>
+                  {detalle.length === 0 && <div className="text-center">No hay movimientos con estos filtros.</div>}
+                  {detalle.map((d, i) =>
+                    d.tipo === 'fila' ? (
+                      <div key={`${d.m.tienda_terminal_codigo}|${d.m.numero}`} className={`flex gap-1 ${d.m.activo ? '' : 'line-through'}`}>
+                        <span className="w-[42px] flex-none">{d.m.numero}</span>
+                        <span className="w-[36px] flex-none">{(d.m.hora ?? '').slice(0, 5)}</span>
+                        <span className="w-[18px] flex-none">{d.m.tipo_movimiento}</span>
+                        <span className="min-w-0 flex-1 truncate">{d.m.concepto || textoDocumento(d.m)}</span>
+                        <span className="w-[62px] flex-none text-right">{formatGw(Number(d.m.ingreso ?? 0) - Number(d.m.gasto ?? 0), 2)}</span>
+                      </div>
+                    ) : (
+                      <div key={`sub${i}`} className="flex border-t border-dashed border-black font-bold">
+                        <span className="flex-1">Total {d.t}</span>
+                        <span>{formatGw(d.ing - d.gas, 2)}</span>
+                      </div>
+                    ),
+                  )}
+                  <div className="mt-1 border-t border-dashed border-black">
+                    <div className="flex justify-between"><span>Ingresos</span><span>{formatGw(totIng, 2)}</span></div>
+                    <div className="flex justify-between"><span>Gastos</span><span>{formatGw(totGas, 2)}</span></div>
+                    <div className="flex justify-between font-bold"><span>Saldo</span><span>{formatGw(totIng - totGas, 2)}</span></div>
+                  </div>
+                </div>
               ) : (
                 <table className="gw-grid table-fixed">
                   <thead className="sticky top-0">
@@ -838,6 +955,7 @@ function ResultadoInforme({
                       <th style={{ width: 150 }}>Forma de pago</th>
                       <th style={{ width: 130 }}>Documento</th>
                       <th style={{ width: 64 }}>Empl.</th>
+                      {f.informe === 'detallado' && <th style={{ width: 150 }}>Cliente</th>}
                       <th>Concepto</th>
                       <th className="text-right!" style={{ width: 100 }}>Ingreso</th>
                       <th className="text-right!" style={{ width: 100 }}>Gasto</th>
@@ -846,7 +964,7 @@ function ResultadoInforme({
                   <tbody>
                     {detalle.length === 0 && (
                       <tr>
-                        <td colSpan={11} className="text-center text-[#6d6d6d]">
+                        <td colSpan={f.informe === 'detallado' ? 12 : 11} className="text-center text-[#6d6d6d]">
                           No hay movimientos con estos filtros.
                         </td>
                       </tr>
@@ -862,7 +980,8 @@ function ResultadoInforme({
                           <td className="truncate">{d.m._fp?.descripcion ?? d.m.forma_pago_codigo}</td>
                           <td className="truncate">{textoDocumento(d.m)}</td>
                           <td>{d.m.empleado_codigo}</td>
-                          <td className="truncate" title={d.m.concepto ?? ''}>
+                          {f.informe === 'detallado' && <td className="truncate">{d.m.cliente_codigo ?? ''}</td>}
+                          <td className={f.informe === 'detallado' ? 'whitespace-normal' : 'truncate'} title={d.m.concepto ?? ''}>
                             {d.m.concepto}
                           </td>
                           <td className="text-right tabular-nums">{Number(d.m.ingreso ?? 0) ? formatGw(d.m.ingreso, 3) : ''}</td>
@@ -870,8 +989,8 @@ function ResultadoInforme({
                         </tr>
                       ) : (
                         <tr key={`sub${i}`} className="bg-[#f3f3f3] font-bold">
-                          <td colSpan={9}>
-                            Total tienda {d.t} {nombreTienda(d.t)} ({d.n} movimientos)
+                          <td colSpan={f.informe === 'detallado' ? 10 : 9}>
+                            Total {d.t} ({d.n} movimientos)
                           </td>
                           <td className="text-right tabular-nums">{formatGw(d.ing, 3)}</td>
                           <td className="text-right tabular-nums">{formatGw(d.gas, 3)}</td>

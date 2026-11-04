@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { GwField, GwGroup, GwNumber, GwTabs, type GwTabDef } from '../../../components/gw'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { BarraFicha, BotonCasilla, BuscarEnFilas, FilasVacias, GridMiniBar, ObsImagen, RejillaClientes, SelectorDialog, Tick, useFicha } from './common'
 
 export interface RutaReparto {
@@ -22,6 +23,7 @@ const TABS: GwTabDef[][] = [
     { key: 'rutas', label: 'Rutas y Repartidores' },
     { key: 'clientes', label: 'Clientes asignados directamente a ésta Ruta' },
     { key: 'obs', label: 'Observaciones e Imagen' },
+    { key: 'operativa', label: 'Operativa' },
   ],
 ]
 const SATELITES = new Set(['rutas', 'clientes'])
@@ -88,7 +90,25 @@ export function RutaFichaPage() {
 
       <div className="mt-1">
         <GwTabs rows={TABS} active={tab} onChange={setTab}>
-          {f.vacia && !SATELITES.has(tab) ? (
+          {tab === 'operativa' ? (
+            <GwOperativa
+              bloques={[
+                {
+                  titulo: 'Cómo se usa',
+                  pasos: [
+                    'Nuevo (F3): el código se propone solo (2 cifras); escribe la descripción y Acepta (F1).',
+                    'En «Rutas y Repartidores», con Modificar (F2), añade las zonas territoriales de la ruta con su nº de orden (orden de paso del reparto) y los repartidores que la hacen.',
+                    'En la rejilla de repartidores, Modificar línea habilita o deshabilita al repartidor en esta ruta.',
+                    '«Clientes asignados directamente a ésta Ruta» lista los clientes que tienen la ruta puesta en su ficha.',
+                  ],
+                  notas: [
+                    '«Reparto Deshabilitado» deja la ruta fuera del reparto sin borrarla.',
+                    'Los repartidores y rutas de aquí son los que usa la app de reparto del móvil.',
+                  ],
+                },
+              ]}
+            />
+          ) : f.vacia && !SATELITES.has(tab) ? (
             <div className="min-h-[285px] p-3 text-[13px]">No hay ninguna ruta de reparto. Pulsa Nuevo para dar de alta la primera.</div>
           ) : (
             <>
@@ -97,6 +117,7 @@ export function RutaFichaPage() {
               {tab === 'obs' && (
                 <ObsImagen
                   nombre="ruta"
+                  tituloImagen
                   observaciones={d.observaciones}
                   imagenUrl={d.imagen_url}
                   imagenModo={d.imagen_modo}
