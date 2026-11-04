@@ -361,15 +361,25 @@ function preguntaSiEsNuestroCorreo(texto) {
   return { correo, esNuestro: CORREOS_DE_LA_CASA.includes(correo) };
 }
 
+// EN ofipapel.net NO HAY CORREO. Confirmado por el propietario el 4/11/2026:
+// «pedidos.net no existe». La web publica esa dirección y todo lo que se manda
+// ahí se pierde sin que nadie se entere — a Fabiana le pasó con un presupuesto.
+// Con el dominio equivocado se puede ser tajante y decirle que lo reenvíe, que
+// es lo único que le sirve.
+const DOMINIO_QUE_NO_EXISTE = /@ofipapel\.net$/i;
+
 function mensajeSobreElCorreo({ correo, esNuestro }, idioma = 'es') {
+  const inexistente = DOMINIO_QUE_NO_EXISTE.test(correo);
   if (idioma === 'en') {
-    return esNuestro
-      ? `Yes, ${correo} is ours — that's the right address for orders and quotes. `
-      : `The address we use for orders and quotes is pedidos@ofipapelsl.com. I can't tell from here whether anything sent to ${correo} reached us. `;
+    if (esNuestro) return `Yes, ${correo} is ours — that's the right address for orders and quotes. `;
+    return inexistente
+      ? `No — we have no mailboxes at ofipapel.net (that's just our website). Anything sent to ${correo} never reached us. Please resend it to pedidos@ofipapelsl.com. `
+      : `${correo} isn't an address I have on record for us. The one we use for orders and quotes is pedidos@ofipapelsl.com — if you sent something to the other one, it's safest to resend it there. `;
   }
-  return esNuestro
-    ? `Sí, ${correo} es nuestra: es la dirección correcta para pedidos y presupuestos. `
-    : `La dirección que usamos para pedidos y presupuestos es pedidos@ofipapelsl.com. Desde aquí no puedo saber si lo que mandaste a ${correo} nos ha llegado. `;
+  if (esNuestro) return `Sí, ${correo} es nuestra: es la dirección correcta para pedidos y presupuestos. `;
+  return inexistente
+    ? `No, esa no existe: en ofipapel.net no tenemos correo (es solo nuestra web). Lo que mandaste a ${correo} no nos ha llegado — vuelve a mandarlo a pedidos@ofipapelsl.com y así no se pierde. `
+    : `${correo} no me consta como dirección nuestra. La que usamos para pedidos y presupuestos es pedidos@ofipapelsl.com — si mandaste algo a la otra, lo más seguro es que lo reenvíes ahí. `;
 }
 
 function esProblemaDeCuenta(texto) {
