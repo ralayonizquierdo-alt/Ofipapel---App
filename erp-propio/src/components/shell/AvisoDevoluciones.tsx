@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
-const CADA_MS = 10 * 60 * 1000 // antes 5 min
+const CADA_MS = 30 * 60 * 1000 // cada media hora (antes 5 min); además mira al abrir y al volver a la pestaña
 
 export function AvisoDevoluciones() {
   const navigate = useNavigate()

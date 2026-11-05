@@ -6,7 +6,7 @@ import { supabase } from './supabase'
 // Presupuestos y, una vez al día (o si sube el número), un aviso del sistema en el móvil/tablet.
 // El aviso sale mientras el ERP está abierto (aunque sea en otra pestaña o minimizado).
 
-const CADA_MS = 10 * 60 * 1000 // antes 5 min
+const CADA_MS = 30 * 60 * 1000 // cada media hora (antes 5 min); además mira al abrir y al volver a la pestaña
 const BASE = import.meta.env.BASE_URL
 export const URL_RELACION = `${BASE}presupuestos?relacion=1`
 
