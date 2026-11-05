@@ -82,7 +82,7 @@ export function CambiarClavePage() {
                   titulo: 'Cambiar tu clave',
                   pasos: ['Escribe tu clave actual.', 'Escribe la nueva dos veces (con el ojo 👁 puedes verla).', 'Pulsa Aceptar.'],
                   notas: [
-                    'La clave tiene que tener al menos 8 caracteres, con letras y números, sin tu nombre de usuario y que no sea fácil de adivinar.',
+                    'La clave tiene que tener al menos 6 caracteres (números y/o letras), sin tu usuario y que no sea fácil de adivinar (123456, 111111…).',
                     'Si un administrador te pone una clave (o eres nuevo), al entrar el programa te obliga a poner una tuya.',
                   ],
                 },

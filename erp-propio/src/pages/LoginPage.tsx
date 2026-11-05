@@ -178,7 +178,14 @@ export function LoginPage() {
                 <CampoClave id="entrada-clave" required autoComplete="current-password" className="!h-[52px] !text-[28px] !font-bold tracking-widest" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
             </GwField>
-            <button type="button" className="self-start text-[12px] text-[#1d3a8a] hover:underline" onClick={() => setOlvide(true)}>
+            <button type="button" className="self-start text-[12px] text-[#1d3a8a] hover:underline" onClick={async () => {
+                // «¿Has olvidado la clave?» trabaja con el nombre de usuario: si se tecleó el número, se traduce.
+                if (/^\d{1,6}$/.test(email.trim())) {
+                  const { data: deNumero } = await supabase.rpc('fn_login_por_numero', { p_numero: email.trim() })
+                  if (typeof deNumero === 'string' && deNumero) setEmail(deNumero.replace(/@ofipapel\.local$/, ''))
+                }
+                setOlvide(true)
+              }}>
               ¿Has olvidado la clave?
             </button>
             <NoSoyRobot key={vueltaCaptcha} onToken={setCaptcha} />

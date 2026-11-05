@@ -343,7 +343,7 @@ function Seguridad({
 
   async function enviar() {
     setMsg(null)
-    if (clave.length < 8) return setMsg({ ok: false, texto: 'La contraseña tiene que tener al menos 8 caracteres.' })
+    if (clave.length < 6) return setMsg({ ok: false, texto: 'La contraseña tiene que tener al menos 6 caracteres.' })
     if (tieneUsuario && !confirm(`¿Poner una contraseña nueva al usuario «${acceso?.usuario ?? d.codigo}»? La anterior deja de valer.`)) return
     setEnviando(true)
     const body = tieneUsuario
@@ -418,7 +418,7 @@ function Seguridad({
               value={clave}
               disabled={!puede || enviando}
               placeholder={tieneUsuario ? '****************' : ''}
-              title="Contraseña (mínimo 8 caracteres)"
+              title="Contraseña (mínimo 6 caracteres)"
               onChange={(e) => setClave(e.target.value)}
             />
           </span>

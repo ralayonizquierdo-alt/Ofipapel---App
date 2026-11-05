@@ -33,7 +33,7 @@ function respuesta(status: number, body: Record<string, unknown>) {
 
 function claveValida(clave: unknown): string | null {
   if (typeof clave !== 'string') return 'Falta la contraseña.'
-  if (clave.length < 8) return 'La contraseña tiene que tener al menos 8 caracteres.'
+  if (clave.length < 6) return 'La contraseña tiene que tener al menos 6 caracteres.'
   if (clave.length > 72) return 'La contraseña es demasiado larga (máximo 72 caracteres).'
   return null
 }

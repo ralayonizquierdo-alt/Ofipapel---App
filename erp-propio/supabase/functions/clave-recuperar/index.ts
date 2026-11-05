@@ -25,17 +25,16 @@ const responder = (status: number, body: Record<string, unknown>) =>
 const GENERICO =
   'Si el usuario existe y tiene correo en su ficha, le hemos enviado un código de 6 cifras (mira también en «correo no deseado»). Si no te llega en unos minutos, pide a un administrador que te ponga una clave nueva.'
 
-const COMUNES = ['12345678', '123456789', 'password', 'contraseña', 'ofipapel', 'qwerty123', 'abc12345', '11111111', 'avatar123']
+const COMUNES = ['123456', '654321', '1234567', '12345678', '123456789', 'password', 'contraseña', 'ofipapel', 'qwerty', 'abc123', 'avatar']
 
 /** Mismas reglas que src/lib/claves.ts. */
 function fallosClave(clave: unknown, usuario: string): string | null {
   if (typeof clave !== 'string' || !clave) return 'Falta la clave nueva.'
-  if (clave.length < 8) return 'La clave tiene que tener al menos 8 caracteres.'
+  if (clave.length < 6) return 'La clave tiene que tener al menos 6 caracteres.'
   if (clave.length > 72) return 'La clave es demasiado larga (máximo 72 caracteres).'
-  if (!/[a-zñ]/i.test(clave) || !/\d/.test(clave)) return 'La clave tiene que llevar letras y números.'
   const c = clave.toLowerCase()
   if (usuario && usuario.length >= 3 && c.includes(usuario)) return 'La clave no puede llevar dentro tu nombre de usuario.'
-  if (COMUNES.some((x) => c.includes(x))) return 'Esa clave es demasiado fácil de adivinar.'
+  if (COMUNES.some((x) => c.includes(x)) || /^(.)\1+$/.test(c) || ('01234567890' + '09876543210').includes(c)) return 'Esa clave es demasiado fácil de adivinar.'
   return null
 }
 
