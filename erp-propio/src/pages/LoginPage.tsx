@@ -146,7 +146,25 @@ export function LoginPage() {
             <div className="flex gap-2">
               <div className="w-[150px] shrink-0">
                 <GwField label="Nº de empleado">
-                  <GwInput type="text" required autoFocus={!email} autoComplete="username" autoCapitalize="none" inputMode="text" className="!h-[52px] !text-[32px] !font-bold tracking-wider" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <GwInput
+                    type="text"
+                    required
+                    autoFocus
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    inputMode="text"
+                    className="!h-[52px] !text-[32px] !font-bold tracking-wider"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onKeyDown={(e) => {
+                      // Intro en el número: pasa a la contraseña (no envía todavía).
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        document.getElementById('entrada-clave')?.focus()
+                      }
+                    }}
+                  />
                 </GwField>
               </div>
               <div className="min-w-0 flex-1">
@@ -157,7 +175,7 @@ export function LoginPage() {
             </div>
             <GwField label="Contraseña">
               <div className="w-[250px] max-w-full">
-                <CampoClave required autoFocus={!!email} autoComplete="current-password" className="!h-[52px] !text-[28px] !font-bold tracking-widest" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <CampoClave id="entrada-clave" required autoComplete="current-password" className="!h-[52px] !text-[28px] !font-bold tracking-widest" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
             </GwField>
             <button type="button" className="self-start text-[12px] text-[#1d3a8a] hover:underline" onClick={() => setOlvide(true)}>
