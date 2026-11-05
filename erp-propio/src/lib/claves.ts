@@ -12,7 +12,11 @@ export function fallosClave(clave: string, usuario: string): string | null {
   const c = clave.toLowerCase()
   const u = usuario.toLowerCase().replace(/@ofipapel\.local$/, '')
   if (u.length >= 3 && c.includes(u)) return 'La clave no puede llevar dentro tu nombre de usuario.'
-  if (COMUNES.some((x) => c.includes(x)) || /^(.)\1+$/.test(c) || ('01234567890' + '09876543210').includes(c)) return 'Esa clave es demasiado fácil de adivinar.'
+  // Fácil = una clave típica tal cual, todo repetido, una secuencia de cifras, o una clave CORTA
+  // (hasta 8) que lleve dentro una típica. Una clave larga con una palabra dentro sí vale.
+  const facil =
+    COMUNES.includes(c) || /^(.)\1+$/.test(c) || ('01234567890' + '09876543210').includes(c) || (c.length <= 8 && COMUNES.some((x) => c.includes(x)))
+  if (facil) return 'Esa clave es demasiado fácil de adivinar.'
   return null
 }
 
