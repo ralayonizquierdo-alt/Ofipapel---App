@@ -2,6 +2,8 @@ import { ClipboardPaste } from 'lucide-react'
 import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
 import PageHeader from '../components/ui/PageHeader'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_SUBIR } from '../lib/operativas'
 
 /**
  * Entrada de reservas, cobros y gastos para quien solo sube documentos.
@@ -19,6 +21,7 @@ export default function EntradaRapida() {
         title="Subir reservas y gastos"
         subtitle="Pega el aviso de una reserva, o suelta el PDF de un cobro o el Excel de gastos"
       />
+      <Operativa titulo="Subir" reglas={OPERATIVA_SUBIR} />
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
@@ -30,11 +33,6 @@ export default function EntradaRapida() {
           <SoltarGastos />
         </div>
       </div>
-
-      <p className="text-xs text-slate-400 mt-4 leading-relaxed">
-        Nada se guarda hasta que lo confirmas: primero se enseña lo que ha entendido
-        y tú decides. Todo lo que subas queda anotado con tu nombre y la fecha.
-      </p>
     </div>
   )
 }

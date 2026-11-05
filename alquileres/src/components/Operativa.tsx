@@ -24,6 +24,17 @@ export interface ReglaOperativa {
   nota?: string
 }
 
+/** Lo que va entre `**` sale en negrita: es lo que no hay que pasar por alto. */
+function Resaltado({ texto }: { texto: string }) {
+  return (
+    <>
+      {texto.split('**').map((trozo, i) => (
+        i % 2 ? <b key={i} className="font-semibold text-slate-800">{trozo}</b> : trozo
+      ))}
+    </>
+  )
+}
+
 export default function Operativa({ titulo, reglas }: { titulo?: string; reglas: ReglaOperativa[] }) {
   const [abierto, setAbierto] = useState(false)
   if (reglas.length === 0) return null
@@ -36,12 +47,15 @@ export default function Operativa({ titulo, reglas }: { titulo?: string; reglas:
         <BookOpen size={15} className="text-slate-400 shrink-0" />
         <span className="text-sm font-semibold text-slate-700">Operativa{titulo ? ` · ${titulo}` : ''}</span>
         <span className="text-xs text-slate-400 font-normal">
-          cómo se calcula lo que ves en esta pantalla
+          las reglas de esta pantalla
         </span>
       </button>
 
+      {/* Con tope de alto, igual que en Vacaciones: abierta no echa la pantalla
+          fuera de la vista. */}
       {abierto && (
-        <table className="w-full text-sm border-t border-slate-200">
+        <div className="max-h-[50vh] overflow-y-auto border-t border-slate-200">
+        <table className="w-full text-sm">
           <tbody>
             {reglas.map(r => (
               <tr key={r.que} className="border-b border-slate-100 last:border-0 align-top">
@@ -52,12 +66,13 @@ export default function Operativa({ titulo, reglas }: { titulo?: string; reglas:
                       {r.formula}
                     </code>
                   )}
-                  {r.nota && <p className="text-xs text-slate-500">{r.nota}</p>}
+                  {r.nota && <p className="text-xs text-slate-500"><Resaltado texto={r.nota} /></p>}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )

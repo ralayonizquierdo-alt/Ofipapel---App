@@ -1166,3 +1166,17 @@ test('Referencias: el mismo modelo, color y piezas con otro código (Uni/Posca 9
   assert.equal(r['980698057'], undefined); // el vinilo de regalo no es de nadie
   assert.equal(Object.keys(r).length, 12);
 });
+
+test('leerFacturaApli: factura de Apli por bloques, sin IA, y cuadra con el Subtotal', () => {
+  const t = ['APLI PAPER S.A.U.', 'FACTURA', '1234567 21.10.2026 D400 Giro 1,0 1,0 1,0 EUR',
+    'Cód. Prod. Descripción Cantidad Prec.Tarifa Dto % DtoAd% Prec.Neto Imp. Total',
+    'Pedido: 010 Pedido Cliente: Pedido 5_ B2F', 'MR1 EXP. CUADERNOS 1 60,000 29,00 42,600 42,60',
+    'Pedido: 011 Pedido Cliente: Pedido 16_ Ag. anual', 'MR2 CALEND.PARED 27 = 2 10,000 29,00 7,100 14,20',
+    'MR3 PIEZA A EXP 2 0,000 0,00 0,000 0,00', 'Subtotal: 56,80'].join('\n');
+  const r = CP.leerFacturaApli(t);
+  assert.equal(r.numero, '1234567');
+  assert.equal(r.lineas.length, 3);
+  assert.deepEqual(CP.separarPorPedido(r).map((x) => x.pedidoCliente), ['Pedido 5_ B2F', 'Pedido 16_ Ag. anual']);
+  assert.equal(CP.leerFacturaApli(t.replace('56,80', '99,00')), null);
+  assert.equal(CP.leerFacturaApli('OTRO PROVEEDOR'), null);
+});

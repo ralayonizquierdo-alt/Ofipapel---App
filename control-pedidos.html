@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-11-02-1"></script>
+<script src="control-pedidos-logica.js?v=2026-11-05-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -177,6 +177,7 @@ details.grupo>summary::before{content:"▸";color:var(--texto2)}
 details.grupo[open]>summary::before{content:"▾"}
 .pequeno{font-size:12px;color:var(--texto2)}
 .oculto{display:none!important}
+.soltando{outline:3px dashed #1f7a4d!important;outline-offset:2px;background:#eaf6ef!important}
 details.archivados{margin-top:14px;font-size:13px;color:var(--texto2)}
 details.archivados>summary{cursor:pointer}
 .fila-archivo{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:4px 0;border-bottom:1px solid var(--borde)}
@@ -636,7 +637,7 @@ function bloquePasos(g) {
     .map((p) => `<a href="#" onclick="event.preventDefault(); abrirPedido('${p.id}')">${h(nPed(p.numero) || '—')}</a>`).join(', ');
   const fras = (k) => [...new Set((por.get(k) || []).map((x) => x.fra).filter(Boolean))];
   const subir = (txt, fn, primario) => `<label class="btn ${primario ? 'primario' : ''} peque" style="flex-direction:row;align-items:center;gap:6px;${primario ? 'color:#fff' : ''}">${txt}
-    <input type="file" multiple class="oculto" onchange="${fn}(this.files, ${js(g.clave)}); this.value=''"></label>`;
+    <input type="file" multiple class="oculto" data-drop onchange="${fn}(this.files, ${js(g.clave)}); this.value=''"></label>`;
   const fila = (n, titulo, detalle, botones) => `<div class="paso"><span class="paso-n">${n}</span><div class="paso-t"><b>${titulo}</b>${detalle ? ` · ${detalle}` : ''}</div><div class="fila">${botones || ''}</div></div>`;
   const filas = [];
   if (por.has('lineas') || por.has('propuesta')) filas.push(fila('②', 'Falta la propuesta del proveedor', 'pedidos ' + [nums('lineas'), nums('propuesta')].filter(Boolean).join(', '),
@@ -679,7 +680,7 @@ function tablaEntregas(g, por) {
   return `<div class="entregas no-imprimir"><div class="fila" style="justify-content:space-between;align-items:center;margin:0">
       <b>📦 Entregas del proveedor</b>
       <label class="btn primario peque" style="flex-direction:row;align-items:center;gap:6px;color:#fff">📦 Ha llegado mercancía: factura + liquidación
-        <input type="file" multiple class="oculto" onchange="llegadaMercancia(this.files, ${js(g.clave)}); this.value=''"></label></div>
+        <input type="file" multiple class="oculto" data-drop onchange="llegadaMercancia(this.files, ${js(g.clave)}); this.value=''"></label></div>
     ${docs.length ? `<div class="tabla-scroll"><table style="margin-top:6px"><tr><th>Factura</th><th>Pedidos</th><th class="num">Líneas</th><th class="num">Importe</th><th>Liquidación</th><th>Excel Géminis</th><th>Guía</th></tr>${filas}</table></div>` : ''}
     ${sinLlegar.length ? `<div style="margin-top:6px">⏳ <b>Sin llegar todavía:</b> pedidos ${sinLlegar.map((p) => `<a href="#" onclick="event.preventDefault(); abrirPedido('${p.id}')">${h(nPed(p.numero))}</a>`).join(', ')}</div>` : ''}
   </div>`;
@@ -776,11 +777,11 @@ function vistaReposicion() {
   const archivados = E.pedidos.filter((p) => esRepo(p) && p.archivado)
     .sort((a, b) => String(b.archivado.fecha || '').localeCompare(String(a.archivado.fecha || '')));
   return `
-  <div class="tarjeta no-imprimir">
+  <div class="tarjeta no-imprimir" data-zona>
     <h2>🔄 Nuevo pedido de reposición</h2>
     
     <label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📤 Subir nuestro pedido al proveedor
-      <input type="file" class="oculto" onchange="subirEnvio(this.files[0]); this.value=''"></label>
+      <input type="file" multiple class="oculto" data-drop onchange="subirEnvios([...this.files]); this.value=''"></label>
     <div id="progresoEnvios" class="progreso"></div>
     <a href="#" class="pequeno" onclick="crearReposicionVacia();return false">o créalo vacío</a>
   </div>
@@ -812,7 +813,7 @@ function vistaLista() {
   const proveedores = [...new Set(E.pedidos.map((p) => prov(p.proveedor)).concat(Object.keys(E.catalogos)))].filter(Boolean);
   const grupos = agruparPedidos(ps.filter((p) => !esRepo(p)));
   return `
-  <div class="tarjeta">
+  <div class="tarjeta" data-zona>
     <h2>📷 Subir los pedidos de una campaña</h2>
     
     <div class="fila">
@@ -823,7 +824,7 @@ function vistaLista() {
     </div>
     <div class="fila" style="margin-top:10px">
       <button class="btn primario" onclick="pedirFotosNuevas('lotGaleria')">🖼️ Elegir fotos (varias)</button>
-      <input id="lotGaleria" type="file" accept="image/*" multiple class="oculto" onchange="subirCampana(this.files); this.value=''">
+      <input id="lotGaleria" type="file" accept="image/*" multiple class="oculto" data-drop data-antes="fotosNuevasOk" onchange="subirCampana(this.files); this.value=''">
       <button class="btn" onclick="pedirFotosNuevas('lotCamara')">📷 Hacer foto</button>
       <input id="lotCamara" type="file" accept="image/*" capture="environment" class="oculto" onchange="subirCampana(this.files); this.value=''">
     </div>
@@ -864,7 +865,7 @@ function vistaGrupo(g, i) {
   reclamaciones[g.clave] = reclamar.length ? CP.textoReclamacion(ej.proveedor, reclamar, { campana: esRepo(ej) ? '' : ej.campana }) : '';
   const abierto = Boolean(gruposAbiertos && gruposAbiertos.has(g.clave));
   return `
-  <details class="grupo" ${abierto ? 'open' : ''} ontoggle="marcarGrupo(${js(g.clave)}, this.open)">
+  <details class="grupo" data-zona ${abierto ? 'open' : ''} ontoggle="marcarGrupo(${js(g.clave)}, this.open)">
     <summary>
       <b>${h(g.nombre)}</b>
       <span class="resumen">
@@ -1311,7 +1312,7 @@ function marcaDe(pedidos) { return (pedidos.find((p) => p.marca) || {}).marca ||
 function bloqueMarca(g) {
   const m = marcaDe(g.pedidos);
   return `<div class="fila no-imprimir" style="margin:6px 0 10px;align-items:center;gap:8px">
-    🏷️ Marca para Géminis: ${m ? `<b>${h(m)}</b>` : '<span class="chip mal">sin elegir</span>'}
+    🏷️ Marca para Géminis: ${m ? `<b>${h(m)}</b>` : '<span class="pequeno">ninguna (opcional)</span>'}
     <button class="btn peque" onclick="elegirMarca(${js(g.clave)})">${m ? 'Cambiar' : 'Elegir marca'}</button></div>`;
 }
 /** Pide la marca y la pone en todos los pedidos de la campaña. Devuelve la
@@ -1323,10 +1324,10 @@ function elegirMarca(clave) {
   const delProv = E.pedidos.filter((p) => p.marca && prov(p.proveedor) === prov(ps[0].proveedor)).map((p) => p.marca);
   const propuesta = marcaDe(ps) || delProv[delProv.length - 1] || prov(ps[0].proveedor);
   const r = prompt(`Marca para el Excel de Géminis de la campaña «${ps[0].campana || ps[0].proveedor}» (columna EDITORIAL/MARCA de cada artículo).` +
-    (usadas.length ? `\nYa usadas: ${usadas.join(', ')}` : ''), propuesta);
-  if (r == null || !r.trim()) return '';
+    (usadas.length ? `\nYa usadas: ${usadas.join(', ')}` : '') + '\nDéjalo vacío para no poner ninguna.', propuesta);
+  if (r == null) return '';
   const marca = r.trim().toUpperCase();
-  ps.forEach((p) => { p.marca = marca; });
+  ps.forEach((p) => { if (marca) p.marca = marca; else delete p.marca; });
   guardar(); pintar();
   return marca;
 }
@@ -1409,17 +1410,57 @@ function subirCampana(files) {
  *  confirmación de a qué campaña van. Sin valores por defecto, para que las
  *  fotos no acaben en FINOCAM (o en otra campaña) sin querer. */
 function pedirFotosNuevas(idInput) {
+  if (fotosNuevasOk()) document.getElementById(idInput).click();
+}
+function fotosNuevasOk() {
   const v = (id) => document.getElementById(id).value.trim();
-  if (!v('lotProv') || !v('lotCamp')) { alert('Escribe primero el proveedor y la campaña de estas fotos.'); (v('lotProv') ? document.getElementById('lotCamp') : document.getElementById('lotProv')).focus(); return; }
+  if (!v('lotProv') || !v('lotCamp')) { alert('Escribe primero el proveedor y la campaña de estas fotos.'); (v('lotProv') ? document.getElementById('lotCamp') : document.getElementById('lotProv')).focus(); return false; }
   const proveedor = prov(v('lotProv'));
   const campana = campanaCanonica(proveedor, v('lotCamp'));
   const ya = E.pedidos.filter((p) => !esRepo(p) && p.proveedor === proveedor && claveTexto(p.campana) === claveTexto(campana)).length;
   const texto = ya
     ? `Las fotos irán a la campaña «${proveedor} · ${campana}», que ya tiene ${ya} pedido(s), como pedidos NUEVOS.\n\nPara completar un pedido que ya existe, ábrelo y usa «Hacer foto».\n\n¿Seguir?`
     : `Se creará la campaña nueva «${proveedor} · ${campana}». ¿Seguir?`;
-  if (!confirm(texto)) return;
-  document.getElementById(idInput).click();
+  return confirm(texto);
 }
+/** Varios pedidos de reposición a la vez (arrastrados o elegidos): uno tras otro. */
+async function subirEnvios(files) { for (const f of files) await subirEnvio(f); }
+/** Arrastrar y soltar ficheros: sobre un botón de subida (label con su
+ *  <input type=file>) o sobre una zona [data-zona] (tarjeta o campaña), que usa
+ *  su primer input [data-drop]; `data-antes` es una comprobación previa. */
+(function () {
+  const destino = (el) => {
+    const lab = el && el.closest && el.closest('label');
+    const inp = lab && lab.querySelector('input[type=file]');
+    if (inp) return { zona: lab, inp };
+    const z = el && el.closest && el.closest('[data-zona]');
+    const i2 = z && z.querySelector('input[type=file][data-drop]');
+    return i2 ? { zona: z, inp: i2 } : null;
+  };
+  let marcada = null;
+  const marcar = (z) => { if (marcada !== z) { marcada && marcada.classList.remove('soltando'); marcada = z; z && z.classList.add('soltando'); } };
+  document.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+    e.preventDefault();
+    const d = destino(e.target);
+    e.dataTransfer.dropEffect = d ? 'copy' : 'none';
+    marcar(d ? d.zona : null);
+  });
+  document.addEventListener('dragleave', (e) => { if (!e.relatedTarget) marcar(null); });
+  document.addEventListener('drop', (e) => {
+    if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+    e.preventDefault();
+    marcar(null);
+    const d = destino(e.target);
+    if (!d) return;
+    const antes = d.inp.dataset.antes;
+    if (antes && !window[antes]()) return;
+    const dt = new DataTransfer();
+    [...e.dataTransfer.files].slice(0, d.inp.multiple ? undefined : 1).forEach((f) => dt.items.add(f));
+    d.inp.files = dt.files;
+    d.inp.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+})();
 /** Quita una foto del pedido junto con las líneas que se leyeron de ella
  *  (p. ej. si se subió al pedido equivocado). */
 function quitarFoto(nombre) {
@@ -2763,10 +2804,13 @@ async function leerFicheroProveedor(file, idProgreso, numero, partes) {
       if (g) { const doc = CP.lineasDeDocumento(g); doc.control = Object.assign({}, doc.control, { exacto: true }); return doc; }
     } catch (e) { /* si no se puede, lo lee la IA como siempre */ }
   }
+  // Factura de Apli (Miquelrius): se lee exacta del texto del PDF, sin IA.
+  let apli = null;
+  if (esPdf(file)) { try { apli = CP.leerFacturaApli((await textoDePdf(file)).join('\n')); } catch (e) { apli = null; } }
   const caja = idProgreso && document.getElementById(idProgreso);
-  if (caja) caja.textContent = `Leyendo ${file.name}… puede tardar uno o dos minutos.`;
+  if (caja && !apli) caja.textContent = `Leyendo ${file.name}… puede tardar uno o dos minutos.`;
   try {
-    const res = await leerConIA(file, 'documento');
+    const res = apli || await leerConIA(file, 'documento');
     const trozos = CP.separarPorPedido(res);
     if (trozos.length > 1) {
       const docs = trozos.map(CP.lineasDeDocumento);
@@ -3261,7 +3305,9 @@ function asignarFactura(p, archivo, doc) {
   const lineas = (doc.lineas || []).map((l, i) => Object.assign({}, l, { origen: l.origen || archivo, subida: l.subida != null ? l.subida : subida, pos: l.pos != null ? l.pos : i },
     // El nº de esta factura solo a sus propias líneas: las de facturas subidas antes (otro `origen`) no.
     l.fra || !fra || (l.origen && l.origen !== archivo) ? {} : { fra }));
-  p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas, control: doc.control || null };
+  // Las líneas de OTRAS facturas ya subidas a este pedido se quedan (servicio en varias veces); la misma factura se sustituye.
+  const otras = ((p.factura && p.factura.lineas) || []).filter((l) => l.origen && l.origen !== archivo && !(fra && String(l.fra || '') === String(fra)));
+  p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas: otras.concat(lineas), control: doc.control || null };
   restosPorFactura(p);
 }
 /** La factura final manda: lo validado que no viene en ella pasa a Restos del
@@ -3334,8 +3380,35 @@ async function cargarFacturasVarias(files, clave) {
     const r = revisarFactura(p);
     ultimaCarga.push({ ok: true, texto: `Factura ${x.archivo} → nº ${p.numero} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${como ? ` (${como})` : ''}${r && r.faltan.length ? ` — ❌ no vienen ${r.faltan.length} referencia(s)` : r && !r.cuadra ? ' — ⚠️ revisar diferencias' : ' — ✅ cuadra'}` });
   };
-  // 1) por nº de pedido o cliente; 2) por las referencias que coinciden con lo validado
+  // Factura por bloques («Pedido Cliente: Pedido 16_ Ag. anual»): manda el bloque
+  // (duenoDeBloque). Un bloque de otra campaña («Pedido 5_ B2F») no entra en
+  // nuestro pedido 5 aunque repita el nº: se avisa y queda fuera.
+  const todosLeidos = leidos.slice();
+  // (Sin el pedido «SIN CLIENTE · LO QUE SOBRA»: sus etiquetas son de bloques sin dueño y no cuentan como de la campaña.)
+  const delGrupo = E.pedidos.filter((q) => claveGrupo(q) === clave && !esRepo(q) && !q.sobrantes);
   const resto = [];
+  for (const x of [...leidos]) {
+    const bs = [...new Set((x.prop.lineas || []).map((l) => l.bloque).filter(Boolean))];
+    if (bs.length !== 1 || !delGrupo.length) continue;
+    const d = CP.duenoDeBloque(bs[0], x.prop.lineas, delGrupo.map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente,
+      lineas: (q.final && q.final.lineas) || q.lineas, propuesta: q.propuesta, factura: q.factura })));
+    leidos.splice(leidos.indexOf(x), 1);
+    if (!d) { ultimaCarga.push({ ok: false, texto: `«${bs[0]}» (${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €) no es de esta campaña: no se ha asignado a ningún pedido.` }); continue; }
+    const p = pedidoPorId(d.id);
+    if (!p.validado) {
+      // Pedido sin validar: la factura le sirve también de propuesta (Miquelrius
+      // no manda propuesta de los últimos pedidos); queda guardada como factura
+      // final y se aplica en cuanto se valide.
+      const sinProp = !p.propuesta;
+      if (sinProp) asignarPropuesta(p, x.archivo, x.prop);
+      asignarFactura(p, x.archivo, x.prop);
+      usados.add(p.id);
+      ultimaCarga.push({ ok: true, texto: `Factura ${x.archivo} → nº ${p.numero} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} € (${bs[0]})${sinProp ? ' — también como propuesta' : ''}: falta validar el pedido` });
+      continue;
+    }
+    asignar(x, p, bs[0]);
+  }
+  // 1) por nº de pedido o cliente; 2) por las referencias que coinciden con lo validado
   for (const x of leidos) {
     const p = pedidoParaDocumento(x.prop, (q) => q.validado && claveGrupo(q) === clave && !usados.has(q.id));
     if (p) asignar(x, p, ''); else resto.push(x);
@@ -3347,7 +3420,7 @@ async function cargarFacturasVarias(files, clave) {
     for (const a of rep.asignados) { const x = resto.find((y) => y.id === a.docId); asignar(x, pedidoPorId(a.pedidoId), 'por contenido: ' + textoParecido(a)); hechos.add(x.id); }
     for (const x of resto) if (!hechos.has(x.id)) sinAsignar.push(Object.assign(x, { destino: 'factura', clave, sugerencia: rep.sugerencias[x.id] || null }));
   }
-  if (leidos.length > 1) ultimaCarga.push({ ok: true, texto: `Total: ${leidos.length} factura(s) · ${leidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(leidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} €` });
+  if (todosLeidos.length > 1) ultimaCarga.push({ ok: true, texto: `Total: ${todosLeidos.length} factura(s) · ${todosLeidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(todosLeidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} €` });
   progreso('');
   guardar(); pintar();
   const caja = document.getElementById('avisoCarga'); if (caja) caja.scrollIntoView({ block: 'start' });
@@ -3944,11 +4017,9 @@ async function exportarPedidos(ids, opciones) {
   if (sinValidar.length) { alert('No se puede exportar con discordancias sin resolver. Sin validar: ' + sinValidar.map((p) => 'nº ' + p.numero).join(', ')); return; }
   const provs = [...new Set(ps.map((p) => p.proveedor))];
   if (provs.length > 1) { alert('Exporta los pedidos de un proveedor cada vez.'); return; }
-  // La marca de la campaña es obligatoria: sin ella Géminis no sabe la EDITORIAL.
+  // Marca opcional (un proveedor puede traer varias): sin ella, la columna EDITORIAL va vacía.
   const grupos = [...new Set(ps.map(claveGrupo))];
-  let marca = marcaDe(ps) || marcaDe(E.pedidos.filter((p) => grupos.includes(claveGrupo(p))));
-  if (!marca) marca = elegirMarca(grupos[0]);
-  if (!marca) { alert('Elige la marca de la campaña para exportar el Excel de Géminis.'); return; }
+  const marca = marcaDe(ps) || marcaDe(E.pedidos.filter((p) => grupos.includes(claveGrupo(p))));
   const plantilla = await elegirPlantilla();
   if (!plantilla) return;
   // Cada línea con un único descuento equivalente (encadenados + global del

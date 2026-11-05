@@ -5,6 +5,8 @@ import type { Apartment, ApartmentType } from '../types'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import CopiaSeguridad from '../components/CopiaSeguridad'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_APARTAMENTOS } from '../lib/operativas'
 
 const TYPE_LABELS: Record<ApartmentType, string> = {
   '1BR': '1 Dormitorio', '2BR': '2 Dormitorios',
@@ -37,6 +39,7 @@ export default function ApartmentsConfig() {
           </button>
         }
       />
+      <Operativa titulo="Apartamentos" reglas={OPERATIVA_APARTAMENTOS} />
 
       <div className="mb-6">
         <CopiaSeguridad />

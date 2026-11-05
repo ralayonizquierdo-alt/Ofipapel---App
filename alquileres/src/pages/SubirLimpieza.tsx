@@ -7,6 +7,8 @@ import { formatDate } from '../lib/dateUtils'
 import type { Expense } from '../types'
 import PageHeader from '../components/ui/PageHeader'
 import { num } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_SUBIR_LIMPIEZA } from '../lib/operativas'
 
 /**
  * Subida del parte de limpieza, la pantalla de Mónica y Cande.
@@ -143,6 +145,7 @@ export default function SubirLimpieza() {
         title="Subir el parte de limpieza"
         subtitle="Suelta aquí el Excel de limpieza y se anotará en los gastos de cada apartamento"
       />
+      <Operativa titulo="Limpieza" reglas={OPERATIVA_SUBIR_LIMPIEZA} />
 
       {hecho && (
         <div className="bg-green-50 border border-green-300 rounded-lg p-4 flex gap-3 mb-4">
