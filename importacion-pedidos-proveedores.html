@@ -748,6 +748,34 @@ function totalGrupoErik(texto){
   return m ? parseDecComa(m[2]) : null;
 }
 
+// GRUPO ERIK — ALBARÁN (homologado el 05/11/2026 con el AI / 320003780 de
+// 21/10/2026): "Articulo EAN … Descripción Cant. Precio Importe", una fila
+// por artículo con su EAN de 13 cifras; la descripción sigue en las líneas
+// de debajo (sin las «FSC: …») y en alguna fila va entera debajo. Sin
+// descuentos; las de regalo vienen a 0,00. 96 líneas, Cant × Precio =
+// Importe en todas y suma 1.334,28 € = «Total B.I.». Aparte del «Pedido en
+// Firme» (parseGrupoErik), que se prueba primero.
+function parseGrupoErikAlbaran(lineas){
+  const filas = [];
+  const RE = /^([A-Z][A-Z0-9]{2,})\s+(\d{13})\s*(.*?)\s*(\d+(?:\.\d{3})*)\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/;
+  const FIN = /^(B\.Imponible|% IVA|Importe IVA|Total|Bruto|Articulo\s+EAN|RESUMEN|Página|GRUPO ERIK|Fecha\s+Num|\d{2}\/\d{2}\/\d{4})/i;
+  for(let i=0;i<lineas.length;i++){
+    const m = lineas[i].trim().match(RE);
+    if(!m) continue;
+    let desc = m[3];
+    for(let j=i+1;j<lineas.length;j++){
+      const l = lineas[j].trim();
+      if(RE.test(l) || FIN.test(l)) break;
+      if(/^FSC:/i.test(l)) continue;
+      desc = (desc + ' ' + l).trim();
+    }
+    const cantidad = parseInt(m[4].replace(/\./g,''),10);
+    filas.push(fila_({codigo:m[1], ean:m[2], descripcion:desc.replace(/\s+/g,' '), cantidad,
+      precioUnitario:parseDecComa(m[5]), importe:parseDecComa(m[6])}));
+  }
+  return filas;
+}
+
 // PRYSE: dos formatos distintos según el tipo de documento del mismo proveedor.
 // a) Factura: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
 // b) Presupuesto/Orden de venta: "CODIGO DESCRIPCION Pend,000 Entregada,000
@@ -1129,6 +1157,53 @@ function parseSadipal(lineas){
       const desc = (i>0 && !RE_CON_DESC.test(lineas[i-1]) && !RE_SIN_DESC.test(lineas[i-1])) ? lineas[i-1].trim() : '';
       filas.push(fila_({codigo, descripcion:desc, cantidad:parseInt(cant,10), precioUnitario:parseDecComa(precio), dto1:parseInt(dto,10), importe:parseDecComa(importe)}));
     }
+  });
+  return filas;
+}
+
+// SADIPAL — CONFIRMACIÓN DE PEDIDO (homologado el 05/11/2026 con la
+// PSW2602463 de 26/10/2026, nuestro pedido 95166): "Código Descripción
+// Unidades U.M. Ancho Largo Precio Dtos. Importe neto Salida". Ancho y largo
+// faltan en algún artículo y los descuentos también; pueden ser encadenados
+// («30+5», «30+10») o con decimales («47,5»), y el precio trae de 1 a 3
+// decimales («0,6», «0,297»). Como las columnas varían, de las cifras de
+// la fila se toma la combinación precio/descuentos con la que
+// Unidades × Precio × descuentos da el importe. 123 líneas y suma 6.588,50 €
+// = total del documento («EUR 6.588,5»). La descripción sigue en la línea de
+// debajo. Aparte del de facturas (parseSadipal), que se prueba primero.
+function parseSadipalConfirmacion(lineas){
+  const filas = [];
+  const RE = /^(\S+)\s+(.+?)\s+(\d{1,3}(?:\.\d{3})*)\s+(Unida|Rollo|Hojas|Caja|Pack|Paq|Juego|Kg|[A-Z][a-z]{1,5})\s+((?:\S+\s+)*?)(\d{1,3}(?:\.\d{3})*,\d{1,2})\s+\d{2}\/\d{2}\/\d{2,4}$/;
+  const NUM = /^\d{1,3}(?:\.\d{3})*(?:,\d+)?$|^\d+(?:,\d+)?$/;
+  const DTO = /^\d+(?:,\d+)?(?:\+\d+(?:,\d+)?)*$/;
+  lineas.forEach((l, i)=>{
+    const m = l.trim().match(RE);
+    if(!m) return;
+    const toks = m[5].trim() ? m[5].trim().split(/\s+/) : [];
+    const cantidad = parseInt(m[3].replace(/\./g,''),10);
+    const importe = parseDecComa(m[6]);
+    if(!toks.length || !toks.every(t=>NUM.test(t)||DTO.test(t))) return;
+    let mejor = null;
+    // Candidatos: el último token es el descuento (si lo hay) y el anterior el precio, o el último es el precio.
+    const cands = [];
+    if(toks.length>=2 && DTO.test(toks[toks.length-1])) cands.push({precio:toks[toks.length-2], dtos:toks[toks.length-1]});
+    cands.push({precio:toks[toks.length-1], dtos:''});
+    for(const c of cands){
+      if(!NUM.test(c.precio)) continue;
+      const p = parseDecComa(c.precio);
+      const ds = c.dtos ? c.dtos.split('+').map(parseDecComa) : [];
+      const calc = ds.reduce((a,d)=>a*(1-d/100), cantidad*p);
+      if(Math.abs(calc-importe) <= 0.011){ mejor = {p, ds}; break; }
+    }
+    if(!mejor){
+      const c = cands[0];
+      mejor = {p:parseDecComa(c.precio), ds: c.dtos ? c.dtos.split('+').map(parseDecComa) : []};
+    }
+    let desc = m[2].trim();
+    const sig = (lineas[i+1]||'').trim();
+    if(sig && sig !== 'd' && !RE.test(sig) && sig.length < 40 && !/^(Código|Importe|Aplicar|Confirmación|ARCONVERT|-)/i.test(sig)) desc += ' ' + sig;
+    filas.push(fila_({codigo:m[1], descripcion:desc.replace(/[\u0000-\u001f\u007f-\u009f]/g,' ').replace(/\s+/g,' ').trim(), cantidad, precioUnitario:mejor.p,
+      dto1:mejor.ds[0]||0, dto2:mejor.ds[1]||0, dto3:mejor.ds[2]||0, importe}));
   });
   return filas;
 }
@@ -1593,8 +1668,8 @@ const PERFILES_PROVEEDOR = [
     total: t => totalRepetidoComa(t, 'TOTAL FACTURA') },
   { id:'dicaproduct', nombre:'DICAPRODUCT, S.L.', detectar: t => /DICAPRODUCT|B-?73204166/i.test(t), parser: parseDicaproduct,
     total: t => totalSimple(t, /Total neto\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
-  { id:'sadipal', nombre:'ARCONVERT / SADIPAL', detectar: t => /SADIPAL|ARCONVERT|ESA\s*17001801/i.test(t), parser: parseSadipal,
-    total: t => totalSimple(t, /\bImporte\s+(\d+(?:\.\d{3})*,\d{2})\b/) },
+  { id:'sadipal', nombre:'ARCONVERT / SADIPAL', detectar: t => /SADIPAL|ARCONVERT|ESA\s*17001801/i.test(t), parser: l => { const a = parseSadipal(l); return a.length ? a : parseSadipalConfirmacion(l); },
+    total: t => totalSimple(t, /\bImporte\s+(\d+(?:\.\d{3})*,\d{2})\b/) ?? totalSimple(t, /\bEUR\s+(\d{1,3}(?:\.\d{3})*,\d{1,2})\b/) },
   { id:'unimitsubishi', nombre:'UNI-BALL / MITSUBISHI (POSCA)', detectar: t => /MPESA\d+/i.test(t), parser: parseUniMitsubishi,
     total: t => totalRepetidoPunto(t, 'Imp.Bruto') },
   { id:'utanplas', nombre:'UTANPLAS, S.L.U. (Archivo 2000)', detectar: t => /UTANPLAS|B-?19467562/i.test(t), parser: parseUtanplas,
@@ -1605,8 +1680,8 @@ const PERFILES_PROVEEDOR = [
     total: t => totalAcrilicosVallejo(t) },
   { id:'poessa', nombre:'POESSA (The Paper & Office Equipment Spain)', detectar: t => /The Paper & Office Equipment|A48221998/i.test(t), parser: parsePoessa,
     total: t => totalPoessa(t) },
-  { id:'grupoerik', nombre:'GRUPO ERIK EDITORES S.L.', detectar: t => /Grupo\s+Erik\s+Editores|ESB18454090/i.test(t), parser: parseGrupoErik,
-    total: t => totalGrupoErik(t) }
+  { id:'grupoerik', nombre:'GRUPO ERIK EDITORES S.L.', detectar: t => /Grupo\s+Erik\s+Editores|ESB18454090/i.test(t), parser: l => { const a = parseGrupoErik(l); return a.length ? a : parseGrupoErikAlbaran(l); },
+    total: t => totalGrupoErik(t) ?? totalSimple(t, /Total B\.I\.\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) }
 ];
 
 function detectarProveedor(lineas){
