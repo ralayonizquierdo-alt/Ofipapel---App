@@ -36,9 +36,13 @@ let enMemoria: Area | null = (() => {
     sessionStorage.removeItem(PENDIENTE)
     if (valida(a)) return a
     const activa = sessionStorage.getItem(ACTIVA)
-    return valida(activa) ? activa : null
+    if (valida(activa)) return activa
+    // Sesión abierta de otro día / pestaña nueva: la última área de este terminal (el área ya se
+    // elige en la ventana de entrada, así que no se vuelven a enseñar los tres cuadros grandes).
+    const ultima = localStorage.getItem(CLAVE)
+    return valida(ultima) ? ultima : 'avatar'
   } catch {
-    return null
+    return 'avatar'
   }
 })()
 
