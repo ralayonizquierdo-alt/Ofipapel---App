@@ -168,6 +168,9 @@ las 3 tiendas) abre en horario reducido y necesita a 1-2 personas concretas trab
 - Navidad (24 dic) y Fin de Año (31 dic) no se han incluido como festivo "compensable" porque en el Excel
   son de "todos trabajan en horario reducido", no una asignación de 1-2 personas concretas — si querías que
   también compensen, dímelo y los añado.
+- **Dónde va el día (Luis, 05/11/2026)**: los días por festivo trabajado se suman al 1.º y al 2.º turno, uno a cada
+  uno, de enero a agosto; a partir de agosto, solo para quien no los haya podido disfrutar. El generador ya no crea
+  tramos de un día por festivo, y el planning señala con una rayita roja el turno que lleva ese día.
 - **Registro de compensaciones (nuevo)**: dentro del mismo panel de Festivos, cada festivo trabajado se
   puede marcar como **Compensado** o dejarlo en **Pendiente**, por cada persona que lo trabajó. Al marcarlo
   compensado se indica si se lo llevó como **día de vacaciones** o **día de permiso**, en qué fecha, y una

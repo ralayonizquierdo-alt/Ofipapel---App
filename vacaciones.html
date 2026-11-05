@@ -95,6 +95,15 @@ header button.panel-on{background:#fff;color:var(--verde);}
 .yv-group .yv-name{font-weight:700;color:var(--verde);background:var(--verde-pale);line-height:20px;padding-top:0;padding-bottom:0;overflow:visible;position:relative;z-index:2;border-right:none;} /* el título del grupo puede salirse de la columna: su fila no lleva barras */
 .yv-group .yv-track{height:20px;background:var(--verde-pale);}
 .yv-group .yv-days{background:var(--verde-pale);line-height:20px;}
+.pm-fechas{display:flex;gap:12px;align-items:stretch;}
+.pm-cuenta{flex:1;min-width:0;display:flex;flex-direction:column;margin-bottom:10px;}
+.pm-cuenta label{font-size:.75rem;color:var(--texto2);margin-bottom:3px;white-space:nowrap;text-align:center;}
+.pm-cuenta b{flex:1;display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:var(--verde);background:var(--verde-pale);border-radius:6px;}
+.pref-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:.75rem;color:var(--texto2);}
+.pref-row input{width:auto;}
+#permisosOverlay input[type=date]{width:100%;min-width:0;box-sizing:border-box;}
+.yv-bar.yv-baja{background:repeating-linear-gradient(45deg,#8E959C,#8E959C 5px,#A3A9AF 5px,#A3A9AF 10px);z-index:2;}
+.yv-festivo{position:absolute;top:4px;bottom:4px;width:4px;margin-left:1px;background:#E24B4A;border-radius:1px;z-index:4;}
 .yv-gap{height:7px;background:#fff;}
 .yv-over{position:absolute;top:0;bottom:0;background:#E74C3C;}
 .yv-blocked{position:absolute;top:0;bottom:0;opacity:.7;background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 4px,#FBCFCB 4px,#FBCFCB 8px);}
@@ -276,6 +285,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .p-track{ flex:1; position:relative; height:5mm; background:#fff; }
 .p-month-tiny{ font-size:5pt !important; white-space:nowrap; overflow:visible; padding-left:0; padding-right:0; position:relative; z-index:2; }
 #printArea.fmt-a4 .p-month-tiny{ font-size:3.8pt !important; }
+.p-festivo{ position:absolute; top:0.5mm; height:4mm; width:0.7mm; margin-left:0.25mm; background:#E24B4A; z-index:4; }
+#printArea.fmt-a4 .p-festivo{ height:3mm; }
 .p-block{ position:absolute; top:0.5mm; height:4mm; min-width:0.8mm; border-radius:0.5mm; z-index:3;
   display:flex; align-items:center; justify-content:center; overflow:hidden;
   font-size:5pt; font-weight:700; color:#fff; white-space:nowrap; }
@@ -334,6 +345,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .print-preview-modal{ padding:0; width:auto; max-width:95vw; max-height:92vh; display:flex; flex-direction:column; }
 .ppm-header{ display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--borde); flex-shrink:0; gap:12px; flex-wrap:wrap; }
 .ppm-header h3{ font-size:.95rem; color:var(--verde); }
+.ppm-header > .left{ margin-left:auto; } /* los botones, con Cerrar el último, siempre a la derecha */
 .ppm-scroll{ overflow:auto; background:#ccc; padding:20px; flex:1; display:flex; justify-content:center; align-items:flex-start; }
 #ppmPageWrap{ flex-shrink:0; box-shadow:0 4px 24px rgba(0,0,0,.35); }
 #ppmPageWrap #printArea{ transform-origin:top left; }
@@ -510,20 +522,26 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   <div class="modal">
     <h3 id="pmTitle">Nuevo periodo</h3>
     <div class="field"><label>Empleado</label><div id="pmEmployee" style="font-size:.85rem;font-weight:600;"></div></div>
-    <div class="field"><label>Desde</label><input type="date" id="pmStart"></div>
-    <div class="field"><label>Hasta</label><input type="date" id="pmEnd"></div>
+    <div class="pm-fechas">
+      <div>
+        <div class="field"><label>Desde</label><input type="date" id="pmStart"></div>
+        <div class="field"><label>Hasta</label><input type="date" id="pmEnd"></div>
+      </div>
+      <div class="pm-cuenta"><label>Nº Días</label><b id="pmDays">–</b></div>
+      <div class="pm-cuenta"><label>Días Festivos</label><b id="pmHolidays">–</b></div>
+    </div>
     <div id="pmWarnings"></div>
     <div class="check-row" id="pmOverrideRow" style="display:none;">
       <input type="checkbox" id="pmOverrideCheck">
-      <label for="pmOverrideCheck">Guardar de todas formas, superando la cobertura recomendada</label>
+      <label for="pmOverrideCheck">Guardar igualmente</label>
     </div>
     <div class="modal-actions">
       <div class="left">
         <button class="btn btn-danger" id="pmDelete" style="display:none;">Eliminar</button>
       </div>
       <div class="left">
-        <button class="btn btn-ghost" id="pmCancel">Cancelar</button>
         <button class="btn btn-primary" id="pmSave">Guardar</button>
+        <button class="btn btn-ghost" id="pmCancel">Cancelar</button>
       </div>
     </div>
   </div>
@@ -557,8 +575,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div class="modal-actions">
       <div></div>
       <div class="left">
-        <button class="btn btn-ghost" id="saturdayClose">Cerrar</button>
         <button class="btn btn-primary" id="btnSaturdayPreview">🖨 Vista previa</button>
+        <button class="btn btn-ghost" id="saturdayClose">Cerrar</button>
       </div>
     </div>
   </div>
@@ -572,6 +590,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="left">
         <button class="btn btn-ghost" id="btnAddHoliday">+ Añadir festivo</button>
         <button class="btn btn-ghost" id="btnPrintHolidays">🖨 Imprimir</button>
+        <button class="btn btn-ghost" id="btnRepartirFestivos">🎲 Repartir festivos</button>
       </div>
       <button class="btn btn-ghost" id="holidaysClose">Cerrar</button>
     </div>
@@ -596,8 +615,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div class="modal-actions">
       <button class="btn btn-danger" id="feDelete">🗑 Eliminar</button>
       <div class="left">
-        <button class="btn btn-ghost" id="feCancel">Cancelar</button>
         <button class="btn btn-primary" id="feSave">💾 Guardar</button>
+        <button class="btn btn-ghost" id="feCancel">Cancelar</button>
       </div>
     </div>
   </div>
@@ -607,21 +626,22 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   <div class="modal" style="width:620px;max-height:88vh;display:flex;flex-direction:column;">
     <h3 id="operativaPermisos">Permisos</h3>
     <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
-      Fechas puntuales de permiso, aparte de las vacaciones. Cuentan igual que las vacaciones para la
+      Fechas puntuales de permiso y bajas médicas, aparte de las vacaciones. Cuentan igual que las vacaciones para la
       cobertura de su unidad, así que aquí puedes comprobar antes de conceder uno si esas fechas ya están
       justas de gente.
     </p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
       <div class="field" style="flex:2;min-width:170px;"><label>Empleado</label><select id="pmzEmp"></select></div>
+      <div class="field" style="flex:1;min-width:120px;"><label>Tipo</label><select id="pmzTipo"><option value="permiso">Permiso</option><option value="baja">Baja médica</option></select></div>
       <div class="field" style="flex:1;min-width:110px;"><label>Desde</label><input type="date" id="pmzStart"></div>
-      <div class="field" style="flex:1;min-width:110px;"><label>Hasta</label><input type="date" id="pmzEnd"></div>
+      <div class="field" style="flex:1;min-width:110px;"><label id="pmzEndLabel">Hasta</label><input type="date" id="pmzEnd"></div>
       <div class="field" style="flex:2;min-width:140px;"><label>Motivo</label><input type="text" id="pmzMotivo" placeholder="Ej: gestión personal"></div>
     </div>
     <div id="pmzWarnings"></div>
     <button class="mini-btn-primary" id="btnAddPermiso" style="margin-bottom:14px;">+ Añadir permiso</button>
 
     <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);font-weight:700;margin-bottom:6px;">
-      Registro de permisos concedidos
+      Registro de permisos y bajas
     </div>
     <div id="permisosList" style="overflow-y:auto;flex:1;"></div>
     <div class="modal-actions">
@@ -659,7 +679,11 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="field"><label>Año de antigüedad (dejar vacío si no se sabe)</label><input type="text" id="ecSeniority" placeholder="Ej: 2015" inputmode="numeric"></div>
       <div class="field"><label>Días de vacaciones al año</label><input type="text" id="ecDays" inputmode="numeric"></div>
       <div class="field" id="ecHolidayNote" style="display:none;font-size:.72rem;color:var(--texto2);"></div>
-      <div class="field"><label>Fechas preferidas (para el generador automático, formato DD/MM-DD/MM, separadas por comas)</label><input type="text" id="ecPrefs" placeholder="Ej: 15/07-29/07, 01/10-15/10"></div>
+      <div class="field"><label>Fechas preferidas (para el generador automático)</label>
+        <input type="hidden" id="ecPrefs">
+        <div id="ecPrefRows"></div>
+        <button type="button" class="mini-btn pref-btn" id="ecPrefAdd">+ Otra fecha</button>
+      </div>
       <div class="check-row"><input type="checkbox" id="ecPrefsFixed"><label for="ecPrefsFixed">📌 Son fechas fijas todos los años (no solo preferidas): el generador no las mueve aunque haya que revisarlas a mano</label></div>
       <div class="field"><label>Particularidades / notas</label><input type="text" id="ecNote" placeholder="Ej: acuerdo previo, restricción médica..."></div>
       <div class="field"><label>Turno de sábado</label>
@@ -669,9 +693,16 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
           <option value="B">Grupo B</option>
         </select>
       </div>
+      <div class="field"><label>Jornada</label>
+        <select id="ecJornada">
+          <option value="">Completa</option>
+          <option value="media">Media jornada</option>
+        </select>
+      </div>
       <div class="check-row"><input type="checkbox" id="ecFloater"><label for="ecFloater">🔁 Comodín: cambia de tienda/puesto según necesidad</label></div>
       <div class="check-row"><input type="checkbox" id="ecSinSustituto"><label for="ecSinSustituto">🚫 Sin sustituto (nadie cubre su puesto)</label></div>
       <div class="check-row"><input type="checkbox" id="ecPideFechas"><label for="ecPideFechas">🙋 Pide sus fechas: no entra en la lista rotada</label></div>
+      <div class="check-row"><input type="checkbox" id="ecFestivos"><label for="ecFestivos">🎉 Hace festivos</label></div>
       <div class="check-row"><input type="checkbox" id="ecHijos"><label for="ecHijos">👶 Tiene hijos a cargo</label></div>
       <div class="check-row"><input type="checkbox" id="ecActive"><label for="ecActive">Activo (desmarcar = de baja, deja de aparecer en el cuadrante)</label></div>
       <div class="modal-actions" style="position:sticky;bottom:0;background:#fff;padding-top:8px;margin-top:6px;flex-wrap:wrap;">
@@ -728,8 +759,11 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <input type="file" id="cargaFile" accept=".xlsx,.xls" style="margin-bottom:10px;flex-shrink:0;">
     <div id="cargaBox" style="overflow-y:auto;flex:1;min-height:0;"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" id="cargaClose">Cerrar</button>
-      <button class="btn btn-primary" id="cargaOk" disabled>Sustituir las fechas de estas personas</button>
+      <div></div>
+      <div class="left">
+        <button class="btn btn-primary" id="cargaOk" disabled>Sustituir las fechas de estas personas</button>
+        <button class="btn btn-ghost" id="cargaClose">Cerrar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -744,7 +778,6 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         </div>
       </div>
       <div class="left" style="display:flex;gap:8px;">
-        <button class="btn btn-ghost" id="ppmClose">Cerrar</button>
         <button class="btn btn-ghost" id="ppmWhatsapp">📱 WhatsApp</button>
         <select id="ppmFormat" title="Tamaño de papel" style="padding:6px 8px;border:1px solid var(--borde);border-radius:7px;font-size:.8rem;">
           <option value="A3">A3</option>
@@ -752,6 +785,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         </select>
         <button class="btn btn-ghost" id="ppmSavePdf">💾 Guardar como PDF</button>
         <button class="btn btn-primary" id="ppmPrintNow">🖨 Imprimir</button>
+        <button class="btn btn-ghost" id="ppmClose">Cerrar</button>
       </div>
     </div>
     <div class="ppm-scroll">
@@ -774,10 +808,10 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         </div>
       </div>
       <div class="left" style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-ghost" id="tpmClose">Cerrar</button>
         <button class="btn btn-ghost" id="tpmWhatsapp">📱 WhatsApp</button>
         <button class="btn btn-ghost" id="tpmSavePdf">💾 Guardar como PDF</button>
         <button class="btn btn-primary" id="tpmPrintNow">🖨 Imprimir</button>
+        <button class="btn btn-ghost" id="tpmClose">Cerrar</button>
       </div>
     </div>
     <div class="ppm-scroll">
@@ -1412,6 +1446,29 @@ function festivosOf(y){
   if(!(state.festivosReady && state.festivosReady[y])) defaultFestivos(y).filter(d=>!d.laborable).forEach(d=>dates.push(d.date));
   return dates;
 }
+/* Nº de días del periodo y festivos que caen dentro, para la ventana de editar. Solo informan. */
+function periodCounts(start, end){
+  if(!start || !end || end<start) return null;
+  const a = new Date(start+'T00:00:00Z'), b = new Date(end+'T00:00:00Z');
+  const days = Math.round((b-a)/86400000)+1;
+  if(!(days>0) || days>400) return null; // una fecha a medio escribir, como el año 0202
+  const nombres = [];
+  for(let i=0;i<days;i++){
+    const d = new Date(a.getTime()+i*86400000);
+    if(!isFestivo(d)) continue;
+    const iso = toISO(d), y = d.getUTCFullYear();
+    const h = state.holidaysWorked.find(x=>x.date===iso) || defaultFestivos(y).find(x=>x.date===iso);
+    nombres.push(iso.slice(8,10)+'/'+iso.slice(5,7)+(h&&h.festividad?' '+h.festividad:''));
+  }
+  return {days, nombres};
+}
+function showPeriodCounts(){
+  const c = periodCounts(document.getElementById('pmStart').value, document.getElementById('pmEnd').value);
+  const hol = document.getElementById('pmHolidays');
+  document.getElementById('pmDays').textContent = c ? c.days : '–';
+  hol.textContent = c ? c.nombres.length : '–';
+  hol.title = c && c.nombres.length ? c.nombres.join(', ') : '';
+}
 function isFestivo(d){
   return festivosOf(d.getUTCFullYear()).includes(toISO(d));
 }
@@ -1440,7 +1497,7 @@ function absentCount(unitId, idx, y, excludePeriodId){
   for(const perm of state.permisos){
     const emp = EMPLOYEES.find(e=>e.id===perm.employeeId);
     if(!emp || emp.unitId!==unitId) continue;
-    if(iso>=perm.start && iso<=perm.end) n++;
+    if(iso>=perm.start && iso<=permEnd(perm)) n++;
   }
   return n;
 }
@@ -1518,6 +1575,7 @@ let editingPeriodId = null;
 function fmtRange(a,b){
   const da = new Date(a+'T00:00:00Z'), db=new Date(b+'T00:00:00Z');
   const opts={day:'2-digit',month:'short'};
+  if(!b) return 'desde el '+da.toLocaleDateString('es-ES',opts)+', sin alta';
   return da.toLocaleDateString('es-ES',opts)+' – '+db.toLocaleDateString('es-ES',opts);
 }
 
@@ -1538,13 +1596,31 @@ function render(){
 }
 
 /* ═══════════════════ ¿QUIÉN ESTÁ DE VACACIONES? (control visual rápido) ═══════════════════ */
+/* Los turnos que llevan un día por festivo trabajado: el 1.º y el 2.º (de enero a agosto); si tiene más festivos
+   o esos turnos no caen antes de septiembre, los siguientes. Solo para señalarlo en el planning. */
+function festivoCarriers(emp, y){
+  const k = holidaysWorkedBy(emp.id, y).length;
+  const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
+  const out = new Set();
+  if(!k || !periods.length) return out;
+  const antes = periods.filter((p,i)=> i<2 && p.start<y+'-09-01');
+  const despues = periods.filter(p=> !antes.includes(p));
+  for(let j=0;j<k;j++){
+    if(j<antes.length) out.add(antes[j].id);
+    else if(despues[j-antes.length]) out.add(despues[j-antes.length].id);
+  }
+  return out;
+}
+/* Fin de un permiso o baja: una baja sin alta sigue abierta. */
+function permEnd(p){ return p.end || '9999-12-31'; }
+function esBaja(p){ return p.tipo==='baja'; }
 function getOnLeaveItems(dateVal){
   const items = [];
   for(const emp of EMPLOYEES.filter(e=>e.active!==false)){
     const period = state.periods.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
     if(period) items.push({emp, range:period, tipo:'Vacaciones'});
-    const permiso = state.permisos.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
-    if(permiso) items.push({emp, range:permiso, tipo:'Permiso'});
+    const permiso = state.permisos.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=permEnd(p));
+    if(permiso) items.push({emp, range:permiso, tipo: esBaja(permiso) ? 'Baja médica' : 'Permiso'});
   }
   items.sort((a,b)=> empLabel(a.emp).localeCompare(empLabel(b.emp),'es'));
   return items;
@@ -1573,8 +1649,10 @@ function renderOnLeave(){
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
     const tag = tipo==='Permiso'
       ? ' <span style="color:#8a5a00;font-weight:700;">(permiso)</span>'
-      : ' <span style="color:#0a6e4a;font-weight:700;">🏖️ (vacaciones)</span>';
-    const motivo = (tipo==='Permiso' && range.motivo) ? ' · '+range.motivo : '';
+      : tipo==='Baja médica'
+        ? ' <span style="color:#5f6368;font-weight:700;">🩺 (baja médica)</span>'
+        : ' <span style="color:#0a6e4a;font-weight:700;">🏖️ (vacaciones)</span>';
+    const motivo = (tipo!=='Vacaciones' && range.motivo) ? ' · '+escapeHtml(range.motivo) : '';
     return `<div class="onleave-item"><b>${empHover(emp)}${tag}</b><small>${escapeHtml(unit)} · ${fmtRange(range.start,range.end)}${motivo}</small></div>`;
   }).join('');
 }
@@ -1893,8 +1971,15 @@ function renderYearView(wrap){
       const track = el('yv-track yv-emp');
       addBlocked(track);
       appendCellLines(track, y, n, pos);
+      const conFestivo = festivoCarriers(emp, y);
       periods.forEach((p,i)=>{
         const s = Math.max(0, isoToIndex(y,p.start)), e = Math.min(n-1, isoToIndex(y,p.end));
+        if(conFestivo.has(p.id)){
+          const marca = el('yv-festivo');
+          marca.style.left = pos(e+1)+'%';
+          marca.title = empLabel(emp)+': este turno lleva 1 día por festivo trabajado.';
+          track.appendChild(marca);
+        }
         const bar = el('yv-bar');
         const width = pos(e+1)-pos(s);
         bar.style.left = pos(s)+'%'; bar.style.width = width+'%';
@@ -1903,6 +1988,17 @@ function renderYearView(wrap){
         const label = String(e-s+1)+'d';
         if(width/100*trackPx > label.length*7) bar.textContent = label;
         bar.onclick = (ev)=>{ ev.stopPropagation(); openPeriodModal(emp, p); openModal('periodOverlay'); };
+        track.appendChild(bar);
+      });
+      const yS = y+'-01-01', yE = y+'-12-31';
+      state.permisos.filter(p=> p.employeeId===emp.id && esBaja(p) && p.start<=yE && permEnd(p)>=yS).forEach(p=>{
+        const s = Math.max(0, isoToIndex(y, p.start<yS?yS:p.start)), e = Math.min(n-1, isoToIndex(y, permEnd(p)>yE?yE:permEnd(p)));
+        const bar = el('yv-bar yv-baja');
+        const width = pos(e+1)-pos(s);
+        bar.style.left = pos(s)+'%'; bar.style.width = width+'%';
+        bar.title = empLabel(emp)+': baja médica '+fmtRange(p.start,p.end)+(p.motivo?' · '+p.motivo:'')+'. Pulsa para verla en Permisos.';
+        if(width/100*trackPx > 34) bar.textContent = 'Baja';
+        bar.onclick = (ev)=>{ ev.stopPropagation(); document.getElementById('btnPermisos').click(); };
         track.appendChild(bar);
       });
       track.onclick = (ev)=>{
@@ -2166,7 +2262,7 @@ function attachPeriodBlockDrag(block, emp, period, y, n){
       render();
       if(overDays>0){
         const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
-        showToast(`Guardado. ⚠ Supera la cobertura recomendada de ${unitName} en ${overDays} día(s).`);
+        showToast(`Guardado. ⚠ Durante ${overDays} día${overDays===1?'':'s'} hay más gente de ${unitName} fuera que el máximo.`);
       }
     }
     document.addEventListener('mousemove', onMove);
@@ -2192,8 +2288,9 @@ function openPeriodModal(emp, period, startISO, endISO){
     closeModal('periodOverlay'); render();
   };
   document.getElementById('pmCancel').onclick = ()=> closeModal('periodOverlay');
-  document.getElementById('pmStart').oninput = ()=> validateModal(emp);
-  document.getElementById('pmEnd').oninput = ()=> validateModal(emp);
+  document.getElementById('pmStart').oninput = ()=>{ showPeriodCounts(); validateModal(emp); };
+  document.getElementById('pmEnd').oninput = ()=>{ showPeriodCounts(); validateModal(emp); };
+  showPeriodCounts();
   document.getElementById('pmOverrideCheck').onchange = ()=> validateModal(emp);
   document.getElementById('pmSave').onclick = ()=> savePeriod(emp);
   periodSnapshot = document.getElementById('pmStart').value+'|'+document.getElementById('pmEnd').value;
@@ -2260,8 +2357,8 @@ function validateModal(emp){
   }
   if(overDays.length){
     const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
-    warnBox.innerHTML = `<div class="warn-box">⚠ Supera la cobertura recomendada de <b>${escapeHtml(unitName)}</b> en ${overDays.length} día(s)
-      (quedarían ${overDays[0].count} fuera cuando el máximo es ${overDays[0].max}).</div>`;
+    const fuera = Math.max(...overDays.map(d=>d.count));
+    warnBox.innerHTML = `<div class="warn-box">⚠ Durante ${overDays.length} día${overDays.length===1?'':'s'} habría ${fuera} persona${fuera===1?'':'s'} de <b>${escapeHtml(unitName)}</b> fuera, y el máximo es ${overDays[0].max}.</div>`;
     overrideRow.style.display='flex';
     saveBtn.disabled = !document.getElementById('pmOverrideCheck').checked;
   }
@@ -2545,6 +2642,9 @@ function openEmployeeCard(empId){
   }
   document.getElementById('ecPrefs').value = emp ? ((state.employeePrefs[emp.id]||{}).preferredText || '') : '';
   document.getElementById('ecPrefsFixed').checked = emp ? !!(state.employeePrefs[emp.id]||{}).fixed : false;
+  cardEditing = false;
+  fillPrefRows(document.getElementById('ecPrefs').value);
+  document.getElementById('ecJornada').value = emp ? (emp.jornada||'') : '';
   document.getElementById('ecNote').value = emp ? (emp.note||'') : '';
   document.getElementById('ecSaturdayGroup').value = emp ? (emp.saturdayGroup||'') : '';
   fillCategorySelect(emp ? emp.categoryId : '');
@@ -2552,6 +2652,7 @@ function openEmployeeCard(empId){
   document.getElementById('ecSinSustituto').checked = emp ? !!emp.sinSustituto : false;
   document.getElementById('ecPideFechas').checked = emp ? !!emp.pideFechas : false;
   document.getElementById('ecHijos').checked = emp ? !!emp.hijos : false;
+  document.getElementById('ecFestivos').checked = emp ? !!emp.haceFestivos : false;
   document.getElementById('ecActive').checked = emp ? emp.active!==false : true;
   setCardEditing(!emp);
 }
@@ -2559,6 +2660,31 @@ function openEmployeeCard(empId){
 /* Como las botoneras de GeminisWin: la ficha se abre solo para mirar; con Editar se puede cambiar y
    se termina con Guardar o Cancelar. */
 let cardEditing = false, cardSnapshot = '';
+/* Fechas preferidas con calendario: cada fila es un Desde/Hasta. Se guardan como siempre, «01/07-15/07»,
+   porque valen para todos los años; el calendario enseña el año que se está viendo. */
+function prefRow(start, end){
+  const row = document.createElement('div'); row.className = 'pref-row';
+  row.innerHTML = `Desde <input type="date" class="pref-d"> Hasta <input type="date" class="pref-h"> <button type="button" class="mini-btn pref-btn" title="Quitar esta fecha">✕</button>`;
+  row.querySelector('.pref-d').value = start || '';
+  row.querySelector('.pref-h').value = end || '';
+  row.querySelectorAll('input,button').forEach(el=>{ el.disabled = !cardEditing; });
+  row.querySelectorAll('input').forEach(el=>{ el.oninput = syncPrefText; });
+  row.querySelector('button').onclick = ()=>{ row.remove(); if(!document.querySelector('#ecPrefRows .pref-row')) document.getElementById('ecPrefRows').appendChild(prefRow()); syncPrefText(); };
+  return row;
+}
+function syncPrefText(){
+  const dm = iso=> iso.slice(8,10)+'/'+iso.slice(5,7);
+  document.getElementById('ecPrefs').value = [...document.querySelectorAll('#ecPrefRows .pref-row')]
+    .map(r=>[r.querySelector('.pref-d').value, r.querySelector('.pref-h').value])
+    .filter(([a,b])=> a && b && b>=a).map(([a,b])=> dm(a)+'-'+dm(b)).join(', ');
+}
+function fillPrefRows(text){
+  const box = document.getElementById('ecPrefRows');
+  box.innerHTML = '';
+  const ranges = parsePreferredRanges(text, state.year);
+  (ranges.length ? ranges : [{}]).forEach(r=> box.appendChild(prefRow(r.start, r.end)));
+}
+document.getElementById('ecPrefAdd').onclick = ()=> document.getElementById('ecPrefRows').appendChild(prefRow());
 function cardValues(){
   return JSON.stringify([...document.querySelectorAll('#empCardView input,#empCardView select')]
     .map(el=> el.type==='checkbox' ? el.checked : el.value));
@@ -2568,6 +2694,7 @@ function setCardEditing(on){
   document.querySelectorAll('#empCardView input,#empCardView select').forEach(el=>{ el.disabled = !on; });
   const exists = !!editingEmployeeId;
   document.getElementById('ecManageCategories').disabled = !on;
+  document.querySelectorAll('#empCardView .pref-btn').forEach(el=>{ el.disabled = !on; });
   document.getElementById('ecNew').disabled = on;
   document.getElementById('ecEdit').disabled = on;
   document.getElementById('ecSave').disabled = !on;
@@ -2635,6 +2762,9 @@ function saveEmployeeCard(){
   if(sinSustituto) emp.sinSustituto = true; else delete emp.sinSustituto;
   if(pideFechas) emp.pideFechas = true; else delete emp.pideFechas;
   if(hijos) emp.hijos = true; else delete emp.hijos;
+  if(document.getElementById('ecFestivos').checked) emp.haceFestivos = true; else delete emp.haceFestivos;
+  const jornada = document.getElementById('ecJornada').value;
+  if(jornada) emp.jornada = jornada; else delete emp.jornada;
   emp.active = active;
 
   if(prefsText) state.employeePrefs[emp.id] = {preferredText: prefsText, fixed: prefsFixed};
@@ -2916,12 +3046,22 @@ function rotationOrderFor(key, emps, y){
   if(periodsOfYear(ordered[0], y-1).length || (state.rotationOrder && state.rotationOrder[y-1])) ordered.push(ordered.shift());
   return rank(ordered);
 }
-/* Tramos de la persona: los del año anterior, ajustados a sus días y sin los ya colocados (fijas, peticiones). */
+/* Tramos de la persona: los del año anterior, ajustados a sus días y sin los ya colocados (fijas, peticiones).
+   Los días por festivo trabajado no van sueltos: se suman al 1.º y al 2.º turno, uno a cada uno (Luis, 05/11/2026). */
 function tramosFor(emp, y, alreadyPlaced){
   const holidays = holidaysWorkedBy(emp.id, y).length;
-  const target = emp.daysPerYear + holidays - alreadyPlaced.reduce((t,d)=>t+d,0);
+  const left = emp.daysPerYear + holidays - alreadyPlaced.reduce((t,d)=>t+d,0);
+  if(left<=0) return [];
+  const extra = Math.min(holidays, left);
+  const tramos = baseTramos(emp, y, alreadyPlaced, left-extra);
+  if(!tramos.length) return extra ? [extra] : [];
+  for(let i=0;i<extra;i++) tramos[i % Math.min(2, tramos.length)]++;
+  return tramos;
+}
+function baseTramos(emp, y, alreadyPlaced, target){
   if(target<=0) return [];
-  const base = periodsOfYear(emp.id, y-1).sort((a,b)=>a.start.localeCompare(b.start)).map(p=>isoToIndex(y-1,p.end)-isoToIndex(y-1,p.start)+1);
+  const base = periodsOfYear(emp.id, y-1).sort((a,b)=>a.start.localeCompare(b.start)).map(p=>isoToIndex(y-1,p.end)-isoToIndex(y-1,p.start)+1)
+    .filter(d=>d>2); // un día suelto del año anterior era el de un festivo: no es un turno
   for(const days of alreadyPlaced){
     if(!base.length) break;
     let best = 0;
@@ -3059,6 +3199,13 @@ function generatePlan(){
   }
 
   if(overwrite){
+    // Antes de borrar fechas ya puestas (por ejemplo, las del Excel), se pregunta (Luis, 05/11/2026).
+    const conFechas = targets.filter(e=> periodsOfYear(e.id, y).length);
+    if(conFechas.length){
+      const nombres = conFechas.map(empLabel).sort((a,b)=>a.localeCompare(b,'es'));
+      const lista = nombres.length>12 ? nombres.slice(0,12).join(', ')+' y '+(nombres.length-12)+' más' : nombres.join(', ');
+      if(!confirm(`Vas a sustituir las fechas de ${y} de ${conFechas.length} persona${conFechas.length===1?'':'s'}, también las que vienen del Excel:\n\n${lista}\n\n¿Seguro?`)) return;
+    }
     const ids = new Set(targets.map(e=>e.id));
     state.periods = state.periods.filter(p=> !(ids.has(p.employeeId) && p.start.startsWith(y+'-')));
   } else {
@@ -3324,7 +3471,9 @@ function openFestivoEditor(h){
 function renderFestivoPeople(){
   const box = document.getElementById('fePeople');
   box.style.display = document.getElementById('feLaborable').checked ? 'none' : 'block';
-  const emps = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'));
+  const marcados = EMPLOYEES.some(e=>e.active!==false && e.haceFestivos);
+  const emps = EMPLOYEES.filter(e=>e.active!==false && (!marcados || e.haceFestivos || feDraft.empIds.includes(e.id)))
+    .sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'));
   box.innerHTML = '';
   [0,1].forEach(slot=>{
     const id = feDraft.empIds[slot]||'';
@@ -3373,6 +3522,40 @@ function saveFestivoEditor(){
 document.getElementById('btnHolidays').onclick = ()=>{ ensureYearFestivos(state.year); ensureYearFestivos(state.year+1); renderHolidaysList(); openModal('holidaysOverlay'); saveState(); };
 document.getElementById('holidaysClose').onclick = ()=> closeModal('holidaysOverlay');
 document.getElementById('btnAddHoliday').onclick = ()=> openFestivoEditor(null);
+/* Repartir festivos: rellena con dos personas los festivos de Aliz-1 del año que están sin completar.
+   Entra quien tiene «Hace festivos» en su ficha; primero quien menos festivos lleva ese año, y nunca
+   alguien que esté de vacaciones ese día. Lo ya asignado no se toca. */
+function esAliz1(tienda){ return String(tienda||'').toLowerCase().replace(/[^a-z0-9]/g,'')==='aliz1'; }
+function repartirFestivos(y){
+  const pool = EMPLOYEES.filter(e=>e.active!==false && e.haceFestivos);
+  if(!pool.length) return {sinPersonal:true, rellenados:0, faltan:0};
+  const cuenta = {};
+  pool.forEach(e=>{ cuenta[e.id] = holidaysWorkedBy(e.id, y).length; });
+  const deVacaciones = (id, d)=> state.periods.some(p=>p.employeeId===id && p.start<=d && p.end>=d);
+  let rellenados = 0, faltan = 0;
+  const lista = state.holidaysWorked.filter(h=>h.date.startsWith(y+'-') && !h.laborable && esAliz1(h.tienda))
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  for(const h of lista){
+    let puestos = 0;
+    while(h.empIds.length<2){
+      const libres = pool.filter(e=>!h.empIds.includes(e.id) && !deVacaciones(e.id, h.date))
+        .sort((a,b)=> cuenta[a.id]-cuenta[b.id] || empLabel(a).localeCompare(empLabel(b),'es'));
+      if(!libres.length){ faltan++; break; }
+      h.empIds.push(libres[0].id);
+      cuenta[libres[0].id]++;
+      puestos++;
+    }
+    if(puestos) rellenados++;
+  }
+  return {sinPersonal:false, rellenados, faltan};
+}
+document.getElementById('btnRepartirFestivos').onclick = ()=>{
+  const r = repartirFestivos(state.year);
+  if(r.sinPersonal){ alert('Nadie tiene marcado «Hace festivos». Márcalo en la ficha de cada persona que los trabaja y vuelve a pulsar Repartir festivos.'); return; }
+  render();
+  renderHolidaysList();
+  showToast(r.rellenados ? `Repartidos ${r.rellenados} festivo(s) de Aliz-1.`+(r.faltan?` En ${r.faltan} no había gente libre suficiente.`:'') : 'No había festivos de Aliz-1 por completar.');
+};
 document.getElementById('btnPrintHolidays').onclick = ()=>{ activePrintTarget = 'festivos'; window.print(); };
 document.getElementById('feLaborable').onchange = renderFestivoPeople;
 document.getElementById('feSave').onclick = saveFestivoEditor;
@@ -3394,7 +3577,11 @@ function renderPermisosEmpSelect(){
 function validatePermisoForm(){
   const empId = document.getElementById('pmzEmp').value;
   const start = document.getElementById('pmzStart').value;
-  const end = document.getElementById('pmzEnd').value;
+  const baja = document.getElementById('pmzTipo').value==='baja';
+  document.getElementById('pmzEndLabel').textContent = baja ? 'Alta (opcional)' : 'Hasta';
+  document.getElementById('btnAddPermiso').textContent = baja ? '+ Añadir baja' : '+ Añadir permiso';
+  const endRaw = document.getElementById('pmzEnd').value;
+  const end = endRaw || (baja ? '9999-12-31' : '');
   const box = document.getElementById('pmzWarnings');
   const btn = document.getElementById('btnAddPermiso');
   box.innerHTML = '';
@@ -3406,17 +3593,23 @@ function validatePermisoForm(){
   if(!emp) return;
   const y = state.year;
 
-  const ownPermOverlap = state.permisos.find(p=> p.employeeId===empId && !(end<p.start || start>p.end));
+  const ownPermOverlap = state.permisos.find(p=> p.employeeId===empId && !(end<p.start || start>permEnd(p)));
   if(ownPermOverlap){
     box.innerHTML = `<div class="err-box">Ya tiene un permiso concedido en ese rango (${fmtRange(ownPermOverlap.start,ownPermOverlap.end)}).</div>`;
     btn.disabled = true; return;
   }
   const vacOverlap = state.periods.find(p=> p.employeeId===empId && !(end<p.start || start>p.end));
+  if(vacOverlap && baja){
+    const todas = state.periods.filter(p=> p.employeeId===empId && !(end<p.start || start>p.end)).sort((a,b)=>a.start.localeCompare(b.start));
+    box.innerHTML = `<div class="warn-box">⚠ La baja coincide con sus vacaciones (${todas.map(p=>fmtRange(p.start,p.end)).join(', ')}). Normalmente esos días se recolocan después: la app no las mueve sola.</div>`;
+    return;
+  }
   if(vacOverlap){
     box.innerHTML = `<div class="err-box">Coincide con sus vacaciones (${fmtRange(vacOverlap.start,vacOverlap.end)}).</div>`;
     btn.disabled = true; return;
   }
 
+  if(baja){ box.innerHTML = ''; return; } // una baja no se elige: no tiene sentido avisar de cobertura ni de sábados
   const sIdx = Math.max(0, isoToIndex(y,start)), eIdx = Math.min(daysInYear(y)-1, isoToIndex(y,end));
   let overDays=0, maxSeen=1, countSeen=0, hasSat=false;
   for(let idx=sIdx; idx<=eIdx; idx++){
@@ -3439,12 +3632,13 @@ function validatePermisoForm(){
 document.getElementById('pmzEmp').onchange = validatePermisoForm;
 document.getElementById('pmzStart').oninput = validatePermisoForm;
 document.getElementById('pmzEnd').oninput = validatePermisoForm;
+document.getElementById('pmzTipo').onchange = validatePermisoForm;
 
 function renderPermisosList(){
   const box = document.getElementById('permisosList');
   const sorted = [...state.permisos].sort((a,b)=> a.start.localeCompare(b.start));
   if(!sorted.length){
-    box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">No hay permisos registrados.</p>';
+    box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">No hay permisos ni bajas registrados.</p>';
     return;
   }
   box.innerHTML = sorted.map(p=>{
@@ -3452,12 +3646,24 @@ function renderPermisosList(){
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
     return `<div class="block-item" style="display:block;padding:8px 10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <b>${empHover(emp)}</b>
+        <b>${empHover(emp)}${esBaja(p)?' <span style="font-weight:600;color:#5f6368;">· 🩺 Baja médica</span>':''}</b>
         <button data-delperm="${p.id}" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>
       </div>
-      <small style="color:var(--texto2);">${unit} · ${fmtRange(p.start,p.end)}${p.motivo?' · '+p.motivo:''}</small>
+      <small style="color:var(--texto2);">${unit} · ${fmtRange(p.start,p.end)}${p.motivo?' · '+escapeHtml(p.motivo):''}</small>
+      ${esBaja(p) && !p.end ? `<div style="display:flex;gap:6px;align-items:center;margin-top:5px;font-size:.72rem;">Alta: <input type="date" data-alta="${p.id}" style="width:auto;padding:3px;"> <button class="mini-btn" data-poneralta="${p.id}">Poner alta</button></div>` : ''}
     </div>`;
   }).join('');
+  box.querySelectorAll('[data-poneralta]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const p = state.permisos.find(x=>x.id===btn.dataset.poneralta);
+      const fecha = box.querySelector(`[data-alta="${btn.dataset.poneralta}"]`).value;
+      if(!p || !fecha || fecha<p.start){ showToast('Elige una fecha de alta igual o posterior al inicio de la baja.'); return; }
+      p.end = fecha;
+      render();
+      renderPermisosList();
+      showToast('Alta anotada.');
+    };
+  });
   box.querySelectorAll('[data-delperm]').forEach(btn=>{
     btn.onclick = ()=>{
       state.permisos = state.permisos.filter(p=>p.id!==btn.dataset.delperm);
@@ -3473,6 +3679,8 @@ document.getElementById('btnPermisos').onclick = ()=>{
   document.getElementById('pmzStart').value = '';
   document.getElementById('pmzEnd').value = '';
   document.getElementById('pmzMotivo').value = '';
+  document.getElementById('pmzTipo').value = 'permiso';
+  validatePermisoForm();
   document.getElementById('pmzWarnings').innerHTML = '';
   openModal('permisosOverlay');
 };
@@ -3482,15 +3690,16 @@ document.getElementById('btnAddPermiso').onclick = ()=>{
   const start = document.getElementById('pmzStart').value;
   const end = document.getElementById('pmzEnd').value;
   const motivo = document.getElementById('pmzMotivo').value.trim();
-  if(!empId || !start || !end || end<start){ showToast('Completa empleado y un rango de fechas válido.'); return; }
-  state.permisos.push({id:'perm'+Date.now()+Math.random().toString(36).slice(2,5), employeeId:empId, start, end, motivo});
+  const baja = document.getElementById('pmzTipo').value==='baja';
+  if(!empId || !start || (!end && !baja) || (end && end<start)){ showToast('Completa empleado y un rango de fechas válido.'); return; }
+  state.permisos.push({id:'perm'+Date.now()+Math.random().toString(36).slice(2,5), employeeId:empId, start, end, motivo, ...(baja?{tipo:'baja'}:{})});
   document.getElementById('pmzStart').value = '';
   document.getElementById('pmzEnd').value = '';
   document.getElementById('pmzMotivo').value = '';
   document.getElementById('pmzWarnings').innerHTML = '';
   render();
   renderPermisosList();
-  showToast('Permiso registrado.');
+  showToast(baja ? 'Baja registrada.' : 'Permiso registrado.');
 };
 
 /* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
@@ -3651,6 +3860,7 @@ function buildPrintArea(){
         }
       }
       const myPeriods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
+      const pFestivo = festivoCarriers(emp, y);
       myPeriods.forEach((p,i)=>{
         const s = Math.max(0, isoToIndex(y,p.start));
         const e = Math.min(n-1, isoToIndex(y,p.end));
@@ -3668,6 +3878,11 @@ function buildPrintArea(){
           : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
         blk.title = fmtRange(p.start,p.end);
         track.appendChild(blk);
+        if(pFestivo.has(p.id)){
+          const m = document.createElement('div'); m.className = 'p-festivo';
+          m.style.left = pos(e+1)+'%';
+          track.appendChild(m);
+        }
       });
       row.appendChild(track);
 
@@ -3882,7 +4097,7 @@ function shareVacationsWhatsapp(){
   } else {
     for(const {emp,range,tipo} of items){
       const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-      const tag = tipo==='Permiso' ? ' [PERMISO]' : '';
+      const tag = tipo==='Permiso' ? ' [PERMISO]' : tipo==='Baja médica' ? ' [BAJA MÉDICA]' : '';
       text += `• ${empLabel(emp)}${tag} (${unit}) — ${fmtRange(range.start,range.end)}\n`;
     }
   }
@@ -4275,10 +4490,13 @@ const OPERATIVAS = {
       'Pulsa una barra para cambiar sus fechas o eliminarla, y pulsa un hueco de la fila para crear un periodo.',
       'Con <b>Día a día</b> puedes arrastrar: sobre una fila vacía crea un periodo, y una barra o su borde la mueve o cambia su inicio o fin.',
       'Con <b>Generar plan</b> se rellena lo que falte. Para repartir una sola unidad, elígela antes en el filtro <b>Unidad</b>.',
+      'Para mover a <b>una sola persona</b>, pulsa su barra y cambia las fechas: no hace falta Generar plan.',
     ],
     notas: [
       'Los <b>números</b> de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes. En las zonas bloqueadas no salen.',
       '<b>Días</b> son los puestos / los que le tocan: los de su ficha más uno por cada festivo trabajado. <b>31/30</b> es un día de más y <b>30/31</b>, uno por poner.',
+      'Los días por <b>festivo trabajado</b> van dentro del <b>1.º y 2.º turno</b> (de enero a agosto), uno en cada uno. A partir de agosto, solo para quien no lo haya podido disfrutar antes.',
+      'Una <b>rayita roja</b> al final de una barra señala que ese turno lleva un día por festivo trabajado.',
       'Las <b>barras pequeñas</b> son un día suelto o un periodo que cae en zona bloqueada, que ocupa poco. Al pasar el ratón salen sus fechas.',
       'Los <b>símbolos</b> van al final del nombre. Al pasar el ratón por cada uno se explica ese caso: 🔁 comodín, 🚫 sin sustituto, 🔗 pareja incompatible, 💑 salen juntos y 📌 fechas fijas.',
       'Se ve el <b>alias</b>; al pasar el ratón, el nombre completo.',
@@ -4286,6 +4504,7 @@ const OPERATIVAS = {
       'En el año entero, lo bloqueado ocupa poco para ganar espacio. Sus fechas completas están en el Listado o al pulsar la barra.',
       'El rayado rosa son fechas bloqueadas: nadie puede coger vacaciones en ellas.',
       'Generar y «Borrar todo» solo tocan el año que estás viendo.',
+      'Con <b>Sobrescribir</b> marcado, Generar plan <b>pregunta antes</b> de sustituir las fechas ya puestas (también las del Excel), con la lista de personas. Si dices que no, no se toca nada.',
       'El generador reparte igual que la propuesta de Prioridad de rotación.',
       'Si sale arriba el aviso amarillo de versión nueva, pulsa <b>Actualizar</b> para recargar la página.',
     ],
@@ -4296,8 +4515,9 @@ const OPERATIVAS = {
       'Pulsa <b>Guardar</b>, o <b>Eliminar</b> para quitar un periodo que ya existe.',
     ],
     notas: [
+      '<b>Nº Días</b> son los días del periodo y <b>Días Festivos</b>, los festivos que caen dentro. Al pasar el ratón por los festivos se ve cuáles. Se recalculan al cambiar las fechas y solo informan.',
       'Si las fechas no cumplen una regla, la ventana lo dice antes de guardar.',
-      'Si se supera la cobertura, puedes marcar «Guardar de todas formas» cuando sea una decisión tuya.',
+      'Si habría más gente del grupo fuera que el máximo, «Guardar» se bloquea: cambia las fechas o marca <b>Guardar igualmente</b> si es una decisión tuya.',
     ],
   },
   '#operativaRotacion': {
@@ -4333,9 +4553,12 @@ const OPERATIVAS = {
     pasos: [
       'La tabla va por fechas. Al final, tras una línea en blanco, salen Año Nuevo y Reyes del año siguiente. Pulsa una fila para cambiar sus datos, poner quién lo trabaja o marcar la compensación.',
       'Con <b>+ Añadir festivo</b> creas uno nuevo. Pulsa <b>Imprimir</b> para sacar la lista en A4.',
+      'Con <b>🎲 Repartir festivos</b> se ponen dos personas en cada festivo de <b>Aliz-1</b> sin completar: primero quien menos festivos lleva, y nunca alguien de vacaciones ese día. Luego puedes cambiarlo pulsando la fila.',
     ],
     notas: [
-      'Quien trabaja un festivo suma 1 día de vacaciones ese año.',
+      'Quien trabaja un festivo suma 1 día de vacaciones ese año. Ese día va dentro de su <b>1.º o 2.º turno</b> (de enero a agosto); a partir de agosto, solo si no lo ha podido disfrutar antes. En el planning se señala con una <b>rayita roja</b>.',
+      'Entra en el reparto y en la lista de personas quien tiene marcado <b>🎉 Hace festivos</b> en su ficha. Si no hay nadie marcado, sale toda la plantilla.',
+      'El reparto no toca lo ya asignado ni los festivos de otras tiendas.',
       'Ninguna vacación empieza ni termina en un festivo de esta tabla. Si no abre ninguna tienda, deja la tienda vacía.',
       'La víspera de Reyes, el 5 de enero, es laborable: trabaja todo el personal, con el horario que indica la tabla, y no suma días.',
       'Comp. dice cuántos de los que trabajaron ese festivo ya han recibido su día a cambio: 1/2 es que de dos personas, a una ya se le dio.',
@@ -4343,14 +4566,27 @@ const OPERATIVAS = {
       'Los festivos de un año nuevo salen de una lista de partida: revísalos con el calendario oficial.',
     ],
   },
+  '#feTitle': {
+    pasos: [
+      'Comprueba la fecha, la festividad, la tienda que abre y el horario.',
+      'En <b>Persona 1</b> y <b>Persona 2</b> elige quién lo trabaja, y pulsa <b>Guardar</b>.',
+    ],
+    notas: [
+      'Solo salen quienes tienen <b>🎉 Hace festivos</b> en su ficha. Si no hay nadie marcado, sale toda la plantilla.',
+      'Cada persona suma 1 día de vacaciones ese año. Cuando se le dé, marca <b>Ya tiene compensado este día</b>.',
+    ],
+  },
   '#operativaPermisos': {
     pasos: [
-      'Elige el empleado, las fechas y el motivo.',
+      'Elige el empleado, las fechas, el <b>Tipo</b> (Permiso o Baja médica) y el motivo.',
+      'En una <b>baja médica</b>, el alta se puede dejar vacía si no se sabe. Cuando llegue, ponla en el registro con <b>Poner alta</b>.',
       'Lee los avisos, si salen, y pulsa <b>Añadir permiso</b>.',
       'El permiso queda en el registro, donde también se puede borrar.',
     ],
     notas: [
-      'Un permiso cuenta igual que las vacaciones para la cobertura de su unidad.',
+      'Un permiso o una baja cuentan igual que las vacaciones para la cobertura de su unidad.',
+      'La baja sale en el calendario como una <b>barra gris</b> y no gasta días de vacaciones.',
+      'Si la baja coincide con sus vacaciones, sale un aviso: esos días normalmente se recolocan después. La app <b>no las mueve sola</b>.',
       'Los avisos de cobertura o de turno de sábado no impiden conceder el permiso.',
     ],
   },
@@ -4369,18 +4605,22 @@ const OPERATIVAS = {
   '#empCardTitle': {
     pasos: [
       'La ficha se abre solo para mirar. Pulsa <b>Editar</b> para poder cambiarla, o <b>Nuevo</b> para dar de alta a otra persona.',
-      'Elige su <b>Categoría</b>. Para añadir, renombrar, ordenar o quitar categorías, usa <b>Gestionar categorías</b>.',
+      'Elige su <b>Categoría</b>. Para añadir, renombrar, ordenar o quitar categorías, pulsa <b>Editar</b> y luego <b>Gestionar categorías</b>.',
       'En <b>Alias</b> pon el nombre por el que se le conoce: es el que sale en todas las pantallas e impresiones. El completo se ve al pasar el ratón.',
-      'Para fijar una fecha, escríbela en <b>Fechas preferidas</b> así: 01/07-15/07, y marca la casilla 📌.',
+      'En <b>Fechas preferidas</b> elige <b>Desde</b> y <b>Hasta</b> en el calendario. Con <b>+ Otra fecha</b> añades otra, y con ✕ la quitas. Para que sea fija, marca la casilla 📌.',
+      'En <b>Turno de sábado</b>, «No hace sábados» es para quien no los trabaja. En <b>Jornada</b>, marca si hace media jornada.',
       'Termina con <b>Guardar</b>, o con <b>Cancelar</b> para dejarla como estaba.',
       'Pulsa <b>Salir</b> para volver a la lista.',
     ],
     notas: [
       'Si sales con cambios sin guardar, la app te pregunta si guardarlos o cancelarlos.',
       'Marca <b>Pide sus fechas</b> si no debe entrar en la lista rotada.',
+      'Marca <b>🎉 Hace festivos</b> a quien trabaja los festivos: solo esas personas entran en el reparto de Festivos.',
       'Las categorías se guardan al momento, aunque luego canceles la ficha.',
       'Para dar de baja sin perder su historial, desmarca <b>Activo</b>. Eliminar la ficha la borra de verdad.',
       'Una fecha preferida se puede correr unos días; una fija 📌 no se mueve nunca.',
+      'Las fechas preferidas valen <b>todos los años</b>: se guarda el día y el mes, y el calendario enseña el año que estás viendo.',
+      'La <b>Jornada</b> de momento solo se apunta: no cambia los días de vacaciones.',
     ],
   },
   '#operativaCategorias': {
@@ -4401,6 +4641,7 @@ const OPERATIVAS = {
       'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
     ],
     notas: [
+      'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
       'Los números de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes, y los símbolos van al final del nombre. Su significado está en la Operativa de la pantalla principal.',
       '<b>WhatsApp</b> prepara un texto con quién está fuera en la fecha elegida en «¿Quién está fuera?». No manda la imagen.',
     ],
