@@ -2193,6 +2193,7 @@ function alertasDatosViejos(){
   chk('Comprobantes de ingreso',ultima(['cajaBancoRecibos']),5,9,'Los sube Mónica.');
   chk('Pagos a proveedores',ultima(['proveedores']),6,10,'Los sube Mónica.');
   chk('Listados mensuales (ventas, compras, familias)',ultima(['ventasAnual','ventasVendedores','ventasTiendas','ventasClientes','familias','comprasAnual','comprasProveedores','ventasWeb']),45,75,'Los sube la automatización de GeminisWin el día 10 de cada mes.');
+  if(!DEUDA_DATA.some(d=>d.origen==='excel')) out.push({type:'err',ico:'🚨',ttl:'Pool bancario (préstamos) — datos de 2025, nunca actualizados desde el Excel',txt:'El Excel diario de Mónica debería traer la hoja «Pool Bancario (TOTAL)»; mientras no llegue, los saldos y vencimientos de esta pantalla son los antiguos.'});
   const act=DEUDA_DATA.map(d=>d.actualizado).filter(Boolean).sort().pop(); if(act) chk('Pool bancario (préstamos)',act,45,75,'La hoja «Pool Bancario» del Excel de Mónica lleva su fecha de «ACTUALIZADO»; hay que actualizarla.');
   return out;
 }
