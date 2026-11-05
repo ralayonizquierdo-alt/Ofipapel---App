@@ -25,12 +25,18 @@ const PROPIOS: Record<Area, string[] | null> = {
 const PENDIENTE = 'erp.area.pendiente'
 const valida = (a: string | null): a is Area => a === 'gestion' || a === 'contabilidad' || a === 'web' || a === 'avatar'
 
-// Área de esta carga del programa: solo la que se acaba de elegir al cambiar de área (antes de recargar).
+// Área de esta carga del programa: la que se acaba de elegir al cambiar de área (aviso de un solo uso)
+// o, si se recarga la página con la sesión abierta (el navegador del móvil lo hace a menudo), la que
+// ya se eligió en ESTA pestaña (sessionStorage), para no volver a preguntar. Una pestaña nueva o un
+// programa recién abierto sí vuelven a preguntar (Luis: «cuando salgas y vuelvas, a los 3 botones»).
+const ACTIVA = 'erp.area.activa'
 let enMemoria: Area | null = (() => {
   try {
     const a = sessionStorage.getItem(PENDIENTE)
     sessionStorage.removeItem(PENDIENTE)
-    return valida(a) ? a : null
+    if (valida(a)) return a
+    const activa = sessionStorage.getItem(ACTIVA)
+    return valida(activa) ? activa : null
   } catch {
     return null
   }
@@ -45,6 +51,7 @@ export const areaActual = (): Area => enMemoria ?? 'avatar'
 export function fijarArea(a: Area) {
   enMemoria = a
   try {
+    sessionStorage.setItem(ACTIVA, a)
     localStorage.setItem(CLAVE, a)
   } catch {
     /* sin almacenamiento */
