@@ -110,7 +110,7 @@ export function LoginPage() {
   const Icono = a.icono
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--gw-mdi)] p-4">
-      <GwWindow title="Cambiar Empleado" className="w-[340px] max-w-full">
+      <GwWindow title="Cambiar Empleado" className="w-[480px] max-w-full">
         {olvide ? (
           <div className="flex flex-col gap-2 p-1">
             {logo}
@@ -139,14 +139,14 @@ export function LoginPage() {
               </button>
             </div>
             <div className="flex gap-2">
-              <div className="w-[130px] shrink-0">
+              <div className="w-[150px] shrink-0">
                 <GwField label="Nº de empleado">
-                  <GwInput type="text" required autoFocus={!email} autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <GwInput type="text" required autoFocus={!email} autoComplete="username" autoCapitalize="none" inputMode="text" className="!h-[52px] !text-[32px] !font-bold tracking-wider" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </GwField>
               </div>
               <div className="min-w-0 flex-1">
                 <GwField label="Nombre">
-                  <GwInput type="text" readOnly tabIndex={-1} value={nombreEmpleado} aria-label="Nombre del empleado" />
+                  <GwInput type="text" readOnly tabIndex={-1} className="!h-[52px] !text-[24px] !font-semibold" value={nombreEmpleado} aria-label="Nombre del empleado" />
                 </GwField>
               </div>
             </div>
