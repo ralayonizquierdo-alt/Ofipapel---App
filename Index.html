@@ -2133,7 +2133,7 @@ const DEUDA_INICIAL = [
 ];
 // El Pool de Deuda se edita desde la pantalla y se comparte en la nube (app_sync, id «deuda»); DEUDA_INICIAL es solo la semilla de la primera vez.
 // Campos nuevos por préstamo: estado ('normal' | 'alerta' | 'resuelto'), nota y editado {por, ts}.
-const EDITAN_DEUDA = ['admin','rober','luis'];
+const EDITAN_DEUDA = [];   // decisión del propietario (4/11/2026): nadie edita a mano, manda la hoja «Pool Bancario» del Excel diario de Mónica
 let DEUDA_DATA = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_deuda')||'null'); if(Array.isArray(g)&&g.length) return g; }catch(e){} return JSON.parse(JSON.stringify(DEUDA_INICIAL)); })();
 // Historial de cambios del Pool de Deuda (app_sync, id «deudahistorial»): quién, cuándo y qué cambió (antes → después)
 let DEUDA_HIST = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_deudahist')||'null'); if(Array.isArray(g)) return g; }catch(e){} return []; })();
@@ -2177,6 +2177,24 @@ function estadoAlertaDeuda(d){
   if(e==='alerta') return 'alerta';
   const v=_vtoDeuda(d.vto), hoy=new Date(); hoy.setHours(0,0,0,0);
   return (v&&v<hoy)?'vencido':null;
+}
+// Fuentes que deberían llegar solas (Excel diario de Mónica, automatización de GeminisWin): si se paran, avisa en rojo en vez de quedarse callada
+function alertasDatosViejos(){
+  const hoy=new Date(); hoy.setHours(12,0,0,0); const out=[];
+  const dias=iso=>{ const d=new Date(String(iso||'').slice(0,10)+'T12:00:00'); return (!iso||isNaN(d))?null:Math.round((hoy-d)/86400000); };
+  const ultima=ks=>{ let m=''; ks.forEach(k=>{ if(_importStamps[k]&&_importStamps[k]>m) m=_importStamps[k]; importLog.forEach(e=>{ if(e&&e.key===k&&e.ts>m) m=e.ts; }); }); return m; };
+  const chk=(etq,iso,warn,err,donde)=>{
+    const d=dias(iso); if(d==null||d<=warn) return;
+    out.push({type:d>err?'err':'warn',ico:d>err?'🚨':'🕒',ttl:`${etq} — sin actualizar desde hace ${d} días`,txt:`Último dato: ${String(iso).slice(0,10).split('-').reverse().join('/')}. ${donde}`});
+  };
+  const sr=sortedRegistros(); if(sr.length) chk('Volcado diario (saldos de bancos)',sr[sr.length-1].fecha,3,6,'Lo sube Mónica cada día con el Excel de saldos.');
+  const vc=ventasCaja&&ventasCaja.meta&&ventasCaja.meta.hasta||((ventasCaja&&ventasCaja.porDia)||[]).map(x=>x.fecha).sort().pop(); if(vc) chk('Ventas por caja (movimientos)',vc,4,8,'Lo sube la automatización de GeminisWin cada día laborable.');
+  chk('Cierres de caja',ultima(['cajaCierres']),5,9,'Los sube Mónica (ZIP de PDFs de cierre).');
+  chk('Comprobantes de ingreso',ultima(['cajaBancoRecibos']),5,9,'Los sube Mónica.');
+  chk('Pagos a proveedores',ultima(['proveedores']),6,10,'Los sube Mónica.');
+  chk('Listados mensuales (ventas, compras, familias)',ultima(['ventasAnual','ventasVendedores','ventasTiendas','ventasClientes','familias','comprasAnual','comprasProveedores','ventasWeb']),45,75,'Los sube la automatización de GeminisWin el día 10 de cada mes.');
+  const act=DEUDA_DATA.map(d=>d.actualizado).filter(Boolean).sort().pop(); if(act) chk('Pool bancario (préstamos)',act,45,75,'La hoja «Pool Bancario» del Excel de Mónica lleva su fecha de «ACTUALIZADO»; hay que actualizarla.');
+  return out;
 }
 function alertasDeDeuda(){ return DEUDA_DATA.filter(d=>estadoAlertaDeuda(d)); }
 
@@ -2538,7 +2556,7 @@ const PAG_TOTALES_INICIAL = { total: 2739894.34, ingresado: 2729045.79, en_caja:
 // ── Pagarés y Confirming: viven en la nube (app_sync ids pagares, confirming, pagarestotales, pagareshistorial); lo de arriba es solo la semilla de la primera vez ──
 // Cada línea: pagaré {vto 'AAAA-MM-DD', pagare, importe, banco, marca, nota}; confirming {vto, proveedor, importe, comision, marca, nota}.
 // marca: '' = por fecha (vencimiento pasado = cobrado/pagado); 'cobrado'/'pagado' o 'pendiente' lo fija a mano (pendiente + vencido = aviso).
-const EDITAN_PAGARES = ['admin','rober','luis','monica'];
+const EDITAN_PAGARES = [];   // decisión del propietario (4/11/2026): nadie edita a mano, manda el Excel diario de Mónica
 function _cargarListaPC(clave, ini){ try{ const g=JSON.parse(localStorage.getItem(clave)||'null'); if(Array.isArray(g)) return g; }catch(e){} return JSON.parse(JSON.stringify(ini)); }
 let PAGARES_DATA = _cargarListaPC('op_pagares', PAGARES_INICIAL.map(({estado,...r})=>r));
 let CONF_SANT_DATA = _cargarListaPC('op_confirming', CONF_INICIAL);
@@ -2600,6 +2618,7 @@ function guardarEditarPC(tipo,i){
   const vto=_isoDeES(g('pcVto')); if(!vto) return err('El vencimiento se escribe así: 25/11/2026');
   const importe=_numEs(g('pcImporte')); if(isNaN(importe)||importe<0) return err('El importe tiene que ser un número');
   const nuevoX=pag?{vto,pagare:g('pcPagare'),importe,banco:g('pcBanco'),marca:g('pcMarca'),nota:g('pcNota')}:{vto,proveedor:g('pcProveedor'),importe,comision:0,marca:g('pcMarca'),nota:g('pcNota')};
+  if(i<0) nuevoX.origen='manual';
   if(pag&&!nuevoX.pagare) return err('Pon el nº de pagaré');
   if(!pag){ if(!nuevoX.proveedor) return err('Pon el proveedor'); const c=g('pcComision')===''?0:_numEs(g('pcComision')); if(isNaN(c)||c<0) return err('La comisión tiene que ser un número'); nuevoX.comision=c; }
   const antes=i<0?null:{...lista[i]};
@@ -3173,7 +3192,7 @@ function renderAlertas(){
   alertasDeDeuda().forEach(d=>{
     const alerta=estadoAlertaDeuda(d)==='alerta';
     alerts.push({type:alerta?'err':'warn', ico:alerta?'🚨':'📅', ttl:`${d.nombre} — ${alerta?'EN ALERTA':'VENCIDO'} (${d.vto})`,
-      txt:`Saldo pendiente: ${fmt(d.pendiente)}. Cuota mensual: ${fmt(d.cuota)}.${d.nota?' '+d.nota+'.':''} Confirma la situación con ${d.banco}; cuando esté resuelto, actualízalo en Pool de Deuda.`});
+      txt:`Saldo pendiente: ${fmt(d.pendiente)}. Cuota mensual: ${fmt(d.cuota)}.${d.nota?' '+d.nota+'.':''} Confirma la situación con ${d.banco}; se actualiza solo con la hoja «Pool Bancario» del Excel diario de Mónica.`});
   });
 
   // Importes negativos en el fichero de Ventas caja (devoluciones, abonos o errores de ticket)
@@ -3189,6 +3208,9 @@ function renderAlertas(){
     }
   }catch(e){}
 
+  // Datos que dejaron de llegar
+  alertasDatosViejos().forEach(a=>alerts.unshift(a));
+
   // Santander volatilidad
   if(sorted.length>=2){
     const vals = sorted.slice(-5).map(r=>r.sant_ico||0);
@@ -3197,7 +3219,7 @@ function renderAlertas(){
   }
 
   // Caja Siete
-  alerts.push({type:'info', ico:'📊', ttl:'Caja Siete — Crecimiento constante', txt:`Saldo actual: ${fmt(last.c7)}. Tendencia alcista sostenida.`});
+  alerts.push({type:'info', ico:'📊', ttl:'Caja Siete — Saldo', txt:`Saldo actual: ${fmt(last.c7)}.`});
 
   // Pagarés próximos a vencer (próximos 7 días, clasificación automática por fecha)
   const hoyAlStr = new Date(); hoyAlStr.setHours(0,0,0,0);
@@ -3206,7 +3228,7 @@ function renderAlertas(){
   const in7AlStrStr = in7AlStr.toISOString().slice(0,10);
   const pagProxAl = PAGARES_DATA.filter(p=>_estPC(p,hoyAlStrStr)==='pend'&&p.vto>=hoyAlStrStr&&p.vto<=in7AlStrStr);
   const pagVencAl = PAGARES_DATA.filter(p=>_estPC(p,hoyAlStrStr)==='vencido');
-  if(pagVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`${pagVencAl.length} pagaré(s) vencido(s) sin cobrar`, txt:`${pagVencAl.map(p=>p.pagare+' ('+fmt(p.importe)+', '+_esDeIso(p.vto)+')').join(' · ')}. Cuando se cobren, márcalos como cobrados en Pagarés y Confirming.`});
+  if(pagVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`${pagVencAl.length} pagaré(s) vencido(s) sin cobrar`, txt:`${pagVencAl.map(p=>p.pagare+' ('+fmt(p.importe)+', '+_esDeIso(p.vto)+')').join(' · ')}. Se actualiza con el Excel diario de Mónica: si ya se cobraron, falta anotar el ingreso en la hoja «Pagares en Caja».`});
   const sumPagProxAl = pagProxAl.reduce((s,p)=>s+p.importe,0);
   if(pagProxAl.length>0) alerts.push({type:'warn', ico:'🔴', ttl:`${pagProxAl.length} pagaré(s) vencen en los próximos 7 días`, txt:`Total pendiente: ${fmt(sumPagProxAl)}. Próximo vencimiento: ${new Date(pagProxAl[0].vto+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}.`});
 
@@ -3214,7 +3236,7 @@ function renderAlertas(){
   const today7 = new Date(); const next7 = new Date(); next7.setDate(next7.getDate()+7);
   const confProx = CONF_SANT_DATA.filter(c=>{ const d=new Date(c.vto); return _estPC(c,hoyAlStrStr)==='pend'&&d>=today7&&d<=next7; });
   const confVencAl = CONF_SANT_DATA.filter(c=>_estPC(c,hoyAlStrStr)==='vencido');
-  if(confVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`Confirming Santander — ${confVencAl.length} pago(s) vencido(s) sin pagar`, txt:`${confVencAl.map(c=>c.proveedor+' ('+fmt(c.importe)+', '+_esDeIso(c.vto)+')').join(' · ')}. Cuando se paguen, márcalos como pagados en Pagarés y Confirming.`});
+  if(confVencAl.length) alerts.push({type:'err', ico:'🚨', ttl:`Confirming Santander — ${confVencAl.length} pago(s) vencido(s) sin pagar`, txt:`${confVencAl.map(c=>c.proveedor+' ('+fmt(c.importe)+', '+_esDeIso(c.vto)+')').join(' · ')}. Se actualiza con el Excel diario de Mónica: si ya se pagaron, falta marcarlos como pagados en la hoja «Confirming Santander».`});
   const sumConf7 = confProx.reduce((s,c)=>s+c.importe,0);
   if(confProx.length>0) alerts.push({type:'warn', ico:'🏦', ttl:`Confirming Santander — ${confProx.length} pago(s) esta semana`, txt:`Total a pagar en los próximos 7 días: ${fmt(sumConf7)}. Proveedores: ${confProx.map(c=>c.proveedor).join(', ')}.`});
 
@@ -3921,10 +3943,11 @@ function _ejecutarArrastre(input){
         }
       } catch(fcErr){ console.warn('Fondo Caja CAMBIOS parse error:', fcErr); }
 
+      let pcMsg = ''; try{ pcMsg = _importarPagConf(wb, file.name); }catch(e){ console.warn('Pagarés/Confirming:',e); }
       const ahoraLabel = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}${fondoMsg} · Subido ${ahoraLabel}</span>`;
+      statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}${fondoMsg}${pcMsg} · Subido ${ahoraLabel}</span>`;
       stampImport('volcado', file.name);
-      renderDashboard(); renderAlertas(); renderCajaFondoCambio();
+      renderDashboard(); renderAlertas(); renderCajaFondoCambio(); try{ renderPagares(); renderDeuda(); }catch(e){}
       showToast(`✅ Importado: ${fechaLabel}`,'ok');
 
     } catch(err) {
@@ -3942,6 +3965,114 @@ function _ejecutarArrastre(input){
 // Tiendas Ofipapel: 43,44,45,46,48 (47 es admin pass-through)
 // Tiendas Aliz-1: A2,A3  — Tienda Aliz-2: AA
 // ═══════════════════════════════════════════════════════
+// ── Hojas «Pagares en Caja» y «Confirming Santander» del Excel diario ──
+// Estas hojas guardan TODA la historia (pagarés desde 2011): la hoja trae un rango declarado hasta XFD, así que se lee solo A:I.
+function _serialAIso(n){ if(typeof n!=='number'||n<20000||n>80000) return ''; const d=new Date(Math.round((n-25569)*86400000)); return d.toISOString().slice(0,10); }
+function _datosHoja(wb,nombre,cols){
+  const ws=wb.Sheets[nombre]; if(!ws||!ws['!ref']) return [];
+  const r=XLSX.utils.decode_range(ws['!ref']);
+  return XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,range:{s:{r:0,c:0},e:{r:r.e.r,c:cols-1}}});
+}
+// Pagarés: cada bloque de filas seguidas es un día de vencimiento; si alguna fila del bloque trae «ingresado» (F) el bloque está cobrado (H = día del ingreso).
+function _parsePagaresSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/pagar.*caja/i.test(n)); if(!nombre) return null;
+  const data=_datosHoja(wb,nombre,9), num=x=>typeof x==='number'?x:NaN;
+  const tot={total:num(data[1]&&data[1][4]),ingresado:num(data[1]&&data[1][5]),en_caja:num(data[1]&&data[1][6])};
+  const lotes=[]; let cur=[];
+  for(let i=4;i<data.length;i++){
+    const r=data[i], vacia=r.every(c=>c===''||c==null);
+    if(vacia){ if(cur.length) lotes.push(cur); cur=[]; } else cur.push(r);
+  }
+  if(cur.length) lotes.push(cur);
+  const items=[];
+  lotes.forEach(l=>{
+    const pags=l.filter(r=>typeof r[2]==='number'&&String(r[3]||'').trim()&&typeof r[4]==='number');
+    if(!pags.length) return;
+    const dep=l.find(r=>typeof r[5]==='number'&&r[5]>0);
+    pags.forEach(r=>{
+      const vto=_serialAIso(r[2]); if(!vto) return;
+      items.push({vto,pagare:String(r[3]).trim(),importe:Math.round(r[4]*100)/100,banco:dep?String(dep[6]||'').trim():'',emision:_serialAIso(r[1]),ingreso:dep?_serialAIso(dep[7]):'',marca:dep?'cobrado':'pendiente',origen:'excel'});
+    });
+  });
+  return {items,tot};
+}
+function _parseConfirmingSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/confirming/i.test(n)); if(!nombre) return null;
+  const data=_datosHoja(wb,nombre,9), items=[];
+  for(let i=1;i<data.length;i++){
+    const r=data[i], vto=_serialAIso(r[4]), imp=r[2], prov=String(r[1]||'').replace(/\s+/g,' ').trim();
+    if(!vto||typeof imp!=='number'||!prov) continue;
+    const pagado=typeof r[5]==='number'&&r[5]>=imp-0.01;
+    items.push({vto,proveedor:prov,importe:Math.round(imp*100)/100,comision:typeof r[7]==='number'?r[7]:0,factura:String(r[8]||'').trim(),emision:_serialAIso(r[0]),marca:pagado?'pagado':'pendiente',origen:'excel'});
+  }
+  return {items};
+}
+// Importa las dos hojas al subir el volcado diario: el Excel manda; solo se conservan lo apuntado a mano en la app (origen 'manual') y las notas.
+// Solo se guarda lo de los últimos 120 días y lo futuro: lo anterior sin marca de cobro (pagarés de 2011-2024 con el «ingresado» sin rellenar) es historia ya cuadrada en los totales del Excel y saldría como falsos pendientes.
+function _importarPagConf(wb,archivo){
+  const corte=new Date(Date.now()-120*86400000).toISOString().slice(0,10), msg=[];
+  const fusiona=(nuevos,actual,clave)=>{
+    const notas=new Map(actual.filter(x=>x.nota).map(x=>[clave(x),x.nota]));
+    const conserva=actual.filter(x=>x.origen==='manual');
+    const claves=new Set(nuevos.map(clave));
+    return [...nuevos.map(x=>notas.has(clave(x))?{...x,nota:notas.get(clave(x))}:x),...conserva.filter(x=>!claves.has(clave(x)))].sort((a,b)=>a.vto.localeCompare(b.vto));
+  };
+  try{
+    const pg=_parsePagaresSheet(wb);
+    if(pg&&pg.items.length){
+      const nuevos=pg.items.filter(x=>x.vto>=corte);
+      PAGARES_DATA=fusiona(nuevos,PAGARES_DATA,x=>x.pagare+'|'+x.vto); guardarPC('pag');
+      if(!isNaN(pg.tot.total)&&!isNaN(pg.tot.ingresado)&&!isNaN(pg.tot.en_caja)){ PAG_TOTALES=pg.tot; try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} syncDatasetToCloud('pagarestotales',PAG_TOTALES); }
+      logImport('pagares',archivo,PAGARES_DATA.length); msg.push(`Pagarés: ${nuevos.filter(x=>x.marca==='pendiente').length} pendientes`);
+    }
+  }catch(e){ console.warn('Hoja Pagares en Caja:',e); }
+  try{
+    const cf=_parseConfirmingSheet(wb);
+    if(cf&&cf.items.length){
+      const nuevos=cf.items.filter(x=>x.vto>=corte);
+      CONF_SANT_DATA=fusiona(nuevos,CONF_SANT_DATA,x=>x.proveedor+'|'+x.vto+'|'+x.importe); guardarPC('conf');
+      logImport('confirming',archivo,CONF_SANT_DATA.length); msg.push(`Confirming: ${nuevos.filter(x=>x.marca==='pendiente').length} pendientes`);
+    }
+  }catch(e){ console.warn('Hoja Confirming Santander:',e); }
+  try{ const pm=_importarPool(wb,archivo); if(pm) msg.push(pm.replace(/^ · /,'')); }catch(e){ console.warn('Hoja Pool Bancario:',e); }
+  return msg.length?' · '+msg.join(' · '):'';
+}
+// ── Hoja «Pool Bancario (TOTAL)» (o «POOL (BANCOS)»): los préstamos reales, con saldo, cuota y vencimiento ──
+function _parsePoolSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/pool.*total/i.test(n))||(wb.SheetNames||[]).find(n=>/pool/i.test(n)); if(!nombre) return null;
+  const data=_datosHoja(wb,nombre,15), items=[]; let actualizado='';
+  const fEs=iso=>iso?iso.split('-').reverse().join('/'):'';
+  const bancoDe=k=>{ const t=String(k||'').trim(), n=t.replace(/\D/g,''); const b=/CX|CAIXA/i.test(t)?'CaixaBank':/BS|SANT/i.test(t)?'Santander':/BBVA/i.test(t)?'BBVA':t.replace(/\d/g,''); return b+(n?` (${n})`:''); };
+  data.forEach(r=>{
+    const act=String(r[2]||'').match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(act) actualizado=`${act[3]}-${act[2].padStart(2,'0')}-${act[1].padStart(2,'0')}`;
+    const titulo=String(r[2]||'').replace(/\s+/g,' ').trim(), nominal=r[3];
+    if(!titulo||typeof nominal!=='number') return;
+    let vto=''; if(typeof r[6]==='number') vto=fEs(_serialAIso(r[6])); else { const m=String(r[6]||'').match(/^(\d{2})(\d{2})\/(\d{4})$/); if(m) vto=`${m[1]}/${m[2]}/${m[3]}`; }
+    const pend=typeof r[5]==='number'?Math.abs(r[5]):nominal, poliza=/poliza|póliza/i.test(titulo);
+    const hip=/hipoteca/i.test(String(r[12]||'')), ico=/\bICO\b/i.test(titulo);
+    const e0=v=>Math.round(v).toLocaleString('es-ES');
+    const detalle=[(typeof r[8]==='number'&&typeof r[9]==='number')?`Capital ${e0(r[8])}€ + Interés ${e0(r[9])}€`:'',String(r[13]||'').trim()?String(r[13]).trim():'',String(r[11]||'').trim()?`Cargo a ${String(r[11]).trim()}`:''].filter(Boolean).join(' · ');
+    items.push({nombre:titulo,banco:bancoDe(r[10]),tipo:hip?'hip':ico?'ico2':'',nominal,pendiente:pend,cuota:typeof r[7]==='number'?r[7]:0,vto,
+      pct:nominal>0?Math.max(0,Math.min(100,Math.round((poliza?pend/nominal:1-pend/nominal)*100))):0,detalle,estado:'normal',origen:'excel'});
+  });
+  items.forEach(i=>i.actualizado=actualizado);
+  return {items,actualizado};
+}
+function _importarPool(wb,archivo){
+  const po=_parsePoolSheet(wb); if(!po||po.items.length<3) return '';
+  const antes=new Map(DEUDA_DATA.map(d=>[String(d.nombre).toLowerCase(),d])), ahora=new Set(po.items.map(d=>String(d.nombre).toLowerCase())), hist=[], ts=new Date().toISOString();
+  po.items.forEach(d=>{
+    const a=antes.get(String(d.nombre).toLowerCase());
+    if(!a){ hist.push({ts,user:'Excel (Mónica)',prestamo:d.nombre,accion:'añadido',cambios:[]}); return; }
+    const camb=['pendiente','cuota','vto'].filter(k=>String(a[k])!==String(d[k])).map(k=>({campo:k,antes:a[k],despues:d[k]}));
+    if(camb.length) hist.push({ts,user:'Excel (Mónica)',prestamo:d.nombre,accion:'editado',cambios:camb});
+  });
+  DEUDA_DATA.forEach(d=>{ if(!ahora.has(String(d.nombre).toLowerCase())) hist.push({ts,user:'Excel (Mónica)',prestamo:d.nombre,accion:'quitado',cambios:[]}); });
+  DEUDA_DATA=po.items; guardarDeuda();
+  if(hist.length){ _mergeDeudaHist(hist); syncDatasetToCloud('deudahistorial',DEUDA_HIST); }
+  logImport('deuda',archivo,DEUDA_DATA.length);
+  return ` · Pool: ${DEUDA_DATA.length} préstamos`;
+}
 function _parseFondoCambioSheet(wb){
   const nombre=(wb.SheetNames||[]).find(n=>/fondo.*caja.*cambio/i.test(n));
   if(!nombre) return null;
