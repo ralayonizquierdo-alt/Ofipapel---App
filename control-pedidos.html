@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-11-02-1"></script>
+<script src="control-pedidos-logica.js?v=2026-11-05-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -2804,10 +2804,13 @@ async function leerFicheroProveedor(file, idProgreso, numero, partes) {
       if (g) { const doc = CP.lineasDeDocumento(g); doc.control = Object.assign({}, doc.control, { exacto: true }); return doc; }
     } catch (e) { /* si no se puede, lo lee la IA como siempre */ }
   }
+  // Factura de Apli (Miquelrius): se lee exacta del texto del PDF, sin IA.
+  let apli = null;
+  if (esPdf(file)) { try { apli = CP.leerFacturaApli((await textoDePdf(file)).join('\n')); } catch (e) { apli = null; } }
   const caja = idProgreso && document.getElementById(idProgreso);
-  if (caja) caja.textContent = `Leyendo ${file.name}… puede tardar uno o dos minutos.`;
+  if (caja && !apli) caja.textContent = `Leyendo ${file.name}… puede tardar uno o dos minutos.`;
   try {
-    const res = await leerConIA(file, 'documento');
+    const res = apli || await leerConIA(file, 'documento');
     const trozos = CP.separarPorPedido(res);
     if (trozos.length > 1) {
       const docs = trozos.map(CP.lineasDeDocumento);
@@ -3302,7 +3305,9 @@ function asignarFactura(p, archivo, doc) {
   const lineas = (doc.lineas || []).map((l, i) => Object.assign({}, l, { origen: l.origen || archivo, subida: l.subida != null ? l.subida : subida, pos: l.pos != null ? l.pos : i },
     // El nº de esta factura solo a sus propias líneas: las de facturas subidas antes (otro `origen`) no.
     l.fra || !fra || (l.origen && l.origen !== archivo) ? {} : { fra }));
-  p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas, control: doc.control || null };
+  // Las líneas de OTRAS facturas ya subidas a este pedido se quedan (servicio en varias veces); la misma factura se sustituye.
+  const otras = ((p.factura && p.factura.lineas) || []).filter((l) => l.origen && l.origen !== archivo && !(fra && String(l.fra || '') === String(fra)));
+  p.factura = { archivo, fecha: hoy(), cabecera: doc.cabecera || {}, lineas: otras.concat(lineas), control: doc.control || null };
   restosPorFactura(p);
 }
 /** La factura final manda: lo validado que no viene en ella pasa a Restos del
@@ -3375,8 +3380,35 @@ async function cargarFacturasVarias(files, clave) {
     const r = revisarFactura(p);
     ultimaCarga.push({ ok: true, texto: `Factura ${x.archivo} → nº ${p.numero} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €${como ? ` (${como})` : ''}${r && r.faltan.length ? ` — ❌ no vienen ${r.faltan.length} referencia(s)` : r && !r.cuadra ? ' — ⚠️ revisar diferencias' : ' — ✅ cuadra'}` });
   };
-  // 1) por nº de pedido o cliente; 2) por las referencias que coinciden con lo validado
+  // Factura por bloques («Pedido Cliente: Pedido 16_ Ag. anual»): manda el bloque
+  // (duenoDeBloque). Un bloque de otra campaña («Pedido 5_ B2F») no entra en
+  // nuestro pedido 5 aunque repita el nº: se avisa y queda fuera.
+  const todosLeidos = leidos.slice();
+  // (Sin el pedido «SIN CLIENTE · LO QUE SOBRA»: sus etiquetas son de bloques sin dueño y no cuentan como de la campaña.)
+  const delGrupo = E.pedidos.filter((q) => claveGrupo(q) === clave && !esRepo(q) && !q.sobrantes);
   const resto = [];
+  for (const x of [...leidos]) {
+    const bs = [...new Set((x.prop.lineas || []).map((l) => l.bloque).filter(Boolean))];
+    if (bs.length !== 1 || !delGrupo.length) continue;
+    const d = CP.duenoDeBloque(bs[0], x.prop.lineas, delGrupo.map((q) => ({ id: q.id, numero: q.numero, cliente: q.cliente,
+      lineas: (q.final && q.final.lineas) || q.lineas, propuesta: q.propuesta, factura: q.factura })));
+    leidos.splice(leidos.indexOf(x), 1);
+    if (!d) { ultimaCarga.push({ ok: false, texto: `«${bs[0]}» (${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} €) no es de esta campaña: no se ha asignado a ningún pedido.` }); continue; }
+    const p = pedidoPorId(d.id);
+    if (!p.validado) {
+      // Pedido sin validar: la factura le sirve también de propuesta (Miquelrius
+      // no manda propuesta de los últimos pedidos); queda guardada como factura
+      // final y se aplica en cuanto se valide.
+      const sinProp = !p.propuesta;
+      if (sinProp) asignarPropuesta(p, x.archivo, x.prop);
+      asignarFactura(p, x.archivo, x.prop);
+      usados.add(p.id);
+      ultimaCarga.push({ ok: true, texto: `Factura ${x.archivo} → nº ${p.numero} ${p.cliente || ''} · ${x.prop.lineas.length} líneas · ${fmt(importeDoc(x.prop))} € (${bs[0]})${sinProp ? ' — también como propuesta' : ''}: falta validar el pedido` });
+      continue;
+    }
+    asignar(x, p, bs[0]);
+  }
+  // 1) por nº de pedido o cliente; 2) por las referencias que coinciden con lo validado
   for (const x of leidos) {
     const p = pedidoParaDocumento(x.prop, (q) => q.validado && claveGrupo(q) === clave && !usados.has(q.id));
     if (p) asignar(x, p, ''); else resto.push(x);
@@ -3388,7 +3420,7 @@ async function cargarFacturasVarias(files, clave) {
     for (const a of rep.asignados) { const x = resto.find((y) => y.id === a.docId); asignar(x, pedidoPorId(a.pedidoId), 'por contenido: ' + textoParecido(a)); hechos.add(x.id); }
     for (const x of resto) if (!hechos.has(x.id)) sinAsignar.push(Object.assign(x, { destino: 'factura', clave, sugerencia: rep.sugerencias[x.id] || null }));
   }
-  if (leidos.length > 1) ultimaCarga.push({ ok: true, texto: `Total: ${leidos.length} factura(s) · ${leidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(leidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} €` });
+  if (todosLeidos.length > 1) ultimaCarga.push({ ok: true, texto: `Total: ${todosLeidos.length} factura(s) · ${todosLeidos.reduce((t, x) => t + x.prop.lineas.length, 0)} líneas · ${fmt(CP.red2(todosLeidos.reduce((t, x) => t + importeDoc(x.prop), 0)))} €` });
   progreso('');
   guardar(); pintar();
   const caja = document.getElementById('avisoCarga'); if (caja) caja.scrollIntoView({ block: 'start' });

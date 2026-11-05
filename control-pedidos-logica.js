@@ -1268,6 +1268,41 @@
     return { porPedido, sobrantes, bloquesSinDueno };
   }
 
+  /**
+   * Factura de APLI PAPER (Miquelrius) leída del texto del PDF, sin IA
+   * (5/11/2026: la lectura con IA de la 1771692 se quedó en la página 1 y los
+   * bloques de las páginas 2–4 no llegaron a ningún pedido). Cada artículo:
+   * «CÓDIGO DESCRIPCIÓN [=] CANT PREC.TARIFA DTO% [DTOAD%] PREC.NETO IMPORTE»,
+   * debajo de su «Pedido Cliente: Pedido 16_ Ag. anual», que pasa a `pedido`
+   * de cada línea. Devuelve el mismo formato que la lectura con IA, o null si
+   * no es una factura de Apli o no cuadra con su «Subtotal».
+   */
+  function leerFacturaApli(texto) {
+    const t = String(texto || '');
+    if (!/APLI PAPER/i.test(t) || !/Pedido Cliente:/i.test(t)) return null;
+    const N = (x) => parseNum(x);
+    const RE = /^(\S+)\s+(.+?)\s+(?:=\s+)?(\d{1,3}(?:\.\d{3})*)\s+(\d+,\d{3})\s+(\d+,\d{2})(?:\s+(\d+,\d{2}))?\s+(\d+,\d{3})\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/;
+    const lineas = [];
+    let pedido = '';
+    let numero = '', fecha = '';
+    for (const bruta of t.split(/\r?\n/)) {
+      const l = bruta.trim();
+      const doc = l.match(/^(\d{6,})\s+(\d{2})\.(\d{2})\.(\d{4})\s/);
+      if (doc && !numero) { numero = doc[1]; fecha = `${doc[2]}/${doc[3]}/${doc[4]}`; continue; }
+      const pc = l.match(/Pedido Cliente:\s*(.+)$/i);
+      if (pc) { pedido = pc[1].trim(); continue; }
+      const m = l.match(RE);
+      if (!m) continue;
+      lineas.push({ referencia: m[1], descripcion: m[2].replace(/\s*=\s*$/, '').trim(), cantidad: N(m[3]), precio: N(m[4]),
+        descuentos: [m[5], m[6]].filter((d) => d && N(d) > 0).join('+'), importe: N(m[8]), pedido });
+    }
+    const sub = t.match(/Subtotal:\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+    const base = sub ? N(sub[1]) : null;
+    const suma = red2(lineas.reduce((a, l) => a + (l.importe || 0), 0));
+    if (!lineas.length || base == null || Math.abs(suma - base) > 0.01) return null;
+    return { tipoDocumento: 'factura', proveedor: 'MIQUELRIUS', numero, fecha, baseImponible: sub[1], dtoGlobal: '', pedidoCliente: '', notas: '', lineas };
+  }
+
   function separarPorPedido(res) {
     const r = res || {};
     // Cada línea guarda su posición en el documento entero antes de partirlo:
@@ -1939,7 +1974,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
+    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, leerFacturaApli, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
     sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, cuadreArticulos, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
