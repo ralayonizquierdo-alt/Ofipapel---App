@@ -80,6 +80,10 @@ header button.panel-on{background:#fff;color:var(--verde);}
 .yv-sticky{position:sticky;top:0;background:#fff;z-index:6;}
 .yv-row{display:flex;align-items:stretch;}
 .yv-name{width:104px;flex-shrink:0;padding:2px 4px;font-size:.74rem;line-height:1.15;border-right:1px solid var(--borde);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.yv-persona{display:flex;justify-content:space-between;align-items:center;gap:2px;padding-right:2px;}
+.yv-nom{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.yv-sim{flex-shrink:0;}
+.yv-sim span{cursor:help;}
 .yv-name small{display:block;font-size:.6rem;color:var(--texto2);}
 .yv-track{flex:1;min-width:0;position:relative;height:28px;}
 .yv-emp{border-bottom:1px solid #bbb;cursor:pointer;}
@@ -91,6 +95,7 @@ header button.panel-on{background:#fff;color:var(--verde);}
 .yv-group .yv-name{font-weight:700;color:var(--verde);background:var(--verde-pale);line-height:20px;padding-top:0;padding-bottom:0;overflow:visible;position:relative;z-index:2;border-right:none;} /* el título del grupo puede salirse de la columna: su fila no lleva barras */
 .yv-group .yv-track{height:20px;background:var(--verde-pale);}
 .yv-group .yv-days{background:var(--verde-pale);line-height:20px;}
+.yv-gap{height:7px;background:#fff;}
 .yv-over{position:absolute;top:0;bottom:0;background:#E74C3C;}
 .yv-blocked{position:absolute;top:0;bottom:0;opacity:.7;background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 4px,#FBCFCB 4px,#FBCFCB 8px);}
 .yv-bar{position:absolute;top:4px;bottom:4px;min-width:3px;border-radius:4px;z-index:3;color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;cursor:pointer;}
@@ -265,7 +270,9 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .p-unit-title{ font-size:8pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; padding:1mm 2mm; border-radius:0.6mm; }
 
 .p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #777; break-inside:avoid; }
-.p-name{ width:23mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.p-name{ width:23mm; flex-shrink:0; font-size:7pt; padding-right:0.5mm; display:flex; justify-content:space-between; align-items:center; white-space:nowrap; }
+.p-name .p-nom{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.p-name .p-sim{ flex-shrink:0; }
 .p-track{ flex:1; position:relative; height:5mm; background:#fff; }
 .p-month-tiny{ font-size:5pt !important; white-space:nowrap; overflow:visible; padding-left:0; padding-right:0; position:relative; z-index:2; }
 #printArea.fmt-a4 .p-month-tiny{ font-size:3.8pt !important; }
@@ -959,6 +966,12 @@ function applyMigrations(state){
     state.employees.forEach(e=>{ if(iniciales[e.id] && !e.alias) e.alias = iniciales[e.id]; });
     state._migrations.aliasIniciales202611 = true;
   }
+  if(!state._migrations.aliasVentas202611){
+    // Nombre de pila, y la inicial del apellido donde se repite. No pisa un alias ya escrito a mano.
+    const ventas = {e1:'Carlos',e2:'Julio',e3:'Manuel',e4:'Walter',e5:'Juan Antonio',e6:'Antonio Manuel',e7:'Francisco Javier',e8:'Jesús Manuel',e9:'Nauzet',e10:'Roberto',e11:'Haridian',e12:'Felipe S.',e13:'María Luz',e14:'Javier',e15:'Miguel R.',e16:'María Paz',e32:'Tomás Iván',e33:'Miguel Ángel',e34:'Miguel H.',e35:'José Manuel'};
+    state.employees.forEach(e=>{ if(ventas[e.id] && !e.alias) e.alias = ventas[e.id]; });
+    state._migrations.aliasVentas202611 = true;
+  }
   if(!state._migrations.mariaPideFechas202611){
     const maria = state.employees.find(e=>e.id==='e25');
     if(maria) maria.pideFechas = true;
@@ -1301,13 +1314,13 @@ function weekendGradient(n, y, color){
   return `repeating-linear-gradient(to right, ${stops.join(', ')})`;
 }
 
-/* Índices de día (dentro del año) donde va una línea vertical de cuadrícula: cada 5 días de cada mes
-   (1,6,11,16,21,26...), igual que las columnas "(1/05) (5/10) (10/15)..." del Excel original. */
+/* Índices de día (dentro del año) donde va una línea vertical de cuadrícula: el día 1 y los días
+   5, 10, 15, 20, 25 y 30 de cada mes. */
 function gridLineDayIndices(y, n){
   const idxs = [];
   for(let idx=0; idx<n; idx++){
     const dom = dateFromIndex(y, idx).getUTCDate();
-    if(dom%5===1) idxs.push(idx);
+    if(dom===1 || dom%5===0) idxs.push(idx);
   }
   return idxs;
 }
@@ -1841,8 +1854,7 @@ function renderYearView(wrap){
   const ticks = el('yv-track yv-ticks');
   for(let idx=0; idx<n; idx++){
     const dom = dateFromIndex(y, idx).getUTCDate();
-    const shortMonth = dateFromIndex(y, idx).getUTCMonth()===1 && dom===26; // en febrero el 26 chocaría con el 1
-    if(dom%5===1 && dom!==31 && !shortMonth && !isBlockedIndex(y, idx)){
+    if(dom%5===0 && !isBlockedIndex(y, idx)){
       const t = el('yv-tick', dom);
       t.style.left = pos(idx)+'%';
       ticks.appendChild(t);
@@ -1867,13 +1879,15 @@ function renderYearView(wrap){
       groupTrack.appendChild(over);
       i = j;
     }
+    if(u.id==='oficina') wrap.appendChild(el('yv-gap')); // Oficina va aparte de las tiendas
     wrap.appendChild(rowOf('yv-group', el('yv-name', u.name+' ('+list.length+')'), groupTrack, el('yv-days')));
     for(const emp of list){
       const name = el('yv-name');
       const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
       const used = periods.reduce((t,p)=>t+isoToIndex(y,p.end)-isoToIndex(y,p.start)+1, 0);
-      const badges = (emp.floater?' 🔁':'')+(emp.sinSustituto?' 🚫':'')+(findPairPartners(emp.id).length?' 🔗':'')+(findTogetherPartners(emp.id).length?' 💑':'')+(hasFixedPref(emp.id)?' 📌':'');
-      name.innerHTML = `${empNameHtml(emp)}${badges}`;
+      name.classList.add('yv-persona');
+      const simbolos = empSymbols(emp).map(x=>`<span title="${escapeHtml(x.text)}">${x.icon}</span>`).join('');
+      name.innerHTML = `<span class="yv-nom">${empNameHtml(emp)}</span><span class="yv-sim">${simbolos}</span>`;
       name.title = emp.name+(emp.note?' — '+emp.note:'');
       name.style.lineHeight = '26px';
       const track = el('yv-track yv-emp');
@@ -2350,6 +2364,21 @@ window.addEventListener('beforeunload', (e)=>{
 /* ═══════════════════ FICHA DE EMPLEADO (alta/baja/edición) ═══════════════════ */
 let editingEmployeeId = null;
 
+/* Los símbolos de una persona, cada uno con lo que significa en su caso concreto. */
+function empSymbols(emp){
+  const nombres = lista => lista.map(x=>empLabel(EMPLOYEES.find(e=>e.id===x.partnerId))).filter(Boolean).join(', ');
+  const motivo = lista => { const m = [...new Set(lista.map(x=>x.label).filter(Boolean))].join(', '); return m ? ` (${m})` : ''; };
+  const out = [];
+  if(emp.floater) out.push({icon:'🔁', text:'Comodín: cambia de tienda o de puesto según haga falta.'});
+  if(emp.sinSustituto) out.push({icon:'🚫', text:'Sin sustituto: nadie cubre su puesto cuando está de vacaciones.'});
+  const existe = x => EMPLOYEES.some(e=>e.id===x.partnerId); // una regla puede nombrar a alguien ya borrado
+  const pareja = findPairPartners(emp.id).filter(existe);
+  if(pareja.length) out.push({icon:'🔗', text:`Pareja incompatible: no puede coincidir de vacaciones con ${nombres(pareja)}${motivo(pareja)}.`});
+  const juntos = findTogetherPartners(emp.id).filter(existe);
+  if(juntos.length) out.push({icon:'💑', text:`Suele salir de vacaciones junto con ${nombres(juntos)}.`});
+  if(hasFixedPref(emp.id)) out.push({icon:'📌', text:`Fechas fijas todos los años: ${state.employeePrefs[emp.id].preferredText}.`});
+  return out;
+}
 function empBadgeText(emp){
   return (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'') + (emp.active===false?' · DE BAJA':'');
 }
@@ -3498,12 +3527,12 @@ function printScale(y, n){
   weight.forEach(w=> cum.push(cum[cum.length-1]+w));
   return idx=> cum[Math.max(0,Math.min(n,idx))]/cum[n]*100;
 }
-/* Casillas de 5 en 5 días (1, 6, 11, 16, 21 y 26 de cada mes), con el principio de mes más marcado. Dentro de
+/* Casillas de 5 en 5 días (5, 10, 15, 20, 25 y 30 de cada mes), con el principio de mes más marcado. Dentro de
    lo bloqueado no hay casillas: es una sola. */
 function appendCellLines(el, y, n, pos){
   for(let idx=0; idx<n; idx++){
     const dom = dateFromIndex(y, idx).getUTCDate();
-    if(dom%5!==1 || dom===31) continue;
+    if(dom!==1 && dom%5!==0) continue;
     if(isBlockedIndex(y, idx) && idx>0 && isBlockedIndex(y, idx-1)) continue;
     const line = document.createElement('div');
     line.className = 'p-line'+(dom===1?' p-line-month':'');
@@ -3564,7 +3593,7 @@ function buildPrintArea(){
   for(let idx=0; idx<n; idx++){
     const d = dateFromIndex(y, idx);
     const dom = d.getUTCDate();
-    if(dom%5===1 && dom!==31 && !isBlockedIndex(y, idx)){ // el número de cada casilla: 1, 6, 11, 16, 21, 26
+    if(dom%5===0 && !isBlockedIndex(y, idx)){ // el número de cada casilla: 5, 10, 15, 20, 25, 30
       const t = document.createElement('div'); t.className='p-daytick';
       t.style.left = pos(idx)+'%';
       t.textContent = dom;
@@ -3603,7 +3632,9 @@ function buildPrintArea(){
       const row = document.createElement('div'); row.className='p-emp-row';
       const nameCell = document.createElement('div'); nameCell.className='p-name';
       const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
-      nameCell.textContent = empLabel(emp) + pBadges;
+      const pNom = document.createElement('span'); pNom.className='p-nom'; pNom.textContent = empLabel(emp);
+      const pSim = document.createElement('span'); pSim.className='p-sim'; pSim.textContent = pBadges.replace(/ /g,'');
+      nameCell.append(pNom, pSim);
       nameCell.title = emp.name;
       if(hasFixedPref(emp.id)) nameCell.style.color = "#E74C3C";
       row.appendChild(nameCell);
@@ -4242,10 +4273,15 @@ const OPERATIVAS = {
     pasos: [
       'Elige arriba el año y el planning, <b>Tiendas</b> o <b>Ventas</b>. Cada año guarda sus vacaciones por separado.',
       'Pulsa una barra para cambiar sus fechas o eliminarla, y pulsa un hueco de la fila para crear un periodo.',
-      'Con <b>Ver detalle día a día</b> puedes arrastrar: sobre una fila vacía crea un periodo, y una barra o su borde la mueve o cambia su inicio o fin.',
+      'Con <b>Día a día</b> puedes arrastrar: sobre una fila vacía crea un periodo, y una barra o su borde la mueve o cambia su inicio o fin.',
       'Con <b>Generar plan</b> se rellena lo que falte. Para repartir una sola unidad, elígela antes en el filtro <b>Unidad</b>.',
     ],
     notas: [
+      'Los <b>números</b> de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes. En las zonas bloqueadas no salen.',
+      '<b>Días</b> son los puestos / los que le tocan: los de su ficha más uno por cada festivo trabajado. <b>31/30</b> es un día de más y <b>30/31</b>, uno por poner.',
+      'Las <b>barras pequeñas</b> son un día suelto o un periodo que cae en zona bloqueada, que ocupa poco. Al pasar el ratón salen sus fechas.',
+      'Los <b>símbolos</b> van al final del nombre. Al pasar el ratón por cada uno se explica ese caso: 🔁 comodín, 🚫 sin sustituto, 🔗 pareja incompatible, 💑 salen juntos y 📌 fechas fijas.',
+      'Se ve el <b>alias</b>; al pasar el ratón, el nombre completo.',
       'El rojo en la fila de un grupo son días que superan su cobertura.',
       'En el año entero, lo bloqueado ocupa poco para ganar espacio. Sus fechas completas están en el Listado o al pulsar la barra.',
       'El rayado rosa son fechas bloqueadas: nadie puede coger vacaciones en ellas.',
@@ -4365,6 +4401,7 @@ const OPERATIVAS = {
       'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
     ],
     notas: [
+      'Los números de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes, y los símbolos van al final del nombre. Su significado está en la Operativa de la pantalla principal.',
       '<b>WhatsApp</b> prepara un texto con quién está fuera en la fecha elegida en «¿Quién está fuera?». No manda la imagen.',
     ],
   },

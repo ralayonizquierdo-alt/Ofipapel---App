@@ -323,7 +323,7 @@ Todo lo relacionado con reglas y con qué se ve en el calendario vive agrupado a
 ### El calendario (zona central)
 
 - Cada fila es un empleado; cada columna, un día del año. Los sábados y domingos aparecen sombreados en gris,
-  y hay una línea vertical cada 5 días (1, 6, 11, 16, 21, 26 de cada mes) igual que en el Excel original,
+  y hay una línea vertical cada 5 días (5, 10, 15, 20, 25 y 30 de cada mes, más el día 1),
   para que sea fácil ubicar una fecha de un vistazo.
 - **Arrastrar sobre una fila vacía** crea un periodo nuevo entre las dos fechas marcadas.
 - **Arrastrar el cuerpo de una barra ya creada** la mueve entera (mismas fechas, distinto sitio).
