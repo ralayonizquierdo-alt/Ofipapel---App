@@ -508,8 +508,11 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <div class="field" style="flex:1;min-width:120px;"><label>Desde</label><input type="date" id="ptStart"></div>
       <div class="field" style="flex:1;min-width:120px;"><label>Hasta</label><input type="date" id="ptEnd"></div>
       <div class="field" style="flex:2;min-width:150px;"><label>Motivo</label><input type="text" id="ptMotivo" placeholder="Ej: viaje con pasajes comprados"></div>
-      <button class="btn btn-primary" id="ptAdd" style="margin-bottom:10px;">+ Añadir</button>
     </div>
+    <div class="field" style="flex-shrink:0;"><label>Petición recibida por correo (pega aquí el texto)</label>
+      <textarea id="ptCorreo" rows="3" placeholder="Copia el correo de la petición y pégalo aquí" style="width:100%;box-sizing:border-box;resize:vertical;font:inherit;font-size:.78rem;padding:6px 8px;border:1px solid var(--borde);border-radius:6px;"></textarea>
+    </div>
+    <div style="flex-shrink:0;margin-bottom:6px;"><button class="btn btn-primary" id="ptAdd">+ Añadir</button></div>
     <div id="peticionesList" style="overflow-y:auto;flex:1;min-height:0;"></div>
     <div class="modal-actions">
       <div></div>
@@ -4259,6 +4262,7 @@ function renderPeticiones(){
         <b>${empHover(emp)} · ${fmtRange(pet.start,pet.end)}</b>
         <span style="background:${bg};color:${color};padding:1px 9px;border-radius:6px;font-weight:600;">${label}${pet.status==='aprobada'&&!pet.applied?' · sin colocar':''}</span></div>
       ${pet.motivo?`<div style="color:var(--texto2);">Motivo: ${escapeHtml(pet.motivo)}</div>`:''}
+      ${pet.correo?`<details style="margin-top:4px;"><summary style="cursor:pointer;color:var(--verde);font-weight:600;">📧 Correo de la petición</summary><div style="white-space:pre-wrap;background:var(--verde-pale);border-radius:6px;padding:6px 8px;margin-top:3px;max-height:160px;overflow-y:auto;">${escapeHtml(pet.correo)}</div></details>`:''}
       <div style="margin-top:6px;font-weight:600;">Con quién se pisa</div>
       <ul style="margin:2px 0 6px 18px;">
         ${problems.map(x=>`<li style="color:var(--rojo);">${escapeHtml(x)}</li>`).join('')}
@@ -4345,7 +4349,7 @@ document.getElementById('ptPlanning').onchange = (e)=>{
 };
 document.getElementById('btnPeticiones').onclick = ()=>{
   fillPeticionEmployees();
-  ['ptStart','ptEnd','ptMotivo'].forEach(id=>{ document.getElementById(id).value=''; });
+  ['ptStart','ptEnd','ptMotivo','ptCorreo'].forEach(id=>{ document.getElementById(id).value=''; });
   renderPeticiones();
   openModal('peticionesOverlay');
 };
@@ -4354,8 +4358,9 @@ document.getElementById('ptAdd').onclick = ()=>{
   const start = document.getElementById('ptStart').value, end = document.getElementById('ptEnd').value;
   if(!start || !end || end<start){ showToast('Elige la fecha de inicio y una de fin igual o posterior.'); return; }
   state.peticiones = state.peticiones || [];
-  state.peticiones.push({id:'pet'+Date.now(), employeeId:document.getElementById('ptEmp').value, start, end, motivo:document.getElementById('ptMotivo').value.trim(), status:'pendiente'});
-  ['ptStart','ptEnd','ptMotivo'].forEach(id=>{ document.getElementById(id).value=''; });
+  const correo = document.getElementById('ptCorreo').value.trim();
+  state.peticiones.push({id:'pet'+Date.now(), employeeId:document.getElementById('ptEmp').value, start, end, motivo:document.getElementById('ptMotivo').value.trim(), status:'pendiente', ...(correo?{correo}:{})});
+  ['ptStart','ptEnd','ptMotivo','ptCorreo'].forEach(id=>{ document.getElementById(id).value=''; });
   render();
 };
 
@@ -4657,12 +4662,14 @@ const OPERATIVAS = {
   },
   '#operativaPeticiones': {
     pasos: [
-      'Elige el planning, Tiendas o Ventas, apunta quién pide, las fechas y el motivo, y pulsa <b>+ Añadir</b>. Queda pendiente.',
+      'Elige el planning, Tiendas o Ventas, apunta quién pide, las fechas y el motivo.',
+      'Si la petición llegó por correo, cópialo y pégalo en <b>Petición recibida por correo</b>. Luego pulsa <b>+ Añadir</b>: queda pendiente.',
       'Mira con quién se pisa. En rojo, lo más importante: misma unidad, parejas y fechas bloqueadas.',
       'La jefa de tienda decide <b>Aprobar</b> o <b>Rechazar</b>, con una nota si hace falta.',
       'Si hace falta sitio, pulsa <b>Cambiar sus fechas</b> o <b>Intercambiar fechas</b> con una compañera.',
     ],
     notas: [
+      'El correo pegado se guarda con la petición: se ve en <b>📧 Correo de la petición</b>.',
       'La lista ya programada no se recalcula: solo cambia lo que se cambie aquí.',
       'Si el año aún no está repartido, la petición aprobada se respeta al repartir, justo después de las fijas.',
       'Rechazar o borrar no quita unas fechas ya colocadas: se quitan pulsando en su barra del cuadrante.',
