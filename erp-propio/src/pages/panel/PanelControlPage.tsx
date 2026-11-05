@@ -116,7 +116,7 @@ export function PanelControlPage() {
         </button>
         <span className="text-[11px] text-[#6d6d6d]">
           {actualizado ? `Actualizado a las ${actualizado.toLocaleTimeString('es-ES')}` : 'Cargando…'} · se actualiza solo cada{' '}
-          {REFRESCO_MS / 60000} min
+          {REFRESCO_MS >= 3_600_000 ? 'hora' : `${REFRESCO_MS / 60000} min`}
         </span>
         <button type="button" className="gw-btn" onClick={() => setAyuda(true)}>
           Operativa

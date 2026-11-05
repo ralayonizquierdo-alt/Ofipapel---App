@@ -15,7 +15,7 @@ import { usePermisos } from '../../lib/PermisosContext'
 // (empleado.avisos_horas, 12:00 y 18:00); entre medias se van juntando. Lo urgente (usuario bloqueado,
 // remoto sin permiso, asientos por firmar) sale en el momento. «Visto» lo apaga hasta la siguiente hora.
 
-const CADA_MS = 15 * 60 * 1000 // antes 5 min: la consulta de avisos es la más lenta, no hace falta repetirla tanto
+const CADA_MS = 60 * 60 * 1000 // cada hora (antes 5 min): es la consulta más lenta y los avisos se miran una o dos veces al día
 // Cuándo se abrió el programa: «al entrar» cuenta como una de las horas del globo.
 const INICIO = Date.now()
 
