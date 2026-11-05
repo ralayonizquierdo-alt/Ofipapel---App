@@ -31,8 +31,13 @@ export function LoginPage() {
     setLoading(true)
     setError(null)
     fijarArea(area)
-    // Se entra con el nombre de usuario (luis, rober…); internamente es usuario@ofipapel.local.
-    const correo = correoDeUsuario(email)
+    // Se entra con el número de empleado (como en GeminisWin: 008, 009, 410…) o con el nombre de
+    // usuario (luis, rober…); internamente es usuario@ofipapel.local.
+    let correo = correoDeUsuario(email)
+    if (/^\d{1,6}$/.test(email.trim())) {
+      const { data: deNumero } = await supabase.rpc('fn_login_por_numero', { p_numero: email.trim() })
+      if (typeof deNumero === 'string' && deNumero) correo = deNumero
+    }
     const { data: espera } = await supabase.rpc('fn_acceso_bloqueo', { p_usuario: correo })
     if (Number(espera) > 0) {
       setLoading(false)
@@ -98,7 +103,7 @@ export function LoginPage() {
                 <ChevronLeft size={14} /> Cambiar
               </button>
             </div>
-            <GwField label="Usuario">
+            <GwField label="Nº de empleado o usuario">
               <GwInput type="text" required autoFocus autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
             </GwField>
             <GwField label="Contraseña">
