@@ -374,6 +374,12 @@ Este orden sustituye a lo que digan las secciones anteriores sobre prioridad, hi
 - **Cargar Excel** (en Listado): lee la hoja «x Fechas», enseña lo leído y sustituye solo ese año de esas personas.
 - Guardar la propuesta solo afecta al planning elegido y a quien aún no tiene fechas ese año.
 
+### Pantalla principal (Luis, 05/11/2026)
+
+Calendario del año entero: casillas de 5 días y lo bloqueado reducido. Pulsar una barra la edita y pulsar un hueco crea
+un periodo. «Ver detalle día a día» vuelve al cuadrante de arrastrar, y cada dispositivo recuerda la vista elegida.
+La barra lateral pasa a dos botones de la cabecera: **Reglas y filtros** y **Fuera**, con el número del día.
+
 ### Plannings e impresiones (Luis, 03/11/2026)
 
 Selector **Tiendas | Ventas** en la cabecera: Tiendas lleva Ofipapel, Informática, Aliz 1 y 2, Mobiliario, Oficina y
@@ -384,6 +390,9 @@ rotación muestran solo ese planning; la cobertura y las parejas siguen mirando 
 - **Listado**, que sustituye al Plan anual: turnos separados, fechas del color de su turno, días por turno y total, con
   Oficina aparte al final por fechas. Se imprime en A4 vertical con cuadrícula. El turno es el orden de cada periodo de
   la persona por fechas, y los días se cuentan de fecha a fecha. Las secciones antiguas de Plan anual ya no aplican.
+
+Cada empleado tiene **alias** en su ficha: es el nombre que se ve en todas las pantallas e impresiones, y el completo sale al
+pasar el ratón. Sin alias se ve el nombre completo. Fichaje sigue con el nombre completo.
 
 ### Categorías de empleado
 

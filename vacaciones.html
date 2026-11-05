@@ -41,8 +41,8 @@ button,input,select{font-family:inherit;}
 /* ── layout ── */
 #app{display:flex;flex-direction:column;height:100vh;}
 header{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:6px 14px;
+  display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+  padding:6px 34px 6px 12px;
   background-image:var(--bg-pattern-header);background-size:cover;background-position:center;
   color:#fff;box-shadow:var(--sombra);z-index:20;
   overflow:hidden;transition:padding .18s ease,max-height .18s ease;max-height:200px;
@@ -51,7 +51,7 @@ header.collapsed{padding:0 14px;max-height:0;box-shadow:none;}
 header.collapsed > *{opacity:0;pointer-events:none;}
 header h1{font-size:.92rem;font-weight:700;letter-spacing:.2px;margin-right:auto;}
 header select, header button{
-  background:#fff;border:none;border-radius:7px;padding:5px 9px;font-size:.72rem;font-weight:600;
+  background:#fff;border:none;border-radius:7px;padding:5px 7px;font-size:.72rem;font-weight:600;
   color:var(--verde);cursor:pointer;
 }
 header button.secondary{background:rgba(255,255,255,.15);color:#fff;}
@@ -63,16 +63,40 @@ header button:hover{filter:brightness(0.96);}
 }
 #floatingToggles button:hover{opacity:1;}
 
-#body{display:flex;flex:1;min-height:0;}
+#body{display:flex;flex:1;min-height:0;position:relative;}
 
 /* ── sidebar ── */
 aside{
-  width:270px;flex-shrink:0;background:var(--card);border-right:1px solid var(--borde);
-  overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:18px;
-  transition:width .22s ease,padding .22s ease;
+  position:absolute;top:0;bottom:0;width:300px;z-index:40;background:var(--card);border-right:1px solid var(--borde);
+  overflow-y:auto;overflow-x:hidden;padding:16px;display:none;flex-direction:column;gap:18px;box-shadow:var(--sombra);
 }
-aside.collapsed{width:0;padding:16px 0;border-right:none;}
-aside.collapsed > *{opacity:0;pointer-events:none;}
+aside.show-reglas, aside.show-fuera{display:flex;}
+aside.show-reglas > .onleave-box{display:none;}
+aside.show-fuera > :not(.onleave-box){display:none;}
+header button.panel-on{background:#fff;color:var(--verde);}
+#fueraCount{background:#8a5a00;color:#fff;border-radius:10px;padding:0 6px;font-size:.66rem;}
+
+/* ── calendario del año, pantalla principal ── */
+.yv-sticky{position:sticky;top:0;background:#fff;z-index:6;}
+.yv-row{display:flex;align-items:stretch;}
+.yv-name{width:104px;flex-shrink:0;padding:2px 4px;font-size:.74rem;line-height:1.15;border-right:1px solid var(--borde);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.yv-name small{display:block;font-size:.6rem;color:var(--texto2);}
+.yv-track{flex:1;min-width:0;position:relative;height:28px;}
+.yv-emp{border-bottom:1px solid #bbb;cursor:pointer;}
+.yv-days{width:36px;flex-shrink:0;text-align:right;padding-right:3px;box-sizing:border-box;font-size:.66rem;color:var(--texto2);line-height:28px;}
+.yv-months{height:22px;background:var(--verde-pale);font-size:.66rem;font-weight:700;color:var(--verde);overflow:hidden;}
+.yv-month{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--borde);white-space:nowrap;}
+.yv-ticks{height:14px;border-bottom:2px solid var(--verde);font-size:.56rem;color:var(--texto2);}
+.yv-tick{position:absolute;top:1px;padding-left:2px;}
+.yv-group .yv-name{font-weight:700;color:var(--verde);background:var(--verde-pale);line-height:20px;padding-top:0;padding-bottom:0;overflow:visible;position:relative;z-index:2;border-right:none;} /* el título del grupo puede salirse de la columna: su fila no lleva barras */
+.yv-group .yv-track{height:20px;background:var(--verde-pale);}
+.yv-group .yv-days{background:var(--verde-pale);line-height:20px;}
+.yv-over{position:absolute;top:0;bottom:0;background:#E74C3C;}
+.yv-blocked{position:absolute;top:0;bottom:0;opacity:.7;background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 4px,#FBCFCB 4px,#FBCFCB 8px);}
+.yv-bar{position:absolute;top:4px;bottom:4px;min-width:3px;border-radius:4px;z-index:3;color:#fff;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;cursor:pointer;}
+.yv-bar:hover{filter:brightness(.88);}
+.yv-corner{display:flex;align-items:center;padding:0 2px;}
+.yv-toggle{background:#fff;border:1px solid var(--verde);color:var(--verde);border-radius:6px;font-size:.66rem;font-weight:600;padding:2px 3px;cursor:pointer;white-space:nowrap;}
 aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--texto2);margin-bottom:8px;}
 .onleave-box{background:#FFF6E5;border:1px solid #F5D68C;border-radius:var(--rad);padding:14px;}
 .onleave-box h2{color:#8a5a00;font-size:.78rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
@@ -114,6 +138,8 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
   width:100%;padding:6px 8px;border:1px solid var(--borde);border-radius:6px;font-size:.8rem;background:#fff;
 }
 .check-row{display:flex;align-items:center;gap:6px;font-size:.8rem;margin:6px 0;}
+#periodOverlay{z-index:60;}
+#unsavedOverlay{z-index:70;}
 .operativa{margin:0 0 10px;font-size:.75rem;color:var(--texto);flex-shrink:0;}
 .operativa summary{cursor:pointer;font-weight:600;color:var(--verde);}
 .operativa-body{max-height:40vh;overflow-y:auto;background:var(--verde-pale);border-radius:6px;padding:8px 10px;margin-top:4px;}
@@ -224,8 +250,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .p-legend .sw{ display:inline-block; width:3mm; height:3mm; border-radius:0.8mm; margin-right:1mm; vertical-align:middle; }
 
 .p-monthrow{ display:flex; border-bottom:0.5mm solid #1A5C1A; padding-bottom:0.8mm; margin-bottom:1mm; }
-.p-namecell{ width:50mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; align-self:flex-end; }
-.p-daysheadcell{ width:14mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; text-align:right; align-self:flex-end; }
+.p-namecell{ width:23mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; align-self:flex-end; }
+.p-daysheadcell{ width:9mm; flex-shrink:0; font-size:7pt; font-weight:700; color:#1A5C1A; text-align:right; align-self:flex-end; }
 .p-months{ flex:1; display:flex; }
 .p-month{ text-align:center; font-size:6.6pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; border-right:0.2mm solid #D3E9D3; padding:1mm 0; }
 
@@ -239,7 +265,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 .p-unit-title{ font-size:8pt; font-weight:700; color:#1A5C1A; background:#EBF7EB; padding:1mm 2mm; border-radius:0.6mm; }
 
 .p-emp-row{ display:flex; align-items:center; height:5mm; border-bottom:0.15mm solid #777; break-inside:avoid; }
-.p-name{ width:50mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.p-name{ width:23mm; flex-shrink:0; font-size:7pt; padding-right:2mm; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .p-track{ flex:1; position:relative; height:5mm; background:#fff; }
 .p-month-tiny{ font-size:5pt !important; white-space:nowrap; overflow:visible; padding-left:0; padding-right:0; position:relative; z-index:2; }
 #printArea.fmt-a4 .p-month-tiny{ font-size:3.8pt !important; }
@@ -248,7 +274,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   font-size:5pt; font-weight:700; color:#fff; white-space:nowrap; }
 .p-blocked{ position:absolute; top:0; height:5mm; opacity:.7;
   background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
-.p-days{ width:14mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
+.p-days{ width:9mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
 
 .p-footer{ margin-top:4mm; text-align:center; font-size:6.5pt; color:#999; }
 
@@ -256,8 +282,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 #printArea.fmt-a4{ width:297mm; min-height:210mm; padding:7mm; }
 #printArea.fmt-a4 .p-header{ margin-bottom:2mm; }
 #printArea.fmt-a4 .p-header h1{ font-size:12pt; }
-#printArea.fmt-a4 .p-namecell, #printArea.fmt-a4 .p-name{ width:44mm; font-size:6pt; }
-#printArea.fmt-a4 .p-daysheadcell, #printArea.fmt-a4 .p-days{ width:9mm; font-size:6pt; }
+#printArea.fmt-a4 .p-namecell, #printArea.fmt-a4 .p-name{ width:20mm; font-size:6pt; }
+#printArea.fmt-a4 .p-daysheadcell, #printArea.fmt-a4 .p-days{ width:7mm; font-size:6pt; }
 #printArea.fmt-a4 .p-month{ font-size:5.5pt; }
 #printArea.fmt-a4 .p-daytick{ font-size:3.6pt; }
 #printArea.fmt-a4 .p-unit{ margin-top:1mm; }
@@ -343,12 +369,11 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 <div id="app">
   <div id="floatingToggles">
-    <button id="btnToggleSidebar" title="Mostrar/ocultar Reglas y Filtros">☰</button>
     <button id="btnToggleHeader" title="Mostrar/ocultar cabecera">▲</button>
   </div>
   <header id="mainHeader">
     <div>
-      <h1>Vacaciones y Turnos</h1>
+      <h1>Vacaciones</h1>
     </div>
     <span id="cloudStatus" style="font-size:1.1rem;cursor:default;" title="Conectando con la nube…">🔄</span>
     <button class="secondary" id="btnLogout" title="Cerrar sesión" style="display:none;">🔒 Salir</button>
@@ -358,13 +383,15 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <option value="ventas">Ventas</option>
     </select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
-    <button class="secondary" id="btnRotation">Prioridad rotación</button>
-    <button class="secondary" id="btnSaturdays">🔄 Turnos sábado</button>
+    <button class="secondary" id="btnRotation" title="Prioridad de rotación">Prioridad</button>
+    <button class="secondary" id="btnSaturdays" title="Turnos de sábado">🔄 Sábados</button>
     <button class="secondary" id="btnHolidays">🎉 Festivos</button>
     <button class="secondary" id="btnPermisos">📋 Permisos</button>
     <button class="secondary" id="btnPeticiones">🙋 Peticiones</button>
     <button class="secondary" id="btnListado">📄 Listado</button>
     <button id="btnPrint">🖨 Vista previa</button>
+    <button class="secondary" id="btnPanelReglas">⚙️ Reglas y filtros</button>
+    <button class="secondary" id="btnPanelFuera">🏖️ Fuera <span id="fueraCount"></span></button>
   </header>
   <div id="body">
     <aside id="sidebar">
@@ -457,7 +484,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   <div class="modal" style="width:760px;max-height:88vh;display:flex;flex-direction:column;">
     <h3 id="operativaPeticiones">Peticiones de vacaciones</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;flex-shrink:0;">
-      <div class="field" style="flex:2;min-width:170px;"><label>Empleado</label><select id="ptEmp"></select></div>
+      <div class="field" style="flex:1;min-width:90px;"><label>Planning</label><select id="ptPlanning"><option value="tiendas">Tiendas</option><option value="ventas">Ventas</option></select></div>
+      <div class="field" style="flex:2;min-width:150px;"><label>Empleado</label><select id="ptEmp"></select></div>
       <div class="field" style="flex:1;min-width:120px;"><label>Desde</label><input type="date" id="ptStart"></div>
       <div class="field" style="flex:1;min-width:120px;"><label>Hasta</label><input type="date" id="ptEnd"></div>
       <div class="field" style="flex:2;min-width:150px;"><label>Motivo</label><input type="text" id="ptMotivo" placeholder="Ej: viaje con pasajes comprados"></div>
@@ -604,7 +632,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         Aquí vive la plantilla real: da de alta/baja a quien entra o sale, y abre la ficha de cada persona
         para editar su unidad, antigüedad, días y particularidades.
       </p>
-      <div class="field"><input type="text" id="empSearchInput" placeholder="Buscar por nombre..."></div>
+      <div class="field"><input type="text" id="empSearchInput" placeholder="Buscar por alias o nombre..."></div>
       <div class="check-row">
         <input type="checkbox" id="empShowInactive">
         <label for="empShowInactive">Mostrar también los dados de baja</label>
@@ -618,6 +646,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div id="empCardView" style="display:none;min-height:0;overflow-y:auto;">
       <h3 id="empCardTitle">Ficha de empleado</h3>
       <div class="field"><label>Nombre completo</label><input type="text" id="ecName"></div>
+      <div class="field"><label>Alias (como se le conoce en la empresa)</label><input type="text" id="ecAlias" placeholder="Ej: Sole"></div>
       <div class="field"><label>Unidad</label><select id="ecUnit"></select></div>
       <div class="field"><label>Categoría</label><div style="display:flex;gap:6px;"><select id="ecCategory" style="flex:1;min-width:0;"></select><button type="button" class="btn btn-ghost" id="ecManageCategories">Gestionar categorías</button></div></div>
       <div class="field"><label>Año de antigüedad (dejar vacío si no se sabe)</label><input type="text" id="ecSeniority" placeholder="Ej: 2015" inputmode="numeric"></div>
@@ -924,6 +953,11 @@ function applyMigrations(state){
     const b1 = state.blockedRanges.find(b=>b.id==='b1');
     if(b1 && b1.endMD==='09-30'){ b1.endMD = '10-15'; b1.label = 'Vuelta al cole y campaña de otoño'; }
     state._migrations.blockRangeOtono202607 = true;
+  }
+  if(!state._migrations.aliasIniciales202611){
+    const iniciales = {e27:'Sonia',e25:'María',e20:'Ángeles',e30:'Evelin',e26:'M.ª Teresa',e17:'Herminia',e28:'Joani',e19:'Natalia',e21:'Dunia',e31:'Cande M.',e18:'Rosi',e29:'Sole',e23:'Mónica',e22:'Cande O.',e36:'Gladys'};
+    state.employees.forEach(e=>{ if(iniciales[e.id] && !e.alias) e.alias = iniciales[e.id]; });
+    state._migrations.aliasIniciales202611 = true;
   }
   if(!state._migrations.mariaPideFechas202611){
     const maria = state.employees.find(e=>e.id==='e25');
@@ -1448,8 +1482,13 @@ function hasFixedPref(empId){
 }
 /* Nombre en rojo si tiene fechas fijas (Luis, 03/11/2026). */
 function empNameHtml(emp){
-  return hasFixedPref(emp.id) ? `<i style="font-style:normal;color:var(--rojo);">${escapeHtml(emp.name)}</i>` : escapeHtml(emp.name);
+  return hasFixedPref(emp.id) ? `<i style="font-style:normal;color:var(--rojo);" title="${escapeHtml(emp.name)}">${escapeHtml(empLabel(emp))}</i>` : empHover(emp);
 }
+/* Alias: el nombre por el que se conoce a cada persona. Es el que se ve en todas partes; el completo sale
+   al pasar el ratón. Sin alias, se ve el nombre completo. */
+function empLabel(emp){ return emp ? (emp.alias || emp.name) : ''; }
+function empHover(emp){ return `<i style="font-style:normal;" title="${escapeHtml(emp.name)}">${escapeHtml(empLabel(emp))}</i>`; }
+function empMatches(emp, text){ return (emp.name+' '+(emp.alias||'')).toLowerCase().includes(text.toLowerCase()); }
 function pairOverlapConflict(empId, startISO, endISO, excludePeriodId){
   for(const {partnerId, label} of findPairPartners(empId)){
     const overlap = state.periods.find(p=> p.employeeId===partnerId && p.id!==excludePeriodId && !(endISO<p.start || startISO>p.end));
@@ -1479,6 +1518,7 @@ function render(){
   renderOnLeave();
   renderGrid();
   renderSummary();
+  if(isModalOpen('rotationOverlay')) document.getElementById('btnRotation').click();
   if(isModalOpen('holidaysOverlay')) renderHolidaysList();
   if(isModalOpen('peticionesOverlay')) renderPeticiones();
   saveState();
@@ -1493,7 +1533,7 @@ function getOnLeaveItems(dateVal){
     const permiso = state.permisos.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
     if(permiso) items.push({emp, range:permiso, tipo:'Permiso'});
   }
-  items.sort((a,b)=> a.emp.name.localeCompare(b.emp.name,'es'));
+  items.sort((a,b)=> empLabel(a.emp).localeCompare(empLabel(b.emp),'es'));
   return items;
 }
 
@@ -1510,6 +1550,7 @@ function renderOnLeave(){
   const items = getOnLeaveItems(dateVal);
 
   document.getElementById('onLeaveCount').textContent = items.length;
+  document.getElementById('fueraCount').textContent = items.length;
   const box = document.getElementById('onLeaveList');
   if(!items.length){
     box.innerHTML = '<p class="onleave-empty">Nadie de vacaciones ni con permiso ese día.</p>';
@@ -1521,7 +1562,7 @@ function renderOnLeave(){
       ? ' <span style="color:#8a5a00;font-weight:700;">(permiso)</span>'
       : ' <span style="color:#0a6e4a;font-weight:700;">🏖️ (vacaciones)</span>';
     const motivo = (tipo==='Permiso' && range.motivo) ? ' · '+range.motivo : '';
-    return `<div class="onleave-item"><b>${escapeHtml(emp.name)}${tag}</b><small>${escapeHtml(unit)} · ${fmtRange(range.start,range.end)}${motivo}</small></div>`;
+    return `<div class="onleave-item"><b>${empHover(emp)}${tag}</b><small>${escapeHtml(unit)} · ${fmtRange(range.start,range.end)}${motivo}</small></div>`;
   }).join('');
 }
 document.getElementById('onLeaveDate').oninput = renderOnLeave;
@@ -1550,7 +1591,7 @@ function renderRulesLog(){
   html += '<span class="rules-log-cat">Parejas incompatibles</span>';
   html += excluirPairs.length
     ? excluirPairs.map(pr=>{
-        const names = pr.empIds.map(id=> (EMPLOYEES.find(e=>e.id===id)||{}).name || id).join(' ↔ ');
+        const names = pr.empIds.map(id=> empLabel(EMPLOYEES.find(e=>e.id===id)) || id).join(' ↔ ');
         return `<div class="rules-log-item">${names} — ${pr.label}</div>`;
       }).join('')
     : '<div class="rules-log-item">Ninguna</div>';
@@ -1559,7 +1600,7 @@ function renderRulesLog(){
   html += '<span class="rules-log-cat">Parejas que salen juntas 💑</span>';
   html += juntosPairs.length
     ? juntosPairs.map(pr=>{
-        const names = pr.empIds.map(id=> (EMPLOYEES.find(e=>e.id===id)||{}).name || id).join(' ↔ ');
+        const names = pr.empIds.map(id=> empLabel(EMPLOYEES.find(e=>e.id===id)) || id).join(' ↔ ');
         return `<div class="rules-log-item">${names} — ${pr.label}</div>`;
       }).join('')
     : '<div class="rules-log-item">Ninguna</div>';
@@ -1567,16 +1608,16 @@ function renderRulesLog(){
   const fixedPrefEmps = EMPLOYEES.filter(e=>e.active!==false && hasFixedPref(e.id));
   html += '<span class="rules-log-cat">Vacaciones fijas cada año 📌</span>';
   html += fixedPrefEmps.length
-    ? fixedPrefEmps.map(e=>`<div class="rules-log-item">${escapeHtml(e.name)} — ${escapeHtml(state.employeePrefs[e.id].preferredText)}</div>`).join('')
+    ? fixedPrefEmps.map(e=>`<div class="rules-log-item">${empHover(e)} — ${escapeHtml(state.employeePrefs[e.id].preferredText)}</div>`).join('')
     : '<div class="rules-log-item">Ninguna</div>';
 
   const floaters = EMPLOYEES.filter(e=>e.active!==false && e.floater);
   html += '<span class="rules-log-cat">Comodines 🔁</span>';
-  html += floaters.length ? floaters.map(e=>`<div class="rules-log-item">${escapeHtml(e.name)}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
+  html += floaters.length ? floaters.map(e=>`<div class="rules-log-item">${empHover(e)}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
 
   const noSub = EMPLOYEES.filter(e=>e.active!==false && e.sinSustituto);
   html += '<span class="rules-log-cat">Sin sustituto 🚫</span>';
-  html += noSub.length ? noSub.map(e=>`<div class="rules-log-item">${escapeHtml(e.name)}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
+  html += noSub.length ? noSub.map(e=>`<div class="rules-log-item">${empHover(e)}</div>`).join('') : '<div class="rules-log-item">Ninguno</div>';
 
   box.innerHTML = html;
 }
@@ -1653,6 +1694,7 @@ function unitHasConflict(unitId, y){
 function renderGrid(){
   const wrap = document.getElementById('gridWrap');
   wrap.innerHTML = '';
+  if(gridView==='anual'){ renderYearView(wrap); return; }
   const y = state.year;
   const n = daysInYear(y);
   const totalW = n * 22; // px, matches --day-w
@@ -1661,6 +1703,11 @@ function renderGrid(){
   // header: months
   const headerSticky = document.createElement('div');
   headerSticky.className = 'header-sticky';
+  const toYear = document.createElement('button');
+  toYear.className = 'yv-toggle'; toYear.textContent = '📅 Ver el año entero';
+  toYear.style.margin = '4px 8px';
+  toYear.onclick = ()=> setGridView('anual');
+  wrap.appendChild(toYear);
 
   const monthRow = document.createElement('div');
   monthRow.style.display='flex';
@@ -1704,7 +1751,7 @@ function renderGrid(){
   const filteredEmployees = EMPLOYEES.filter(e=>{
     if(e.active===false || !inPlanning(e)) return false;
     if(filterUnit && e.unitId!==filterUnit) return false;
-    if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
+    if(filterText && !empMatches(e, filterText)) return false;
     return true;
   });
 
@@ -1740,6 +1787,149 @@ function renderGrid(){
     wrap.appendChild(group);
   }
 }
+
+/* Calendario del año (pantalla principal, Luis 05/11/2026): el año entero de un vistazo, con lo bloqueado
+   reducido. Pulsar una barra la edita y pulsar un hueco crea un periodo. Para arrastrar, «Detalle». */
+let gridView = 'anual';
+try{ if(localStorage.getItem('ofipapel_vacaciones_vista')==='detalle') gridView = 'detalle'; }catch(e){}
+function setGridView(view){
+  gridView = view;
+  try{ localStorage.setItem('ofipapel_vacaciones_vista', view); }catch(e){}
+  renderGrid();
+}
+function renderYearView(wrap){
+  const y = state.year, n = daysInYear(y), pos = printScale(y, n);
+  const emps = EMPLOYEES.filter(e=>{
+    if(e.active===false || !inPlanning(e)) return false;
+    if(filterUnit && e.unitId!==filterUnit) return false;
+    if(filterText && !empMatches(e, filterText)) return false;
+    return true;
+  });
+  const el = (cls, text)=>{ const d = document.createElement('div'); d.className = cls; if(text!==undefined) d.textContent = text; return d; };
+  const rowOf = (cls, name, track, days)=>{
+    const row = el('yv-row '+cls);
+    row.append(name, track, days);
+    return row;
+  };
+  const trackPx = Math.max(300, wrap.clientWidth-140); // columna de nombres + columna de días
+  const addBlocked = (track)=>{
+    for(const b of state.blockedRanges){
+      for(const seg of blockedSegmentsForYear(b, y, n)){
+        const ov = el('yv-blocked');
+        ov.style.left = pos(seg.start)+'%';
+        ov.style.width = (pos(seg.end+1)-pos(seg.start))+'%';
+        track.appendChild(ov);
+      }
+    }
+  };
+  // cabecera: meses y números de casilla
+  const head = el('yv-sticky');
+  const corner = el('yv-name yv-corner');
+  const toDetail = document.createElement('button');
+  toDetail.className = 'yv-toggle'; toDetail.textContent = '🔍 Día a día'; toDetail.title = 'Ver detalle día a día';
+  toDetail.onclick = ()=> setGridView('detalle');
+  corner.appendChild(toDetail);
+  const months = el('yv-track yv-months');
+  let start = 0;
+  monthLengths(y).forEach((len,i)=>{
+    const width = pos(start+len)-pos(start);
+    const m = el('yv-month', width<4 ? MONTH_NAMES[i].slice(0,3) : MONTH_NAMES[i]);
+    m.style.left = pos(start)+'%'; m.style.width = width+'%';
+    months.appendChild(m);
+    start += len;
+  });
+  const ticks = el('yv-track yv-ticks');
+  for(let idx=0; idx<n; idx++){
+    const dom = dateFromIndex(y, idx).getUTCDate();
+    const shortMonth = dateFromIndex(y, idx).getUTCMonth()===1 && dom===26; // en febrero el 26 chocaría con el 1
+    if(dom%5===1 && dom!==31 && !shortMonth && !isBlockedIndex(y, idx)){
+      const t = el('yv-tick', dom);
+      t.style.left = pos(idx)+'%';
+      ticks.appendChild(t);
+    }
+  }
+  head.appendChild(rowOf('yv-monthrow', corner, months, el('yv-days', 'Días')));
+  head.appendChild(rowOf('', el('yv-name'), ticks, el('yv-days')));
+  wrap.appendChild(head);
+  for(const u of UNITS){
+    const list = emps.filter(e=>e.unitId===u.id);
+    if(!list.length) continue;
+    if(onlyConflicts && !unitHasConflict(u.id, y)) continue;
+    // fila del grupo: en rojo, los días que superan la cobertura
+    const groupTrack = el('yv-track');
+    for(let i=0;i<n;){
+      if(!unitCoverageForDay(u.id, i, y).over){ i++; continue; }
+      let j = i;
+      while(j<n && unitCoverageForDay(u.id, j, y).over) j++;
+      const over = el('yv-over');
+      over.style.left = pos(i)+'%'; over.style.width = (pos(j)-pos(i))+'%';
+      over.title = 'Se supera la cobertura de '+u.name+': '+fmtRange(toISO(dateFromIndex(y,i)), toISO(dateFromIndex(y,j-1)));
+      groupTrack.appendChild(over);
+      i = j;
+    }
+    wrap.appendChild(rowOf('yv-group', el('yv-name', u.name+' ('+list.length+')'), groupTrack, el('yv-days')));
+    for(const emp of list){
+      const name = el('yv-name');
+      const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
+      const used = periods.reduce((t,p)=>t+isoToIndex(y,p.end)-isoToIndex(y,p.start)+1, 0);
+      const badges = (emp.floater?' 🔁':'')+(emp.sinSustituto?' 🚫':'')+(findPairPartners(emp.id).length?' 🔗':'')+(findTogetherPartners(emp.id).length?' 💑':'')+(hasFixedPref(emp.id)?' 📌':'');
+      name.innerHTML = `${empNameHtml(emp)}${badges}`;
+      name.title = emp.name+(emp.note?' — '+emp.note:'');
+      name.style.lineHeight = '26px';
+      const track = el('yv-track yv-emp');
+      addBlocked(track);
+      appendCellLines(track, y, n, pos);
+      periods.forEach((p,i)=>{
+        const s = Math.max(0, isoToIndex(y,p.start)), e = Math.min(n-1, isoToIndex(y,p.end));
+        const bar = el('yv-bar');
+        const width = pos(e+1)-pos(s);
+        bar.style.left = pos(s)+'%'; bar.style.width = width+'%';
+        bar.style.background = periodColor(i+1);
+        bar.title = empLabel(emp)+': '+fmtRange(p.start,p.end)+' ('+(isoToIndex(y,p.end)-isoToIndex(y,p.start)+1)+' días). Pulsa para cambiarlo.';
+        const label = String(e-s+1)+'d';
+        if(width/100*trackPx > label.length*7) bar.textContent = label;
+        bar.onclick = (ev)=>{ ev.stopPropagation(); openPeriodModal(emp, p); openModal('periodOverlay'); };
+        track.appendChild(bar);
+      });
+      track.onclick = (ev)=>{
+        const rect = track.getBoundingClientRect();
+        const pct = (ev.clientX-rect.left)/rect.width*100;
+        let idx = 0;
+        while(idx<n-1 && pos(idx+1)<=pct) idx++;
+        const end = Math.min(n-1, idx+14);
+        openPeriodModal(emp, null, toISO(dateFromIndex(y,idx)), toISO(dateFromIndex(y,end)));
+        openModal('periodOverlay');
+      };
+      const days = el('yv-days', used+'/'+effectiveDaysPerYear(emp));
+      wrap.appendChild(rowOf('', name, track, days));
+    }
+  }
+  if(!emps.length) { const vacio = el('yv-name', 'Sin empleados con este filtro.'); vacio.style.width = 'auto'; wrap.appendChild(vacio); }
+}
+let yearViewResize = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(yearViewResize);
+  yearViewResize = setTimeout(()=>{ if(gridView==='anual') renderGrid(); }, 200);
+});
+/* Reglas y Quién está fuera: se abren sobre el calendario y se cierran al pulsar otra vez o fuera. */
+function setSidePanel(panel){
+  const aside = document.getElementById('sidebar');
+  const current = aside.classList.contains('show-reglas') ? 'reglas' : aside.classList.contains('show-fuera') ? 'fuera' : null;
+  const next = panel===current ? null : panel;
+  aside.classList.toggle('show-reglas', next==='reglas');
+  aside.classList.toggle('show-fuera', next==='fuera');
+  document.getElementById('btnPanelReglas').classList.toggle('panel-on', next==='reglas');
+  document.getElementById('btnPanelFuera').classList.toggle('panel-on', next==='fuera');
+}
+document.getElementById('btnPanelReglas').onclick = ()=> setSidePanel('reglas');
+document.getElementById('btnPanelFuera').onclick = ()=> setSidePanel('fuera');
+document.addEventListener('mousedown', (e)=>{
+  if(e.target.closest('#sidebar,#btnPanelReglas,#btnPanelFuera,.overlay')) return;
+  if(document.getElementById('sidebar').matches('.show-reglas,.show-fuera')){
+    const aside = document.getElementById('sidebar');
+    setSidePanel(aside.classList.contains('show-reglas') ? 'reglas' : 'fuera');
+  }
+});
 
 function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const row = document.createElement('div'); row.className='emp-row';
@@ -1850,7 +2040,7 @@ function onDragEnd(ev){
   // hard block: solape con otro periodo del mismo empleado
   const overlap = state.periods.find(p=> p.employeeId===emp.id && !(endISO<p.start || startISO>p.end));
   if(overlap){
-    showToast('Ese rango se solapa con otro periodo ya asignado a '+emp.name+'.');
+    showToast('Ese rango se solapa con otro periodo ya asignado a '+empLabel(emp)+'.');
     return;
   }
 
@@ -1858,7 +2048,7 @@ function onDragEnd(ev){
   const pconf = pairOverlapConflict(emp.id, startISO, endISO, null);
   if(pconf){
     const partnerEmp = EMPLOYEES.find(e=>e.id===pconf.partnerId);
-    showToast(`No puede coincidir con ${partnerEmp.name} (${pconf.label}).`);
+    showToast(`No puede coincidir con ${empLabel(partnerEmp)} (${pconf.label}).`);
     return;
   }
 
@@ -1939,14 +2129,14 @@ function attachPeriodBlockDrag(block, emp, period, y, n){
       }
       const selfOverlap = state.periods.find(p=> p.employeeId===emp.id && p.id!==period.id && !(newEndISO<p.start || newStartISO>p.end));
       if(selfOverlap){
-        showToast('Ese rango se solaparía con otro periodo de '+emp.name+'.');
+        showToast('Ese rango se solaparía con otro periodo de '+empLabel(emp)+'.');
         renderGrid();
         return;
       }
       const pconf = pairOverlapConflict(emp.id, newStartISO, newEndISO, period.id);
       if(pconf){
         const partnerEmp = EMPLOYEES.find(e=>e.id===pconf.partnerId);
-        showToast(`No puede coincidir con ${partnerEmp.name} (${pconf.label}).`);
+        showToast(`No puede coincidir con ${empLabel(partnerEmp)} (${pconf.label}).`);
         renderGrid();
         return;
       }
@@ -1974,7 +2164,8 @@ function attachPeriodBlockDrag(block, emp, period, y, n){
 function openPeriodModal(emp, period, startISO, endISO){
   editingPeriodId = period ? period.id : null;
   document.getElementById('pmTitle').textContent = period ? 'Editar periodo' : 'Nuevo periodo';
-  document.getElementById('pmEmployee').textContent = emp.name + ' — ' + (UNITS.find(u=>u.id===emp.unitId)||{}).name;
+  document.getElementById('pmEmployee').title = emp.name;
+  document.getElementById('pmEmployee').textContent = empLabel(emp) + ' — ' + (UNITS.find(u=>u.id===emp.unitId)||{}).name;
   document.getElementById('pmStart').value = period ? period.start : startISO;
   document.getElementById('pmEnd').value = period ? period.end : endISO;
   document.getElementById('pmDelete').style.display = period ? 'inline-block' : 'none';
@@ -2042,7 +2233,7 @@ function validateModal(emp){
   const pconf = pairOverlapConflict(emp.id, start, end, editingPeriodId);
   if(pconf){
     const partnerEmp = EMPLOYEES.find(e=>e.id===pconf.partnerId);
-    warnBox.innerHTML = `<div class="err-box">Coincide con ${escapeHtml(partnerEmp.name)}, que ya tiene vacaciones en ese rango
+    warnBox.innerHTML = `<div class="err-box">Coincide con ${empHover(partnerEmp)}, que ya tiene vacaciones en ese rango
       (regla: ${pconf.label}). No pueden coincidir.</div>`;
     saveBtn.disabled=true;
     return;
@@ -2068,7 +2259,7 @@ function validateModal(emp){
     const partnerPeriods = state.periods.filter(p=>p.employeeId===tp.partnerId);
     const matches = partnerPeriods.some(p=> p.start===start && p.end===end);
     if(!matches){
-      warnBox.innerHTML += `<div class="info-box">💑 ${escapeHtml(partnerEmp.name)} suele salir de vacaciones junto con ${escapeHtml(emp.name)}
+      warnBox.innerHTML += `<div class="info-box">💑 ${empHover(partnerEmp)} suele salir de vacaciones junto con ${empHover(emp)}
         (${tp.label}). ${partnerPeriods.length ? 'Sus periodos actuales no coinciden con este rango.' : 'Todavía no tiene periodos asignados.'}</div>`;
     }
   }
@@ -2078,7 +2269,7 @@ function validateModal(emp){
     const matchesFixed = fixedRanges.some(r=> r.start===start && r.end===end);
     if(!matchesFixed && fixedRanges.length){
       const rangesLabel = fixedRanges.map(r=>fmtRange(r.start,r.end)).join(', ');
-      warnBox.innerHTML += `<div class="info-box">📌 ${escapeHtml(emp.name)} tiene fechas de vacaciones fijas todos los años (${escapeHtml(rangesLabel)})
+      warnBox.innerHTML += `<div class="info-box">📌 ${empHover(emp)} tiene fechas de vacaciones fijas todos los años (${escapeHtml(rangesLabel)})
         y este rango no coincide. Comprueba que esas fechas fijas estén asignadas en otro periodo.</div>`;
     }
   }
@@ -2170,7 +2361,7 @@ function renderEmployeeList(){
   const showInactive = document.getElementById('empShowInactive').checked;
   const list = EMPLOYEES.filter(e=>{
     if(!showInactive && e.active===false) return false;
-    if(q && !e.name.toLowerCase().includes(q)) return false;
+    if(q && !empMatches(e, q)) return false;
     return true;
   });
 
@@ -2192,6 +2383,7 @@ function renderEmployeeList(){
       row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:7px 4px;'
         +'border-bottom:1px solid #f0f0f0;font-size:.78rem;cursor:pointer;';
       const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
+      row.title = emp.name;
       const category = state.categories.find(c=>c.id===emp.categoryId);
       row.innerHTML = `<span>${empNameHtml(emp)}${empBadgeText(emp)}<br><small style="color:var(--texto2);">${category ? escapeHtml(category.name)+' · ' : ''}${escapeHtml(senLabel)}</small></span>
         <span style="color:var(--verde);">✎</span>`;
@@ -2207,7 +2399,7 @@ function compareInUnit(a,b){
   const diff = (x,y)=> x===y ? 0 : x-y; // Infinity-Infinity daría NaN
   return diff(rank(a), rank(b))
     || diff(a.seniorityYear||Infinity, b.seniorityYear||Infinity)
-    || a.name.localeCompare(b.name,'es');
+    || empLabel(a).localeCompare(empLabel(b),'es');
 }
 
 /* ═══════════════════ CATEGORÍAS DE EMPLEADO ═══════════════════ */
@@ -2310,6 +2502,7 @@ function openEmployeeCard(empId){
   unitSel.innerHTML = UNITS.map(u=>`<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)}</option>`).join('');
 
   document.getElementById('ecName').value = emp ? emp.name : '';
+  document.getElementById('ecAlias').value = emp ? (emp.alias||'') : '';
   unitSel.value = emp ? emp.unitId : UNITS[0].id;
   document.getElementById('ecSeniority').value = (emp && emp.seniorityYear) ? emp.seniorityYear : '';
   document.getElementById('ecDays').value = emp ? emp.daysPerYear : 30;
@@ -2401,6 +2594,8 @@ function saveEmployeeCard(){
     editingEmployeeId = emp.id;
   }
   emp.name = name;
+  const alias = document.getElementById('ecAlias').value.trim();
+  if(alias) emp.alias = alias; else delete emp.alias;
   emp.unitId = unitId;
   emp.seniorityYear = (seniorityYear && !isNaN(seniorityYear)) ? seniorityYear : null;
   emp.daysPerYear = (!isNaN(daysPerYear) && daysPerYear>0) ? daysPerYear : 30;
@@ -2451,7 +2646,7 @@ function renderSummary(){
       .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
     const row = document.createElement('div'); row.className='summary-row';
     const holWorked = holidaysWorkedBy(emp.id).length;
-    row.innerHTML = `<span>${escapeHtml(emp.name)}</span><b>${used}/${effectiveDaysPerYear(emp)}${holWorked?` <small style="color:var(--texto2);font-weight:400;">(+${holWorked} festivo${holWorked>1?'s':''})</small>`:''}</b>`;
+    row.innerHTML = `<span>${empHover(emp)}</span><b>${used}/${effectiveDaysPerYear(emp)}${holWorked?` <small style="color:var(--texto2);font-weight:400;">(+${holWorked} festivo${holWorked>1?'s':''})</small>`:''}</b>`;
     box.appendChild(row);
   }
 }
@@ -2464,15 +2659,15 @@ function findEmployeeByFuzzyName(q){
   const nq = normalizeText(q);
   if(!nq) return null;
   const active = EMPLOYEES.filter(e=>e.active!==false);
-  let hit = active.find(e=> normalizeText(e.name).includes(nq));
+  let hit = active.find(e=> normalizeText(e.name+' '+(e.alias||'')).includes(nq));
   if(hit) return hit;
-  hit = active.find(e=> normalizeText(e.name).split(/[\s,]+/).some(tok=> tok===nq || tok.startsWith(nq)));
+  hit = active.find(e=> normalizeText(e.name+' '+(e.alias||'')).split(/[\s,]+/).some(tok=> tok===nq || tok.startsWith(nq)));
   if(hit) return hit;
   // varias palabras en cualquier orden (ej. "Felipe Garcia" debe encontrar "García Padrón, Felipe Sebastián")
   const qWords = nq.split(/[\s,]+/).filter(Boolean);
   if(qWords.length>1){
     hit = active.find(e=>{
-      const nameTokens = normalizeText(e.name).split(/[\s,]+/).filter(Boolean);
+      const nameTokens = normalizeText(e.name+' '+(e.alias||'')).split(/[\s,]+/).filter(Boolean);
       return qWords.every(qw=> nameTokens.some(tok=> tok===qw || tok.startsWith(qw)));
     });
   }
@@ -2513,7 +2708,7 @@ function processRulesText(){
       const e1 = findEmployeeByFuzzyName(n1), e2 = findEmployeeByFuzzyName(n2);
       if(!e1 || !e2){ results.push({icon:'❌', msg:`No encuentro a "${!e1?n1:n2}" en la plantilla.`}); continue; }
       state.pairRules.push({id:'pair'+Date.now()+Math.random().toString(36).slice(2,5), empIds:[e1.id,e2.id], label: label.trim()||'Regla de pareja'});
-      results.push({icon:'✅', msg:`Pareja añadida: ${e1.name} ↔ ${e2.name} (${label.trim()||'sin motivo'}).`});
+      results.push({icon:'✅', msg:`Pareja añadida: ${empLabel(e1)} ↔ ${empLabel(e2)} (${label.trim()||'sin motivo'}).`});
 
     } else if(type==='COBERTURA'){
       const cm = rest.match(/^(.+?)\s+max\s+(\d+)(?:\s+(\d{1,2}\/\d{1,2})\s*-\s*(\d{1,2}\/\d{1,2}))?\s*$/i);
@@ -2541,7 +2736,7 @@ function processRulesText(){
       const emp = findEmployeeByFuzzyName(name);
       if(!emp){ results.push({icon:'❌', msg:`No encuentro a "${name}" en la plantilla.`}); continue; }
       emp.daysPerYear = parseInt(daysStr,10);
-      results.push({icon:'✅', msg:`Días de ${escapeHtml(emp.name)} fijados a ${emp.daysPerYear}.`});
+      results.push({icon:'✅', msg:`Días de ${empHover(emp)} fijados a ${emp.daysPerYear}.`});
 
     } else {
       results.push({icon:'ℹ️', msg:`"${line}" — prefijo no reconocido, guardada como nota informativa.`});
@@ -2827,7 +3022,7 @@ function generatePlan(){
   const y = state.year;
   const overwrite = document.getElementById('genOverwrite').checked;
   let targets = EMPLOYEES.filter(e=> e.active!==false && inPlanning(e) && (!filterUnit || e.unitId===filterUnit));
-  if(filterText) targets = targets.filter(e=> e.name.toLowerCase().includes(filterText.toLowerCase()));
+  if(filterText) targets = targets.filter(e=> empMatches(e, filterText));
 
   if(!targets.length){
     document.getElementById('generateReport').innerHTML = '<div class="rules-log-item">No hay empleados que coincidan con el filtro actual.</div>';
@@ -2844,10 +3039,10 @@ function generatePlan(){
   const {results, fixedFailed, usedPeticiones, orders} = placeEmployees(targets, y);
   commitPlacement(y, usedPeticiones, orders);
   const assignedLines = [], failedLines = [];
-  const fixedFailedLines = fixedFailed.map(({emp, range})=> `${escapeHtml(emp.name)} — ${fmtRange(range.start,range.end)}`);
+  const fixedFailedLines = fixedFailed.map(({emp, range})=> `${empHover(emp)} — ${fmtRange(range.start,range.end)}`);
   for(const {emp, daysPlaced, targetDays, fromFixed, fromPartner, fromPrefs, fromFallback} of results){
     if(daysPlaced===0){
-      failedLines.push(emp.name);
+      failedLines.push(empLabel(emp));
     } else {
       const complete = daysPlaced>=targetDays;
       const parts = [];
@@ -2855,7 +3050,7 @@ function generatePlan(){
       if(fromPartner) parts.push(`${fromPartner} en pareja 💑`);
       if(fromPrefs) parts.push(`${fromPrefs} preferido(s)`);
       if(fromFallback) parts.push(`${fromFallback} automático(s)`);
-      assignedLines.push(`${escapeHtml(emp.name)} — ${daysPlaced}/${targetDays} días asignados`
+      assignedLines.push(`${empHover(emp)} — ${daysPlaced}/${targetDays} días asignados`
         + (parts.length?` (${parts.join(' + ')})`:``)
         + (complete?'.':' — no hay más hueco disponible, revisar a mano.'));
     }
@@ -2873,7 +3068,7 @@ document.getElementById('btnGenerate').onclick = generatePlan;
 
 function clearGeneratedPeriods(){
   let targets = EMPLOYEES.filter(e=> e.active!==false && inPlanning(e) && (!filterUnit || e.unitId===filterUnit));
-  if(filterText) targets = targets.filter(e=> e.name.toLowerCase().includes(filterText.toLowerCase()));
+  if(filterText) targets = targets.filter(e=> empMatches(e, filterText));
   if(!targets.length){ showToast('No hay empleados que coincidan con el filtro actual.'); return; }
   const scopeLabel = filterUnit ? (UNITS.find(u=>u.id===filterUnit)||{}).name : 'todo el planning '+PLANNINGS[currentPlanning].name;
   const y = state.year;
@@ -2946,9 +3141,13 @@ document.getElementById('btnRotation').onclick = ()=>{
     const hadFixed = parsePreferredRanges(fixedBase[emp.id]||'', yBase).some(r=> base.some(p=>p.start===r.start && p.end===r.end));
     const next = [...periodsOfYear(emp.id, yNext), ...proposed.filter(p=>p.employeeId===emp.id)].sort(byStart);
     const fixedNow = hasFixedPref(emp.id) ? parsePreferredRanges(state.employeePrefs[emp.id].preferredText, yNext) : [];
-    const baseHtml = base.map(p=>fmtRange(p.start,p.end)).join('<br>') || '<small>Sin vacaciones asignadas</small>';
+    // lo guardado se puede pulsar para cambiarlo; la propuesta aún no existe en el cuadrante
+    const dateHtml = p=> state.periods.some(x=>x.id===p.id)
+      ? `<a href="#" data-period="${escapeHtml(p.id)}" title="Pulsa para cambiar estas fechas" style="color:inherit;text-decoration:underline dotted;">${fmtRange(p.start,p.end)}</a>`
+      : fmtRange(p.start,p.end);
+    const baseHtml = base.map(dateHtml).join('<br>') || '<small>Sin vacaciones asignadas</small>';
     const nextHtml = next.map(p=> fixedNow.some(r=>r.start===p.start && r.end===p.end)
-      ? `<span style="color:var(--rojo);">${fmtRange(p.start,p.end)}</span>` : fmtRange(p.start,p.end));
+      ? `<span style="color:var(--rojo);">${dateHtml(p)}</span>` : dateHtml(p));
     for(const f of fixedFailed.filter(f=>f.emp.id===emp.id)){
       nextHtml.push(`<span style="color:var(--rojo);" title="Esta fecha fija no cumple las reglas en ${yNext}: hay que revisarla a mano.">⚠ ${fmtRange(f.range.start,f.range.end)} no cabe</span>`);
     }
@@ -2959,6 +3158,13 @@ document.getElementById('btnRotation').onclick = ()=>{
       <td style="${td}text-align:center;">${hadFixed ? pinIcon('#2F6FCF', 14, 'Fecha fija en '+yBase+': '+fixedBase[emp.id]) : ''}</td>
       <td style="${td}background:var(--verde-pale);color:var(--verde);font-weight:600;">${nextHtml.join('<br>') || (emp.pideFechas ? '<small>Pendiente de su solicitud</small>' : '<small>Sin hueco disponible</small>')}${shortOf(emp)}</td>
       <td style="${td}text-align:center;">${fixedNow.length ? pinIcon('#E74C3C', 24, 'Fecha fija en '+yNext+': '+state.employeePrefs[emp.id].preferredText) : ''}</td>`;
+    row.querySelectorAll('[data-period]').forEach(link=>{
+      link.onclick = (e)=>{
+        e.preventDefault();
+        openPeriodModal(emp, state.periods.find(x=>x.id===link.dataset.period));
+        openModal('periodOverlay');
+      };
+    });
     tbody.appendChild(row);
   });
   openModal('rotationOverlay');
@@ -2987,14 +3193,14 @@ function renderSaturdayList(){
   const active = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>{
     const pa = a.saturdayPost || 'zzz', pb = b.saturdayPost || 'zzz';
     if(pa!==pb) return pa.localeCompare(pb,'es');
-    return a.name.localeCompare(b.name,'es');
+    return empLabel(a).localeCompare(empLabel(b),'es');
   });
 
   let html = '<table class="sat-table"><thead><tr><th>Empleado</th><th>Puesto a cubrir</th><th>Grupo A</th><th>Grupo B</th></tr></thead><tbody>';
   for(const emp of active){
     const post = (emp.saturdayPost||'').replace(/"/g,'&quot;');
     html += `<tr>
-      <td>${escapeHtml(emp.name)}</td>
+      <td>${empHover(emp)}</td>
       <td><input type="text" data-post="${emp.id}" value="${post}" placeholder="—"></td>
       <td class="sat-cell-a"><input type="checkbox" data-groupa="${emp.id}" ${emp.saturdayGroup==='A'?'checked':''}></td>
       <td class="sat-cell-b"><input type="checkbox" data-groupb="${emp.id}" ${emp.saturdayGroup==='B'?'checked':''}></td>
@@ -3041,7 +3247,7 @@ function festivosTableHtml(y, forPrint){
   if(!mainRows.length && !nextRows.length) return '<p style="font-size:.8rem;color:var(--texto2);">No hay festivos: añade el primero con el botón de abajo.</p>';
   const rowHtml = h=>{
     const d = new Date(h.date+'T00:00:00Z');
-    const names = h.empIds.map(id=>(EMPLOYEES.find(e=>e.id===id)||{}).name).filter(Boolean);
+    const names = h.empIds.map(id=>EMPLOYEES.find(e=>e.id===id)).filter(Boolean);
     const done = h.empIds.filter(id=>h.comp && h.comp[id]).length;
     const compColor = !h.empIds.length ? 'var(--texto2)' : done===h.empIds.length ? '#0a6e4a' : '#8a5a00';
     return `<tr data-festivo="${escapeHtml(h.id)}" style="${forPrint?'':'cursor:pointer;'}">
@@ -3050,7 +3256,7 @@ function festivosTableHtml(y, forPrint){
       <td class="lv-name">${escapeHtml(h.festividad)}</td>
       <td class="lv-c">${escapeHtml(h.tienda||'—')}</td>
       <td class="lv-c">${escapeHtml(h.horario||'—')}</td>
-      <td class="lv-name" style="font-weight:400;white-space:normal;${names.length||h.laborable?'':'color:var(--texto2);'}">${h.laborable ? 'Todo el personal' : names.map(escapeHtml).join('<br>') || (h.tienda?'Sin asignar':'—')}</td>
+      <td class="lv-name" style="font-weight:400;white-space:normal;${names.length||h.laborable?'':'color:var(--texto2);'}">${h.laborable ? 'Todo el personal' : names.map(empHover).join('<br>') || (h.tienda?'Sin asignar':'—')}</td>
       <td class="lv-c" style="color:${compColor};font-weight:700;">${h.empIds.length?`${done}/${h.empIds.length}`:'—'}</td>
     </tr>`;
   };
@@ -3089,7 +3295,7 @@ function openFestivoEditor(h){
 function renderFestivoPeople(){
   const box = document.getElementById('fePeople');
   box.style.display = document.getElementById('feLaborable').checked ? 'none' : 'block';
-  const emps = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  const emps = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'));
   box.innerHTML = '';
   [0,1].forEach(slot=>{
     const id = feDraft.empIds[slot]||'';
@@ -3097,7 +3303,7 @@ function renderFestivoPeople(){
     const wrap = document.createElement('div');
     wrap.style.cssText = 'border-top:1px solid var(--borde);padding-top:8px;margin-top:4px;';
     wrap.innerHTML = `<div class="field"><label>Persona ${slot+1} (suma 1 día de vacaciones ese año)</label>
-        <select data-slot>${'<option value="">— Sin asignar —</option>'+emps.map(e=>`<option value="${escapeHtml(e.id)}"${e.id===id?' selected':''}>${escapeHtml(e.name)}</option>`).join('')}</select></div>
+        <select data-slot>${'<option value="">— Sin asignar —</option>'+emps.map(e=>`<option value="${escapeHtml(e.id)}"${e.id===id?' selected':''}>${escapeHtml(empLabel(e))}</option>`).join('')}</select></div>
       ${id?`<div class="check-row"><input type="checkbox" data-done id="feDone${slot}"${c?' checked':''}><label for="feDone${slot}">Ya tiene compensado este día</label></div>
       <div style="display:${c?'flex':'none'};gap:6px;flex-wrap:wrap;margin-bottom:6px;">
         <select data-tipo style="flex:1;min-width:120px;padding:5px;"><option value="vacaciones"${c&&c.tipo==='permiso'?'':' selected'}>Día de vacaciones</option><option value="permiso"${c&&c.tipo==='permiso'?' selected':''}>Día de permiso</option></select>
@@ -3152,8 +3358,8 @@ document.getElementById('feDelete').onclick = ()=>{
 /* ═══════════════════ PERMISOS ═══════════════════ */
 function renderPermisosEmpSelect(){
   const sel = document.getElementById('pmzEmp');
-  sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'))
-    .map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
+  sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'))
+    .map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(empLabel(e))}</option>`).join('');
 }
 
 function validatePermisoForm(){
@@ -3196,7 +3402,7 @@ function validatePermisoForm(){
       (máx. recomendado ${maxSeen}) en ${overDays} día(s). No se bloquea, pero revísalo antes de concederlo.</div>`;
   }
   if(hasSat && emp.saturdayGroup){
-    html += `<div class="warn-box">ℹ️ Incluye un sábado y ${escapeHtml(emp.name)} cubre turno de sábado
+    html += `<div class="warn-box">ℹ️ Incluye un sábado y ${empHover(emp)} cubre turno de sábado
       (Grupo ${emp.saturdayGroup}${emp.saturdayPost?', '+emp.saturdayPost:''}) — comprueba quién lo cubriría ese día.</div>`;
   }
   box.innerHTML = html;
@@ -3217,7 +3423,7 @@ function renderPermisosList(){
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
     return `<div class="block-item" style="display:block;padding:8px 10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <b>${escapeHtml(emp.name)}</b>
+        <b>${empHover(emp)}</b>
         <button data-delperm="${p.id}" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>
       </div>
       <small style="color:var(--texto2);">${unit} · ${fmtRange(p.start,p.end)}${p.motivo?' · '+p.motivo:''}</small>
@@ -3260,7 +3466,6 @@ document.getElementById('btnAddPermiso').onclick = ()=>{
 
 /* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
 document.getElementById('yearSelect').onchange = (e)=>{ state.year=parseInt(e.target.value,10); render(); };
-document.getElementById('btnToggleSidebar').onclick = ()=> document.getElementById('sidebar').classList.toggle('collapsed');
 document.getElementById('btnToggleHeader').onclick = ()=>{
   const collapsed = document.getElementById('mainHeader').classList.toggle('collapsed');
   document.getElementById('btnToggleHeader').textContent = collapsed ? '▼' : '▲';
@@ -3374,7 +3579,7 @@ function buildPrintArea(){
   const filteredEmployees = EMPLOYEES.filter(e=>{
     if(e.active===false || !inPlanning(e)) return false;
     if(filterUnit && e.unitId!==filterUnit) return false;
-    if(filterText && !e.name.toLowerCase().includes(filterText.toLowerCase())) return false;
+    if(filterText && !empMatches(e, filterText)) return false;
     return true;
   });
 
@@ -3387,7 +3592,7 @@ function buildPrintArea(){
     emps = emps.map(e=>{
       const firstPeriod = periodsOfYear(e.id, y).sort((a,b)=>a.start.localeCompare(b.start))[0];
       return {emp:e, firstStart: firstPeriod ? isoToIndex(y, firstPeriod.start) : Infinity};
-    }).sort((a,b)=> a.firstStart - b.firstStart || a.emp.name.localeCompare(b.emp.name,'es')).map(x=>x.emp);
+    }).sort((a,b)=> a.firstStart - b.firstStart || empLabel(a.emp).localeCompare(empLabel(b.emp),'es')).map(x=>x.emp);
 
     const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
     const title = document.createElement('div'); title.className='p-unit-title';
@@ -3398,7 +3603,8 @@ function buildPrintArea(){
       const row = document.createElement('div'); row.className='p-emp-row';
       const nameCell = document.createElement('div'); nameCell.className='p-name';
       const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
-      nameCell.textContent = emp.name + pBadges;
+      nameCell.textContent = empLabel(emp) + pBadges;
+      nameCell.title = emp.name;
       if(hasFixedPref(emp.id)) nameCell.style.color = "#E74C3C";
       row.appendChild(nameCell);
 
@@ -3598,11 +3804,11 @@ function buildTurnosPrintArea(){
   const active = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>{
     const pa = a.saturdayPost||'zzz', pb = b.saturdayPost||'zzz';
     if(pa!==pb) return pa.localeCompare(pb,'es');
-    return a.name.localeCompare(b.name,'es');
+    return empLabel(a).localeCompare(empLabel(b),'es');
   });
   for(const emp of active){
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(emp.name)}</td><td>${escapeHtml(emp.saturdayPost||'—')}</td>
+    tr.innerHTML = `<td>${empHover(emp)}</td><td>${escapeHtml(emp.saturdayPost||'—')}</td>
       <td class="tp-a">${emp.saturdayGroup==='A'?'●':''}</td>
       <td class="tp-b">${emp.saturdayGroup==='B'?'●':''}</td>`;
     tbody.appendChild(tr);
@@ -3625,7 +3831,7 @@ function shareTurnosWhatsapp(){
   for(const emp of active){
     const post = emp.saturdayPost || 'Sin puesto asignado';
     if(!byPost[post]) byPost[post] = {A:[], B:[]};
-    byPost[post][emp.saturdayGroup].push(emp.name);
+    byPost[post][emp.saturdayGroup].push(empLabel(emp));
   }
   let text = `🔄 *Turnos de sábado — Ofipapel*\n📅 ${new Date().toLocaleDateString('es-ES')}\n`;
   for(const post of Object.keys(byPost).sort((a,b)=>a.localeCompare(b,'es'))){
@@ -3646,7 +3852,7 @@ function shareVacationsWhatsapp(){
     for(const {emp,range,tipo} of items){
       const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
       const tag = tipo==='Permiso' ? ' [PERMISO]' : '';
-      text += `• ${emp.name}${tag} (${unit}) — ${fmtRange(range.start,range.end)}\n`;
+      text += `• ${empLabel(emp)}${tag} (${unit}) — ${fmtRange(range.start,range.end)}\n`;
     }
   }
   openWhatsapp(text);
@@ -3664,7 +3870,7 @@ function listadoData(y){
     }));
     return {emp, periods, days:periods.map(p=>p.days), total:periods.reduce((t,p)=>t+p.days,0)};
   }).filter(x=>x.periods.length);
-  const byDate = (a,b)=> a.start.localeCompare(b.start) || a.emp.name.localeCompare(b.emp.name,'es');
+  const byDate = (a,b)=> a.start.localeCompare(b.start) || empLabel(a.emp).localeCompare(empLabel(b.emp),'es');
   const main = emps.filter(x=>x.emp.unitId!=='oficina'), office = emps.filter(x=>x.emp.unitId==='oficina');
   const maxTurno = Math.max(0, ...main.map(x=>x.periods.length));
   const turnos = [];
@@ -3709,7 +3915,7 @@ function openListado(){
 function shareListadoWhatsapp(){
   const y = state.year;
   const {turnos, office} = listadoData(y);
-  const line = p=> `• ${p.emp.name} — ${fmtRange(p.start,p.end)} (${p.days} días)
+  const line = p=> `• ${empLabel(p.emp)} — ${fmtRange(p.start,p.end)} (${p.days} días)
 `;
   let text = `📄 *Listado de vacaciones ${y} — ${PLANNINGS[currentPlanning].name}*
 `;
@@ -3800,11 +4006,11 @@ function renderPeticiones(){
     const [label, color, bg] = ST[pet.status];
     const card = document.createElement('div');
     card.style.cssText = 'border:1px solid var(--borde);border-radius:7px;padding:10px;margin-top:10px;font-size:.78rem;';
-    const peerHtml = peers.map((x,i)=>`<li>${x.sameUnit||x.pair?'<b style="color:var(--rojo);">':''}${escapeHtml(x.other.name)} (${escapeHtml((UNITS.find(u=>u.id===x.other.unitId)||{}).name||'')}): ${fmtRange(x.period.start,x.period.end)}${x.pair?' · pareja que no puede coincidir':x.sameUnit?' · misma unidad':''}${x.sameUnit||x.pair?'</b>':''}
+    const peerHtml = peers.map((x,i)=>`<li>${x.sameUnit||x.pair?'<b style="color:var(--rojo);">':''}${empHover(x.other)} (${escapeHtml((UNITS.find(u=>u.id===x.other.unitId)||{}).name||'')}): ${fmtRange(x.period.start,x.period.end)}${x.pair?' · pareja que no puede coincidir':x.sameUnit?' · misma unidad':''}${x.sameUnit||x.pair?'</b>':''}
       ${pet.status==='aprobada' ? `<button class="mini-btn" data-mover="${i}" style="margin:0 0 0 6px;">✏️ Cambiar sus fechas</button>` : ''}</li>`).join('');
     const own = periodsOfYear(pet.employeeId, parseInt(pet.start.slice(0,4),10)).filter(p=>!(p.start===pet.start && p.end===pet.end));
     card.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-        <b>${escapeHtml(emp.name)} · ${fmtRange(pet.start,pet.end)}</b>
+        <b>${empHover(emp)} · ${fmtRange(pet.start,pet.end)}</b>
         <span style="background:${bg};color:${color};padding:1px 9px;border-radius:6px;font-weight:600;">${label}${pet.status==='aprobada'&&!pet.applied?' · sin colocar':''}</span></div>
       ${pet.motivo?`<div style="color:var(--texto2);">Motivo: ${escapeHtml(pet.motivo)}</div>`:''}
       <div style="margin-top:6px;font-weight:600;">Con quién se pisa</div>
@@ -3814,7 +4020,7 @@ function renderPeticiones(){
       </ul>
       ${pet.status==='aprobada' && peers.length && own.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
         <span>Intercambiar:</span>
-        <select data-swap-peer>${peers.map((x,i)=>`<option value="${i}">${escapeHtml(x.other.name)} (${fmtRange(x.period.start,x.period.end)})</option>`).join('')}</select>
+        <select data-swap-peer>${peers.map((x,i)=>`<option value="${i}">${escapeHtml(empLabel(x.other))} (${fmtRange(x.period.start,x.period.end)})</option>`).join('')}</select>
         <span>con</span>
         <select data-swap-own>${own.map(p=>`<option value="${escapeHtml(p.id)}">${fmtRange(p.start,p.end)}</option>`).join('')}</select>
         <button class="mini-btn" data-swap style="margin:0;">⇄ Intercambiar fechas</button></div>` : ''}
@@ -3845,7 +4051,7 @@ function renderPeticiones(){
       const x = peers[+card.querySelector('[data-swap-peer]').value];
       const mine = state.periods.find(p=>p.id===card.querySelector('[data-swap-own]').value);
       if(!x || !mine) return;
-      if(!confirm(`¿Intercambiar? ${x.other.name} pasará a ${fmtRange(mine.start,mine.end)} y ${emp.name} a ${fmtRange(x.period.start,x.period.end)}.`)) return;
+      if(!confirm(`¿Intercambiar? ${empLabel(x.other)} pasará a ${fmtRange(mine.start,mine.end)} y ${empLabel(emp)} a ${fmtRange(x.period.start,x.period.end)}.`)) return;
       [x.period.start, mine.start] = [mine.start, x.period.start];
       [x.period.end, mine.end] = [mine.end, x.period.end];
       render();
@@ -3878,10 +4084,21 @@ function rejectPeticion(pet){
   render();
   showToast(pet.applied ? 'Rechazada. Sus fechas siguen en el cuadrante: se quitan pulsando en la barra.' : 'Petición rechazada.');
 }
-document.getElementById('btnPeticiones').onclick = ()=>{
+function fillPeticionEmployees(){
+  document.getElementById('ptPlanning').value = currentPlanning;
   const sel = document.getElementById('ptEmp');
-  sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e)).sort((a,b)=>a.name.localeCompare(b.name,'es'))
-    .map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(e.name)}</option>`).join('');
+  sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e)).sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'))
+    .map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(empLabel(e))}</option>`).join('');
+}
+document.getElementById('ptPlanning').onchange = (e)=>{
+  const header = document.getElementById('planningSelect');
+  header.value = e.target.value;
+  header.onchange({target:header}); // el mismo cambio de planning que el de arriba
+  fillPeticionEmployees();
+  renderPeticiones();
+};
+document.getElementById('btnPeticiones').onclick = ()=>{
+  fillPeticionEmployees();
   ['ptStart','ptEnd','ptMotivo'].forEach(id=>{ document.getElementById(id).value=''; });
   renderPeticiones();
   openModal('peticionesOverlay');
@@ -3920,8 +4137,10 @@ function matchEmployeeName(raw){
   const saved = (state.nameAliases||{})[norm];
   const byId = id=> EMPLOYEES.find(e=>e.id===id && e.active!==false);
   if(saved && byId(saved)) return saved;
+  const byAlias = EMPLOYEES.filter(e=>e.active!==false && e.alias && normalizeText(e.alias)===norm);
+  if(byAlias.length===1) return byAlias[0].id;
   if(CARGA_ALIAS[norm] && byId(CARGA_ALIAS[norm])) return CARGA_ALIAS[norm];
-  const hits = EMPLOYEES.filter(e=>e.active!==false && normalizeText(e.name).includes(norm));
+  const hits = EMPLOYEES.filter(e=>e.active!==false && normalizeText(e.name+' '+(e.alias||'')).includes(norm));
   return hits.length===1 ? hits[0].id : '';
 }
 function parseVacationSheet(wb){
@@ -3947,8 +4166,8 @@ function renderCarga(){
   const box = document.getElementById('cargaBox');
   const ok = document.getElementById('cargaOk');
   if(!cargaRows){ box.innerHTML=''; ok.disabled = true; return; }
-  const options = id=> `<option value="">— No cargar —</option>`+EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'es'))
-    .map(e=>`<option value="${escapeHtml(e.id)}"${e.id===id?' selected':''}>${escapeHtml(e.name)}</option>`).join('');
+  const options = id=> `<option value="">— No cargar —</option>`+EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'))
+    .map(e=>`<option value="${escapeHtml(e.id)}"${e.id===id?' selected':''}>${escapeHtml(empLabel(e))}</option>`).join('');
   const people = new Set(cargaRows.filter(r=>r.employeeId).map(r=>r.employeeId));
   const current = state.periods.filter(p=>people.has(p.employeeId) && p.start.startsWith(cargaYear+'-')).length;
   const warnings = r=>{
@@ -4022,13 +4241,13 @@ const OPERATIVAS = {
   '#operativaCuadrante': {
     pasos: [
       'Elige arriba el año y el planning, <b>Tiendas</b> o <b>Ventas</b>. Cada año guarda sus vacaciones por separado.',
-      'Arrastra sobre una fila vacía para crear un periodo entre las dos fechas.',
-      'Arrastra una barra para moverla, o su borde para cambiar solo el inicio o el fin.',
-      'Pulsa una barra, sin arrastrar, para cambiar sus fechas a mano o eliminarla.',
+      'Pulsa una barra para cambiar sus fechas o eliminarla, y pulsa un hueco de la fila para crear un periodo.',
+      'Con <b>Ver detalle día a día</b> puedes arrastrar: sobre una fila vacía crea un periodo, y una barra o su borde la mueve o cambia su inicio o fin.',
       'Con <b>Generar plan</b> se rellena lo que falte. Para repartir una sola unidad, elígela antes en el filtro <b>Unidad</b>.',
     ],
     notas: [
-      'La franja de color sobre cada grupo es la cobertura: verde, gente fuera dentro del máximo; rojo, se supera.',
+      'El rojo en la fila de un grupo son días que superan su cobertura.',
+      'En el año entero, lo bloqueado ocupa poco para ganar espacio. Sus fechas completas están en el Listado o al pulsar la barra.',
       'El rayado rosa son fechas bloqueadas: nadie puede coger vacaciones en ellas.',
       'Generar y «Borrar todo» solo tocan el año que estás viendo.',
       'El generador reparte igual que la propuesta de Prioridad de rotación.',
@@ -4050,6 +4269,7 @@ const OPERATIVAS = {
       'Elige arriba el año de partida: 2026 enseña lo que hubo en 2026 y propone 2027.',
       'La lista va por fechas: de enero a diciembre, por la primera fecha de cada persona.',
       'Los nombres en rojo tienen fechas fijas: se colocan antes que nadie.',
+      'Pulsa una fecha subrayada para cambiarla. La propuesta sin guardar todavía no se puede cambiar.',
       'Pulsa <b>Guardar la propuesta</b> para llevarla al cuadrante del año siguiente.',
     ],
     notas: [
@@ -4114,6 +4334,7 @@ const OPERATIVAS = {
     pasos: [
       'La ficha se abre solo para mirar. Pulsa <b>Editar</b> para poder cambiarla, o <b>Nuevo</b> para dar de alta a otra persona.',
       'Elige su <b>Categoría</b>. Para añadir, renombrar, ordenar o quitar categorías, usa <b>Gestionar categorías</b>.',
+      'En <b>Alias</b> pon el nombre por el que se le conoce: es el que sale en todas las pantallas e impresiones. El completo se ve al pasar el ratón.',
       'Para fijar una fecha, escríbela en <b>Fechas preferidas</b> así: 01/07-15/07, y marca la casilla 📌.',
       'Termina con <b>Guardar</b>, o con <b>Cancelar</b> para dejarla como estaba.',
       'Pulsa <b>Salir</b> para volver a la lista.',
@@ -4158,7 +4379,7 @@ const OPERATIVAS = {
   },
   '#operativaPeticiones': {
     pasos: [
-      'Apunta quién pide, las fechas y el motivo, y pulsa <b>+ Añadir</b>. Queda pendiente.',
+      'Elige el planning, Tiendas o Ventas, apunta quién pide, las fechas y el motivo, y pulsa <b>+ Añadir</b>. Queda pendiente.',
       'Mira con quién se pisa. En rojo, lo más importante: misma unidad, parejas y fechas bloqueadas.',
       'La jefa de tienda decide <b>Aprobar</b> o <b>Rechazar</b>, con una nota si hace falta.',
       'Si hace falta sitio, pulsa <b>Cambiar sus fechas</b> o <b>Intercambiar fechas</b> con una compañera.',
