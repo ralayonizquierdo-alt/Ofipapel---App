@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 import { GwField, GwInput, GwWindow } from '../components/gw'
@@ -34,6 +34,24 @@ export function LoginPage() {
   const [olvide, setOlvide] = useState(false)
   const [captcha, setCaptcha] = useState<string | null>(null)
   const [vueltaCaptcha, setVueltaCaptcha] = useState(0)
+  // Al teclear un número de empleado, al lado sale el nombre de esa persona (como en GeminisWin).
+  const [nombreEmpleado, setNombreEmpleado] = useState('')
+  useEffect(() => {
+    const n = email.trim()
+    if (!/^\d{1,6}$/.test(n)) {
+      setNombreEmpleado('')
+      return
+    }
+    let vigente = true
+    const t = setTimeout(async () => {
+      const { data } = await supabase.rpc('fn_nombre_por_numero', { p_numero: n })
+      if (vigente) setNombreEmpleado(typeof data === 'string' ? data : '')
+    }, 250)
+    return () => {
+      vigente = false
+      clearTimeout(t)
+    }
+  }, [email])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -120,9 +138,18 @@ export function LoginPage() {
                 <ChevronLeft size={14} /> Cambiar
               </button>
             </div>
-            <GwField label="Nº de empleado o usuario">
-              <GwInput type="text" required autoFocus={!email} autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </GwField>
+            <div className="flex gap-2">
+              <div className="w-[130px] shrink-0">
+                <GwField label="Nº de empleado">
+                  <GwInput type="text" required autoFocus={!email} autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </GwField>
+              </div>
+              <div className="min-w-0 flex-1">
+                <GwField label="Nombre">
+                  <GwInput type="text" readOnly tabIndex={-1} value={nombreEmpleado} aria-label="Nombre del empleado" />
+                </GwField>
+              </div>
+            </div>
             <GwField label="Contraseña">
               <CampoClave required autoFocus={!!email} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </GwField>
