@@ -13,10 +13,21 @@ import { NoSoyRobot, SITE_KEY_TURNSTILE } from '../components/claves/NoSoyRobot'
 // Entrada: primero se elige el área (Gestión, Contabilidad, Web o AVATAR) y después la clave.
 // Seguridad (Luis, 01/11/2026): ojo para ver la clave, «¿Has olvidado la clave?», «No soy un robot»
 // (si está configurado) y bloqueo de 15 minutos tras 5 claves incorrectas (fn_acceso_bloqueo).
+// Cada terminal recuerda el último número de empleado (o usuario) que entró, para que ya salga
+// escrito. Solo el número: la contraseña nunca se guarda. Si el navegador no deja, se ignora.
+const CLAVE_ULTIMO_USUARIO = 'erp_ultimo_usuario'
+const ultimoUsuario = () => {
+  try {
+    return localStorage.getItem(CLAVE_ULTIMO_USUARIO) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export function LoginPage() {
   const { signIn } = useAuth()
   const [area, setArea] = useState<Area | null>(null)
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(ultimoUsuario)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -49,6 +60,12 @@ export function LoginPage() {
       // El «No soy un robot» vale una sola vez.
       setCaptcha(null)
       setVueltaCaptcha((n) => n + 1)
+    } else {
+      try {
+        localStorage.setItem(CLAVE_ULTIMO_USUARIO, email.trim())
+      } catch {
+        /* sin almacenamiento: no pasa nada */
+      }
     }
     setLoading(false)
   }
@@ -104,10 +121,10 @@ export function LoginPage() {
               </button>
             </div>
             <GwField label="Nº de empleado o usuario">
-              <GwInput type="text" required autoFocus autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <GwInput type="text" required autoFocus={!email} autoComplete="username" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} />
             </GwField>
             <GwField label="Contraseña">
-              <CampoClave required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <CampoClave required autoFocus={!!email} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </GwField>
             <button type="button" className="self-start text-[12px] text-[#1d3a8a] hover:underline" onClick={() => setOlvide(true)}>
               ¿Has olvidado la clave?
