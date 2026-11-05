@@ -17,7 +17,7 @@ export interface Tarea {
   prioridad: 'alta' | 'normal' | 'baja'
 }
 
-const CADA_MS = 5 * 60 * 1000
+const CADA_MS = 10 * 60 * 1000 // antes 5 min
 const ORDEN = { alta: 0, normal: 1, baja: 2 }
 
 /** Nombre corto del empleado conectado, como se usa en «Le toca a…» (Luis, Rober, David…). */

@@ -132,7 +132,8 @@ export function fmtFecha(iso: string | null | undefined) {
 
 // ---- Carga con refresco automático ---------------------------------------------------------
 
-export const REFRESCO_MS = 3 * 60 * 1000
+// Cada 10 min (antes 3): refrescar menos veces alivia la base de datos; hay botón para recargar al momento.
+export const REFRESCO_MS = 10 * 60 * 1000
 
 export function usePanelData(tienda: string, periodo: Periodo) {
   const [data, setData] = useState<PanelData | null>(null)

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
-const CADA_MS = 5 * 60 * 1000
+const CADA_MS = 10 * 60 * 1000 // antes 5 min
 
 export function AvisoDevoluciones() {
   const navigate = useNavigate()
