@@ -1,9 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../lib/AuthContext'
 import { GwField, GwInput, GwWindow } from '../components/gw'
-import { AREAS, SelectorArea } from '../components/shell/SelectorArea'
-import { fijarArea, ultimaArea, type Area } from '../lib/areaTrabajo'
+import { AREAS } from '../components/shell/SelectorArea'
+import { fijarArea, type Area } from '../lib/areaTrabajo'
 import { supabase } from '../lib/supabase'
 import { correoDeUsuario } from '../lib/claves'
 import { CampoClave } from '../components/claves/CampoClave'
@@ -26,7 +25,7 @@ const ultimoUsuario = () => {
 
 export function LoginPage() {
   const { signIn } = useAuth()
-  const [area, setArea] = useState<Area | null>(null)
+  const [area, setArea] = useState<Area>('avatar')
   const [email, setEmail] = useState(ultimoUsuario)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -97,17 +96,9 @@ export function LoginPage() {
     />
   )
 
-  if (!area)
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--gw-mdi)] p-4">
-        <div className="rounded-lg bg-white/90 px-6 py-2 shadow-sm">{logo}</div>
-        <div className="text-[15px] font-bold text-[#1d3a8a]">¿Dónde quieres entrar?</div>
-        <SelectorArea onElegir={setArea} marcada={ultimaArea()} />
-      </div>
-    )
-
-  const a = AREAS.find((x) => x.id === area)!
-  const Icono = a.icono
+  // Los tres cuadros de área van dentro de la misma ventana: Contabilidad a la izquierda, Gestión en
+  // el medio (marcado por defecto) y Web a la derecha.
+  const CUADROS: Area[] = ['contabilidad', 'avatar', 'web']
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--gw-mdi)] p-4">
       <GwWindow title="Cambiar Empleado" className="w-[480px] max-w-full">
@@ -127,16 +118,30 @@ export function LoginPage() {
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-2 p-1">
             {logo}
-            <div className="flex items-center gap-2 rounded border-2 px-2 py-1" style={{ background: a.fondo, borderColor: a.borde, color: a.color }}>
-              {a.id === 'avatar' ? (
-                <img src={`${import.meta.env.BASE_URL}marca/icono-64.png`} alt="" width={22} height={22} />
-              ) : (
-                <Icono size={22} aria-hidden />
-              )}
-              <b className="text-[15px]">Entrar en {a.id === 'avatar' ? 'Gestión · Avatar' : a.titulo}</b>
-              <button type="button" className="ml-auto flex items-center text-[12px] text-[#555] hover:underline" onClick={() => setArea(null)}>
-                <ChevronLeft size={14} /> Cambiar
-              </button>
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Dónde quieres entrar">
+              {CUADROS.map((id) => {
+                const ar = AREAS.find((x) => x.id === id)!
+                const Ico = ar.icono
+                const marcado = area === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={marcado}
+                    onClick={() => setArea(id)}
+                    className={`flex h-[76px] flex-col items-center justify-center gap-0.5 rounded-lg border-2 transition ${marcado ? 'ring-2 ring-offset-1' : 'opacity-60 hover:opacity-100'}`}
+                    style={{ background: ar.fondo, borderColor: marcado ? ar.color : ar.borde, color: ar.color, ['--tw-ring-color' as string]: ar.color }}
+                  >
+                    {id === 'avatar' ? (
+                      <img src={`${import.meta.env.BASE_URL}marca/icono-64.png`} alt="" width={28} height={28} className="select-none" draggable={false} />
+                    ) : (
+                      <Ico size={28} strokeWidth={1.6} aria-hidden />
+                    )}
+                    <span className="text-[14px] font-bold leading-tight">{ar.titulo}</span>
+                  </button>
+                )
+              })}
             </div>
             <div className="flex gap-2">
               <div className="w-[150px] shrink-0">
@@ -151,7 +156,9 @@ export function LoginPage() {
               </div>
             </div>
             <GwField label="Contraseña">
-              <CampoClave required autoFocus={!!email} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <div className="w-[250px] max-w-full">
+                <CampoClave required autoFocus={!!email} autoComplete="current-password" className="!h-[52px] !text-[28px] !font-bold tracking-widest" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
             </GwField>
             <button type="button" className="self-start text-[12px] text-[#1d3a8a] hover:underline" onClick={() => setOlvide(true)}>
               ¿Has olvidado la clave?
@@ -169,7 +176,6 @@ export function LoginPage() {
                   setEmail('')
                   setPassword('')
                   setError(null)
-                  setArea(null)
                 }}
               >
                 Cancelar
