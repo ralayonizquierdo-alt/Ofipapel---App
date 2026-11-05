@@ -390,3 +390,18 @@ del hub completo o solo de la nueva app RR.SS. Manager (mensaje
 ambiguo). Actualizar `INVENTORY.md` con la entrada de RR.SS. Manager en
 cuanto se confirme su naturaleza (app externa en Vercel, sin código en
 este repo).
+
+### 2026-11-05 — Alquileres: resto pendiente, cuadro al pasar el ratón y Operativa
+
+**Resumen**: en Cobros, «Resto pdte.» pasa a ser lo que quedaba a final de cada
+mes, cambia el orden de columnas y se quita «Limpieza». Al pasar el ratón sale el
+cuadro con el formato del Excel de Luis. Todas las pantallas llevan Operativa
+(norma nueva en `CLAUDE.md`). Rama `fix/alquileres-resto-fin-de-mes`, sin fusionar.
+
+**Decisiones**: lo pendiente de Luis y de Rober se lleva en la página «Notas Luis
+y Rober» (https://claude.ai/artifact/R4h1K2RNYs9tLRnyp6wPyj).
+
+**Siguiente paso recomendado para la próxima sesión**: revisar la rama con datos
+reales; no usar «Ver y quitarla» en las 17 reservas del Arenal con limpieza hasta
+comprobar que su total lleva esos 40 €, porque varios totales del Arenal coinciden
+con el neto de SOC y el botón los dejaría cortos.

@@ -12,6 +12,8 @@ import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
 import { numSuelto } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_DASHBOARD } from '../lib/operativas'
 
 export default function Dashboard() {
   const { reservations, payments, apartments, repairs } = useData()
@@ -93,6 +95,7 @@ export default function Dashboard() {
         <h1 className="text-xl font-bold text-slate-800">Dashboard</h1>
         <p className="text-sm text-slate-500">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
       </div>
+      <Operativa titulo="Dashboard" reglas={OPERATIVA_DASHBOARD} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

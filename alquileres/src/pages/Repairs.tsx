@@ -8,6 +8,8 @@ import { auth } from '../lib/firebase'
 import Modal from '../components/ui/Modal'
 import PageHeader from '../components/ui/PageHeader'
 import { num, numSuelto } from '../lib/formato'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_REPARACIONES } from '../lib/operativas'
 
 const APT_ORDER = ['104', '105', '106', '203', '204', '402', 'P3', 'AP2B', 'JXXIII']
 
@@ -67,6 +69,7 @@ export default function Repairs() {
           </button>
         }
       />
+      <Operativa titulo="Reparaciones" reglas={OPERATIVA_REPARACIONES} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-5">

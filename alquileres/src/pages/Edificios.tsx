@@ -7,6 +7,8 @@ import { eur } from '../lib/formato'
 import { ORDEN_APARTAMENTOS } from '../lib/apartamentos'
 import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_EDIFICIOS } from '../lib/operativas'
 
 /**
  * Los edificios, de un vistazo.
@@ -452,6 +454,7 @@ export default function Edificios() {
           </div>
         }
       />
+      <Operativa titulo="Edificios" reglas={OPERATIVA_EDIFICIOS} />
 
       <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
         <svg viewBox="0 0 1240 700" className="w-full block" role="img"

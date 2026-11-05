@@ -4,7 +4,7 @@ import type { PriceEntry, ApartmentType, Season, OfferPrice, OfferTarifa } from 
 import { calcPrices, getApartmentType, tarifaDeOferta } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
-import { Pencil, Info, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Pencil, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { num, numSuelto } from '../lib/formato'
 import AplicarOferta from '../components/AplicarOferta'
@@ -163,16 +163,6 @@ export default function Prices() {
         }
       />
       <Operativa titulo="Precios" reglas={OPERATIVA_PRECIOS} />
-
-      <div className={`print:hidden bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3 ${
-        soloOferta ? 'hidden' : ''}`}>
-        <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
-        <div className="text-sm text-blue-700">
-          <strong>Reglas de precio:</strong> Vacacional incluye 40€ limpieza. Prolongaciones = precio_contratado ÷ días × días_extra.
-          Descuento 10% CON PAGO DE CONTADO para directos y VIP-B (desde 14/04/26). Canal inmobiliaria/Booking/Web = precio base +15% (limpieza no incluida, se cobra aparte).
-          DIRECTOS y VIP-B no se publican en web.
-        </div>
-      </div>
 
       {/* Year selector */}
       <div className={`print:hidden flex gap-4 mb-6 ${soloOferta ? 'hidden' : ''}`}>

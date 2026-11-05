@@ -5,6 +5,8 @@ import { ORIGEN_LABEL, type ImportLog, type OrigenSubida } from '../types'
 import { abreJustificante } from '../lib/justificantes'
 import { rolDe, usuarioActual } from '../lib/auth'
 import PageHeader from '../components/ui/PageHeader'
+import Operativa from '../components/Operativa'
+import { OPERATIVA_REGISTRO } from '../lib/operativas'
 
 /**
  * El registro de todo lo que ha entrado en la aplicación.
@@ -129,6 +131,7 @@ export default function Registro() {
           </div>
         }
       />
+      <Operativa titulo="Registro" reglas={OPERATIVA_REGISTRO} />
 
       {totales.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-5">

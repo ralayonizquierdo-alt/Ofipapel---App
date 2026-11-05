@@ -220,6 +220,11 @@ para tener contexto antes de tocar código.
   reconciliación, y criterio para cerrar o eliminar ramas. No lo dupliques
   aquí.
 - Nombres de commit descriptivos, en español, estilo `fix:`/`feat:` cuando aplica.
+- **Operativa en cada pantalla** (Luis, 5/11/2026): en Alquileres, Vacaciones y ERP,
+  toda regla de funcionamiento se ve en la «Operativa» de su pantalla, escueta y con
+  lo importante resaltado, para que cualquier operario sepa qué reglas sigue. Al crear
+  o cambiar una regla, se actualiza en el mismo cambio (en Alquileres,
+  `alquileres/src/lib/operativas.ts`).
 - **Publicación de Vacaciones** (Luis, 3/11/2026, como en la ERP): los cambios de
   `vacaciones.html` y `VACACIONES_REGLAS.md` se juntan en una rama y solo van a
   `main` con el «adelante» de Luis, tras repasarlos juntos; entonces Claude los
