@@ -776,6 +776,40 @@ function parseGrupoErikAlbaran(lineas){
   return filas;
 }
 
+// CARLOS WENDEL (Faber-Castell, Edding, Stabilo…; homologado el 07/11/2026 con
+// la factura F/13801 de 28/10/2026): «Línea Artículo Descripción Cantidad UD
+// Precio/UD Dto % Importe», p. ej. «8 09117500 LAPIZ GRUESO 873 BICOLOR 144 PIE
+// 0,90 25+5 92,34». El PDF trae la factura REPETIDA (5 copias) y puede tener
+// varios albaranes, cada uno con su numeración de línea desde 1: se toma cada
+// (albarán, nº de línea) una sola vez. La descripción puede seguir en la línea
+// de debajo («+ ACC.»). El precio viene impreso con 2 decimales aunque el real
+// tenga más (TEXTLINER 0,37 = 0,368): el importe es el del proveedor y el
+// precio no se toca. 112 líneas (2 albaranes) y suma 8.538,77 € = Total Factura.
+function parseCarlosWendel(lineas){
+  const filas = [];
+  const N = '\\d{1,3}(?:\\.\\d{3})*';
+  const RE = new RegExp('^(\\d{1,3})\\s+(\\S+)\\s+(.+?)\\s+(' + N + ')\\s+([A-Z]{2,4})\\s+(' + N + ',\\d{2,4})\\s+(\\d+(?:[.,]\\d+)?(?:\\+\\d+(?:[.,]\\d+)?)*)\\s+(-?' + N + ',\\d{2})$');
+  const vistas = new Set();
+  let albaran = '';
+  for(let i=0;i<lineas.length;i++){
+    const l = lineas[i].trim();
+    const a = l.match(/^Albaran:\s*(\S+)/i);
+    if(a){ albaran = a[1]; continue; }
+    const m = l.match(RE);
+    if(!m) continue;
+    const clave = albaran + '|' + m[1];
+    if(vistas.has(clave)) continue;
+    vistas.add(clave);
+    let desc = m[3].trim();
+    const sig = (lineas[i+1]||'').trim();
+    if(sig && !RE.test(sig) && sig.length <= 30 && !/^(Registro|PORTES|Factura|Albaran|Tipo Pedido|F \/|FACTURA|Condici|Descuento|%|Forma|Datos|Carlos|comerciales|SEDE|SUMINISTROS)/i.test(sig)) desc += ' ' + sig;
+    const dtos = m[7].split('+').map(x => parseFloat(x.replace(',', '.')) || 0);
+    filas.push(fila_({codigo:m[2], descripcion:desc, cantidad:parseInt(m[4].replace(/\./g,''),10),
+      precioUnitario:parseDecComa(m[6]), dto1:dtos[0]||0, dto2:dtos[1]||0, dto3:dtos[2]||0, importe:parseDecComa(m[8])}));
+  }
+  return filas;
+}
+
 // PRYSE: dos formatos distintos según el tipo de documento del mismo proveedor.
 // a) Factura: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
 // b) Presupuesto/Orden de venta: "CODIGO DESCRIPCION Pend,000 Entregada,000
@@ -1680,6 +1714,8 @@ const PERFILES_PROVEEDOR = [
     total: t => totalAcrilicosVallejo(t) },
   { id:'poessa', nombre:'POESSA (The Paper & Office Equipment Spain)', detectar: t => /The Paper & Office Equipment|A48221998/i.test(t), parser: parsePoessa,
     total: t => totalPoessa(t) },
+  { id:'carloswendel', nombre:'CARLOS WENDEL S.L.', detectar: t => /Carlos Wendel|B28044204/i.test(t), parser: parseCarlosWendel,
+    total: t => totalSimple(t, /EXENTO\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) ?? totalSimple(t, /Fecha Vencimiento:\s*\S+\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) },
   { id:'grupoerik', nombre:'GRUPO ERIK EDITORES S.L.', detectar: t => /Grupo\s+Erik\s+Editores|ESB18454090/i.test(t), parser: l => { const a = parseGrupoErik(l); return a.length ? a : parseGrupoErikAlbaran(l); },
     total: t => totalGrupoErik(t) ?? totalSimple(t, /Total B\.I\.\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) }
 ];
