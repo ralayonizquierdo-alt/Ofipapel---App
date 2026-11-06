@@ -271,7 +271,8 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
   {
     // components/CeldaDesglose.tsx, components/FichaCuadre.tsx
     que: 'Ver el cuadre de una estancia',
-    nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** para abrir la ficha, imprimirla o enviarla.',
+    nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
+      + 'abrir la ficha, imprimirla o enviarla a la agencia.',
   },
 ]
 

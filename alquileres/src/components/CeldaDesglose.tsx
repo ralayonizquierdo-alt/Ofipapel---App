@@ -6,6 +6,8 @@ import type { Reservation } from '../types'
 
 const ANCHO = 580
 const MARGEN = 8
+/** Lo que espera el recuadro antes de cerrarse: da tiempo a llevar el ratón hasta él. */
+const ESPERA_CIERRE = 350
 
 /**
  * Una celda de la tabla de Cobros que, al pasar el ratón, enseña el cuadro de la
@@ -14,6 +16,12 @@ const MARGEN = 8
  * Antes era un `title`, que solo admite texto suelto. Lleva su propio estado para
  * que pasar el ratón no vuelva a pintar la tabla entera, y el recuadro va en un
  * portal porque dentro de la tabla, que desplaza por dentro, saldría cortado.
+ *
+ * El recuadro también se pincha (Luis, 06/11/2026: «no se queda quieto y no puedo
+ * pinchar»): se cerraba al salir de la celda, y entre ella y el recuadro hay un
+ * hueco. Ahora espera un momento antes de cerrarse, se queda abierto mientras el
+ * ratón está encima, y pincharlo abre la ficha igual que la celda: el clic sube
+ * por el portal hasta el `onClick` de la celda.
  */
 export default function CeldaDesglose({ reserva, onClick, className, children }: {
   reserva: Reservation
@@ -22,6 +30,16 @@ export default function CeldaDesglose({ reserva, onClick, className, children }:
   children: ReactNode
 }) {
   const [ancla, setAncla] = useState<DOMRect | null>(null)
+  const cierre = useRef<number | undefined>(undefined)
+
+  const abrir = (celda: HTMLElement) => {
+    window.clearTimeout(cierre.current)
+    setAncla(a => a ?? celda.getBoundingClientRect())
+  }
+  const cerrarEnUnMomento = () => {
+    window.clearTimeout(cierre.current)
+    cierre.current = window.setTimeout(() => setAncla(null), ESPERA_CIERRE)
+  }
 
   // Al desplazar, la celda se va de debajo del ratón sin que salte mouseleave.
   useEffect(() => {
@@ -31,11 +49,13 @@ export default function CeldaDesglose({ reserva, onClick, className, children }:
     return () => window.removeEventListener('scroll', cerrar, true)
   }, [ancla])
 
+  useEffect(() => () => window.clearTimeout(cierre.current), [])
+
   return (
     <td className={className}
-      onClick={() => { setAncla(null); onClick() }}
-      onMouseEnter={e => setAncla(e.currentTarget.getBoundingClientRect())}
-      onMouseLeave={() => setAncla(null)}>
+      onClick={() => { window.clearTimeout(cierre.current); setAncla(null); onClick() }}
+      onMouseEnter={e => abrir(e.currentTarget)}
+      onMouseLeave={cerrarEnUnMomento}>
       {children}
       {ancla && createPortal(<Recuadro reserva={reserva} ancla={ancla} />, document.body)}
     </td>
@@ -60,9 +80,9 @@ function Recuadro({ reserva, ancla }: { reserva: Reservation; ancla: DOMRect }) 
 
   return (
     <div ref={caja} translate="no" style={{ width: ANCHO, top: 0, left: 0 }}
-      className="fixed z-[60] pointer-events-none bg-white rounded-lg border border-slate-300 shadow-xl p-2 space-y-2 print:hidden">
+      className="fixed z-[60] cursor-pointer bg-white rounded-lg border border-slate-300 shadow-xl p-2 space-y-2 hover:border-blue-400 print:hidden">
       <CuadroEstancia cuadre={cuadre} compacto />
-      <p className="text-[10px] text-slate-400 text-right">Pincha para abrir la ficha, imprimirla o enviarla</p>
+      <p className="text-xs text-blue-700 text-right font-medium">Pincha aquí para abrir la ficha, imprimirla o enviarla a la agencia</p>
     </div>
   )
 }
