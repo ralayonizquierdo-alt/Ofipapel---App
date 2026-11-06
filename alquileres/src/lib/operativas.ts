@@ -46,10 +46,11 @@ const LIMPIEZA: ReglaOperativa = {
     + 'Arenal la cobra Airbnb y se la queda la gestora.',
 }
 
-// lib/dateUtils.ts — getSeason()
+// lib/dateUtils.ts — getSeason(); lib/priceCalc.ts — buscaTarifa()
 const TEMPORADA: ReglaOperativa = {
-  que: 'Temporada',
-  formula: 'la de la fecha de ENTRADA, igual que el tramo y la oferta',
+  que: 'Temporada y año de la tarifa',
+  formula: 'los de la fecha de ENTRADA, igual que el tramo y la oferta',
+  nota: 'Se usa la tarifa **del año de entrada**; solo si ese año aún no tiene tarifa, la del año siguiente.',
 }
 
 // lib/cuentas.ts — comisionDe()
