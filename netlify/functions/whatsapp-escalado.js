@@ -11,6 +11,7 @@
 // simuladores para añadir una función.
 
 const { isWithinBusinessHours, STORES } = require('./whatsapp-agent-config');
+const { paraWhatsapp } = require('./whatsapp-formato');
 
 const GRAPH_API_VERSION = 'v20.0';
 
@@ -44,7 +45,7 @@ async function sendEscalateButtons(to, greetingPrefix = '', idioma = 'es') {
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text: greetingPrefix + escalateQuestion(idioma) },
+        body: { text: paraWhatsapp(greetingPrefix + escalateQuestion(idioma)) },
         action: {
           buttons: [
             { type: 'reply', reply: { id: 'escalate_yes', title: idioma === 'en' ? '✅ Yes' : '✅ Sí' } },

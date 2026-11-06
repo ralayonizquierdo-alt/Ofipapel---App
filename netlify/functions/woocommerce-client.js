@@ -64,8 +64,27 @@ function cabeceras(auth) {
   return headers;
 }
 
-async function wcRequest(path, timeoutMs = WC_TIMEOUT_MS) {
-  if (!isConfigured()) return null;
+// NO ES LO MISMO «NO EXISTE» QUE «NO HE PODIDO MIRARLO».
+//
+// Esta función devolvía `null` en cinco situaciones distintas: sin claves, con
+// cualquier error HTTP (incluido el 404 de un pedido que de verdad no está, y
+// el 401 de unas claves caducadas), con la pantalla anti-bots del hosting, al
+// agotarse el tiempo y ante cualquier fallo de red. Quien la llamaba no podía
+// distinguirlas.
+//
+// Y una sí importa, mucho. Visto en real el 6/11/2026: un cliente dio su número
+// de pedido y se le contestó «I can't find any order with the number 674885».
+// Eso solo es cierto si la web ha dicho que no existe; si la consulta falló, es
+// mentira — y de las caras: el cliente se queda pensando que su pedido no
+// consta en ninguna parte.
+//
+// Así que el motivo viaja con el resultado. `wcRequest` sigue devolviendo lo de
+// siempre para los veintitantos sitios que la usan; quien necesite el porqué
+// pide `wcRequestDetallado`.
+const MOTIVO = { OK: 'ok', NO_EXISTE: 'no-existe', NO_SE_PUDO: 'no-se-pudo' };
+
+async function wcRequestDetallado(path, timeoutMs = WC_TIMEOUT_MS) {
+  if (!isConfigured()) return { data: null, motivo: MOTIVO.NO_SE_PUDO };
   const auth = Buffer.from(
     `${process.env.WOOCOMMERCE_CONSUMER_KEY}:${process.env.WOOCOMMERCE_CONSUMER_SECRET}`
   ).toString('base64');
@@ -77,7 +96,9 @@ async function wcRequest(path, timeoutMs = WC_TIMEOUT_MS) {
     });
     if (!resp.ok) {
       console.error('Error de WooCommerce API:', resp.status, await resp.text());
-      return null;
+      // Un 404 es la web diciendo «eso no está», y es la ÚNICA respuesta con la
+      // que se le puede decir a un cliente que su pedido no existe.
+      return { data: null, motivo: resp.status === 404 ? MOTIVO.NO_EXISTE : MOTIVO.NO_SE_PUDO };
     }
 
     // Un 200 con HTML no es una respuesta de la API: es la pantalla de "One
@@ -90,14 +111,20 @@ async function wcRequest(path, timeoutMs = WC_TIMEOUT_MS) {
         `WooCommerce devolvió "${tipo}" en vez de JSON: la protección anti-bots de ofipapel.net ` +
           'nos ha bloqueado (ver WHATSAPP_SETUP.md, "Cuando ofipapel.net nos bloquea").'
       );
-      return null;
+      return { data: null, motivo: MOTIVO.NO_SE_PUDO };
     }
 
-    return await resp.json();
+    return { data: await resp.json(), motivo: MOTIVO.OK };
   } catch (err) {
     console.error('Fallo llamando a WooCommerce:', err.name === 'TimeoutError' ? `tiempo agotado (${timeoutMs} ms)` : err);
-    return null;
+    return { data: null, motivo: MOTIVO.NO_SE_PUDO };
   }
+}
+
+// La de siempre, para todo lo demás: devuelve los datos o null, sin el motivo.
+async function wcRequest(path, timeoutMs = WC_TIMEOUT_MS) {
+  const { data } = await wcRequestDetallado(path, timeoutMs);
+  return data;
 }
 
 // Palabras que diluyen la búsqueda de WordPress (que no es muy tolerante con frases
@@ -802,6 +829,15 @@ async function getOrder(orderId) {
   return wcRequest(`/orders/${encodeURIComponent(orderId)}`);
 }
 
+// El pedido Y el motivo, para el único sitio donde la diferencia se le dice al
+// cliente: `{ order, motivo }` con motivo 'ok', 'no-existe' o 'no-se-pudo'.
+// Decirle «no existe» a quien tiene el pedido delante es peor que decirle que
+// ahora mismo no se puede comprobar.
+async function getOrderConMotivo(orderId) {
+  const { data, motivo } = await wcRequestDetallado(`/orders/${encodeURIComponent(orderId)}`);
+  return { order: data, motivo };
+}
+
 // URL pública de la página de una categoría en la web (comprobado contra la
 // estructura real de ofipapel.net — no viene en la respuesta de la API).
 function categoryUrl(slug) {
@@ -1056,6 +1092,8 @@ module.exports = {
   usarTiemposLargos,
   searchCategories,
   getOrder,
+  getOrderConMotivo,
+  MOTIVO,
   urlDeBusqueda,
   phoneMatches,
   nombreCoincide,
