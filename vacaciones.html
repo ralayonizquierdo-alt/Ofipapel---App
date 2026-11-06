@@ -56,6 +56,7 @@ header select, header button{
 }
 header button.secondary{background:rgba(255,255,255,.15);color:#fff;}
 header button:hover{filter:brightness(0.96);}
+@media (max-width:1320px){ header{gap:3px;} header select, header button{padding:5px 5px;font-size:.68rem;} header h1{font-size:.84rem;} } /* que la cabecera quepa en una línea también en pantallas de 1280 */
 #floatingToggles{position:fixed;top:4px;right:4px;z-index:30;display:flex;gap:4px;}
 #floatingToggles button{
   background:var(--verde);color:#fff;border:none;border-radius:7px;
@@ -1739,8 +1740,8 @@ function festivoCarriers(emp, y){
   }
   return out;
 }
-/* Fin de un permiso o baja: una baja sin alta sigue abierta. */
-function permEnd(p){ return p.end || '9999-12-31'; }
+/* Una baja sin alta se da por abierta hasta fin del año en curso: no bloquea el reparto de los años siguientes. */
+function permEnd(p){ return p.end || (Math.max(new Date().getFullYear(), +p.start.slice(0,4)))+'-12-31'; }
 function esBaja(p){ return p.tipo==='baja'; }
 function getOnLeaveItems(dateVal){
   const items = [];
@@ -3688,6 +3689,7 @@ document.getElementById('btnAddHoliday').onclick = ()=> openFestivoEditor(null);
    alguien que esté de vacaciones ese día. Lo ya asignado no se toca. */
 function esAliz1(tienda){ return String(tienda||'').toLowerCase().replace(/[^a-z0-9]/g,'')==='aliz1'; }
 function repartirFestivos(y){
+  ensureYearFestivos(y); // que estén todos los festivos del año aunque no se haya abierto aún la pantalla
   const pool = EMPLOYEES.filter(e=>e.active!==false && e.haceFestivos);
   if(!pool.length) return {sinPersonal:true, rellenados:0, faltan:0};
   const cuenta = {};
@@ -3748,7 +3750,20 @@ function festivosDe(empId, y){
   return state.holidaysWorked.filter(h=>h.date.startsWith(y+'-') && !h.laborable && (h.empIds||[]).includes(empId))
     .sort((a,b)=>a.date.localeCompare(b.date));
 }
-function festivosPendientes(empId, y){ return festivosDe(empId, y).filter(h=>!(h.comp||{})[empId]); }
+/* Estado de cada festivo trabajado: «libre» (día libre apuntado en Permisos), «otro» (compensado en Festivos),
+   «vacaciones» (ya va dentro de sus turnos: tiene puestos más días que los de su ficha) o «pendiente». */
+function estadoFestivos(empId, y){
+  const emp = EMPLOYEES.find(e=>e.id===empId);
+  const dePeriodos = periodsOfYear(empId, y).reduce((t,p)=>t+isoToIndex(y,p.end)-isoToIndex(y,p.start)+1, 0);
+  let enTurnos = emp ? Math.max(0, dePeriodos - emp.daysPerYear) : 0;
+  return festivosDe(empId, y).map(h=>{
+    const c = (h.comp||{})[empId];
+    if(c) return {h, c, estado: c.permisoId ? 'libre' : 'otro'};
+    if(enTurnos>0){ enTurnos--; return {h, c:null, estado:'vacaciones'}; }
+    return {h, c:null, estado:'pendiente'};
+  });
+}
+function festivosPendientes(empId, y){ return estadoFestivos(empId, y).filter(x=>x.estado==='pendiente').map(x=>x.h); }
 function pzEmpleados(){
   const pl = document.getElementById('pmzFPlanning').value;
   return EMPLOYEES.filter(e=>e.active!==false && (!pl || PLANNINGS[pl].unitIds.includes(e.unitId)))
@@ -3890,7 +3905,7 @@ function pzFestivosFilas(){
   for(const e of pzEmpleados().filter(e=>!emp || e.id===emp)){
     for(const h of festivosDe(e.id, y)){
       const c = (h.comp||{})[e.id];
-      filas.push({e, h, c, estado: !c ? 'pendiente' : c.permisoId ? 'libre' : 'otro'});
+      filas.push({e, h, c, estado: (estadoFestivos(e.id, y).find(x=>x.h===h)||{}).estado || 'pendiente'});
     }
   }
   return filas.sort((a,b)=> a.h.date.localeCompare(b.h.date) || empLabel(a.e).localeCompare(empLabel(b.e),'es'));
@@ -3920,8 +3935,8 @@ function renderPermisos(soloLista){
   let html = '';
   if(pzTab==='festivo'){
     const filas = pzFestivosFilas();
-    resumen.textContent = filas.length ? `${filas.length} festivo${filas.length===1?'':'s'} trabajado${filas.length===1?'':'s'} · ${filas.filter(f=>f.estado==='pendiente').length} sin disfrutar` : '';
-    html = filas.length ? tabla(['Persona','Festivo','Fecha','Estado','Día libre'], filas.map(f=>`<tr>${td(nom(f.e),'lv-name')}${td(escapeHtml(f.h.festividad),'pz-l')}${td(dmy(f.h.date))}${td(f.estado==='pendiente'?'<span style="color:#b26a00;font-weight:600;">Pendiente</span>':f.estado==='libre'?'<span style="color:#1E6B3A;font-weight:600;">Disfrutado</span>':'<span style="color:#1E6B3A;font-weight:600;">Compensado</span>')}${td(f.estado==='libre'?dmy(f.c.fecha):'')}${td(f.estado==='libre'?borra(f.c.permisoId):'')}</tr>`).join(''))
+    resumen.textContent = filas.length ? `${filas.length} festivo${filas.length===1?'':'s'} trabajado${filas.length===1?'':'s'} · ${filas.filter(f=>f.estado==='pendiente').length} sin disfrutar · ${filas.filter(f=>f.estado==='vacaciones').length} dentro de sus vacaciones` : '';
+    html = filas.length ? tabla(['Persona','Festivo','Fecha','Estado','Día libre'], filas.map(f=>`<tr>${td(nom(f.e),'lv-name')}${td(escapeHtml(f.h.festividad),'pz-l')}${td(dmy(f.h.date))}${td(f.estado==='pendiente'?'<span style="color:#b26a00;font-weight:600;">Pendiente</span>':f.estado==='libre'?'<span style="color:#1E6B3A;font-weight:600;">Disfrutado</span>':f.estado==='vacaciones'?'<span style="color:#1E6B3A;font-weight:600;">En sus vacaciones</span>':'<span style="color:#1E6B3A;font-weight:600;">Compensado</span>')}${td(f.estado==='libre'?dmy(f.c.fecha):'')}${td(f.estado==='libre'?borra(f.c.permisoId):'')}</tr>`).join(''))
       : `<p style="font-size:.78rem;color:var(--texto2);">Nadie ha trabajado festivos en ${y} con estos filtros.</p>`;
   } else if(pzTab==='revision'){
     const lista = pzFiltrados('revision');
@@ -3969,7 +3984,7 @@ function permisosTablaHtml(){
   const nom = id=> escapeHtml(empLabel(EMPLOYEES.find(e=>e.id===id)||{name:'?'}));
   if(pzTab==='festivo'){
     const filas = pzFestivosFilas();
-    return `<table class="lv-table">${th(['Persona','Festivo','Fecha','Estado','Día libre'])}<tbody>${filas.map(f=>`<tr><td class="lv-name">${escapeHtml(empLabel(f.e))}</td><td style="border:1px solid #777;">${escapeHtml(f.h.festividad)}</td><td class="lv-c">${dmy(f.h.date)}</td><td class="lv-c">${f.estado==='pendiente'?'Pendiente':f.estado==='libre'?'Disfrutado':'Compensado'}</td><td class="lv-c">${f.estado==='libre'?dmy(f.c.fecha):''}</td></tr>`).join('')}</tbody></table>`;
+    return `<table class="lv-table">${th(['Persona','Festivo','Fecha','Estado','Día libre'])}<tbody>${filas.map(f=>`<tr><td class="lv-name">${escapeHtml(empLabel(f.e))}</td><td style="border:1px solid #777;">${escapeHtml(f.h.festividad)}</td><td class="lv-c">${dmy(f.h.date)}</td><td class="lv-c">${f.estado==='pendiente'?'Pendiente':f.estado==='libre'?'Disfrutado':f.estado==='vacaciones'?'En sus vacaciones':'Compensado'}</td><td class="lv-c">${f.estado==='libre'?dmy(f.c.fecha):''}</td></tr>`).join('')}</tbody></table>`;
   }
   if(pzTab==='revision'){
     const lista = pzFiltrados('revision');
@@ -4869,6 +4884,7 @@ document.getElementById('cambiosClose').onclick = ()=> closeModal('cambiosOverla
    Vigilante de errores e incongruencias del año y planning que se ven: se calcula solo cada vez, como una lista
    de notas, y cada nota desaparece en cuanto se corrige. Cada una lleva un botón para ir a arreglarla. */
 function revisarItems(){
+  ensureYearFestivos(state.year);
   const y = state.year, n = daysInYear(y), items = [];
   const emps = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e));
   const dm = d=> d.slice(8,10)+'/'+d.slice(5,7);
@@ -4877,7 +4893,7 @@ function revisarItems(){
     for(const e of emps){
       const used = diasUsados(e.id, y);
       const toca = effectiveDaysPerYear(e);
-      if(!used) items.push({cat:'Días de vacaciones', texto:`${empLabel(e)} no tiene vacaciones puestas en ${y} (le tocan ${toca}).`, ir:'persona', emp:e});
+      if(!used) items.push({cat:'Días de vacaciones', texto: e.pideFechas ? `${empLabel(e)} pide sus fechas y aún no tiene vacaciones puestas en ${y} (le tocan ${toca}).` : `${empLabel(e)} no tiene vacaciones puestas en ${y} (le tocan ${toca}).`, ir:'persona', emp:e});
       else if(used!==toca) items.push({cat:'Días de vacaciones', texto:`${empLabel(e)} tiene ${used} días de ${toca}: ${used>toca?'sobran':'faltan'} ${Math.abs(used-toca)}.`, ir:'persona', emp:e});
     }
   }
@@ -5071,6 +5087,7 @@ const OPERATIVAS = {
     ],
     notas: [
       'Un <b>día por festivo</b> cuenta como uno de sus días de vacaciones y marca ese festivo como compensado en Festivos. Si se borra, el festivo vuelve a quedar pendiente.',
+      'Si sus turnos ya llevan más días que los de su ficha (16 + 16), ese festivo sale como <b>En sus vacaciones</b>: ya lo disfruta en un turno y no hace falta día libre.',
       'Las <b>revisiones médicas</b> no descuentan días ni cuentan para la cobertura: son solo un registro de cuántas pide cada uno.',
       'Una <b>baja</b> sale en gris en el planning, no gasta vacaciones y cuenta para la cobertura. Avisa si pisa sus vacaciones o si le toca turno de sábado.',
       'Una baja sin alta cuenta sus días hasta hoy. Arriba, «De baja hoy» dice cuántas hay abiertas.',
