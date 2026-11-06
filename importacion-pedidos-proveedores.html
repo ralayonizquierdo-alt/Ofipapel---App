@@ -153,10 +153,10 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button type="button" class="btn btn-secundario" id="btnProbarOcr" onclick="probarConOcr()">🔍 Probar con OCR</button>
       <div id="ocrProgreso" class="estado" style="margin-top:8px;"></div>
     </div>
-    <div id="iaOfrecido" style="display:none;margin-top:10px;padding:12px 14px;border:1px dashed var(--borde);border-radius:10px;">
-      <div style="font-size:12.5px;color:var(--texto2);margin-bottom:8px;">¿No sale bien o el proveedor no está homologado? <b>Léela con IA</b> (cualquier proveedor; menos fiable que uno homologado: revisa las líneas marcadas y el total) o <b>mándala para homologar</b> el proveedor.</div>
-      <button type="button" class="btn btn-secundario" onclick="leerFacturaConIA()">🤖 Leer con IA</button>
-      <button type="button" class="btn btn-secundario" onclick="enviarParaHomologar()">📤 Enviar para homologar</button>
+    <div id="iaOfrecido" style="margin-top:10px;padding:12px 14px;border:1px dashed var(--borde);border-radius:10px;">
+      <div style="font-size:12.5px;color:var(--texto2);margin-bottom:8px;">Se encienden solo si la factura <b>no cuadra</b>: <b>léela con IA</b> o <b>mándala para homologar</b>.</div>
+      <button type="button" class="btn btn-secundario" id="btnLeerIA" onclick="leerFacturaConIA()" disabled style="opacity:.4">🤖 Leer con IA</button>
+      <button type="button" class="btn btn-secundario" id="btnHomologar" onclick="enviarParaHomologar()" disabled style="opacity:.4">📤 Enviar para homologar</button>
       <div id="iaProgreso" class="estado" style="margin-top:8px;"></div>
     </div>
     <div class="campo" style="margin:14px 0 0;max-width:420px;">
@@ -1935,7 +1935,15 @@ function resetDropzone(){
   ultimoFueOCR = false;
   document.getElementById('ocrOfrecido').style.display = 'none';
   document.getElementById('ocrProgreso').textContent = '';
-  document.getElementById('iaOfrecido').style.display = 'none';
+  activarIA(false);
+}
+/** «Leer con IA» y «Enviar para homologar»: siempre a la vista, pero apagados
+ *  salvo que la factura NO cuadre (o no se haya podido leer). 07/11/2026. */
+function activarIA(on){
+  for(const id of ['btnLeerIA','btnHomologar']){
+    const b = document.getElementById(id);
+    if(b){ b.disabled = !on; b.style.opacity = on ? '' : '.4'; }
+  }
 }
 
 // Texto/líneas de la última factura leída, para poder reprocesarla si el
@@ -1964,7 +1972,7 @@ async function onPdfSelected(file){
   document.getElementById('dzAcciones').style.display = 'flex';
   document.getElementById('ocrOfrecido').style.display = 'none';
   document.getElementById('ocrProgreso').textContent = '';
-  document.getElementById('iaOfrecido').style.display = 'block';
+  activarIA(false);
   document.getElementById('iaProgreso').textContent = '';
   mostrarEstado('warn', 'Leyendo PDF…');
   try{
@@ -2005,6 +2013,7 @@ async function onPdfSelected(file){
     procesarFacturaConPerfil(lineasParaParsear, textoParaParsear, perfil);
   }catch(err){
     mostrarEstado('err', 'Error al procesar el PDF: ' + err.message);
+    activarIA(true);
   }
 }
 
@@ -2018,7 +2027,7 @@ async function onExcelSelected(file){
   document.getElementById('dzTitulo').textContent = '📊 ' + file.name;
   document.getElementById('dzAcciones').style.display = 'flex';
   document.getElementById('ocrOfrecido').style.display = 'none';
-  document.getElementById('iaOfrecido').style.display = 'none';
+  activarIA(false);
   document.getElementById('notasFactura').style.display = 'none';
   if(!window.ControlPedidos){ mostrarEstado('err', 'No se ha podido cargar el lector de Excel. Recarga la página.'); return; }
   mostrarEstado('warn', 'Leyendo Excel…');
@@ -2177,6 +2186,7 @@ function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
   const filasParseadas = parserAUsar(lineas);
 
   if(!filasParseadas.length){
+    activarIA(Boolean(ultimoArchivoPDF));
     const pista = (perfil && perfilSeleccionadoId && perfilSeleccionadoId!=='otro')
       ? ' Revisa que has seleccionado el proveedor correcto en el desplegable.'
       : '';
@@ -2352,10 +2362,12 @@ function mostrarModalVerificacion({ perfil, lineas, sumaCalculada, totalFactura,
   const fmt = v => v.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
   let banner;
   if(totalFactura === null){
+    activarIA(true);
     banner = `<div class="modal-banner warn">⚠️ No se ha podido leer el total de la propia factura para comparar (proveedor sin perfil, o formato no reconocido). Revisa el total a mano antes de exportar.</div>`;
   } else {
     const diff = Math.round((sumaCalculada - totalFactura) * 100) / 100;
     const tolerancia = Math.max(0.05, totalFactura * 0.01);
+    activarIA(Math.abs(diff) > tolerancia || Boolean(viaOCR));
     if(Math.abs(diff) <= tolerancia){
       banner = `<div class="modal-banner ok">👍🏽 Todo cuadra: la suma calculada coincide con el total de la factura.</div>`;
     } else {
