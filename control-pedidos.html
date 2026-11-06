@@ -2113,10 +2113,12 @@ function aplicarExpositor(expositor, piezas, parcial) {
 /** Si la propuesta trae algo que otro cliente tiene pendiente en restos, se avisa. */
 function avisoRestosEnPropuesta(p) {
   if (!p.propuesta) return '';
-  const refs = new Set(p.propuesta.lineas.map((l) => CP.claveRef(l.ref)));
+  // Solo lo que este pedido NO pidió: si lo pidió, es suyo (6/11/2026: el aviso confundía).
+  const pedidas = new Set((p.lineas || []).map((l) => CP.claveRef(l.ref)));
+  const refs = new Set(p.propuesta.lineas.map((l) => CP.claveRef(l.ref)).filter((k) => !pedidas.has(k)));
   const r = E.restos.filter((x) => x.pendiente > 0 && !x.anulado && x.pedidoId !== p.id && x.proveedor === p.proveedor && refs.has(CP.claveRef(x.ref)));
   if (!r.length) return '';
-  return `<div class="aviso-caja info"><b>Esta propuesta trae artículos que están en restos de otros clientes:</b><br>${r.map((x) =>
+  return `<div class="aviso-caja info"><b>Viene algo que este cliente no pidió y que esperan otros clientes en Restos:</b><br>${r.map((x) =>
     `${h(x.ref)} ${h(x.desc)} — ${x.pendiente} ud. de <b>${h(x.cliente)}</b> (pedido ${h(x.numero)}, ${h(fmtFecha(x.fecha))})`).join('<br>')}
     <br></div>`;
 }
