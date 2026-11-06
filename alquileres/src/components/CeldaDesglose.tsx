@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useCuadreEstancia } from '../lib/cuadreEstancia'
+import { useNavigate } from 'react-router-dom'
+import { useCuadreEstancia, rutaDeTarifa } from '../lib/cuadreEstancia'
 import CuadroEstancia from './CuadroEstancia'
 import type { Reservation } from '../types'
 
@@ -65,6 +66,9 @@ export default function CeldaDesglose({ reserva, onClick, className, children }:
 function Recuadro({ reserva, ancla }: { reserva: Reservation; ancla: DOMRect }) {
   const cuadre = useCuadreEstancia(reserva)
   const caja = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  // La tarifa, también aquí, lleva a Precios: es lo primero que se pincha.
+  const irATarifa = cuadre.tarifa ? () => navigate(rutaDeTarifa(cuadre.tarifa!)) : undefined
 
   // A la derecha de la celda si cabe; si no, a su izquierda. De alto, pegado a
   // la celda sin salirse de la ventana: su altura depende de los meses.
@@ -81,8 +85,10 @@ function Recuadro({ reserva, ancla }: { reserva: Reservation; ancla: DOMRect }) 
   return (
     <div ref={caja} translate="no" style={{ width: ANCHO, top: 0, left: 0 }}
       className="fixed z-[60] cursor-pointer bg-white rounded-lg border border-slate-300 shadow-xl p-2 space-y-2 hover:border-blue-400 print:hidden">
-      <CuadroEstancia cuadre={cuadre} compacto />
-      <p className="text-xs text-blue-700 text-right font-medium">Pincha aquí para abrir la ficha, imprimirla o enviarla a la agencia</p>
+      <CuadroEstancia cuadre={cuadre} compacto onTarifa={irATarifa} />
+      <p className="text-xs text-blue-700 text-right font-medium">
+        Pincha la tarifa para ir a Precios, o el resto del recuadro para abrir la ficha e imprimirla o enviarla a la agencia
+      </p>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { Printer, Mail, Pencil, ListFilter } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useCuadreEstancia } from '../lib/cuadreEstancia'
+import { useCuadreEstancia, rutaDeTarifa } from '../lib/cuadreEstancia'
 import { formatDate } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import Modal from './ui/Modal'
@@ -91,6 +91,16 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
     ].join('\n')
   }
 
+  /**
+   * Lleva a Precios con la tarifa que se ha aplicado ya a la vista: el año de esa
+   * tarifa y su fila marcada, o la oferta si fue una oferta.
+   */
+  function irATarifa() {
+    if (!tarifa) return
+    onClose()
+    navigate(rutaDeTarifa(tarifa))
+  }
+
   function porCorreo() {
     const asunto = `Cuadre de estancia — ${nombre}, ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`
     // Con un enlace, no tocando `window.location`: es el mismo apaño que usa
@@ -105,7 +115,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
       {/* `solo-esto-al-imprimir`: al imprimir sale esta ficha sola, sin la
           pantalla de Cobros que tiene detrás (ver index.css). */}
       <div className="space-y-4 solo-esto-al-imprimir" translate="no">
-        <CuadroEstancia cuadre={cuadre} />
+        <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} />
 
         {/* Solo en el papel: el pie del recibo que se manda a la agencia. */}
         <p className="hidden print:!block text-xs text-slate-500 border-t border-slate-200 pt-2">

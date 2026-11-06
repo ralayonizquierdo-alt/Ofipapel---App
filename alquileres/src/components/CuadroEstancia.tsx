@@ -12,9 +12,11 @@ const dec = (n: number) => num(n, 2)
  * la diferencia. `compacto` es para el recuadro que sale al pasar el ratón, que
  * tiene que caber en pantalla sin desplazarse.
  */
-export default function CuadroEstancia({ cuadre, compacto = false }: {
+export default function CuadroEstancia({ cuadre, compacto = false, onTarifa }: {
   cuadre: CuadreEstancia
   compacto?: boolean
+  /** Con esto la tarifa se puede pinchar para ir a verla en Precios (Luis, 06/11/2026). */
+  onTarifa?: () => void
 }) {
   const { reserva: r, tarifa, visibles, suma, cobrado, diferencia, mesCorto } = cuadre
   const celda = `${compacto ? 'py-0.5 px-1.5' : 'py-1.5 px-2'} border border-slate-300`
@@ -38,7 +40,15 @@ export default function CuadroEstancia({ cuadre, compacto = false }: {
             <td className={celda}>{r.apartmentId}</td>
             <td className={celda}>{formatDate(r.checkIn)} al {formatDate(r.checkOut)}</td>
             <td className={`${celda} text-right`}>{r.nights}</td>
-            <td className={`${celda} text-right`}>{tarifa ? dec(tarifa.precioTramo) : '—'}</td>
+            <td className={`${celda} text-right`}>
+              {tarifa && onTarifa ? (
+                <button type="button" onClick={e => { e.stopPropagation(); onTarifa() }}
+                  title="Ver esta tarifa en Precios"
+                  className="font-medium text-blue-700 underline hover:text-blue-900 print:no-underline print:text-inherit">
+                  {dec(tarifa.precioTramo)}
+                </button>
+              ) : tarifa ? dec(tarifa.precioTramo) : '—'}
+            </td>
             <td className={`${celda} text-right`}>{dec(r.cleaningFee || 0)}</td>
             <td className={celda}>{getSeason(r.checkIn) === 'VERANO' ? 'Verano' : 'Invierno'}</td>
           </tr>

@@ -105,3 +105,13 @@ export function useCuadreEstancia(r: Reservation) {
 }
 
 export type CuadreEstancia = ReturnType<typeof useCuadreEstancia>
+
+/**
+ * Dónde se ve en Precios la tarifa que se aplicó: el año de esa tarifa con su
+ * fila y su tramo marcados, o la oferta si fue una oferta (Luis, 06/11/2026).
+ */
+export function rutaDeTarifa(tarifa: NonNullable<CuadreEstancia['tarifa']>): string {
+  return tarifa.oferta
+    ? `/precios?oferta=${encodeURIComponent(tarifa.oferta.id)}`
+    : `/precios?anio=${tarifa.entry.year}&tarifa=${encodeURIComponent(tarifa.entry.id)}&tramo=${tarifa.tramo}`
+}
