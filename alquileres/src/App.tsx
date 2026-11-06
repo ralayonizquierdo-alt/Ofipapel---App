@@ -10,6 +10,7 @@ import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import PreguntarApp from './components/PreguntarApp'
 import AvisoSolapes from './components/AvisoSolapes'
+import AvisoVersion from './components/AvisoVersion'
 import { solapes } from './lib/solapes'
 import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
@@ -369,6 +370,8 @@ export default function App() {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Arriba del todo: avisa cuando se ha publicado una versión nueva. */}
+          <AvisoVersion />
           {/* Mobile header */}
           <div className="md:hidden print:hidden!">
             <MobileHeader alerts={alertCount} onMenuOpen={() => setDrawerOpen(true)} />
