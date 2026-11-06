@@ -2350,7 +2350,13 @@ function bloqueDocumentos(g) {
 function excelDeFactura(clave, indice) {
   const d = documentosCampana(E.pedidos.filter((p) => claveGrupo(p) === clave))[indice];
   if (!d || d.campo !== 'factura') return;
-  exportarPedidos(d.pedidos.map((p) => p.id), { soloFactura: d.nombre.replace(/^Factura /, '') });
+  // Una compra en Géminis por factura: entran todos los pedidos de ese proveedor
+  // que traen líneas de esta factura, aunque sean de otra campaña (Miquelrius
+  // factura juntas «Agendas» y «B2F», 6/11/2026).
+  const fra = d.nombre.replace(/^Factura /, '');
+  const prov0 = (d.pedidos[0] || {}).proveedor;
+  const ids = E.pedidos.filter((p) => p.proveedor === prov0 && p.validado && p.factura && (p.factura.lineas || []).some((l) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo) === fra)).map((p) => p.id);
+  exportarPedidos(ids.length ? ids : d.pedidos.map((p) => p.id), { soloFactura: fra });
 }
 function guiaDeFactura(clave, indice) {
   const d = documentosCampana(E.pedidos.filter((p) => claveGrupo(p) === clave))[indice];
