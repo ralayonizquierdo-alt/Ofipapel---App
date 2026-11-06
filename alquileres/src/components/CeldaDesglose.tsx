@@ -6,6 +6,14 @@ import CuadroEstancia from './CuadroEstancia'
 import type { Reservation } from '../types'
 
 const ANCHO = 580
+/**
+ * El recuadro se ve al 75 % (Luis, 06/11/2026): es para echar un vistazo, y para
+ * leerlo con calma se pincha y sale la ficha grande. Va con `zoom` por dentro y
+ * no con `transform: scale`, que encogía el texto ya dibujado y descomponía las
+ * letras («Im porte»). La caja de fuera no lleva zoom: con ella se coloca, y se
+ * mide ya encogida.
+ */
+const ESCALA = 0.75
 const MARGEN = 8
 /** Lo que espera el recuadro antes de cerrarse: da tiempo a llevar el ratón hasta él. */
 const ESPERA_CIERRE = 350
@@ -75,20 +83,23 @@ function Recuadro({ reserva, ancla }: { reserva: Reservation; ancla: DOMRect }) 
   useLayoutEffect(() => {
     const el = caja.current
     if (!el) return
+    const ancho = ANCHO * ESCALA
     const derecha = ancla.right + MARGEN
-    const left = derecha + ANCHO + MARGEN <= window.innerWidth ? derecha : ancla.left - MARGEN - ANCHO
-    const maxTop = window.innerHeight - el.offsetHeight - MARGEN
+    const left = derecha + ancho + MARGEN <= window.innerWidth ? derecha : ancla.left - MARGEN - ancho
+    const maxTop = window.innerHeight - el.getBoundingClientRect().height - MARGEN
     el.style.left = `${Math.max(MARGEN, left)}px`
     el.style.top = `${Math.max(MARGEN, Math.min(ancla.top, maxTop))}px`
   }, [ancla])
 
   return (
-    <div ref={caja} translate="no" style={{ width: ANCHO, top: 0, left: 0 }}
-      className="fixed z-[60] cursor-pointer bg-white rounded-lg border border-slate-300 shadow-xl p-2 space-y-2 hover:border-blue-400 print:hidden">
-      <CuadroEstancia cuadre={cuadre} compacto onTarifa={irATarifa} />
-      <p className="text-xs text-blue-700 text-right font-medium">
-        Pincha la tarifa para ir a Precios, o el resto del recuadro para abrir la ficha e imprimirla o enviarla a la agencia
-      </p>
+    <div ref={caja} translate="no" style={{ top: 0, left: 0 }}
+      className="fixed z-[60] cursor-pointer bg-white rounded-lg border border-slate-300 shadow-xl hover:border-blue-400 print:hidden">
+      <div style={{ width: ANCHO, zoom: ESCALA }} className="p-2 space-y-2">
+        <CuadroEstancia cuadre={cuadre} compacto onTarifa={irATarifa} />
+        <p className="text-xs text-blue-700 text-right font-medium">
+          Pincha la tarifa para ir a Precios, o el resto del recuadro para abrir la ficha e imprimirla o enviarla a la agencia
+        </p>
+      </div>
     </div>
   )
 }
