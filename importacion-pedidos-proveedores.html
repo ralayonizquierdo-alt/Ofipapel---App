@@ -248,11 +248,12 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button class="btn btn-primary" onclick="generarExcel()">📥 Generar Excel 5.0/95 (.xls)</button>
     </div>
     <div class="footer-note">
-      El Cod. Familia, Caja y Ud./Caja casi nunca vienen en la factura del proveedor: revísalos y complétalos a mano en la tabla antes de generar el Excel. La columna "Codigo ISBN / EAN" se rellena sola con el código de barras (EAN) siempre que la factura del proveedor lo traiga (APLI no lo trae; COFRAP/MAPED, HAMELIN, FILA IBERIA, CABERO/FINOCAN, JOUMMA BAGS e INTEGRAL INFORMÁTICA/MANDATELO sí). La Marca/Editorial sigue siendo un campo solo de proveedores de libros: se rellenará sola cuando demos de alta el perfil de uno. El Igic tampoco viene desglosado por línea en la mayoría de facturas: complétalo si tu Gestión lo necesita.<br>
-      El Excel generado incluye las mismas casillas de cabecera que la plantilla (Proveedor, Nº Pedido, Fecha, Almacén) en la misma posición, y las mismas columnas de datos — pero sin colores ni bordes, porque la librería que usamos no puede conservarlos al exportar a .xls (a Gestión no le afecta: solo lee los datos).<br>
-      La plantilla solo admite una columna de descuento (Dcto): cuando la factura del proveedor trae varios descuentos encadenados, se convierten automáticamente en el descuento único equivalente que da el mismo importe final.<br>
-      <em>Roymart tiene un formato de factura especialmente irregular: revísalo con más cuidado que el resto.</em> Las facturas escaneadas como imagen (sin texto seleccionable) no se pueden procesar todavía — necesitarían OCR.<br>
-      <strong>Nota de compatibilidad:</strong> el Excel se genera en formato Excel 5.0/95 real (BIFF5), el que necesita tu Gestión. Esa librería no admite letras con tilde ni la Ñ, así que se sustituyen automáticamente por su versión sin tilde (p.ej. "ESTÁNDAR" → "ESTANDAR", "Ñoño" → "Nono") para que quede legible en vez de aparecer como "_".
+      <b>Operativa</b><br>
+      1. Sube la factura (PDF o Excel). Si el proveedor está homologado, se lee sola y te dice si cuadra con el total.<br>
+      2. Si no sale bien o el proveedor no está homologado: <b>«🤖 Leer con IA»</b> (cualquier proveedor; revisa las líneas marcadas y el total).<br>
+      3. Revisa la tabla: Familia, Caja y Ud./Caja casi nunca vienen en la factura.<br>
+      4. Elige plantilla (Luis por defecto) y <b>«📥 Generar Excel»</b>. Los descuentos encadenados salen como uno solo; las tildes y la Ñ, sin tilde.<br>
+      <b style="color:#b00020">PARA HOMOLOGAR UN PROVEEDOR, LA ÚNICA Y MÁS RÁPIDA MANERA ES PULSAR «📤 ENVIAR PARA HOMOLOGAR»: LE LLEGA A ROBER Y LO HOMOLOGA ÉL. NUNCA SE HOMOLOGA DESDE LA APLICACIÓN.</b>
     </div>
   </div>
 
