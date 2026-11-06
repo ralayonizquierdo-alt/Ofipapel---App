@@ -50,6 +50,20 @@ export interface Reservation {
   status: ReservationStatus
   notes?: string
   createdAt: string
+  /**
+   * Que el importe es un precio pactado, y por qué (Luis, 06/11/2026: «si es un
+   * precio pactado debe decirlo en algún lado»). Sin esto, un importe que no sale
+   * de la tarifa no se distingue de uno mal metido. `null` = se quitó la marca.
+   */
+  precioPactado?: PrecioPactado | null
+}
+
+export interface PrecioPactado {
+  motivo: string
+  /** Quién lo anotó. */
+  por?: string
+  /** Cuándo se anotó, AAAA-MM-DD. */
+  fecha: string
 }
 
 export type PaymentMethod = 'efectivo' | 'transferencia' | 'otro'

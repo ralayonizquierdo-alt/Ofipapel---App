@@ -3,6 +3,7 @@ import { useData } from '../contexts/DataContext'
 import { buscaTarifa } from './priceCalc'
 import { partesDeAlojamiento, nochesEnMes } from './devengo'
 import { MONTH_NAMES_ES } from './dateUtils'
+import { estadoPrecio } from './precioReserva'
 import type { Payment, Reservation } from '../types'
 
 /**
@@ -101,7 +102,10 @@ export function useCuadreEstancia(r: Reservation) {
     return `${m}${mm.slice(0, 4) !== r.checkIn.slice(0, 4) ? ` ${mm.slice(2, 4)}` : ''}`
   }
 
-  return { reserva: r, nombre, tarifa, visibles, suma, cobrado, diferencia, mesCorto }
+  /** Si el importe sale de la tarifa, es un precio pactado o no cuadra. */
+  const precio = useMemo(() => estadoPrecio(r, prices, offerPrices), [r, prices, offerPrices])
+
+  return { reserva: r, nombre, tarifa, visibles, suma, cobrado, diferencia, mesCorto, precio }
 }
 
 export type CuadreEstancia = ReturnType<typeof useCuadreEstancia>

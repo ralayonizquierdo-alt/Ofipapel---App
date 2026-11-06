@@ -2,9 +2,46 @@ import { TRAMO_LABEL } from '../lib/priceCalc'
 import { getSeason, formatDate } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import type { CuadreEstancia } from '../lib/cuadreEstancia'
+import { textoDiferencia } from '../lib/precioReserva'
 
 const eur = (n: number) => `${num(n, 2)} €`
 const dec = (n: number) => num(n, 2)
+
+/**
+ * La línea que dice de dónde sale el importe: de la tarifa, de un precio
+ * pactado (con su motivo) o de ninguno de los dos (Luis, 06/11/2026: «yo sé lo
+ * que hay, tiene que decírmelo la aplicación»). Ver `lib/precioReserva.ts`.
+ */
+function EstadoDelPrecio({ cuadre, compacto }: { cuadre: CuadreEstancia; compacto: boolean }) {
+  const p = cuadre.precio
+  const caja = `rounded border px-2 ${compacto ? 'py-0.5 mt-1' : 'py-1.5 mt-2'}`
+  if (p.tipo === 'tarifa') {
+    return <p className={`${caja} border-green-300 bg-green-50 text-green-800`}>✅ El importe sale de la tarifa.</p>
+  }
+  if (p.tipo === 'pactado') {
+    const quien = [p.pactado.por, p.pactado.fecha ? formatDate(p.pactado.fecha) : ''].filter(Boolean).join(', ')
+    return (
+      <p className={`${caja} border-blue-300 bg-blue-50 text-blue-900`}>
+        🔵 <b>Precio pactado</b>: «{p.pactado.motivo}»{quien ? ` (${quien})` : ''}.
+        {p.esperado !== null && p.diferencia !== null && Math.abs(p.diferencia) > 0.05 && (
+          <> Por tarifa serían {eur(p.esperado)}: {textoDiferencia(p.diferencia, eur)}.</>
+        )}
+      </p>
+    )
+  }
+  if (p.tipo === 'descuadre') {
+    return (
+      <p className={`${caja} border-amber-400 bg-amber-50 text-amber-900`}>
+        ⚠️ <b>El importe no sale de la tarifa</b>: por tarifa serían {eur(p.esperado)}, {textoDiferencia(p.diferencia, eur)}.
+        No consta como precio pactado.
+      </p>
+    )
+  }
+  if (p.tipo === 'sin-tarifa') {
+    return <p className={`${caja} border-slate-300 bg-slate-50 text-slate-600`}>No se puede comprobar: no hay tarifa para estas fechas.</p>
+  }
+  return <p className={`${caja} border-slate-300 bg-slate-50 text-slate-600`}>No se compara con la tarifa. {p.motivo}</p>
+}
 
 /**
  * El cuadro de una estancia, con el formato de la hoja de Excel del propietario:
@@ -74,7 +111,9 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa }: {
               )}
             </p>
           ) : (
-            <p className="text-slate-700">Precio pactado a mano: <b>{dec(r.basePrice)}</b></p>
+            // Antes ponía «Precio pactado a mano» siempre que no hubiera tarifa,
+            // aunque nadie lo hubiera pactado: ahora lo dice la línea de abajo.
+            <p className="text-slate-700">No hay tarifa en Precios para estas fechas. Precio base de la reserva: <b>{dec(r.basePrice)}</b></p>
           )}
           {!!r.discountPct && (
             <p className="text-slate-700">Descuento del {r.discountPct} %</p>
@@ -83,6 +122,7 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa }: {
           <p className={`flex justify-between border-t border-slate-200 font-bold text-slate-900 ${compacto ? 'pt-0.5 mt-0.5' : 'pt-1.5 mt-1.5'}`}>
             <span>IMPORTE NETO DE LA RESERVA</span><span>{eur(r.total)}</span>
           </p>
+          <EstadoDelPrecio cuadre={cuadre} compacto={compacto} />
         </div>
       </div>
 

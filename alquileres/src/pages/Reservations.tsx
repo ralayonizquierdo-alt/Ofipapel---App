@@ -7,6 +7,8 @@ import { formatDate, getNights, today } from '../lib/dateUtils'
 import { calcTotal, buscaTarifa, stayTypeDays, lineasPrecio, TRAMO_LABEL, type Tramo } from '../lib/priceCalc'
 import { ofertaDeReserva, nombreOferta } from '../lib/oferta'
 import { limpiezaDe } from '../lib/limpieza'
+import { estadoPrecio, importeSegunTarifa, textoDiferencia } from '../lib/precioReserva'
+import { usuarioActual } from '../lib/auth'
 import LimpiezaArenal from '../components/LimpiezaArenal'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import Modal from '../components/ui/Modal'
@@ -48,6 +50,12 @@ export default function Reservations() {
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
+  /**
+   * Filtro por de dónde sale el importe (Luis, 06/11/2026): las de precio
+   * pactado, con su motivo, y las que no cuadran con la tarifa sin constar como
+   * pactadas, que son las que hay que revisar. Ver lib/precioReserva.ts.
+   */
+  const [filterPrecio, setFilterPrecio] = useState<'' | 'pactado' | 'descuadre'>('')
   const [searchParams, setSearchParams] = useSearchParams()
   const hoy = today()
   /** De los años cerrados no se cuadra nada: ver el comentario de `suma`. */
@@ -64,9 +72,17 @@ export default function Reservations() {
     }
   }, [searchParams, reservations])
 
-  const filtered = reservations
+  const precioDe = useMemo(() => {
+    const m = new Map(reservations.map(r => [r.id, estadoPrecio(r, prices, offerPrices)]))
+    return (r: Reservation) => m.get(r.id)!
+  }, [reservations, prices, offerPrices])
+
+  const sinFiltroPrecio = reservations
     .filter(r => !filterApt || r.apartmentId === filterApt)
     .filter(r => !filterYear || r.checkIn.startsWith(filterYear) || r.checkOut.startsWith(filterYear))
+  const cuantas = (tipo: 'pactado' | 'descuadre') => sinFiltroPrecio.filter(r => precioDe(r).tipo === tipo).length
+  const filtered = sinFiltroPrecio
+    .filter(r => !filterPrecio || precioDe(r).tipo === filterPrecio)
     .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
 
   const years = [...new Set(reservations.map(r => r.checkIn.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
@@ -160,6 +176,12 @@ export default function Reservations() {
           <option value="">Todos los años</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        <select value={filterPrecio} onChange={e => setFilterPrecio(e.target.value as typeof filterPrecio)}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-700">
+          <option value="">Todos los precios</option>
+          <option value="pactado">🔵 Precio pactado ({cuantas('pactado')})</option>
+          <option value="descuadre">⚠️ No cuadran con la tarifa ({cuantas('descuadre')})</option>
+        </select>
       </div>
 
       {/* Table */}
@@ -202,6 +224,17 @@ export default function Reservations() {
                   <td className="py-3 px-4 text-right font-semibold text-slate-800 tabular-nums">
                     {eur(r.total)}
                     {(() => {
+                      // Una sola marca por fila: el precio pactado o el descuadre
+                      // dicen más que «hay oferta», que solo se enseña si no hay otra.
+                      const p = precioDe(r)
+                      if (p.tipo === 'pactado') return (
+                        <span title={`Precio pactado: «${p.pactado.motivo}»`}
+                          className="block text-[10px] font-medium text-blue-700">🔵 pactado</span>
+                      )
+                      if (p.tipo === 'descuadre') return (
+                        <span title={`Por tarifa serían ${eur(p.esperado)}: ${textoDiferencia(p.diferencia, eur)}. No consta como precio pactado.`}
+                          className="block text-[10px] font-medium text-amber-700">⚠️ no cuadra con tarifa</span>
+                      )
                       const of = ofertaDeReserva(r, prices, offerPrices)
                       if (!of) return null
                       return (
@@ -351,6 +384,12 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
    * siempre en este modo, para no cambiarle el precio a algo ya cerrado.
    */
   const [pactado, setPactado] = useState(!!editing)
+  /**
+   * Por qué el precio es pactado (Luis, 06/11/2026). Escribirlo deja la reserva
+   * marcada como «precio pactado», y el cuadro de Cobros lo enseña en vez de
+   * avisar de que el importe no sale de la tarifa.
+   */
+  const [motivoPactado, setMotivoPactado] = useState(editing?.precioPactado?.motivo ?? '')
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
   const tarifa = useMemo(
@@ -385,10 +424,20 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   function handleSave() {
     if (!aptId || !checkIn || !checkOut) return alert('Completa los campos obligatorios')
     const newTotal = calcTotal(basePrice, cleaningFee, discountPct)
+    // La marca de pactado solo con precio pactado y un motivo escrito. Si el
+    // motivo no cambia se conserva quién y cuándo lo anotó; con «Tarifa por
+    // tramos», o sin motivo, se quita (null: así se borra también en la base).
+    const motivo = motivoPactado.trim()
+    const marca = pactado && motivo
+      ? (editing?.precioPactado?.motivo === motivo
+          ? editing.precioPactado
+          : { motivo, por: usuarioActual() ?? undefined, fecha: today() })
+      : null
     const data = {
       apartmentId: aptId, guestName, guests: guests > 0 ? guests : undefined, checkIn, checkOut,
       nights: getNights(checkIn, checkOut), stayType, channel,
       basePrice, cleaningFee, discountPct, total: newTotal, status, notes,
+      precioPactado: editing ? marca : (marca ?? undefined),
     }
     if (editing) {
       updateReservation(editing.id, data)
@@ -554,6 +603,30 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
             </div>
             <div className="text-lg font-bold text-blue-700">{numSuelto(total)} €</div>
           </div>
+
+          {pactado && (() => {
+            const segunTarifa = nights > 0
+              ? importeSegunTarifa({ apartmentId: aptId, checkIn, nights, discountPct }, prices, offerPrices)
+              : null
+            const dif = segunTarifa === null ? null : Math.round((total - segunTarifa) * 100) / 100
+            return (
+              <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-1.5">
+                <label htmlFor="motivo-pactado" className="block text-xs font-semibold text-blue-900">
+                  Motivo del precio pactado
+                </label>
+                <input id="motivo-pactado" value={motivoPactado} onChange={e => setMotivoPactado(e.target.value)}
+                  placeholder="Estancia larga, acordado con el cliente"
+                  className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white" />
+                <p className="text-xs text-blue-800" translate="no">
+                  {segunTarifa === null
+                    ? 'No hay tarifa para estas fechas con la que comparar.'
+                    : dif !== null && Math.abs(dif) > 0.05
+                      ? `Por tarifa serían ${eur(segunTarifa)}: este importe es ${textoDiferencia(dif, eur)}.`
+                      : `Coincide con la tarifa (${eur(segunTarifa)}).`}
+                </p>
+              </div>
+            )
+          })()}
 
           <MemoriaPrecio lineas={lineasPrecio({
             nights, basePrice, cleaningFee, discountPct,

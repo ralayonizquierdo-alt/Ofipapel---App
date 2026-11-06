@@ -68,6 +68,15 @@ const OCUPACION_MES: ReglaOperativa = {
   nota: 'Si el Excel declara la ocupación de ese mes, **manda el Excel**; si da más del 100 %, se calcula aquí.',
 }
 
+// lib/precioReserva.ts — estadoPrecio()
+const PRECIO_DE_LA_RESERVA: ReglaOperativa = {
+  que: '¿De dónde sale el importe?',
+  formula: '✅ de la tarifa · 🔵 precio pactado (con su motivo) · ⚠️ no cuadra con la tarifa',
+  nota: 'Se rehace la cuenta con la tarifa y se compara con el importe guardado. **⚠️ quiere decir que no '
+    + 'consta como pactado**: o se corrige la reserva o se anota el motivo. No se compara el Arenal (lo pone '
+    + 'SOC) ni los años anteriores a 2026.',
+}
+
 // ─── Una por pantalla ─────────────────────────────────────────────────────────
 
 export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
@@ -164,6 +173,7 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
     nota: 'El importe lo pone la persona y **no se recalcula solo**. Al editar una reserva guardada se '
       + 'entra siempre así. Solo lo cambia una oferta si se marca en «Aplicar a las reservas».',
   },
+  PRECIO_DE_LA_RESERVA,
   {
     // lib/solapes.ts
     que: 'Reservas que se pisan',
@@ -275,6 +285,7 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
     nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
       + 'abrir la ficha, imprimirla o enviarla a la agencia. **La tarifa en azul lleva a Precios**.',
   },
+  PRECIO_DE_LA_RESERVA,
 ]
 
 export const OPERATIVA_GASTOS: ReglaOperativa[] = [

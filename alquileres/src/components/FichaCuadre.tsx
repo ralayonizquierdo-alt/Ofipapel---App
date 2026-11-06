@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { Printer, Mail, Pencil, ListFilter } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useData } from '../contexts/DataContext'
 import { useCuadreEstancia, rutaDeTarifa } from '../lib/cuadreEstancia'
-import { formatDate } from '../lib/dateUtils'
+import { usuarioActual } from '../lib/auth'
+import { formatDate, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import Modal from './ui/Modal'
 import CuadroEstancia from './CuadroEstancia'
@@ -45,8 +48,22 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
   onVerCobros?: (apartmentId: string, year: number) => void
 }) {
   const navigate = useNavigate()
-  const r = reserva
+  const { reservations, updateReservation } = useData()
+  // La reserva tal como está ahora en la base: si se marca como pactada desde
+  // aquí, la ficha lo enseña al momento.
+  const r = reservations.find(x => x.id === reserva.id) ?? reserva
   const cuadre = useCuadreEstancia(r)
+  const [anotando, setAnotando] = useState(false)
+  const [motivo, setMotivo] = useState('')
+
+  function anotarPactado() {
+    if (!motivo.trim()) return
+    updateReservation(r.id, {
+      precioPactado: { motivo: motivo.trim(), por: usuarioActual() ?? undefined, fecha: today() },
+    })
+    setAnotando(false)
+    setMotivo('')
+  }
   const { nombre, tarifa, visibles, suma, cobrado, diferencia, mesCorto } = cuadre
 
   /** La ficha en texto llano, para el correo a la agencia. */
@@ -116,6 +133,42 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
           pantalla de Cobros que tiene detrás (ver index.css). */}
       <div className="space-y-4 solo-esto-al-imprimir" translate="no">
         <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} />
+
+        {/* Si el importe no sale de la tarifa y nadie dijo que fuera pactado, se
+            decide aquí mismo: corregir la reserva o anotar por qué es así. */}
+        {cuadre.precio.tipo === 'descuadre' && (
+          <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 space-y-2 print:hidden">
+            <p className="text-sm font-semibold text-amber-900">¿Qué pasa con este importe?</p>
+            {!anotando ? (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => { onClose(); navigate(`/reservas?edit=${r.id}`) }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-amber-400 text-amber-900 hover:bg-amber-100">
+                  <Pencil size={15} /> Está mal: abrir la reserva para corregirlo
+                </button>
+                <button type="button" onClick={() => setAnotando(true)}
+                  className="px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                  🔵 Es un precio pactado: anotar el motivo
+                </button>
+              </div>
+            ) : (
+              <form className="flex flex-wrap items-center gap-2"
+                onSubmit={e => { e.preventDefault(); anotarPactado() }}>
+                <label htmlFor="motivo-pactado" className="text-sm text-amber-900">Motivo:</label>
+                <input id="motivo-pactado" autoFocus value={motivo} onChange={e => setMotivo(e.target.value)}
+                  placeholder="Estancia larga, acordado con el cliente"
+                  className="flex-1 min-w-[16rem] border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
+                <button type="submit" disabled={!motivo.trim()}
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40">
+                  Guardar
+                </button>
+                <button type="button" onClick={() => { setAnotando(false); setMotivo('') }}
+                  className="px-3 py-2 text-sm text-slate-600 hover:bg-white rounded-lg">
+                  Cancelar
+                </button>
+              </form>
+            )}
+          </div>
+        )}
 
         {/* Solo en el papel: el pie del recibo que se manda a la agencia. */}
         <p className="hidden print:!block text-xs text-slate-500 border-t border-slate-200 pt-2">
