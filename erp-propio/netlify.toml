@@ -12,6 +12,17 @@
   VITE_BASE_PATH = "/"
   NODE_VERSION = "22"
 
+# Cabeceras de seguridad (hardening ISO 27001 A.8.9/A.8.26 · SOC 2 CC6.6). Se aplican a todo el sitio.
+# Falta a propósito la Content-Security-Policy: se prepara primero en modo «solo informar» para no
+# romper pantallas (ver docs/HARDENING_ISO27001_SOC2_27701.md, hallazgo H-06).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(self), microphone=(self), camera=(), payment=(), usb=(), interest-cohort=()"
+
 # version.json siempre fresco: la app lo consulta para avisar de que hay una versión nueva.
 [[headers]]
   for = "/version.json"
