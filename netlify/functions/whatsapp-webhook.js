@@ -106,6 +106,7 @@ const {
 const woocommerce = require('./woocommerce-client');
 const gestion = require('./gestion-pedidos');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
+const { paraWhatsapp } = require('./whatsapp-formato');
 const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
 
 // EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
@@ -380,7 +381,7 @@ async function sendSellosButtons(to, greetingPrefix = '') {
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text: greetingPrefix + SELLOS_QUESTION },
+        body: { text: paraWhatsapp(greetingPrefix + SELLOS_QUESTION) },
         action: {
           buttons: [
             { type: 'reply', reply: { id: 'sellos_web', title: '🌐 Por la web' } },
@@ -566,12 +567,31 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
     if (!match) return false; // no parece un número de pedido: se abandona el flujo, turno normal
 
     const orderId = match[0];
-    const order = await woocommerce.getOrder(orderId);
+    const { order, motivo } = await woocommerce.getOrderConMotivo(orderId);
 
+    // «NO EXISTE» Y «NO HE PODIDO MIRARLO» NO SON LO MISMO.
+    //
+    // Visto en real el 6/11/2026: un cliente con su pedido delante escribió
+    // «Pedido #674885» y se llevó «I can't find any order with the number
+    // 674885». Esa frase salía SIEMPRE que la consulta volvía vacía — y volvía
+    // vacía también cuando la web no contestaba, cuando las claves fallaban y
+    // cuando la protección anti-bots del hosting nos cortaba. O sea que el bot
+    // le decía que su pedido no consta cuando lo único cierto es que no pudo
+    // comprobarlo.
+    //
+    // Es de las mentiras más caras que puede decir: el cliente se queda
+    // pensando que su pedido se ha perdido. Ahora solo se afirma cuando la web
+    // ha dicho que no existe (404); en cualquier otro caso se dice la verdad,
+    // que no se ha podido comprobar, y se le ofrece una persona igual.
     if (!order || woocommerce.isSpamOrder(order)) {
-      const prefix = idioma === 'en'
-        ? `${greeting}I can't find any order with the number ${orderId}. `
-        : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
+      const noSePudo = !order && motivo === woocommerce.MOTIVO.NO_SE_PUDO;
+      const prefix = noSePudo
+        ? idioma === 'en'
+          ? `${greeting}I can't check your order right now — our website isn't responding. That doesn't mean your order isn't there. `
+          : `${greeting}Ahora mismo no puedo comprobar tu pedido: nuestra web no me contesta. Eso no quiere decir que tu pedido no esté. `
+        : idioma === 'en'
+          ? `${greeting}I can't find any order with the number ${orderId}. `
+          : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
       await sendEscalateButtons(from, prefix, idioma);
       await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
       return true;

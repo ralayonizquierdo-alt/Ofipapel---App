@@ -317,6 +317,16 @@ Module.prototype.require = function (p) {
       ...m,
       isConfigured: () => true,
       getOrder: async (id) => (String(id) === String(escenario.pedido.id) ? escenario.pedido : null),
+      // Desde el 6/11/2026 el webhook pregunta además POR QUÉ no hay pedido:
+      // «no existe» (la web lo dice) o «no se pudo comprobar» (la consulta
+      // falló). Aquí se simula una web que contesta bien, así que lo que no
+      // está es que no existe.
+      getOrderConMotivo: async (id) =>
+        escenario.fallaLaConsulta
+          ? { order: null, motivo: m.MOTIVO.NO_SE_PUDO }
+          : String(id) === String(escenario.pedido.id)
+          ? { order: escenario.pedido, motivo: m.MOTIVO.OK }
+          : { order: null, motivo: m.MOTIVO.NO_EXISTE },
     };
   }
   if (p === './whatsapp-agent-core') {
@@ -466,6 +476,31 @@ async function caso(etiqueta, mensaje, revisar, desde) {
     assert.ok(/mirarlo una persona/i.test(texto('botones')), 'no lo trata como un problema');
   });
   escenario.historial = [];
+
+  // «NO EXISTE» NO ES LO MISMO QUE «NO HE PODIDO MIRARLO» (6/11/2026).
+  //
+  // Un cliente con el pedido delante escribió «Pedido #674885» y se llevó «I
+  // can't find any order with the number 674885». Esa frase salía siempre que
+  // la consulta volvía vacía, y volvía vacía también cuando la web no
+  // contestaba o cuando el anti-bots del hosting nos cortaba. Decirle que su
+  // pedido no consta cuando lo único cierto es que no se pudo mirar es de las
+  // mentiras más caras que puede soltar el bot.
+  escenario.fallaLaConsulta = true;
+  await caso('La web no contesta al buscar el pedido', 'mi pedido es el 674885', () => {
+    const dicho = texto('botones') + texto('respuesta');
+    assert.ok(!/no encuentro ning[úu]n pedido|can't find any order/i.test(dicho),
+      'le está diciendo que su pedido no existe, y eso no se sabe');
+    assert.ok(/no puedo comprobar|isn't responding|no me contesta/i.test(dicho),
+      'tiene que decir que no ha podido comprobarlo');
+    assert.ok(tiene('botones'), 'y ofrecerle una persona igual');
+  });
+  escenario.fallaLaConsulta = false;
+
+  // Y cuando la web SÍ dice que no está, se le puede decir.
+  await caso('La web dice que ese pedido no existe', 'mi pedido es el 999999', () => {
+    assert.ok(/no encuentro ning[úu]n pedido|can't find any order/i.test(texto('botones')),
+      'aquí sí toca decírselo');
+  });
 
   console.log(fallos === 0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);
