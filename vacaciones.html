@@ -77,7 +77,7 @@ header button.panel-on{background:#fff;color:var(--verde);}
 #fueraCount{background:#8a5a00;color:#fff;border-radius:10px;padding:0 6px;font-size:.66rem;}
 
 /* ── calendario del año, pantalla principal ── */
-.yv-sticky{position:sticky;top:0;background:#fff;z-index:6;}
+.yv-sticky{position:sticky;top:var(--fh,0px);background:#fff;z-index:6;}
 .yv-row{display:flex;align-items:stretch;}
 .yv-name{width:104px;flex-shrink:0;padding:2px 4px;font-size:.74rem;line-height:1.15;border-right:1px solid var(--borde);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .yv-persona{display:flex;justify-content:space-between;align-items:center;gap:2px;padding-right:2px;}
@@ -195,6 +195,8 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
 /* ── main grid area ── */
 main{flex:1;overflow:auto;position:relative;background:#fff;}
 #gridWrap{position:relative;padding-bottom:30px;}
+#filtroAviso{position:sticky;top:0;left:0;z-index:20;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#FFF6BF;border-bottom:2px solid #E0B400;padding:6px 10px;font-size:.8rem;font-weight:600;color:#6b4e00;}
+#filtroAviso button{font-size:.78rem;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;border:1px solid #b08a00;background:#fff;color:#6b4e00;}
 
 .header-sticky{position:sticky;top:0;z-index:6;background:#fff;border-bottom:1px solid var(--borde);}
 .corner{position:sticky;left:0;top:0;z-index:8;width:var(--name-w);flex-shrink:0;background:#fff;
@@ -508,6 +510,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       </div>
     </aside>
     <main>
+      <div id="filtroAviso" style="display:none;"></div>
       <div id="gridWrap"></div>
     </main>
   </div>
@@ -1907,7 +1910,34 @@ function unitHasConflict(unitId, y){
   return false;
 }
 
+/* Cuando el planning está filtrado (desde ⚠ Revisar o desde Reglas y filtros), una barra amarilla lo dice y
+   deja volver a ver a todos de un clic (Luis, 06/11/2026: «no hay modo de salir»). */
+let vieneDeRevisar = false;
+function renderFiltroAviso(){
+  const box = document.getElementById('filtroAviso');
+  const partes = [];
+  if(filterText) partes.push(`«${escapeHtml(filterText)}»`);
+  if(filterUnit) partes.push(escapeHtml((UNITS.find(u=>u.id===filterUnit)||{}).name||''));
+  if(onlyConflicts) partes.push('solo grupos con exceso de cobertura');
+  const main = box.parentElement;
+  if(!partes.length){ box.style.display = 'none'; vieneDeRevisar = false; main.style.setProperty('--fh','0px'); return; }
+  box.style.display = 'flex';
+  box.innerHTML = `🔎 Viendo solo ${partes.join(' · ')} <button id="filtroTodos">✕ Ver a todos</button>${vieneDeRevisar?'<button id="filtroRevisar">⚠ Volver a Revisar</button>':''}`;
+  document.getElementById('filtroTodos').onclick = quitarFiltros;
+  const vr = document.getElementById('filtroRevisar');
+  if(vr) vr.onclick = ()=>{ quitarFiltros(); document.getElementById('btnRevisar').click(); };
+  main.style.setProperty('--fh', box.offsetHeight+'px'); // la cabecera de meses se pega debajo de la barra
+}
+function quitarFiltros(){
+  filterText = ''; filterUnit = ''; onlyConflicts = false;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('unitFilter').value = '';
+  document.getElementById('onlyConflicts').checked = false;
+  vieneDeRevisar = false;
+  renderGrid();
+}
 function renderGrid(){
+  renderFiltroAviso();
   const wrap = document.getElementById('gridWrap');
   wrap.innerHTML = '';
   if(gridView==='anual'){ renderYearView(wrap); return; }
@@ -4910,8 +4940,8 @@ function renderRevisar(){
   box.querySelectorAll('[data-ir]').forEach(b=> b.onclick = ()=>{
     const x = items[+b.dataset.ir];
     closeModal('revisarOverlay');
-    if(x.ir==='persona'){ filterText = empLabel(x.emp); document.getElementById('searchInput').value = filterText; renderGrid(); showToast('Filtrado por '+empLabel(x.emp)+'. Borra el buscador de Reglas y filtros para ver a todos.'); }
-    else if(x.ir==='unidad'){ filterUnit = x.unit; document.getElementById('unitFilter').value = x.unit; renderGrid(); showToast('Se ve solo ese grupo. En Reglas y filtros, Unidad «Todas» para volver.'); }
+    if(x.ir==='persona'){ filterText = empLabel(x.emp); document.getElementById('searchInput').value = filterText; vieneDeRevisar = true; renderGrid(); }
+    else if(x.ir==='unidad'){ filterUnit = x.unit; document.getElementById('unitFilter').value = x.unit; vieneDeRevisar = true; renderGrid(); }
     else if(x.ir==='permisos') document.getElementById('btnPermisos').click();
     else if(x.ir==='festivo'){ document.getElementById('btnHolidays').click(); openFestivoEditor(x.h); }
     else if(x.ir==='peticiones') document.getElementById('btnPeticiones').click();
@@ -4960,6 +4990,7 @@ const OPERATIVAS = {
       'Con <b>Sobrescribir</b> marcado, Generar plan <b>pregunta antes</b> de sustituir las fechas ya puestas (también las del Excel), con la lista de personas. Si dices que no, no se toca nada.',
       'El generador reparte igual que la propuesta de Prioridad de rotación.',
       'Si sale arriba el aviso amarillo de versión nueva, pulsa <b>Actualizar</b> para recargar la página.',
+      'Si el planning está filtrado (por persona, grupo o exceso de cobertura), arriba sale una <b>barra amarilla</b>: pulsa <b>✕ Ver a todos</b> para volver.',
       'Si sale en la cabecera el botón rojo <b>⚠</b> con un número, hay cosas que revisar (días, cobertura, bajas, festivos, peticiones…): púlsalo para verlas y corregirlas.',
     ],
   },
@@ -5146,6 +5177,7 @@ const OPERATIVAS = {
       'En las diferencias con el Excel: <b>↩️ Volver al Excel</b> o <b>✓ Dar por bueno</b> si el cambio fue a propósito.',
     ],
     notas: [
+      'Con <b>Ver en el planning</b> o <b>Ver el grupo</b> se ve solo esa persona o ese grupo: arriba sale una barra amarilla con <b>✕ Ver a todos</b> y <b>⚠ Volver a Revisar</b>.',
       'La lista se calcula sola cada vez: <b>cuando se corrige algo, su nota desaparece</b>. No hay que borrar nada.',
       'Vigila: días de más o de menos, personas sin vacaciones, días con más gente fuera de la permitida, bajas que pisan vacaciones, fechas fijas sin poner, festivos de Aliz-1 sin dos personas, peticiones pendientes y diferencias con el último Excel cargado.',
       'Los días de vacaciones solo se revisan si el año ya tiene fechas puestas.',
