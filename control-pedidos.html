@@ -673,7 +673,7 @@ function tablaEntregas(g, por) {
     const excel = d.pedidos.every((p) => hecho(p, 'excel', f));
     const guia = d.pedidos.every((p) => hecho(p, 'guia', f));
     return `<tr><td><b>${h(f)}</b></td><td>${d.pedidos.map((p) => `<a href="#" onclick="event.preventDefault(); abrirPedido('${p.id}')">${h(nPed(p.numero))}</a>`).join(', ')}</td>
-      <td class="num">${d.lineas}</td><td class="num">${fmt(d.importe)} €</td>
+      <td class="num">${d.lineas}</td><td class="num">${fmt(d.importe)} €${fueraDeCampana(d)}</td>
       <td>${liqHecha ? ok : `<span class="chip mal">${sinCod} sin código</span> <button class="btn peque" onclick="subirLiquidacion(${js(g.clave)})">🏷️ Subir</button>`}</td>
       <td>${excel ? `<a href="#" class="chip ok" title="Hecho. Pulsa para volver a sacarlo" onclick="event.preventDefault(); excelDeFactura(${js(g.clave)}, ${i})">✓</a>` : `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})">📥 Excel</button>`}</td>
       <td>${guia ? `<a href="#" class="chip ok" title="Hecha. Pulsa para volver a imprimirla" onclick="event.preventDefault(); guiaDeFactura(${js(g.clave)}, ${i})">✓</a>` : `<button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})">🧾 Guía</button>`}</td></tr>`;
@@ -2323,10 +2323,30 @@ function documentosCampana(ps) {
   }
   return docs;
 }
+/** Lo que de una factura del proveedor va en OTRAS campañas (Miquelrius factura
+ *  juntas Agendas y B2F): para que la fila enseñe el total real de la factura. */
+function fueraDeCampana(d) {
+  if (d.campo !== 'factura') return '';
+  const fra = d.nombre.replace(/^Factura /, '');
+  const prov0 = (d.pedidos[0] || {}).proveedor;
+  const otros = E.pedidos.filter((p) => p.proveedor === prov0 && !d.pedidos.includes(p) && p.factura);
+  const porCamp = new Map();
+  for (const p of otros) {
+    const ls = (p.factura.lineas || []).filter((l) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo) === fra);
+    if (!ls.length) continue;
+    const k = p.campana || p.proveedor;
+    const x = porCamp.get(k) || { n: 0, imp: 0 };
+    x.n += ls.length; x.imp = CP.red2(x.imp + ls.reduce((t, l) => t + (CP.parseNum(l.importe) || 0), 0));
+    porCamp.set(k, x);
+  }
+  if (!porCamp.size) return '';
+  const extra = [...porCamp.values()].reduce((t, x) => CP.red2(t + x.imp), 0);
+  return ` <span class="chip">+ ${[...porCamp].map(([k, x]) => `${fmt(x.imp)} € en ${h(k)}`).join(' + ')} = <b>${fmt(CP.red2(d.importe + extra))} € factura</b></span>`;
+}
 function bloqueDocumentos(g) {
   const docs = documentosCampana(g.pedidos);
   const nFotos = g.pedidos.reduce((s, p) => s + fotosDe(p).length, 0);
-  const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €
+  const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €${fueraDeCampana(d)}
     ${d.campo === 'factura' ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})" title="Excel de Géminis solo de esta factura">📥 Excel Géminis</button>
       <button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})" title="Guía de facturación solo de esta factura">🧾 Guía</button>` : ''}
     <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)}, ${i})" title="Quitarlo de todos los pedidos de la campaña">🗑️ Quitar</button></li>`;
