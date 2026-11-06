@@ -104,6 +104,18 @@ header button.panel-on{background:#fff;color:var(--verde);}
 #permisosOverlay input[type=date]{width:100%;min-width:0;box-sizing:border-box;}
 .yv-bar.yv-baja{background:repeating-linear-gradient(45deg,#8E959C,#8E959C 5px,#A3A9AF 5px,#A3A9AF 10px);z-index:2;}
 .yv-festivo{position:absolute;top:4px;bottom:4px;width:4px;margin-left:1px;background:#E24B4A;border-radius:1px;z-index:4;}
+.pz-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px;flex-shrink:0;}
+.pz-card{background:var(--cl);border-radius:8px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--c);}
+.pz-card b{font-size:1.25rem;}
+.pz-tabs{display:flex;gap:8px;margin-bottom:10px;flex-shrink:0;}
+.pz-tab{flex:1;background:var(--cl);color:var(--c);border:2px solid transparent;border-radius:10px;padding:9px 6px;font-size:.84rem;font-weight:700;cursor:pointer;transition:transform .1s;}
+.pz-tab:hover{transform:translateY(-1px);}
+.pz-tab.on{border-color:var(--c);box-shadow:0 2px 6px rgba(0,0,0,.12);}
+.pz-table{table-layout:auto;font-size:.76rem;}
+.pz-table th{position:sticky;top:0;background:#EBF7EB;}
+.pz-table td{border:1px solid #c9c9c9;padding:3px 5px;}
+.pz-table td.lv-name{max-width:none;}
+.pz-table td.pz-l{text-align:left;}
 .yv-gap{height:7px;background:#fff;}
 .yv-over{position:absolute;top:0;bottom:0;background:#E74C3C;}
 .yv-blocked{position:absolute;top:0;bottom:0;opacity:.7;background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 4px,#FBCFCB 4px,#FBCFCB 8px);}
@@ -411,6 +423,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <button id="btnPrint">🖨 Vista previa</button>
     <button class="secondary" id="btnPanelReglas">⚙️ Reglas y filtros</button>
     <button class="secondary" id="btnPanelFuera">🏖️ Fuera <span id="fueraCount"></span></button>
+    <button id="btnRevisar" style="display:none;background:#C0392B;color:#fff;padding:5px 6px;"></button>
   </header>
   <div id="body">
     <aside id="sidebar">
@@ -422,6 +435,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       </div>
 
       <div class="rules-section">
+        <button class="mini-btn" id="btnCambios" style="margin:0 0 8px;">📜 Registro de cambios</button>
         <h2>⚙️ Reglas / Filtros</h2>
 
         <h3>Filtros de vista</h3>
@@ -626,27 +640,25 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 </div>
 
 <div class="overlay" id="permisosOverlay">
-  <div class="modal" style="width:620px;max-height:88vh;display:flex;flex-direction:column;">
-    <h3 id="operativaPermisos">Permisos</h3>
-    <p style="font-size:.75rem;color:var(--texto2);margin-bottom:10px;">
-      Fechas puntuales de permiso y bajas médicas, aparte de las vacaciones. Cuentan igual que las vacaciones para la
-      cobertura de su unidad, así que aquí puedes comprobar antes de conceder uno si esas fechas ya están
-      justas de gente.
-    </p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-      <div class="field" style="flex:2;min-width:170px;"><label>Empleado</label><select id="pmzEmp"></select></div>
-      <div class="field" style="flex:1;min-width:120px;"><label>Tipo</label><select id="pmzTipo"><option value="permiso">Permiso</option><option value="baja">Baja médica</option></select></div>
-      <div class="field" style="flex:1;min-width:110px;"><label>Desde</label><input type="date" id="pmzStart"></div>
-      <div class="field" style="flex:1;min-width:110px;"><label id="pmzEndLabel">Hasta</label><input type="date" id="pmzEnd"></div>
-      <div class="field" style="flex:2;min-width:140px;"><label>Motivo</label><input type="text" id="pmzMotivo" placeholder="Ej: gestión personal"></div>
+  <div class="modal" style="width:760px;max-height:90vh;display:flex;flex-direction:column;">
+    <h3 id="operativaPermisos">Permisos y bajas</h3>
+    <div id="pzCards" class="pz-cards"></div>
+    <div class="pz-tabs">
+      <button class="pz-tab" data-pz="festivo" style="--c:#1F5A96;--cl:#DCEBFA;">🎉 Días por festivo</button>
+      <button class="pz-tab" data-pz="revision" style="--c:#1E6B3A;--cl:#DFF3E4;">🩺 Revisiones médicas</button>
+      <button class="pz-tab" data-pz="baja" style="--c:#A93226;--cl:#FBE0DD;">🤒 Bajas</button>
     </div>
-    <div id="pmzWarnings"></div>
-    <button class="mini-btn-primary" id="btnAddPermiso" style="margin-bottom:14px;">+ Añadir permiso</button>
-
-    <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);font-weight:700;margin-bottom:6px;">
-      Registro de permisos y bajas
+    <div id="pzForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;flex-shrink:0;"></div>
+    <div id="pmzWarnings" style="flex-shrink:0;"></div>
+    <div style="flex-shrink:0;margin-bottom:10px;"><button class="btn" id="btnAddPermiso">+ Añadir</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;font-size:.75rem;flex-shrink:0;border-top:1px solid var(--borde);padding-top:8px;">
+      Ver: <select id="pmzFAno"></select>
+      <select id="pmzFPlanning"><option value="">Tiendas y Ventas</option><option value="tiendas">Tiendas</option><option value="ventas">Ventas</option></select>
+      <select id="pmzFEmp"></select>
+      <button class="mini-btn" id="btnPrintPermisos" style="margin:0 0 0 auto;">🖨 Imprimir</button>
     </div>
-    <div id="permisosList" style="overflow-y:auto;flex:1;"></div>
+    <div id="pmzResumen" style="font-size:.72rem;color:var(--texto2);margin-bottom:4px;flex-shrink:0;"></div>
+    <div id="permisosList" style="overflow-y:auto;flex:1;min-height:60px;"></div>
     <div class="modal-actions">
       <div></div>
       <button class="btn btn-ghost" id="permisosClose">Cerrar</button>
@@ -677,6 +689,10 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <h3 id="empCardTitle">Ficha de empleado</h3>
       <div class="field"><label>Nombre completo</label><input type="text" id="ecName"></div>
       <div class="field"><label>Alias (como se le conoce en la empresa)</label><input type="text" id="ecAlias" placeholder="Ej: Sole"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="field" style="flex:2;min-width:180px;"><label>Correo</label><input type="text" inputmode="email" autocomplete="off" id="ecEmail" placeholder="Ej: nombre@correo.com"></div>
+        <div class="field" style="flex:1;min-width:120px;"><label>Móvil (para WhatsApp)</label><input type="text" inputmode="tel" autocomplete="off" id="ecMovil" placeholder="Ej: 600123456"></div>
+      </div>
       <div class="field"><label>Unidad</label><select id="ecUnit"></select></div>
       <div class="field"><label>Categoría</label><div style="display:flex;gap:6px;"><select id="ecCategory" style="flex:1;min-width:0;"></select><button type="button" class="btn btn-ghost" id="ecManageCategories">Gestionar categorías</button></div></div>
       <div class="field"><label>Año de antigüedad (dejar vacío si no se sabe)</label><input type="text" id="ecSeniority" placeholder="Ej: 2015" inputmode="numeric"></div>
@@ -752,6 +768,29 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
         <button class="btn btn-danger" id="unsavedDiscard">Cancelar cambios</button>
         <button class="btn btn-primary" id="unsavedSave">Guardar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="cambiosOverlay">
+  <div class="modal" style="width:820px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3 id="operativaCambios">📜 Registro de cambios</h3>
+    <div class="field" style="flex-shrink:0;"><input type="text" id="cambiosBuscar" placeholder="Buscar por persona, usuario o texto…"></div>
+    <div id="cambiosList" style="overflow-y:auto;flex:1;min-height:0;"></div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn btn-ghost" id="cambiosClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="revisarOverlay">
+  <div class="modal" style="width:760px;max-height:88vh;display:flex;flex-direction:column;">
+    <h3 id="operativaRevisar">⚠ Revisar</h3>
+    <div id="revisarList" style="overflow-y:auto;flex:1;min-height:0;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="excelDiffAll">↩️ Volver todo al Excel</button>
+      <button class="btn btn-ghost" id="revisarClose">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1003,6 +1042,10 @@ function applyMigrations(state){
     state.employees.forEach(e=>{ if(iniciales[e.id] && !e.alias) e.alias = iniciales[e.id]; });
     state._migrations.aliasIniciales202611 = true;
   }
+  if(!state._migrations.tiposPermiso202611){
+    (state.permisos||[]).forEach(p=>{ if(!p.tipo) p.tipo = 'revision'; });
+    state._migrations.tiposPermiso202611 = true;
+  }
   if(!state._migrations.aliasVentas202611){
     // Nombre de pila, y la inicial del apellido donde se repite. No pisa un alias ya escrito a mano.
     const ventas = {e1:'Carlos',e2:'Julio',e3:'Manuel',e4:'Walter',e5:'Juan Antonio',e6:'Antonio Manuel',e7:'Francisco Javier',e8:'Jesús Manuel',e9:'Nauzet',e10:'Roberto',e11:'Haridian',e12:'Felipe S.',e13:'María Luz',e14:'Javier',e15:'Miguel R.',e16:'María Paz',e32:'Tomás Iván',e33:'Miguel Ángel',e34:'Miguel H.',e35:'José Manuel'};
@@ -1043,7 +1086,80 @@ function loadState(){
   }catch(e){}
   return applyMigrations(defaultState());
 }
+/* ═══════════════════ REGISTRO DE CAMBIOS (Luis, 05/11/2026) ═══════════════════
+   Cada vez que se guarda, se compara con lo anterior y se apunta qué cambió: fechas de vacaciones, permisos y
+   bajas, quién trabaja cada festivo, peticiones y fichas. Con fecha, usuario y cómo se hizo (motivoCambio; si
+   nadie lo pone, «a mano»). Lo que llega de otro equipo no se apunta aquí: ya lo apuntó quien lo hizo. */
+let cambiosBase = null, motivoCambio = '';
+const MAX_CAMBIOS = 400;
+function huellaCambios(){
+  const per = {};
+  for(const p of state.periods){ const k = p.employeeId+'|'+p.start.slice(0,4); (per[k] = per[k] || []).push(p.start+'|'+p.end); }
+  Object.values(per).forEach(v=>v.sort());
+  const ficha = e=> JSON.stringify([e.name, e.alias||'', e.email||'', e.movil||'', e.unitId, e.categoryId||'', e.daysPerYear, e.seniorityYear||'', e.active!==false, e.saturdayGroup||'', e.jornada||'', !!e.haceFestivos, !!e.pideFechas, !!e.floater, !!e.sinSustituto, !!e.hijos, e.note||'', (state.employeePrefs[e.id]||{}).preferredText||'', !!(state.employeePrefs[e.id]||{}).fixed]);
+  return {
+    per,
+    perm: Object.fromEntries((state.permisos||[]).map(p=>[p.id, JSON.stringify([p.employeeId, p.tipo||'permiso', p.start, p.end||''])])),
+    fest: Object.fromEntries((state.holidaysWorked||[]).map(h=>[h.id, JSON.stringify([h.date, h.festividad, [...(h.empIds||[])].sort()])])),
+    pet: Object.fromEntries((state.peticiones||[]).map(p=>[p.id, JSON.stringify([p.employeeId, p.start, p.end, p.status])])),
+    emp: Object.fromEntries(state.employees.map(e=>[e.id, ficha(e)])),
+  };
+}
+function lineasCambios(a, b){
+  const out = [];
+  const nombre = id=> { const e = EMPLOYEES.find(x=>x.id===id); return e ? empLabel(e) : '(persona borrada)'; };
+  const dm = d=> d ? d.slice(8,10)+'/'+d.slice(5,7) : 'sin alta';
+  const rangos = v=> (v||[]).map(x=>{ const [s,e] = x.split('|'); return dm(s)+'–'+dm(e); }).join(', ') || 'sin fechas';
+  for(const k of new Set([...Object.keys(a.per), ...Object.keys(b.per)])){
+    if(JSON.stringify(a.per[k]||[])===JSON.stringify(b.per[k]||[])) continue;
+    const [id, y] = k.split('|');
+    out.push(`Vacaciones de ${nombre(id)} (${y}): ${rangos(a.per[k])} → ${rangos(b.per[k])}`);
+  }
+  for(const k of new Set([...Object.keys(a.perm), ...Object.keys(b.perm)])){
+    if(a.perm[k]===b.perm[k]) continue;
+    const x = JSON.parse(b.perm[k] || a.perm[k]); const tipo = {baja:'Baja médica', festivo:'Día por festivo', revision:'Revisión médica'}[x[1]] || 'Permiso';
+    if(!a.perm[k]) out.push(`${tipo} de ${nombre(x[0])}: añadido, ${dm(x[2])}–${dm(x[3])}`);
+    else if(!b.perm[k]) out.push(`${tipo} de ${nombre(x[0])}: borrado (${dm(x[2])}–${dm(x[3])})`);
+    else out.push(`${tipo} de ${nombre(x[0])}: ahora ${dm(x[2])}–${dm(x[3])}`);
+  }
+  for(const k of new Set([...Object.keys(a.fest), ...Object.keys(b.fest)])){
+    if(a.fest[k]===b.fest[k]) continue;
+    const x = JSON.parse(b.fest[k] || a.fest[k]);
+    const quien = v=> v ? (JSON.parse(v)[2].map(nombre).join(', ') || 'sin asignar') : '—';
+    if(!a.fest[k]) out.push(`Festivo ${dm(x[0])} ${x[1]}: añadido`);
+    else if(!b.fest[k]) out.push(`Festivo ${dm(x[0])} ${x[1]}: borrado`);
+    else out.push(`Festivo ${dm(x[0])} ${x[1]}: ${quien(a.fest[k])} → ${quien(b.fest[k])}`);
+  }
+  for(const k of new Set([...Object.keys(a.pet), ...Object.keys(b.pet)])){
+    if(a.pet[k]===b.pet[k]) continue;
+    const x = JSON.parse(b.pet[k] || a.pet[k]);
+    const que = `Petición de ${nombre(x[0])} ${dm(x[1])}–${dm(x[2])}`;
+    if(!a.pet[k]) out.push(`${que}: nueva`);
+    else if(!b.pet[k]) out.push(`${que}: borrada`);
+    else out.push(`${que}: ${JSON.parse(a.pet[k])[3]} → ${x[3]}`);
+  }
+  for(const k of new Set([...Object.keys(a.emp), ...Object.keys(b.emp)])){
+    if(a.emp[k]===b.emp[k]) continue;
+    const n = b.emp[k] ? JSON.parse(b.emp[k])[0] : JSON.parse(a.emp[k])[0];
+    out.push(!a.emp[k] ? `Ficha de ${n}: alta` : !b.emp[k] ? `Ficha de ${n}: eliminada` : `Ficha de ${n}: cambiada`);
+  }
+  return out;
+}
+function registrarCambios(){
+  const ahora = huellaCambios();
+  if(cambiosBase && !isApplyingRemoteUpdate){
+    const lineas = lineasCambios(cambiosBase, ahora);
+    if(lineas.length){
+      const ts = new Date().toISOString();
+      const user = authSession && authSession.email ? authSession.email.split('@')[0] : 'sin sesión';
+      state.cambios = (state.cambios || []).concat(lineas.map(texto=>({ts, user, como: motivoCambio || 'a mano', texto}))).slice(-MAX_CAMBIOS);
+    }
+  }
+  cambiosBase = ahora;
+  motivoCambio = '';
+}
 function saveState(){
+  registrarCambios();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   scheduleCloudSave();
 }
@@ -1498,6 +1614,7 @@ function absentCount(unitId, idx, y, excludePeriodId){
     if(iso>=p.start && iso<=p.end) n++;
   }
   for(const perm of state.permisos){
+    if(perm.tipo==='revision') continue; // una revisión médica son unas horas: no deja el puesto vacío
     const emp = EMPLOYEES.find(e=>e.id===perm.employeeId);
     if(!emp || emp.unitId!==unitId) continue;
     if(iso>=perm.start && iso<=permEnd(perm)) n++;
@@ -1514,6 +1631,9 @@ function unitCoverageForDay(unitId, idx, y, excludePeriodId){
 function holidaysWorkedBy(empId, y=state.year){
   return state.holidaysWorked.filter(h => h.empIds.includes(empId) && h.date.startsWith(y+'-'));
 }
+/* Días de vacaciones gastados: los de sus periodos más los días libres por festivo (cuentan como vacaciones). */
+function diasPorFestivo(empId, y){ return (state.permisos||[]).filter(p=>p.tipo==='festivo' && p.employeeId===empId && p.start.startsWith(y+'-')).length; }
+function diasUsados(empId, y){ return periodsOfYear(empId, y).reduce((t,p)=>t+isoToIndex(y,p.end)-isoToIndex(y,p.start)+1, 0) + diasPorFestivo(empId, y); }
 function effectiveDaysPerYear(emp){
   return emp.daysPerYear + holidaysWorkedBy(emp.id).length;
 }
@@ -1592,6 +1712,8 @@ function render(){
   renderOnLeave();
   renderGrid();
   renderSummary();
+  renderRevisarBadge();
+  if(isModalOpen('revisarOverlay')) renderRevisar();
   if(isModalOpen('rotationOverlay')) document.getElementById('btnRotation').click();
   if(isModalOpen('holidaysOverlay')) renderHolidaysList();
   if(isModalOpen('peticionesOverlay')) renderPeticiones();
@@ -1602,7 +1724,7 @@ function render(){
 /* Los turnos que llevan un día por festivo trabajado: el 1.º y el 2.º (de enero a agosto); si tiene más festivos
    o esos turnos no caen antes de septiembre, los siguientes. Solo para señalarlo en el planning. */
 function festivoCarriers(emp, y){
-  const k = holidaysWorkedBy(emp.id, y).length;
+  const k = Math.max(0, holidaysWorkedBy(emp.id, y).length - diasPorFestivo(emp.id, y));
   const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
   const out = new Set();
   if(!k || !periods.length) return out;
@@ -1623,7 +1745,7 @@ function getOnLeaveItems(dateVal){
     const period = state.periods.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=p.end);
     if(period) items.push({emp, range:period, tipo:'Vacaciones'});
     const permiso = state.permisos.find(p=> p.employeeId===emp.id && dateVal>=p.start && dateVal<=permEnd(p));
-    if(permiso) items.push({emp, range:permiso, tipo: esBaja(permiso) ? 'Baja médica' : 'Permiso'});
+    if(permiso) items.push({emp, range:permiso, tipo: nombreTipo(permiso)});
   }
   items.sort((a,b)=> empLabel(a.emp).localeCompare(empLabel(b.emp),'es'));
   return items;
@@ -1650,8 +1772,8 @@ function renderOnLeave(){
   }
   box.innerHTML = items.map(({emp,range,tipo})=>{
     const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-    const tag = tipo==='Permiso'
-      ? ' <span style="color:#8a5a00;font-weight:700;">(permiso)</span>'
+    const tag = tipo==='Día por festivo' || tipo==='Revisión médica'
+      ? ` <span style="color:#8a5a00;font-weight:700;">(${tipo.toLowerCase()})</span>`
       : tipo==='Baja médica'
         ? ' <span style="color:#5f6368;font-weight:700;">🩺 (baja médica)</span>'
         : ' <span style="color:#0a6e4a;font-weight:700;">🏖️ (vacaciones)</span>';
@@ -1965,7 +2087,7 @@ function renderYearView(wrap){
     for(const emp of list){
       const name = el('yv-name');
       const periods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
-      const used = periods.reduce((t,p)=>t+isoToIndex(y,p.end)-isoToIndex(y,p.start)+1, 0);
+      const used = diasUsados(emp.id, y);
       name.classList.add('yv-persona');
       const simbolos = empSymbols(emp).map(x=>`<span title="${escapeHtml(x.text)}">${x.icon}</span>`).join('');
       name.innerHTML = `<span class="yv-nom">${empNameHtml(emp)}</span><span class="yv-sim">${simbolos}</span>`;
@@ -2048,8 +2170,7 @@ function buildEmployeeRow(emp, y, n, totalW, gridDayIndices){
   const row = document.createElement('div'); row.className='emp-row';
   row.style.width = (NAME_W + totalW)+'px';
   const nameCell = document.createElement('div'); nameCell.className='emp-name';
-  const used = periodsOfYear(emp.id, y)
-    .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
+  const used = diasUsados(emp.id, y);
   const senLabel = emp.seniorityYear ? ('antig. '+emp.seniorityYear) : 'antig. pendiente';
   const badges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
   nameCell.title = emp.note || '';
@@ -2632,6 +2753,8 @@ function openEmployeeCard(empId){
 
   document.getElementById('ecName').value = emp ? emp.name : '';
   document.getElementById('ecAlias').value = emp ? (emp.alias||'') : '';
+  document.getElementById('ecEmail').value = emp ? (emp.email||'') : '';
+  document.getElementById('ecMovil').value = emp ? (emp.movil||'') : '';
   unitSel.value = emp ? emp.unitId : UNITS[0].id;
   document.getElementById('ecSeniority').value = (emp && emp.seniorityYear) ? emp.seniorityYear : '';
   document.getElementById('ecDays').value = emp ? emp.daysPerYear : 30;
@@ -2755,6 +2878,9 @@ function saveEmployeeCard(){
   emp.name = name;
   const alias = document.getElementById('ecAlias').value.trim();
   if(alias) emp.alias = alias; else delete emp.alias;
+  const email = document.getElementById('ecEmail').value.trim(), movil = document.getElementById('ecMovil').value.trim();
+  if(email) emp.email = email; else delete emp.email;
+  if(movil) emp.movil = movil; else delete emp.movil;
   emp.unitId = unitId;
   emp.seniorityYear = (seniorityYear && !isNaN(seniorityYear)) ? seniorityYear : null;
   emp.daysPerYear = (!isNaN(daysPerYear) && daysPerYear>0) ? daysPerYear : 30;
@@ -2804,8 +2930,7 @@ function renderSummary(){
   const y = state.year;
   for(const emp of EMPLOYEES){
     if(emp.active===false) continue;
-    const used = periodsOfYear(emp.id, y)
-      .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
+    const used = diasUsados(emp.id, y);
     const row = document.createElement('div'); row.className='summary-row';
     const holWorked = holidaysWorkedBy(emp.id).length;
     row.innerHTML = `<span>${empHover(emp)}</span><b>${used}/${effectiveDaysPerYear(emp)}${holWorked?` <small style="color:var(--texto2);font-weight:400;">(+${holWorked} festivo${holWorked>1?'s':''})</small>`:''}</b>`;
@@ -3052,7 +3177,7 @@ function rotationOrderFor(key, emps, y){
 /* Tramos de la persona: los del año anterior, ajustados a sus días y sin los ya colocados (fijas, peticiones).
    Los días por festivo trabajado no van sueltos: se suman al 1.º y al 2.º turno, uno a cada uno (Luis, 05/11/2026). */
 function tramosFor(emp, y, alreadyPlaced){
-  const holidays = holidaysWorkedBy(emp.id, y).length;
+  const holidays = Math.max(0, holidaysWorkedBy(emp.id, y).length - diasPorFestivo(emp.id, y)); // los ya disfrutados como día libre no van a los turnos
   const left = emp.daysPerYear + holidays - alreadyPlaced.reduce((t,d)=>t+d,0);
   if(left<=0) return [];
   const extra = Math.min(holidays, left);
@@ -3217,6 +3342,7 @@ function generatePlan(){
 
   const {results, fixedFailed, usedPeticiones, orders} = placeEmployees(targets, y);
   commitPlacement(y, usedPeticiones, orders);
+  motivoCambio = 'Generar plan';
   const assignedLines = [], failedLines = [];
   const fixedFailedLines = fixedFailed.map(({emp, range})=> `${empHover(emp)} — ${fmtRange(range.start,range.end)}`);
   for(const {emp, daysPlaced, targetDays, fromFixed, fromPartner, fromPrefs, fromFallback} of results){
@@ -3256,6 +3382,7 @@ function clearGeneratedPeriods(){
   if(!ok) return;
   const ids = new Set(targets.map(e=>e.id));
   state.periods = state.periods.filter(p=> !(ids.has(p.employeeId) && p.start.startsWith(y+'-')));
+  motivoCambio = 'Borrar todo';
   render();
   document.getElementById('generateReport').innerHTML =
     `<div class="rules-log-item">🗑 Borradas las vacaciones de ${y} de ${scopeLabel}. Puedes generar de nuevo desde cero.</div>`;
@@ -3359,6 +3486,7 @@ document.getElementById('rotSave').onclick = ()=>{
   const people = new Set(proposed.map(p=>p.employeeId)).size;
   if(!confirm(`¿Guardar en el cuadrante de ${y} la propuesta de ${people} persona(s) de ${PLANNINGS[currentPlanning].name} que aún no tienen fechas ese año? Quien ya tiene fechas en ${y} y el otro planning no cambian.`)) return;
   state.periods.push(...proposed);
+  motivoCambio = 'Guardar la propuesta (Prioridad)';
   const orders = Object.fromEntries(Object.entries(all.orders).filter(([key,ids])=> ids.some(mine)));
   commitPlacement(y, (state.peticiones||[]).filter(p=>all.usedPeticiones.includes(p.id) && mine(p.employeeId)).map(p=>p.id), orders);
   render();
@@ -3555,6 +3683,7 @@ function repartirFestivos(y){
 document.getElementById('btnRepartirFestivos').onclick = ()=>{
   const r = repartirFestivos(state.year);
   if(r.sinPersonal){ alert('Nadie tiene marcado «Hace festivos». Márcalo en la ficha de cada persona que los trabaja y vuelve a pulsar Repartir festivos.'); return; }
+  motivoCambio = 'Repartir festivos';
   render();
   renderHolidaysList();
   showToast(r.rellenados ? `Repartidos ${r.rellenados} festivo(s) de Aliz-1.`+(r.faltan?` En ${r.faltan} no había gente libre suficiente.`:'') : 'No había festivos de Aliz-1 por completar.');
@@ -3570,140 +3699,268 @@ document.getElementById('feDelete').onclick = ()=>{
   render();
 };
 
-/* ═══════════════════ PERMISOS ═══════════════════ */
-function renderPermisosEmpSelect(){
-  const sel = document.getElementById('pmzEmp');
-  sel.innerHTML = EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'))
-    .map(e=>`<option value="${escapeHtml(e.id)}">${escapeHtml(empLabel(e))}</option>`).join('');
+/* ═══════════════════ PERMISOS Y BAJAS (Luis, 05/11/2026) ═══════════════════
+   Tres tipos, cada uno con su botón de color:
+   · Días por festivo: el día libre a cambio de un festivo trabajado. Va unido a Festivos (lo marca compensado) y
+     cuenta como uno de sus días de vacaciones.
+   · Revisiones médicas: solo registro, para saber cuántas pide cada uno. No descuentan ni cuentan para cobertura.
+   · Bajas: enfermedad, con alta opcional. Salen en gris en el planning y avisan si pisan vacaciones o sábados. */
+let pzTab = 'festivo';
+const PZ = {
+  festivo: {nombre:'Días por festivo', icono:'🎉', color:'#1F5A96', claro:'#DCEBFA'},
+  revision:{nombre:'Revisiones médicas', icono:'🩺', color:'#1E6B3A', claro:'#DFF3E4'},
+  baja:    {nombre:'Bajas', icono:'🤒', color:'#A93226', claro:'#FBE0DD'},
+};
+function tipoPermiso(p){ return p.tipo==='baja' ? 'baja' : p.tipo==='festivo' ? 'festivo' : 'revision'; }
+function nombreTipo(p){ return {festivo:'Día por festivo', revision:'Revisión médica', baja:'Baja médica'}[tipoPermiso(p)]; }
+/* Festivos trabajados de una persona en un año, con su estado de compensación. */
+function festivosDe(empId, y){
+  return state.holidaysWorked.filter(h=>h.date.startsWith(y+'-') && !h.laborable && (h.empIds||[]).includes(empId))
+    .sort((a,b)=>a.date.localeCompare(b.date));
+}
+function festivosPendientes(empId, y){ return festivosDe(empId, y).filter(h=>!(h.comp||{})[empId]); }
+function pzEmpleados(){
+  const pl = document.getElementById('pmzFPlanning').value;
+  return EMPLOYEES.filter(e=>e.active!==false && (!pl || PLANNINGS[pl].unitIds.includes(e.unitId)))
+    .sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es'));
+}
+function pzAno(){ return +(document.getElementById('pmzFAno').value || state.year); }
+function pzOpciones(emps, sel){ return emps.map(e=>`<option value="${escapeHtml(e.id)}"${e.id===sel?' selected':''}>${escapeHtml(empLabel(e))}</option>`).join(''); }
+
+function renderPzForm(){
+  const box = document.getElementById('pzForm');
+  const y = pzAno();
+  const f = (label, html, flex='1', min='110px')=> `<div class="field" style="flex:${flex};min-width:${min};"><label>${label}</label>${html}</div>`;
+  if(pzTab==='festivo'){
+    const conPendientes = pzEmpleados().filter(e=>festivosPendientes(e.id, y).length);
+    const prev = document.getElementById('pmzEmp') ? document.getElementById('pmzEmp').value : '';
+    box.innerHTML = conPendientes.length
+      ? f('Persona', `<select id="pmzEmp">${pzOpciones(conPendientes, prev)}</select>`, '2', '150px')
+        + f('Festivo que compensa', '<select id="pmzFest"></select>', '2', '170px')
+        + f('Día libre', '<input type="date" id="pmzStart">')
+      : `<p style="font-size:.78rem;color:var(--texto2);margin:4px 0 8px;">Nadie tiene festivos de ${y} pendientes de disfrutar. Se apuntan en Festivos, poniendo quién trabaja cada uno.</p>`;
+    if(conPendientes.length){
+      const fillFest = ()=>{
+        const emp = document.getElementById('pmzEmp').value;
+        document.getElementById('pmzFest').innerHTML = festivosPendientes(emp, y)
+          .map(h=>`<option value="${escapeHtml(h.id)}">${h.date.slice(8,10)}/${h.date.slice(5,7)} ${escapeHtml(h.festividad)}</option>`).join('');
+      };
+      fillFest();
+      document.getElementById('pmzEmp').onchange = ()=>{ fillFest(); validatePermisoForm(); };
+    }
+  } else if(pzTab==='revision'){
+    box.innerHTML = f('Persona', `<select id="pmzEmp">${pzOpciones(pzEmpleados())}</select>`, '2', '150px')
+      + f('Fecha', '<input type="date" id="pmzStart">')
+      + f('Hora (opcional)', '<input type="text" id="pmzHora" placeholder="Ej: 10:30">', '1', '90px')
+      + f('Motivo', '<input type="text" id="pmzMotivo" placeholder="Ej: revisión de la vista">', '2', '140px');
+  } else {
+    box.innerHTML = f('Persona', `<select id="pmzEmp">${pzOpciones(pzEmpleados())}</select>`, '2', '150px')
+      + f('Inicio', '<input type="date" id="pmzStart">')
+      + f('Alta (opcional)', '<input type="date" id="pmzEnd">')
+      + f('Motivo', '<input type="text" id="pmzMotivo" placeholder="Ej: operación">', '2', '140px');
+  }
+  box.querySelectorAll('input,select').forEach(el=>{ if(!el.onchange) el.onchange = validatePermisoForm; el.oninput = validatePermisoForm; });
+  const add = document.getElementById('btnAddPermiso');
+  add.style.display = box.querySelector('#pmzEmp') ? '' : 'none';
+  add.textContent = {festivo:'+ Añadir día por festivo', revision:'+ Añadir revisión', baja:'+ Añadir baja'}[pzTab];
+  add.style.background = PZ[pzTab].claro; add.style.color = PZ[pzTab].color; add.style.border = '1px solid '+PZ[pzTab].color;
+  document.getElementById('pmzWarnings').innerHTML = '';
 }
 
 function validatePermisoForm(){
-  const empId = document.getElementById('pmzEmp').value;
-  const start = document.getElementById('pmzStart').value;
-  const baja = document.getElementById('pmzTipo').value==='baja';
-  document.getElementById('pmzEndLabel').textContent = baja ? 'Alta (opcional)' : 'Hasta';
-  document.getElementById('btnAddPermiso').textContent = baja ? '+ Añadir baja' : '+ Añadir permiso';
-  const endRaw = document.getElementById('pmzEnd').value;
-  const end = endRaw || (baja ? '9999-12-31' : '');
-  const box = document.getElementById('pmzWarnings');
-  const btn = document.getElementById('btnAddPermiso');
-  box.innerHTML = '';
-  btn.disabled = false;
-  if(!empId || !start || !end) return;
-  if(end<start){ box.innerHTML = '<div class="err-box">Rango de fechas no válido.</div>'; btn.disabled = true; return; }
-
+  const val = id=> (document.getElementById(id)||{}).value || '';
+  const empId = val('pmzEmp'), start = val('pmzStart');
+  const box = document.getElementById('pmzWarnings'), btn = document.getElementById('btnAddPermiso');
+  box.innerHTML = ''; btn.disabled = false;
+  if(!empId || !start || pzTab==='revision') return;
+  const baja = pzTab==='baja';
+  const endRaw = baja ? val('pmzEnd') : start;
+  const end = endRaw || '9999-12-31';
+  if(end<start){ box.innerHTML = '<div class="err-box">El alta no puede ser antes del inicio.</div>'; btn.disabled = true; return; }
   const emp = EMPLOYEES.find(e=>e.id===empId);
   if(!emp) return;
-  const y = state.year;
-
-  const ownPermOverlap = state.permisos.find(p=> p.employeeId===empId && !(end<p.start || start>permEnd(p)));
-  if(ownPermOverlap){
-    box.innerHTML = `<div class="err-box">Ya tiene un permiso concedido en ese rango (${fmtRange(ownPermOverlap.start,ownPermOverlap.end)}).</div>`;
-    btn.disabled = true; return;
-  }
-  const vacOverlap = state.periods.find(p=> p.employeeId===empId && !(end<p.start || start>p.end));
-  if(vacOverlap && baja){
-    const todas = state.periods.filter(p=> p.employeeId===empId && !(end<p.start || start>p.end)).sort((a,b)=>a.start.localeCompare(b.start));
-    box.innerHTML = `<div class="warn-box">⚠ La baja coincide con sus vacaciones (${todas.map(p=>fmtRange(p.start,p.end)).join(', ')}). Normalmente esos días se recolocan después: la app no las mueve sola.</div>`;
-    return;
-  }
-  if(vacOverlap){
-    box.innerHTML = `<div class="err-box">Coincide con sus vacaciones (${fmtRange(vacOverlap.start,vacOverlap.end)}).</div>`;
-    btn.disabled = true; return;
-  }
-
-  if(baja){ box.innerHTML = ''; return; } // una baja no se elige: no tiene sentido avisar de cobertura ni de sábados
-  const sIdx = Math.max(0, isoToIndex(y,start)), eIdx = Math.min(daysInYear(y)-1, isoToIndex(y,end));
-  let overDays=0, maxSeen=1, countSeen=0, hasSat=false;
-  for(let idx=sIdx; idx<=eIdx; idx++){
-    const {count,max} = unitCoverageForDay(emp.unitId, idx, y, null);
-    if(count+1>max){ overDays++; maxSeen=max; countSeen=count+1; }
-    if(dateFromIndex(y, idx).getUTCDay()===6) hasSat = true;
-  }
+  const y = +start.slice(0,4);
+  const own = state.permisos.find(p=> p.employeeId===empId && tipoPermiso(p)!=='revision' && !(end<p.start || start>permEnd(p)));
+  if(own){ box.innerHTML = `<div class="err-box">Ya tiene ${nombreTipo(own).toLowerCase()} en esas fechas (${fmtRange(own.start,own.end)}).</div>`; btn.disabled = true; return; }
+  const vac = state.periods.filter(p=> p.employeeId===empId && !(end<p.start || start>p.end)).sort((a,b)=>a.start.localeCompare(b.start));
   let html = '';
-  if(overDays>0){
-    const unitName = (UNITS.find(u=>u.id===emp.unitId)||{}).name;
-    html += `<div class="warn-box">⚠ Con este permiso, <b>${unitName}</b> quedaría con ${countSeen} persona(s) fuera
-      (máx. recomendado ${maxSeen}) en ${overDays} día(s). No se bloquea, pero revísalo antes de concederlo.</div>`;
+  if(vac.length){
+    if(!baja){ box.innerHTML = `<div class="err-box">Ese día ya está de vacaciones (${fmtRange(vac[0].start,vac[0].end)}).</div>`; btn.disabled = true; return; }
+    html += `<div class="warn-box">⚠ ${endRaw ? 'La baja coincide con sus vacaciones' : 'Si sigue de baja, pisará sus vacaciones'} (${vac.map(p=>fmtRange(p.start,p.end)).join(', ')}). Normalmente esos días se recolocan después: la app no las mueve sola.</div>`;
   }
-  if(hasSat && emp.saturdayGroup){
-    html += `<div class="warn-box">ℹ️ Incluye un sábado y ${empHover(emp)} cubre turno de sábado
-      (Grupo ${emp.saturdayGroup}${emp.saturdayPost?', '+emp.saturdayPost:''}) — comprueba quién lo cubriría ese día.</div>`;
+  if(!baja){
+    const idx = isoToIndex(y, start);
+    const bl = isBlockedIndex(y, idx);
+    if(bl) html += `<div class="warn-box">⚠ Ese día cae en fechas bloqueadas (${escapeHtml(bl.label)}).</div>`;
+    const {count,max} = unitCoverageForDay(emp.unitId, idx, y, null);
+    if(count+1>max) html += `<div class="warn-box">⚠ Ese día habría ${count+1} personas de <b>${escapeHtml((UNITS.find(u=>u.id===emp.unitId)||{}).name||'')}</b> fuera, y el máximo es ${max}. No se bloquea.</div>`;
+  }
+  if(emp.saturdayGroup){
+    const hasta = endRaw ? end : (()=>{ const d = new Date(start+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+30); return toISO(d); })();
+    let sab = false;
+    for(let d = new Date(start+'T00:00:00Z'); toISO(d)<=hasta; d.setUTCDate(d.getUTCDate()+1)) if(d.getUTCDay()===6){ sab = true; break; }
+    if(sab) html += `<div class="warn-box">ℹ️ ${empHover(emp)} hace turno de sábado (Grupo ${emp.saturdayGroup}${emp.saturdayPost?', '+escapeHtml(emp.saturdayPost):''})${endRaw?'':' y la baja aún no tiene alta'}: busca quién lo cubre.</div>`;
   }
   box.innerHTML = html;
 }
-document.getElementById('pmzEmp').onchange = validatePermisoForm;
-document.getElementById('pmzStart').oninput = validatePermisoForm;
-document.getElementById('pmzEnd').oninput = validatePermisoForm;
-document.getElementById('pmzTipo').onchange = validatePermisoForm;
 
-function renderPermisosList(){
-  const box = document.getElementById('permisosList');
-  const sorted = [...state.permisos].sort((a,b)=> a.start.localeCompare(b.start));
-  if(!sorted.length){
-    box.innerHTML = '<p style="font-size:.75rem;color:var(--texto2);">No hay permisos ni bajas registrados.</p>';
-    return;
+document.getElementById('btnAddPermiso').onclick = ()=>{
+  const val = id=> ((document.getElementById(id)||{}).value || '').trim();
+  const empId = val('pmzEmp'), start = val('pmzStart');
+  if(!empId || !start){ showToast('Elige la persona y la fecha.'); return; }
+  if(document.getElementById('btnAddPermiso').disabled) return;
+  const id = 'perm'+Date.now()+Math.random().toString(36).slice(2,5);
+  if(pzTab==='festivo'){
+    const h = state.holidaysWorked.find(x=>x.id===val('pmzFest'));
+    if(!h){ showToast('Elige el festivo que compensa.'); return; }
+    state.permisos.push({id, tipo:'festivo', employeeId:empId, start, end:start, holidayId:h.id, motivo:''});
+    h.comp = h.comp || {};
+    h.comp[empId] = {tipo:'permiso', fecha:start, nota:'Día por festivo', permisoId:id};
+    showToast('Día por festivo apuntado y festivo marcado como compensado.');
+  } else if(pzTab==='revision'){
+    state.permisos.push({id, tipo:'revision', employeeId:empId, start, end:start, hora:val('pmzHora'), motivo:val('pmzMotivo')});
+    showToast('Revisión médica apuntada.');
+  } else {
+    const end = val('pmzEnd');
+    if(end && end<start){ showToast('El alta no puede ser antes del inicio.'); return; }
+    state.permisos.push({id, tipo:'baja', employeeId:empId, start, end, motivo:val('pmzMotivo')});
+    showToast('Baja apuntada.');
   }
-  box.innerHTML = sorted.map(p=>{
-    const emp = EMPLOYEES.find(e=>e.id===p.employeeId) || {name:'(empleado eliminado)', unitId:null};
-    const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-    return `<div class="block-item" style="display:block;padding:8px 10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <b>${empHover(emp)}${esBaja(p)?' <span style="font-weight:600;color:#5f6368;">· 🩺 Baja médica</span>':''}</b>
-        <button data-delperm="${p.id}" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>
-      </div>
-      <small style="color:var(--texto2);">${unit} · ${fmtRange(p.start,p.end)}${p.motivo?' · '+escapeHtml(p.motivo):''}</small>
-      ${esBaja(p) && !p.end ? `<div style="display:flex;gap:6px;align-items:center;margin-top:5px;font-size:.72rem;">Alta: <input type="date" data-alta="${p.id}" style="width:auto;padding:3px;"> <button class="mini-btn" data-poneralta="${p.id}">Poner alta</button></div>` : ''}
-    </div>`;
-  }).join('');
-  box.querySelectorAll('[data-poneralta]').forEach(btn=>{
-    btn.onclick = ()=>{
-      const p = state.permisos.find(x=>x.id===btn.dataset.poneralta);
-      const fecha = box.querySelector(`[data-alta="${btn.dataset.poneralta}"]`).value;
-      if(!p || !fecha || fecha<p.start){ showToast('Elige una fecha de alta igual o posterior al inicio de la baja.'); return; }
-      p.end = fecha;
-      render();
-      renderPermisosList();
-      showToast('Alta anotada.');
-    };
-  });
-  box.querySelectorAll('[data-delperm]').forEach(btn=>{
-    btn.onclick = ()=>{
-      state.permisos = state.permisos.filter(p=>p.id!==btn.dataset.delperm);
-      render();
-      renderPermisosList();
-    };
+  render();
+  renderPermisos(true);
+};
+
+/* Una baja sin alta cuenta los días hasta hoy. */
+function permisoDias(p){
+  const hoy = new Date().toISOString().slice(0,10);
+  const fin = p.end || (hoy>=p.start ? hoy : p.start);
+  return Math.round((new Date(fin+'T00:00:00Z')-new Date(p.start+'T00:00:00Z'))/86400000)+1;
+}
+function borrarPermiso(id){
+  const p = state.permisos.find(x=>x.id===id);
+  if(!p) return;
+  if(tipoPermiso(p)==='festivo'){
+    const h = state.holidaysWorked.find(x=>x.id===p.holidayId);
+    if(h && h.comp && h.comp[p.employeeId] && h.comp[p.employeeId].permisoId===id) delete h.comp[p.employeeId];
+  }
+  state.permisos = state.permisos.filter(x=>x.id!==id);
+  render();
+  renderPermisos();
+}
+function pzFiltrados(tipo){
+  const y = document.getElementById('pmzFAno').value, emp = document.getElementById('pmzFEmp').value;
+  const emps = new Set(pzEmpleados().map(e=>e.id));
+  return (state.permisos||[]).filter(p=> tipoPermiso(p)===tipo && emps.has(p.employeeId) && (!emp || p.employeeId===emp)
+    && (!y || (p.start<=y+'-12-31' && permEnd(p)>=y+'-01-01'))).sort((a,b)=>a.start.localeCompare(b.start));
+}
+/* Filas de la pestaña Días por festivo: cada festivo trabajado por cada persona, disfrutado o no. */
+function pzFestivosFilas(){
+  const y = pzAno(), emp = document.getElementById('pmzFEmp').value;
+  const filas = [];
+  for(const e of pzEmpleados().filter(e=>!emp || e.id===emp)){
+    for(const h of festivosDe(e.id, y)){
+      const c = (h.comp||{})[e.id];
+      filas.push({e, h, c, estado: !c ? 'pendiente' : c.permisoId ? 'libre' : 'otro'});
+    }
+  }
+  return filas.sort((a,b)=> a.h.date.localeCompare(b.h.date) || empLabel(a.e).localeCompare(empLabel(b.e),'es'));
+}
+const dmy = d=> d ? d.split('-').reverse().join('/') : '';
+function renderPermisos(soloLista){
+  const y = pzAno();
+  // tarjetas de resumen
+  const hoy = new Date().toISOString().slice(0,10);
+  const pend = pzEmpleados().reduce((t,e)=>t+festivosPendientes(e.id, y).length, 0);
+  const rev = (state.permisos||[]).filter(p=>tipoPermiso(p)==='revision' && p.start.startsWith(y+'-')).length;
+  const deBaja = (state.permisos||[]).filter(p=>tipoPermiso(p)==='baja' && p.start<=hoy && permEnd(p)>=hoy).length;
+  document.getElementById('pzCards').innerHTML = [
+    ['festivo', 'Días por festivo sin disfrutar', pend],
+    ['revision', `Revisiones médicas ${y}`, rev],
+    ['baja', 'De baja hoy', deBaja],
+  ].map(([t,l,n])=>`<div class="pz-card" style="--c:${PZ[t].color};--cl:${PZ[t].claro};"><span>${l}</span><b>${n}</b></div>`).join('');
+  document.querySelectorAll('.pz-tab').forEach(b=> b.classList.toggle('on', b.dataset.pz===pzTab));
+  if(!soloLista) renderPzForm();
+  // lista
+  const box = document.getElementById('permisosList');
+  const resumen = document.getElementById('pmzResumen');
+  const borra = id=> `<button data-delperm="${id}" title="Borrar" style="background:none;border:none;color:var(--rojo);cursor:pointer;font-size:.85rem;">✕</button>`;
+  const nom = e=> `<b>${empHover(e||{name:'?'})}</b>`;
+  const tabla = (cols, filas, pie)=> `<table class="lv-table pz-table"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}<th style="width:150px;"></th></tr></thead><tbody>${filas}${pie||''}</tbody></table>`;
+  const td = (x, cls='lv-c')=> `<td class="${cls}">${x}</td>`;
+  let html = '';
+  if(pzTab==='festivo'){
+    const filas = pzFestivosFilas();
+    resumen.textContent = filas.length ? `${filas.length} festivo${filas.length===1?'':'s'} trabajado${filas.length===1?'':'s'} · ${filas.filter(f=>f.estado==='pendiente').length} sin disfrutar` : '';
+    html = filas.length ? tabla(['Persona','Festivo','Fecha','Estado','Día libre'], filas.map(f=>`<tr>${td(nom(f.e),'lv-name')}${td(escapeHtml(f.h.festividad),'pz-l')}${td(dmy(f.h.date))}${td(f.estado==='pendiente'?'<span style="color:#b26a00;font-weight:600;">Pendiente</span>':f.estado==='libre'?'<span style="color:#1E6B3A;font-weight:600;">Disfrutado</span>':'<span style="color:#1E6B3A;font-weight:600;">Compensado</span>')}${td(f.estado==='libre'?dmy(f.c.fecha):'')}${td(f.estado==='libre'?borra(f.c.permisoId):'')}</tr>`).join(''))
+      : `<p style="font-size:.78rem;color:var(--texto2);">Nadie ha trabajado festivos en ${y} con estos filtros.</p>`;
+  } else if(pzTab==='revision'){
+    const lista = pzFiltrados('revision');
+    const cuenta = {};
+    lista.forEach(p=>{ cuenta[p.employeeId] = (cuenta[p.employeeId]||0)+1; });
+    resumen.textContent = lista.length ? `${lista.length} ${lista.length===1?'revisión':'revisiones'} · `+Object.entries(cuenta).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`${empLabel(EMPLOYEES.find(e=>e.id===id))} ${n}`).join(' · ') : '';
+    html = lista.length ? tabla(['Persona','Fecha','Hora','Motivo'], lista.map(p=>`<tr>${td(nom(EMPLOYEES.find(e=>e.id===p.employeeId)),'lv-name')}${td(dmy(p.start)+(p.end&&p.end!==p.start?' – '+dmy(p.end):''))}${td(escapeHtml(p.hora||''))}${td(escapeHtml(p.motivo||''),'pz-l')}${td(borra(p.id))}</tr>`).join(''),
+      `<tr><td class="lv-name" colspan="3" style="text-align:right;">Total</td><td class="lv-c lv-total">${lista.length}</td><td></td></tr>`)
+      : '<p style="font-size:.78rem;color:var(--texto2);">No hay revisiones médicas con estos filtros.</p>';
+  } else {
+    const lista = pzFiltrados('baja').sort((a,b)=> (!a.end?0:1)-(!b.end?0:1) || a.start.localeCompare(b.start));
+    const total = lista.reduce((t,p)=>t+permisoDias(p),0);
+    resumen.textContent = lista.length ? `${lista.length} baja${lista.length===1?'':'s'} · ${total} día${total===1?'':'s'}` : '';
+    html = lista.length ? tabla(['Persona','Inicio','Alta','Días','Motivo'], lista.map(p=>{
+      const activa = p.start<=hoy && permEnd(p)>=hoy;
+      const alta = p.end ? dmy(p.end) : `<span style="display:inline-flex;gap:3px;align-items:center;"><input type="date" data-alta="${p.id}" style="width:118px;padding:1px;font-size:.72rem;"></span>`;
+      const acc = (!p.end ? `<button class="mini-btn" data-poneralta="${p.id}" style="margin:0 4px 0 0;">Poner alta</button>` : '') + borra(p.id);
+      return `<tr>${td(nom(EMPLOYEES.find(e=>e.id===p.employeeId))+(activa?' <span style="color:#A93226;font-weight:700;">· de baja</span>':''),'lv-name')}${td(dmy(p.start))}${td(alta)}${td(permisoDias(p))}${td(escapeHtml(p.motivo||''),'pz-l')}${td(acc)}</tr>`;
+    }).join(''), `<tr><td class="lv-name" colspan="3" style="text-align:right;">Total (${lista.length})</td><td class="lv-c lv-total">${total}</td><td colspan="2"></td></tr>`)
+      : '<p style="font-size:.78rem;color:var(--texto2);">No hay bajas con estos filtros.</p>';
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('[data-delperm]').forEach(b=> b.onclick = ()=>{ if(confirm('¿Borrar este registro?')) borrarPermiso(b.dataset.delperm); });
+  box.querySelectorAll('[data-poneralta]').forEach(b=> b.onclick = ()=>{
+    const p = state.permisos.find(x=>x.id===b.dataset.poneralta);
+    const fecha = box.querySelector(`[data-alta="${b.dataset.poneralta}"]`).value;
+    if(!p || !fecha || fecha<p.start){ showToast('Elige una fecha de alta igual o posterior al inicio de la baja.'); return; }
+    p.end = fecha; render(); renderPermisos(true); showToast('Alta anotada.');
   });
 }
-
+function fillPermisoFiltros(){
+  const anos = new Set([state.year]);
+  (state.permisos||[]).forEach(p=>{ anos.add(+p.start.slice(0,4)); if(p.end) anos.add(+p.end.slice(0,4)); });
+  state.holidaysWorked.forEach(h=>anos.add(+h.date.slice(0,4)));
+  const fa = document.getElementById('pmzFAno');
+  fa.innerHTML = [...anos].sort().map(y=>`<option value="${y}">${y}</option>`).join('');
+  fa.value = String(state.year);
+  const fe = document.getElementById('pmzFEmp');
+  fe.innerHTML = '<option value="">Todas las personas</option>'+pzOpciones(EMPLOYEES.filter(e=>e.active!==false).sort((a,b)=>empLabel(a).localeCompare(empLabel(b),'es')));
+}
+document.querySelectorAll('.pz-tab').forEach(b=> b.onclick = ()=>{ pzTab = b.dataset.pz; renderPermisos(); });
+['pmzFAno','pmzFPlanning','pmzFEmp'].forEach(id=>{ document.getElementById(id).onchange = ()=> renderPermisos(id==='pmzFEmp'); });
+function permisosTablaHtml(){
+  const th = cols=> `<thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>`;
+  const nom = id=> escapeHtml(empLabel(EMPLOYEES.find(e=>e.id===id)||{name:'?'}));
+  if(pzTab==='festivo'){
+    const filas = pzFestivosFilas();
+    return `<table class="lv-table">${th(['Persona','Festivo','Fecha','Estado','Día libre'])}<tbody>${filas.map(f=>`<tr><td class="lv-name">${escapeHtml(empLabel(f.e))}</td><td style="border:1px solid #777;">${escapeHtml(f.h.festividad)}</td><td class="lv-c">${dmy(f.h.date)}</td><td class="lv-c">${f.estado==='pendiente'?'Pendiente':f.estado==='libre'?'Disfrutado':'Compensado'}</td><td class="lv-c">${f.estado==='libre'?dmy(f.c.fecha):''}</td></tr>`).join('')}</tbody></table>`;
+  }
+  if(pzTab==='revision'){
+    const lista = pzFiltrados('revision');
+    return `<table class="lv-table">${th(['Persona','Fecha','Hora','Motivo'])}<tbody>${lista.map(p=>`<tr><td class="lv-name">${nom(p.employeeId)}</td><td class="lv-c">${dmy(p.start)}${p.end&&p.end!==p.start?' – '+dmy(p.end):''}</td><td class="lv-c">${escapeHtml(p.hora||'')}</td><td style="border:1px solid #777;">${escapeHtml(p.motivo||'')}</td></tr>`).join('')}<tr><td class="lv-name" colspan="3" style="text-align:right;">Total</td><td class="lv-c lv-total">${lista.length}</td></tr></tbody></table>`;
+  }
+  const lista = pzFiltrados('baja');
+  return `<table class="lv-table">${th(['Persona','Inicio','Alta','Días','Motivo'])}<tbody>${lista.map(p=>`<tr><td class="lv-name">${nom(p.employeeId)}</td><td class="lv-c">${dmy(p.start)}</td><td class="lv-c">${p.end?dmy(p.end):'sin alta'}</td><td class="lv-c">${permisoDias(p)}</td><td style="border:1px solid #777;">${escapeHtml(p.motivo||'')}</td></tr>`).join('')}<tr><td class="lv-name" colspan="3" style="text-align:right;">Total (${lista.length})</td><td class="lv-c lv-total">${lista.reduce((t,p)=>t+permisoDias(p),0)}</td><td></td></tr></tbody></table>`;
+}
+function permisosTituloImpresion(){
+  const fp = document.getElementById('pmzFPlanning'), fe = document.getElementById('pmzFEmp');
+  return [PZ[pzTab].nombre, document.getElementById('pmzFAno').value, fp.value ? PLANNINGS[fp.value].name : 'Tiendas y Ventas', fe.value ? fe.options[fe.selectedIndex].text : ''].filter(Boolean).join(' · ');
+}
+document.getElementById('btnPrintPermisos').onclick = ()=>{ activePrintTarget = 'permisos'; window.print(); };
 document.getElementById('btnPermisos').onclick = ()=>{
-  renderPermisosEmpSelect();
-  renderPermisosList();
-  document.getElementById('pmzStart').value = '';
-  document.getElementById('pmzEnd').value = '';
-  document.getElementById('pmzMotivo').value = '';
-  document.getElementById('pmzTipo').value = 'permiso';
-  validatePermisoForm();
-  document.getElementById('pmzWarnings').innerHTML = '';
+  fillPermisoFiltros();
+  document.getElementById('pmzFPlanning').value = currentPlanning;
+  document.getElementById('pmzFEmp').value = '';
+  renderPermisos();
   openModal('permisosOverlay');
 };
 document.getElementById('permisosClose').onclick = ()=> requestClose('permisosOverlay');
-document.getElementById('btnAddPermiso').onclick = ()=>{
-  const empId = document.getElementById('pmzEmp').value;
-  const start = document.getElementById('pmzStart').value;
-  const end = document.getElementById('pmzEnd').value;
-  const motivo = document.getElementById('pmzMotivo').value.trim();
-  const baja = document.getElementById('pmzTipo').value==='baja';
-  if(!empId || !start || (!end && !baja) || (end && end<start)){ showToast('Completa empleado y un rango de fechas válido.'); return; }
-  state.permisos.push({id:'perm'+Date.now()+Math.random().toString(36).slice(2,5), employeeId:empId, start, end, motivo, ...(baja?{tipo:'baja'}:{})});
-  document.getElementById('pmzStart').value = '';
-  document.getElementById('pmzEnd').value = '';
-  document.getElementById('pmzMotivo').value = '';
-  document.getElementById('pmzWarnings').innerHTML = '';
-  render();
-  renderPermisosList();
-  showToast(baja ? 'Baja registrada.' : 'Permiso registrado.');
-};
 
 /* ═══════════════════ FILTROS / TOP BAR ═══════════════════ */
 document.getElementById('yearSelect').onchange = (e)=>{ state.year=parseInt(e.target.value,10); render(); };
@@ -3889,8 +4146,7 @@ function buildPrintArea(){
       });
       row.appendChild(track);
 
-      const used = periodsOfYear(emp.id, y)
-        .reduce((s,p)=> s + (isoToIndex(y,p.end)-isoToIndex(y,p.start)+1), 0);
+      const used = diasUsados(emp.id, y);
       const daysCell = document.createElement('div'); daysCell.className='p-days';
       daysCell.textContent = used+'/'+effectiveDaysPerYear(emp);
       row.appendChild(daysCell);
@@ -3911,7 +4167,7 @@ function setPrintPageSize(){
   const size = activePrintTarget==='vacaciones' ? printFormat+' landscape' : 'A4 portrait';
   document.getElementById('printPageSize').textContent = `@media print{ @page{ size:${size}; margin:0; } }`;
 }
-let activePrintTarget = 'vacaciones'; // 'vacaciones' | 'turnos' | 'listado' — cuál hoja se imprime con Ctrl+P
+let activePrintTarget = 'vacaciones'; // 'vacaciones' | 'turnos' | 'listado' | 'festivos' | 'permisos' — cuál hoja se imprime con Ctrl+P
 
 function scalePrintPreview(){
   const pa = document.getElementById('printArea');
@@ -4004,7 +4260,12 @@ window.addEventListener('beforeprint', ()=>{
   document.getElementById('turnosPrintArea').style.display = 'none';
   document.getElementById('listadoPrintArea').style.display = 'none';
   releasePrintSheet();
-  if(activePrintTarget==='festivos'){
+  if(activePrintTarget==='permisos'){
+    const pa = document.getElementById('listadoPrintArea');
+    pa.innerHTML = `<div class="lv-title">${escapeHtml(permisosTituloImpresion())}</div>`+permisosTablaHtml();
+    pa.style.display = 'block';
+    holdPrintSheet(pa);
+  } else if(activePrintTarget==='festivos'){
     const pa = document.getElementById('listadoPrintArea');
     pa.innerHTML = `<div class="lv-title">Festivos ${state.year}</div>`+festivosTableHtml(state.year, true);
     pa.style.display = 'block';
@@ -4100,7 +4361,7 @@ function shareVacationsWhatsapp(){
   } else {
     for(const {emp,range,tipo} of items){
       const unit = (UNITS.find(u=>u.id===emp.unitId)||{}).name || '';
-      const tag = tipo==='Permiso' ? ' [PERMISO]' : tipo==='Baja médica' ? ' [BAJA MÉDICA]' : '';
+      const tag = tipo==='Vacaciones' ? '' : ` [${tipo.toUpperCase()}]`;
       text += `• ${empLabel(emp)}${tag} (${unit}) — ${fmtRange(range.start,range.end)}\n`;
     }
   }
@@ -4278,6 +4539,8 @@ function renderPeticiones(){
         <input type="text" data-nota placeholder="Nota de la jefa de tienda" value="${escapeHtml(pet.nota||'')}" style="flex:1;min-width:170px;padding:5px 7px;border:1px solid var(--borde);border-radius:6px;">
         ${pet.status!=='aprobada'?'<button class="btn btn-primary" data-ok>Aprobar</button>':''}
         ${pet.status!=='rechazada'?'<button class="btn btn-ghost" data-no>Rechazar</button>':''}
+        <button class="btn btn-ghost" data-correo title="Abre tu programa de correo con la respuesta ya escrita">✉️ Correo</button>
+        <button class="btn btn-ghost" data-wasap title="Abre WhatsApp con la respuesta ya escrita">💬 WhatsApp</button>
         <button class="btn btn-danger" data-del>Borrar</button>
       </div>`;
     card.querySelector('[data-nota]').onchange = (e)=>{ pet.nota = e.target.value.trim(); saveState(); };
@@ -4289,6 +4552,8 @@ function renderPeticiones(){
       state.peticiones = state.peticiones.filter(p=>p.id!==pet.id);
       render();
     };
+    card.querySelector('[data-correo]').onclick = ()=> responderPeticion(pet, card.querySelector('[data-nota]').value, 'correo');
+    card.querySelector('[data-wasap]').onclick = ()=> responderPeticion(pet, card.querySelector('[data-nota]').value, 'wasap');
     card.querySelectorAll('[data-mover]').forEach(btn=>{
       btn.onclick = ()=>{
         const x = peers[+btn.dataset.mover];
@@ -4308,6 +4573,28 @@ function renderPeticiones(){
       showToast('Fechas intercambiadas.');
     };
     box.appendChild(card);
+  }
+}
+/* Responder una petición: abre el correo o WhatsApp de quien la hizo con el mensaje ya escrito. Lo envía la
+   persona: la app no manda nada sola. */
+function textoRespuesta(pet, nota){
+  const emp = EMPLOYEES.find(e=>e.id===pet.employeeId) || {name:''};
+  const estado = {aprobada:'está aprobada', rechazada:'no se ha podido aprobar', pendiente:'la estamos revisando'}[pet.status] || 'la estamos revisando';
+  const rango = `del ${pet.start.split('-').reverse().join('/')} al ${pet.end.split('-').reverse().join('/')}`;
+  return {asunto:`Vacaciones: petición ${rango}`,
+    cuerpo:`Hola ${empLabel(emp)},\n\nSobre tu petición de vacaciones ${rango}: ${estado}.${nota&&nota.trim()?'\n\n'+nota.trim():''}\n\nUn saludo.`};
+}
+function responderPeticion(pet, nota, via){
+  const emp = EMPLOYEES.find(e=>e.id===pet.employeeId) || {};
+  const {asunto, cuerpo} = textoRespuesta(pet, nota);
+  if(via==='correo'){
+    if(!emp.email) showToast('Su ficha no tiene correo: escríbelo en «Para».');
+    window.location.href = `mailto:${encodeURIComponent(emp.email||'')}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  } else {
+    let tel = String(emp.movil||'').replace(/\D/g,'');
+    if(tel.length===9) tel = '34'+tel; // móvil español sin prefijo
+    if(!tel) showToast('Su ficha no tiene móvil: elige el chat en WhatsApp.');
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(cuerpo)}`, '_blank');
   }
 }
 function approvePeticion(pet){
@@ -4365,7 +4652,7 @@ document.getElementById('ptAdd').onclick = ()=>{
 };
 
 /* ═══════════════════ CARGAR VACACIONES DESDE EXCEL ═══════════════════
-   Hoja «x Fechas» (columnas D nombre, F desde, H hasta; el año sale de F1). Enseña lo leído y solo guarda al
+   Hoja «x Fechas» o, si no está, la primera con nombres y fechas (las columnas se buscan solas; el año, en las primeras filas). Enseña lo leído y solo guarda al
    confirmar. Las fechas ya decididas entran tal cual aunque no cumplan las reglas: se avisa, no se bloquea. */
 const CARGA_ALIAS = {'sonia':'e27','maria':'e25','angeles':'e20','evelyn':'e30','evelin':'e30','m.ª teresa':'e26','ma teresa':'e26','mª teresa':'e26','herminia':'e17','joani':'e28','natalia':'e19','dunia':'e21','cande m.':'e31','rosi':'e18','sole':'e29','monica':'e23','cande':'e22'};
 let cargaRows = null, cargaYear = null;
@@ -4394,20 +4681,39 @@ function matchEmployeeName(raw){
   const hits = EMPLOYEES.filter(e=>e.active!==false && normalizeText(e.name+' '+(e.alias||'')).includes(norm));
   return hits.length===1 ? hits[0].id : '';
 }
+/* Las columnas no siempre están en el mismo sitio (en un Excel van en D, F y H; en otro, en C, E y G): se busca
+   en cada fila un nombre seguido, dos columnas después, de una fecha y, dos más allá, de otra, y manda lo más repetido. */
+function columnasVacaciones(rows){
+  const votos = {};
+  rows.forEach(r=>{
+    for(let i=0;i<r.length;i++){
+      if(typeof r[i]==='string' && r[i].trim() && typeof r[i+2]==='number' && r[i+2]>30000 && typeof r[i+4]==='number' && r[i+4]>30000)
+        votos[i] = (votos[i]||0)+1;
+    }
+  });
+  const mejor = Object.entries(votos).sort((a,b)=>b[1]-a[1])[0];
+  return mejor && mejor[1]>=3 ? +mejor[0] : null;
+}
 function parseVacationSheet(wb){
-  const name = wb.SheetNames.find(n=>/x fechas/i.test(n) && !/imprimir/i.test(n));
-  if(!name) throw new Error('No encuentro la hoja «x Fechas» en este Excel: comprueba que es el fichero de vacaciones.');
-  const sheet = wb.Sheets[name];
-  const range = XLSX.utils.decode_range(sheet['!ref']);
-  range.s.c = 0; range.s.r = 0; // que las columnas y filas cuenten desde A1 aunque la hoja empiece en B
-  const rows = XLSX.utils.sheet_to_json(sheet, {header:1, raw:true, blankrows:true, range});
-  const year = (rows[0]||[]).map(Number).find(v=>v>2000 && v<2100);
-  if(!year) throw new Error('No encuentro el año en la primera fila de la hoja: debería estar en la celda F1.');
+  const leer = name=>{
+    const sheet = wb.Sheets[name];
+    if(!sheet || !sheet['!ref']) return null;
+    const range = XLSX.utils.decode_range(sheet['!ref']);
+    range.s.c = 0; range.s.r = 0; // que las columnas y filas cuenten desde A1 aunque la hoja empiece en B
+    return XLSX.utils.sheet_to_json(sheet, {header:1, raw:true, blankrows:true, range});
+  };
+  // primero la hoja «x Fechas»; si no está, la primera hoja que tenga nombres con fechas
+  const nombres = [...wb.SheetNames.filter(n=>/x fechas/i.test(n) && !/imprimir/i.test(n)), ...wb.SheetNames.filter(n=>!/imprimir/i.test(n))];
+  let rows = null, col = null;
+  for(const n of nombres){ const r = leer(n); const c = r && columnasVacaciones(r); if(c!==null){ rows = r; col = c; break; } }
+  if(!rows) throw new Error('No encuentro en este Excel una lista de nombres con sus fechas: comprueba que es el fichero de vacaciones.');
+  const year = rows.slice(0,3).flat().map(Number).find(v=>v>2000 && v<2100);
+  if(!year) throw new Error('No encuentro el año en las primeras filas de la hoja (por ejemplo, 2026 junto a «Fijados»).');
   const out = [];
   rows.forEach(r=>{
-    const nombre = typeof r[3]==='string' ? r[3].trim() : '';
-    if(!nombre || typeof r[5]!=='number' || typeof r[7]!=='number') return;
-    const a = excelSerialToIso(r[5], year), b = excelSerialToIso(r[7], year);
+    const nombre = typeof r[col]==='string' ? r[col].trim() : '';
+    if(!nombre || typeof r[col+2]!=='number' || typeof r[col+4]!=='number') return;
+    const a = excelSerialToIso(r[col+2], year), b = excelSerialToIso(r[col+4], year);
     out.push({nombre, start:a.iso, end:b.iso, fixedYear:a.fixedYear||b.fixedYear, employeeId:matchEmployeeName(nombre)});
   });
   out.sort((x,y)=>x.start.localeCompare(y.start));
@@ -4476,6 +4782,12 @@ document.getElementById('cargaOk').onclick = ()=>{
   if(!confirm(`¿Sustituir las vacaciones de ${cargaYear} de ${people.size} personas por las del Excel? Sus fechas actuales de ${cargaYear} se perderán.`)) return;
   state.periods = state.periods.filter(p=> !(people.has(p.employeeId) && p.start.startsWith(cargaYear+'-')));
   rows.forEach((r,i)=> state.periods.push({id:'x'+Date.now()+i, employeeId:r.employeeId, start:r.start, end:r.end}));
+  // Copia de lo que dice el Excel, para avisar si luego algo no coincide (Luis, 05/11/2026)
+  state.excelSnapshots = state.excelSnapshots || {};
+  const personas = {};
+  rows.forEach(r=>{ (personas[r.employeeId] = personas[r.employeeId] || []).push([r.start, r.end]); });
+  state.excelSnapshots[cargaYear] = {fecha: new Date().toISOString().slice(0,10), personas};
+  motivoCambio = 'Cargar Excel';
   const year = cargaYear, n = rows.length;
   state.year = year;
   cargaRows = null;
@@ -4483,6 +4795,142 @@ document.getElementById('cargaOk').onclick = ()=>{
   render();
   openListado();
   showToast(`Cargadas ${n} fechas de ${year}.`);
+};
+
+/* ═══════════════════ DIFERENCIAS CON EL EXCEL ═══════════════════
+   Al cargar el Excel se guarda una copia de sus fechas. Si después las de alguien no coinciden (Generar plan,
+   un cambio a mano, otra persona desde otro equipo), sale un aviso en la cabecera y esta pantalla, para volver
+   al Excel o dar el cambio por bueno. */
+function rangosDe(empId, y){
+  return periodsOfYear(empId, y).map(p=>[p.start, p.end]).sort((a,b)=>a[0].localeCompare(b[0]));
+}
+function excelDiffs(){
+  const out = [];
+  for(const [y, snap] of Object.entries(state.excelSnapshots||{})){
+    for(const [empId, rangos] of Object.entries(snap.personas||{})){
+      const emp = EMPLOYEES.find(e=>e.id===empId);
+      if(!emp || emp.active===false) continue;
+      const excel = [...rangos].sort((a,b)=>a[0].localeCompare(b[0]));
+      const app = rangosDe(empId, +y);
+      if(JSON.stringify(excel)!==JSON.stringify(app)) out.push({y:+y, emp, excel, app, fecha:snap.fecha});
+    }
+  }
+  return out.sort((a,b)=> a.y-b.y || empLabel(a.emp).localeCompare(empLabel(b.emp),'es'));
+}
+function volverAlExcel(d){
+  state.periods = state.periods.filter(p=> !(p.employeeId===d.emp.id && p.start.startsWith(d.y+'-')));
+  d.excel.forEach(([start,end],i)=> state.periods.push({id:'x'+Date.now()+i+Math.random().toString(36).slice(2,5), employeeId:d.emp.id, start, end}));
+}
+function renderCambios(){
+  const q = document.getElementById('cambiosBuscar').value.trim().toLowerCase();
+  const lista = [...(state.cambios||[])].reverse().filter(c=> !q || (c.texto+' '+c.user+' '+c.como).toLowerCase().includes(q));
+  const box = document.getElementById('cambiosList');
+  if(!lista.length){ box.innerHTML = '<p style="font-size:.8rem;color:var(--texto2);">'+(q?'Nada con ese texto.':'Aún no hay cambios apuntados.')+'</p>'; return; }
+  const th = 'style="text-align:left;padding:4px 6px;border-bottom:2px solid var(--verde);color:var(--verde);position:sticky;top:0;background:#fff;"';
+  const fecha = ts=> { const d = new Date(ts); return d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); };
+  box.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.76rem;"><thead><tr><th ${th}>Cuándo</th><th ${th}>Quién</th><th ${th}>Cómo</th><th ${th}>Cambio</th></tr></thead><tbody>`
+    + lista.map(c=>`<tr><td style="padding:4px 6px;border-bottom:1px solid #eee;white-space:nowrap;">${fecha(c.ts)}</td><td style="padding:4px 6px;border-bottom:1px solid #eee;white-space:nowrap;">${escapeHtml(c.user)}</td><td style="padding:4px 6px;border-bottom:1px solid #eee;white-space:nowrap;">${escapeHtml(c.como)}</td><td style="padding:4px 6px;border-bottom:1px solid #eee;">${escapeHtml(c.texto)}</td></tr>`).join('')
+    + '</tbody></table>';
+}
+document.getElementById('btnCambios').onclick = ()=>{ document.getElementById('cambiosBuscar').value=''; renderCambios(); openModal('cambiosOverlay'); };
+document.getElementById('cambiosBuscar').oninput = renderCambios;
+document.getElementById('cambiosClose').onclick = ()=> closeModal('cambiosOverlay');
+/* ═══════════════════ ⚠ REVISAR (Luis, 05/11/2026) ═══════════════════
+   Vigilante de errores e incongruencias del año y planning que se ven: se calcula solo cada vez, como una lista
+   de notas, y cada nota desaparece en cuanto se corrige. Cada una lleva un botón para ir a arreglarla. */
+function revisarItems(){
+  const y = state.year, n = daysInYear(y), items = [];
+  const emps = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e));
+  const dm = d=> d.slice(8,10)+'/'+d.slice(5,7);
+  const planificado = emps.some(e=>periodsOfYear(e.id, y).length);
+  if(planificado){
+    for(const e of emps){
+      const used = diasUsados(e.id, y);
+      const toca = effectiveDaysPerYear(e);
+      if(!used) items.push({cat:'Días de vacaciones', texto:`${empLabel(e)} no tiene vacaciones puestas en ${y} (le tocan ${toca}).`, ir:'persona', emp:e});
+      else if(used!==toca) items.push({cat:'Días de vacaciones', texto:`${empLabel(e)} tiene ${used} días de ${toca}: ${used>toca?'sobran':'faltan'} ${Math.abs(used-toca)}.`, ir:'persona', emp:e});
+    }
+  }
+  for(const u of UNITS.filter(u=>PLANNINGS[currentPlanning].unitIds.includes(u.id))){
+    for(let i=0;i<n;){
+      const c = unitCoverageForDay(u.id, i, y);
+      if(!c.over){ i++; continue; }
+      let j = i, peor = c.count;
+      while(j<n && unitCoverageForDay(u.id, j, y).over){ peor = Math.max(peor, unitCoverageForDay(u.id, j, y).count); j++; }
+      const d1 = toISO(dateFromIndex(y,i)), d2 = toISO(dateFromIndex(y,j-1));
+      items.push({cat:'Cobertura', texto:`${u.name}: ${peor} fuera ${d1===d2?'el '+dm(d1):'del '+dm(d1)+' al '+dm(d2)} (máximo ${c.max}).`, ir:'unidad', unit:u.id});
+      i = j;
+    }
+  }
+  for(const p of (state.permisos||[]).filter(esBaja)){
+    const e = emps.find(x=>x.id===p.employeeId);
+    if(!e) continue;
+    const pisa = periodsOfYear(e.id, y).filter(v=> !(permEnd(p)<v.start || p.start>v.end));
+    if(pisa.length) items.push({cat:'Bajas', texto:`La baja de ${empLabel(e)} (${fmtRange(p.start,p.end)}) pisa sus vacaciones del ${pisa.map(v=>fmtRange(v.start,v.end)).join(', ')}: habrá que recolocarlas.`, ir:'permisos'});
+  }
+  for(const e of emps.filter(e=>hasFixedPref(e.id))){
+    for(const r of parsePreferredRanges(state.employeePrefs[e.id].preferredText, y)){
+      if(!periodsOfYear(e.id, y).some(v=> v.start<=r.start && v.end>=r.end))
+        items.push({cat:'Fechas fijas', texto:`${empLabel(e)} tiene fijo ${fmtRange(r.start,r.end)} y no lo tiene puesto en ${y}.`, ir:'persona', emp:e});
+    }
+  }
+  for(const h of state.holidaysWorked.filter(h=>h.date.startsWith(y+'-') && !h.laborable && esAliz1(h.tienda) && (h.empIds||[]).length<2))
+    items.push({cat:'Festivos', texto:`${dm(h.date)} ${h.festividad} (Aliz-1): ${(h.empIds||[]).length ? 'solo una persona' : 'sin nadie'}.`, ir:'festivo', h});
+  for(const p of (state.peticiones||[]).filter(p=>p.status==='pendiente' && p.start.startsWith(y+'-'))){
+    const e = emps.find(x=>x.id===p.employeeId);
+    if(e) items.push({cat:'Peticiones', texto:`${empLabel(e)} pide ${fmtRange(p.start,p.end)}: pendiente de decidir.`, ir:'peticiones'});
+  }
+  for(const d of excelDiffs().filter(d=>d.y===y && inPlanning(d.emp))){
+    const r = x=> x.map(([a,b])=>dm(a)+'–'+dm(b)).join(', ') || 'sin fechas';
+    items.push({cat:'Diferencias con el Excel', texto:`${empLabel(d.emp)} — Excel: ${r(d.excel)} · App: ${r(d.app)}.`, ir:'excel', d});
+  }
+  return items;
+}
+function renderRevisarBadge(){
+  const n = revisarItems().length;
+  const b = document.getElementById('btnRevisar');
+  b.style.display = n ? '' : 'none';
+  b.textContent = `⚠ ${n}`;
+  b.title = `${n} cosa${n===1?'':'s'} que revisar en ${state.year} · ${PLANNINGS[currentPlanning].name}. Pulsa para verlas.`;
+}
+function renderRevisar(){
+  const items = revisarItems();
+  const box = document.getElementById('revisarList');
+  document.getElementById('excelDiffAll').style.visibility = items.some(x=>x.ir==='excel') ? 'visible' : 'hidden';
+  if(!items.length){ box.innerHTML = '<p style="font-size:.85rem;color:var(--verde);font-weight:600;">✅ Nada que revisar en '+state.year+' · '+PLANNINGS[currentPlanning].name+'.</p>'; return; }
+  const boton = (x,i)=> x.ir==='excel'
+    ? `<button class="mini-btn" data-volver="${i}">↩️ Volver al Excel</button> <button class="mini-btn" data-bueno="${i}">✓ Dar por bueno</button>`
+    : `<button class="mini-btn" data-ir="${i}">${{persona:'Ver en el planning', unidad:'Ver el grupo', permisos:'Abrir Permisos', festivo:'Abrir el festivo', peticiones:'Abrir Peticiones'}[x.ir]}</button>`;
+  let html = '', cat = '';
+  items.forEach((x,i)=>{
+    if(x.cat!==cat){ cat = x.cat; html += `<div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:var(--verde);font-weight:700;margin:10px 0 4px;">${escapeHtml(cat)} (${items.filter(z=>z.cat===cat).length})</div>`; }
+    html += `<div class="block-item" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;font-size:.78rem;"><span>${escapeHtml(x.texto)}</span><span style="flex-shrink:0;">${boton(x,i)}</span></div>`;
+  });
+  box.innerHTML = html;
+  box.querySelectorAll('[data-ir]').forEach(b=> b.onclick = ()=>{
+    const x = items[+b.dataset.ir];
+    closeModal('revisarOverlay');
+    if(x.ir==='persona'){ filterText = empLabel(x.emp); document.getElementById('searchInput').value = filterText; renderGrid(); showToast('Filtrado por '+empLabel(x.emp)+'. Borra el buscador de Reglas y filtros para ver a todos.'); }
+    else if(x.ir==='unidad'){ filterUnit = x.unit; document.getElementById('unitFilter').value = x.unit; renderGrid(); showToast('Se ve solo ese grupo. En Reglas y filtros, Unidad «Todas» para volver.'); }
+    else if(x.ir==='permisos') document.getElementById('btnPermisos').click();
+    else if(x.ir==='festivo'){ document.getElementById('btnHolidays').click(); openFestivoEditor(x.h); }
+    else if(x.ir==='peticiones') document.getElementById('btnPeticiones').click();
+  });
+  box.querySelectorAll('[data-volver]').forEach(b=> b.onclick = ()=>{ volverAlExcel(items[+b.dataset.volver].d); motivoCambio = 'Volver al Excel'; render(); renderRevisar(); showToast('Fechas del Excel recuperadas.'); });
+  box.querySelectorAll('[data-bueno]').forEach(b=> b.onclick = ()=>{
+    const d = items[+b.dataset.bueno].d;
+    state.excelSnapshots[d.y].personas[d.emp.id] = d.app;
+    render(); renderRevisar(); showToast('Cambio dado por bueno.');
+  });
+}
+document.getElementById('btnRevisar').onclick = ()=>{ renderRevisar(); openModal('revisarOverlay'); };
+document.getElementById('revisarClose').onclick = ()=> closeModal('revisarOverlay');
+document.getElementById('excelDiffAll').onclick = ()=>{
+  const diffs = excelDiffs().filter(d=>d.y===state.year && inPlanning(d.emp));
+  if(!diffs.length || !confirm(`¿Volver al Excel las fechas de ${diffs.length} persona${diffs.length===1?'':'s'}? Lo que tengan ahora en ${state.year} se sustituye.`)) return;
+  diffs.forEach(volverAlExcel);
+  motivoCambio = 'Volver al Excel';
+  render(); renderRevisar(); showToast('Todo vuelto al Excel.');
 };
 
 /* ═══════════════════ OPERATIVA (norma de Luis, 03/11/2026) ═══════════════════
@@ -4512,6 +4960,7 @@ const OPERATIVAS = {
       'Con <b>Sobrescribir</b> marcado, Generar plan <b>pregunta antes</b> de sustituir las fechas ya puestas (también las del Excel), con la lista de personas. Si dices que no, no se toca nada.',
       'El generador reparte igual que la propuesta de Prioridad de rotación.',
       'Si sale arriba el aviso amarillo de versión nueva, pulsa <b>Actualizar</b> para recargar la página.',
+      'Si sale en la cabecera el botón rojo <b>⚠</b> con un número, hay cosas que revisar (días, cobertura, bajas, festivos, peticiones…): púlsalo para verlas y corregirlas.',
     ],
   },
   '#pmTitle': {
@@ -4583,16 +5032,17 @@ const OPERATIVAS = {
   },
   '#operativaPermisos': {
     pasos: [
-      'Elige el empleado, las fechas, el <b>Tipo</b> (Permiso o Baja médica) y el motivo.',
-      'En una <b>baja médica</b>, el alta se puede dejar vacía si no se sabe. Cuando llegue, ponla en el registro con <b>Poner alta</b>.',
-      'Lee los avisos, si salen, y pulsa <b>Añadir permiso</b>.',
-      'El permiso queda en el registro, donde también se puede borrar.',
+      'Elige arriba el tipo con su botón: <b>🎉 Días por festivo</b>, <b>🩺 Revisiones médicas</b> o <b>🤒 Bajas</b>.',
+      '<b>Días por festivo</b>: elige la persona (solo salen quienes tienen festivos sin disfrutar), el festivo que compensa y el día libre.',
+      '<b>Revisiones médicas</b>: persona, fecha, hora si se sabe y motivo.',
+      '<b>Bajas</b>: persona, inicio y motivo. El alta se puede dejar vacía y ponerla después con <b>Poner alta</b>.',
+      'Pulsa <b>+ Añadir</b>. Debajo, la lista de ese tipo; con <b>Ver</b> eliges año, planning y persona, y con <b>🖨 Imprimir</b> sale en A4.',
     ],
     notas: [
-      'Un permiso o una baja cuentan igual que las vacaciones para la cobertura de su unidad.',
-      'La baja sale en el calendario como una <b>barra gris</b> y no gasta días de vacaciones.',
-      'Si la baja coincide con sus vacaciones, sale un aviso: esos días normalmente se recolocan después. La app <b>no las mueve sola</b>.',
-      'Los avisos de cobertura o de turno de sábado no impiden conceder el permiso.',
+      'Un <b>día por festivo</b> cuenta como uno de sus días de vacaciones y marca ese festivo como compensado en Festivos. Si se borra, el festivo vuelve a quedar pendiente.',
+      'Las <b>revisiones médicas</b> no descuentan días ni cuentan para la cobertura: son solo un registro de cuántas pide cada uno.',
+      'Una <b>baja</b> sale en gris en el planning, no gasta vacaciones y cuenta para la cobertura. Avisa si pisa sus vacaciones o si le toca turno de sábado.',
+      'Una baja sin alta cuenta sus días hasta hoy. Arriba, «De baja hoy» dice cuántas hay abiertas.',
     ],
   },
   '#operativaEmpleados': {
@@ -4612,6 +5062,7 @@ const OPERATIVAS = {
       'La ficha se abre solo para mirar. Pulsa <b>Editar</b> para poder cambiarla, o <b>Nuevo</b> para dar de alta a otra persona.',
       'Elige su <b>Categoría</b>. Para añadir, renombrar, ordenar o quitar categorías, pulsa <b>Editar</b> y luego <b>Gestionar categorías</b>.',
       'En <b>Alias</b> pon el nombre por el que se le conoce: es el que sale en todas las pantallas e impresiones. El completo se ve al pasar el ratón.',
+      'Apunta su <b>Correo</b> y su <b>Móvil</b> para poder contestarle las peticiones desde la app.',
       'En <b>Fechas preferidas</b> elige <b>Desde</b> y <b>Hasta</b> en el calendario. Con <b>+ Otra fecha</b> añades otra, y con ✕ la quitas. Para que sea fija, marca la casilla 📌.',
       'En <b>Turno de sábado</b>, «No hace sábados» es para quien no los trabaja. En <b>Jornada</b>, marca si hace media jornada.',
       'Termina con <b>Guardar</b>, o con <b>Cancelar</b> para dejarla como estaba.',
@@ -4670,14 +5121,40 @@ const OPERATIVAS = {
     ],
     notas: [
       'El correo pegado se guarda con la petición: se ve en <b>📧 Correo de la petición</b>.',
+      'Para contestar, pulsa <b>✉️ Correo</b> o <b>💬 WhatsApp</b>: se abre con el mensaje ya escrito (fechas, si está aprobada o no, y la nota). Lo envías tú; la app no manda nada sola.',
+      'Para que vaya directo a la persona, apunta su <b>correo</b> y su <b>móvil</b> en su ficha. WhatsApp se abre en el programa del ordenador o en WhatsApp Web: no hay que instalar nada en la app.',
       'La lista ya programada no se recalcula: solo cambia lo que se cambie aquí.',
       'Si el año aún no está repartido, la petición aprobada se respeta al repartir, justo después de las fijas.',
       'Rechazar o borrar no quita unas fechas ya colocadas: se quitan pulsando en su barra del cuadrante.',
     ],
   },
+  '#operativaCambios': {
+    pasos: [
+      'Se abre desde <b>Reglas y filtros → 📜 Registro de cambios</b>. Lo más nuevo sale arriba.',
+      'Escribe en el buscador un nombre, un usuario o una palabra para ver solo esos cambios.',
+    ],
+    notas: [
+      'Se apunta <b>solo</b> cada cambio de vacaciones, permisos y bajas, festivos, peticiones y fichas: cuándo, quién y cómo.',
+      '<b>Cómo</b> dice si fue a mano o con Generar plan, Guardar la propuesta, Cargar Excel, Borrar todo, Volver al Excel o Repartir festivos.',
+      'Se guardan los últimos 400 cambios. Lo que pasó antes de existir el registro no consta.',
+    ],
+  },
+  '#operativaRevisar': {
+    pasos: [
+      'El botón rojo <b>⚠</b> de la cabecera dice cuántas cosas hay que revisar en el año y planning que ves. Púlsalo para ver la lista.',
+      'Cada nota dice qué pasa y lleva un botón para ir a corregirlo: <b>Ver en el planning</b>, <b>Ver el grupo</b>, <b>Abrir Permisos</b>, <b>Abrir el festivo</b> o <b>Abrir Peticiones</b>.',
+      'En las diferencias con el Excel: <b>↩️ Volver al Excel</b> o <b>✓ Dar por bueno</b> si el cambio fue a propósito.',
+    ],
+    notas: [
+      'La lista se calcula sola cada vez: <b>cuando se corrige algo, su nota desaparece</b>. No hay que borrar nada.',
+      'Vigila: días de más o de menos, personas sin vacaciones, días con más gente fuera de la permitida, bajas que pisan vacaciones, fechas fijas sin poner, festivos de Aliz-1 sin dos personas, peticiones pendientes y diferencias con el último Excel cargado.',
+      'Los días de vacaciones solo se revisan si el año ya tiene fechas puestas.',
+      'Sin nada que revisar, el botón ⚠ no sale.',
+    ],
+  },
   '#operativaCarga': {
     pasos: [
-      'Elige el Excel de vacaciones. Se lee la hoja «x Fechas».',
+      'Elige el Excel de vacaciones. Se lee la hoja «x Fechas» o, si no la tiene, la que tenga la lista de nombres con sus fechas.',
       'Comprueba persona y fechas. Si un nombre no se reconoce, elige la persona en el desplegable.',
       'Pulsa el botón verde para sustituir las fechas de esas personas en ese año.',
     ],
