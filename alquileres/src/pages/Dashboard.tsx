@@ -1,4 +1,5 @@
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight } from 'lucide-react'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
@@ -11,12 +12,21 @@ import CorreccionesLuis from '../components/CorreccionesLuis'
 import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
-import { numSuelto } from '../lib/formato'
+import { num, numSuelto } from '../lib/formato'
+import { estadoPrecio, textoDiferencia } from '../lib/precioReserva'
+import FichaCuadre from '../components/FichaCuadre'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_DASHBOARD } from '../lib/operativas'
 
 export default function Dashboard() {
-  const { reservations, payments, apartments, repairs } = useData()
+  const { reservations, payments, apartments, repairs, prices, offerPrices } = useData()
+  /**
+   * Cada aviso rojo se pincha y abre el cuadre de esa estancia, para corregirlo
+   * desde ahí; una vez corregido, el aviso desaparece solo porque se vuelve a
+   * calcular (Luis, 06/11/2026: «pinchando te lleve a donde está el error… y
+   * una vez corregido se elimine»).
+   */
+  const [ficha, setFicha] = useState<Reservation | null>(null)
 
   const todayStr = today()
   const now = new Date()
@@ -58,6 +68,20 @@ export default function Dashboard() {
    */
   const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now)
   const porVenir = pendingPayment.length - vencidas.length
+
+  /**
+   * Importes que no salen de la tarifa y no constan como precio pactado. Desde
+   * el cuadre se corrige la reserva o se anota el motivo, y el aviso se va.
+   * Ver lib/precioReserva.ts.
+   */
+  const sinCuadrarConTarifa = useMemo(() => reservations
+    .flatMap(r => {
+      const p = estadoPrecio(r, prices, offerPrices)
+      return p.tipo === 'descuadre' ? [{ r, esperado: p.esperado, diferencia: p.diferencia }] : []
+    })
+    .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn)),
+  [reservations, prices, offerPrices])
+  const eur = (n: number) => `${num(n, 2)} €`
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -133,7 +157,7 @@ export default function Dashboard() {
       <AlertasDescuadre />
 
       {/* Alerts */}
-      {(vencidas.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
+      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
           {copiaPendiente && (
             <Link to="/config"
@@ -160,25 +184,31 @@ export default function Dashboard() {
           {vencidas.slice(0, 5).map(r => {
             const paid = getPaidAmount(r)
             const pending = r.total - paid
-            const vencida = true
             return (
-              <div key={r.id} className={`rounded-lg p-3 flex items-center gap-3 border ${
-                vencida ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                <Clock size={16} className={`shrink-0 ${vencida ? 'text-red-600' : 'text-amber-600'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${vencida ? 'text-red-800' : 'text-amber-800'}`}>
-                    {getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}
-                    {vencida && <span className="ml-2 text-xs font-bold">ya terminó y no está cobrada del todo</span>}
-                  </p>
-                  <p className={`text-xs ${vencida ? 'text-red-700' : 'text-amber-700'}`}>
-                    Falta por cobrar: <strong>{pending.toFixed(2)} €</strong> · cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €
-                  </p>
-                </div>
-              </div>
+              <AvisoRojo key={r.id} icono={<Clock size={16} className="shrink-0 text-red-600" />}
+                titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
+                que="ya terminó y no está cobrada del todo"
+                onClick={() => setFicha(r)}>
+                Falta por cobrar: <strong>{pending.toFixed(2)} €</strong> · cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €
+              </AvisoRojo>
             )
           })}
           {vencidas.length > 5 && (
             <p className="text-xs text-slate-500 pl-1">+{vencidas.length - 5} cobros vencidos más</p>
+          )}
+          {sinCuadrarConTarifa.slice(0, 5).map(({ r, esperado, diferencia }) => (
+            <AvisoRojo key={`tarifa-${r.id}`} icono={<AlertTriangle size={16} className="shrink-0 text-red-600" />}
+              titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
+              que="el importe no sale de la tarifa"
+              onClick={() => setFicha(r)}>
+              Importe <strong>{eur(r.total)}</strong> · por tarifa serían {eur(esperado)}, {textoDiferencia(diferencia, eur)}.
+              No consta como precio pactado.
+            </AvisoRojo>
+          ))}
+          {sinCuadrarConTarifa.length > 5 && (
+            <Link to="/reservas?precio=descuadre" className="block text-xs text-blue-700 hover:underline pl-1">
+              +{sinCuadrarConTarifa.length - 5} importes más que no cuadran con la tarifa: verlos todos en Reservas
+            </Link>
           )}
         </div>
       )}
@@ -233,7 +263,35 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {ficha && <FichaCuadre reserva={ficha} onClose={() => setFicha(null)} />}
     </div>
+  )
+}
+
+/** Un aviso rojo que se pincha y abre el cuadre de la estancia. */
+function AvisoRojo({ icono, titulo, que, onClick, children }: {
+  icono: React.ReactNode
+  titulo: string
+  que: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button type="button" onClick={onClick} title="Abrir el cuadre de esta estancia para corregirlo"
+      className="w-full text-left rounded-lg p-3 flex items-center gap-3 border bg-red-50 border-red-200 hover:bg-red-100 hover:border-red-300 transition-colors">
+      {icono}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-red-800">
+          {titulo}
+          <span className="ml-2 text-xs font-bold">{que}</span>
+        </p>
+        <p className="text-xs text-red-700">{children}</p>
+      </div>
+      <span className="shrink-0 flex items-center gap-0.5 text-xs font-medium text-red-700">
+        ver el cuadre <ChevronRight size={14} />
+      </span>
+    </button>
   )
 }
 

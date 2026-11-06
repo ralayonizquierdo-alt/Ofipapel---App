@@ -74,7 +74,7 @@ const PRECIO_DE_LA_RESERVA: ReglaOperativa = {
   formula: '✅ de la tarifa · 🔵 precio pactado (con su motivo) · ⚠️ no cuadra con la tarifa',
   nota: 'Se rehace la cuenta con la tarifa y se compara con el importe guardado. **⚠️ quiere decir que no '
     + 'consta como pactado**: o se corrige la reserva o se anota el motivo. No se compara el Arenal (lo pone '
-    + 'SOC) ni los años anteriores a 2026.',
+    + 'SOC) ni las estancias que **acabaron antes de 2026**; las que entran en 2025 y siguen en 2026, sí.',
 }
 
 // ─── Una por pantalla ─────────────────────────────────────────────────────────
@@ -97,6 +97,13 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     que: 'Cobros vencidos',
     formula: 'estancia TERMINADA, sin cobrar del todo, desde 2026',
     nota: 'Lo que aún no ha terminado no es un aviso: es lo normal.',
+  },
+  PRECIO_DE_LA_RESERVA,
+  {
+    // pages/Dashboard.tsx — AvisoRojo
+    que: 'Avisos en rojo',
+    formula: 'cobros vencidos e importes que no cuadran con la tarifa',
+    nota: '**Se pinchan** y abren el cuadre de la estancia para corregirlo. **Se van solos** en cuanto queda corregido.',
   },
   {
     // components/AvisoSolapes.tsx

@@ -14,8 +14,9 @@ import { EJERCICIO_APP } from './cuentas'
  * incluidas) y se compara con lo guardado.
  *
  * Fuera de la comparación queda lo que nunca va a cuadrar con la tarifa y no es
- * un error: el Arenal, cuyo importe es el neto que paga SOC por Airbnb, y los
- * años anteriores a la app, que llevan importes estimados del calendario.
+ * un error: el Arenal, cuyo importe es el neto que paga SOC por Airbnb, y las
+ * estancias que acabaron antes de la app, que llevan importes estimados del
+ * calendario.
  */
 
 /** Pisos cuyo precio no sale de la tarifa de la casa: el Arenal lo pone SOC por Airbnb. */
@@ -58,8 +59,12 @@ export function estadoPrecio(r: Reservation, prices: PriceEntry[], offerPrices: 
   if (PRECIO_DE_FUERA.includes(r.apartmentId)) {
     return { tipo: 'fuera', motivo: 'El precio lo pone SOC por Airbnb; se guarda el neto que paga la gestora.' }
   }
-  if (Number(r.checkIn.slice(0, 4)) < EJERCICIO_APP) {
-    return { tipo: 'fuera', motivo: `Año anterior a ${EJERCICIO_APP}: el importe viene estimado del calendario.` }
+  // Solo quedan fuera las que acabaron antes de 2026. Una que entra en 2025 y
+  // sigue en 2026 sí se compara (Luis, 06/11/2026, con el 106 del 30/11/25 al
+  // 27/02/26 delante: 2.400 € frente a 4.490 € por tarifa, sin ningún aviso).
+  // La salida no cuenta como noche: la que sale el 01/01 acabó en el año anterior.
+  if (r.checkOut <= `${EJERCICIO_APP}-01-01`) {
+    return { tipo: 'fuera', motivo: `Acabó antes de ${EJERCICIO_APP}: el importe viene estimado del calendario.` }
   }
   if (esperado === null || diferencia === null) return { tipo: 'sin-tarifa' }
   if (Math.abs(diferencia) <= TOLERANCIA) return { tipo: 'tarifa', esperado }

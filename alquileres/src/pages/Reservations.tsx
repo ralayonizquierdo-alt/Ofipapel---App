@@ -55,8 +55,12 @@ export default function Reservations() {
    * pactado, con su motivo, y las que no cuadran con la tarifa sin constar como
    * pactadas, que son las que hay que revisar. Ver lib/precioReserva.ts.
    */
-  const [filterPrecio, setFilterPrecio] = useState<'' | 'pactado' | 'descuadre'>('')
   const [searchParams, setSearchParams] = useSearchParams()
+  // Del Dashboard se llega ya filtrado: «Ver todas» de los importes que no cuadran.
+  const [filterPrecio, setFilterPrecio] = useState<'' | 'pactado' | 'descuadre'>(() => {
+    const p = searchParams.get('precio')
+    return p === 'pactado' || p === 'descuadre' ? p : ''
+  })
   const hoy = today()
   /** De los años cerrados no se cuadra nada: ver el comentario de `suma`. */
   const cuadra = (r: Reservation) => Number(r.checkIn.slice(0, 4)) >= EJERCICIO_APP
