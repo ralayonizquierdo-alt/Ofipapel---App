@@ -10,6 +10,8 @@ import { ordenaApartamentos } from '../lib/apartamentos'
 import { partesDeAlojamiento, devengoAcumulado, devengoDelMes, nochesEnMes, mesSiguiente } from '../lib/devengo'
 import { ofertaDeReserva } from '../lib/oferta'
 import { useRecordado } from '../lib/recordado'
+import { useEnHistorial } from '../lib/volver'
+import { useNavigate } from 'react-router-dom'
 import FichaCuadre from '../components/FichaCuadre'
 import CeldaDesglose from '../components/CeldaDesglose'
 import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
@@ -77,6 +79,13 @@ export default function Collections() {
   const [sortBy, setSortBy] = useState<SortBy>('nombre')
   /** '' = todos. Un solo apartamento es como se cuadra contra el Excel. */
   const [filterApt, setFilterApt] = useRecordado('cobros.apartamento', '')
+  const navigate = useNavigate()
+  // Al volver atrás, la pantalla sale como se dejó: los mismos filtros y, si
+  // había una ficha abierta, otra vez abierta. Ver lib/volver.ts.
+  useEnHistorial('cobros', { year, filterQ, filterMes, filterApt }, f => {
+    setYear(f.year); setFilterQ(f.filterQ); setFilterMes(f.filterMes); setFilterApt(f.filterApt)
+  })
+  useEnHistorial('ficha', cuadre?.id ?? null, id => setCuadre(id ? reservations.find(r => r.id === id) ?? null : null))
 
   /**
    * Mes al que pertenece un cobro, «AAAA-MM».
@@ -437,12 +446,15 @@ export default function Collections() {
 
   return (
     <div className="p-6">
+      {/* Con la ficha de cuadre abierta se imprime la ficha, no el listado: esta
+          regla oculta toda la aplicación y dejaba la ficha en blanco (Luis,
+          06/11/2026). La ficha se imprime sola con `solo-esto-al-imprimir`. */}
       <style>{`
-        @media print {
+        ${cuadre ? '' : `@media print {
           body > * { display: none !important; }
           #collections-print { display: block !important; }
           #collections-print { position: fixed; inset: 0; background: white; padding: 20px; }
-        }
+        }`}
         #collections-print { display: none; }
       `}</style>
 
@@ -538,7 +550,9 @@ export default function Collections() {
           onVerCobros={(apt, anio) => {
             // Deja la pantalla puesta en ese apartamento y ese año, con el
             // listado por reserva: la relación de cobros que pidió ver cuando
-            // hay un descuadre.
+            // hay un descuadre. Es un paso nuevo: «← Volver» devuelve a como
+            // estaba, con la ficha abierta (Luis, 06/11/2026).
+            navigate('/cobros')
             setFilterApt(apt)
             setYear(anio)
             setFilterMes(0)

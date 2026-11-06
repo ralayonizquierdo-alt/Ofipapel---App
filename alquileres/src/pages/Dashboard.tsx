@@ -15,6 +15,7 @@ import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
 import { num, numSuelto } from '../lib/formato'
 import { estadoPrecio, textoDiferencia } from '../lib/precioReserva'
 import FichaCuadre from '../components/FichaCuadre'
+import { useEnHistorial } from '../lib/volver'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_DASHBOARD } from '../lib/operativas'
 
@@ -27,6 +28,8 @@ export default function Dashboard() {
    * una vez corregido se elimine»).
    */
   const [ficha, setFicha] = useState<Reservation | null>(null)
+  // Si desde la ficha se va a otra pantalla, al volver sale otra vez abierta.
+  useEnHistorial('ficha', ficha?.id ?? null, id => setFicha(id ? reservations.find(r => r.id === id) ?? null : null))
 
   const todayStr = today()
   const now = new Date()

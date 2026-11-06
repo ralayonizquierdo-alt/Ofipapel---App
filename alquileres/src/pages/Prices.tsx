@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { PriceEntry, ApartmentType, Season, OfferPrice, OfferTarifa } from '../types'
 import { calcPrices, getApartmentType, tarifaDeOferta } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
-import { Pencil, Printer, Plus, Trash2, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react'
+import { Pencil, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { num, numSuelto } from '../lib/formato'
 import AplicarOferta from '../components/AplicarOferta'
@@ -101,12 +101,8 @@ export default function Prices() {
   const tarifaMarcada = params.get('tarifa')
   const tramoMarcado = params.get('tramo')
   const ofertaMarcada = params.get('oferta')
-  /** Se ha llegado desde la tarifa de un cuadre de Cobros: hay que poder volver. */
-  const vieneDelCuadre = !!(tarifaMarcada || ofertaMarcada)
-  const navigate = useNavigate()
-  // Atrás devuelve a Cobros tal como estaba; si no hay a dónde volver (se abrió
-  // el enlace suelto), se va a Cobros.
-  const volver = () => (window.history.length > 1 ? navigate(-1) : navigate('/cobros'))
+  // Para volver a Cobros está el «← Volver» de todas las pantallas
+  // (components/BotonVolver.tsx), que además reabre la ficha de la que se vino.
   const [selectedYear, setSelectedYear] = useState(() => Number(params.get('anio')) || CURRENT_YEAR)
   const [editing, setEditing] = useState<PriceEntry | null>(null)
   const [showOfferForm, setShowOfferForm] = useState(false)
@@ -176,15 +172,6 @@ export default function Prices() {
 
   return (
     <div className="p-6">
-      {/* Flotando abajo: la pantalla baja sola hasta la tarifa marcada, y desde
-          ahí también hay que ver por dónde se vuelve (Luis, 06/11/2026). Fijo y
-          no «sticky»: dentro de <main> el sticky no se queda pegado. */}
-      {vieneDelCuadre && (
-        <button type="button" onClick={volver}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-3 rounded-full bg-blue-600 text-white text-sm font-semibold shadow-lg hover:bg-blue-700 print:hidden">
-          <ArrowLeft size={18} /> Volver a Cobros
-        </button>
-      )}
       <PageHeader
         title="Tabla de Precios"
         subtitle="Los precios se actualizan en Enero para el año siguiente"

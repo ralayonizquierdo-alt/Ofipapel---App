@@ -11,6 +11,7 @@ import ChangePasswordModal from './components/ChangePasswordModal'
 import PreguntarApp from './components/PreguntarApp'
 import AvisoSolapes from './components/AvisoSolapes'
 import AvisoVersion from './components/AvisoVersion'
+import BotonVolver from './components/BotonVolver'
 import { solapes } from './lib/solapes'
 import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
@@ -395,6 +396,8 @@ export default function App() {
           {/* Salta al entrar y vuelve cada vez hasta que no quede ninguno. */}
           <RecuerdaPantalla rol={rol} />
           {rol === 'gestion' && <AvisoSolapes />}
+          {/* «← Volver a …» en todas las pantallas, en cuanto hay a dónde volver. */}
+          <BotonVolver />
           <main className="flex-1 overflow-auto">
             {/* Las rutas se montan según el rol: lo que alguien no puede ver
                 no existe para su sesión, así que escribir «/cobros» a mano

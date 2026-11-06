@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Printer, Mail, Pencil, ListFilter } from 'lucide-react'
+import { Printer, Mail, Pencil, ListFilter, MessageCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useCuadreEstancia, rutaDeTarifa } from '../lib/cuadreEstancia'
@@ -118,6 +118,51 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
     navigate(rutaDeTarifa(tarifa))
   }
 
+  /**
+   * La ficha para WhatsApp (Luis, 06/11/2026). Va por líneas y no en columnas
+   * como el correo: en el móvil las columnas no caben y se descolocan.
+   */
+  function comoWhatsApp() {
+    const lineas = visibles.map(l => {
+      const partes = [`• ${mesCorto(l.mes)}: ${l.noches} noches, ${dec(l.alojamiento + (l.limpieza || 0))} €`]
+      if (l.transferencia) partes.push(`transferencia ${dec(l.transferencia)} €`)
+      if (l.efectivo) partes.push(`efectivo ${dec(l.efectivo)} €`)
+      partes.push(`queda ${dec(l.resto)} €`)
+      return partes.join(' · ')
+    })
+    return [
+      `*Cuadre de la estancia — ${nombre}*`,
+      `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)} · ${r.nights} noches` + (r.guestName ? ` · ${r.guestName}` : ''),
+      '',
+      tarifa
+        ? `Tarifa: ${dec(tarifa.precioTramo)} ÷ ${tarifa.diasTramo} días × ${r.nights} noches = ${dec(tarifa.base)} €`
+        : `Precio base: ${dec(r.basePrice)} €`,
+      `Limpieza: ${dec(r.cleaningFee || 0)} €`,
+      `*Importe de la reserva: ${dec(r.total)} €*`,
+      '',
+      '*Por meses*',
+      ...lineas,
+      '',
+      `Cobrado: ${dec(cobrado)} €`,
+      `*Diferencia: ${dec(diferencia)} €*`,
+      '',
+      diferencia === 0
+        ? 'La estancia queda cuadrada. Rogamos confirmen su conformidad.'
+        : diferencia < 0
+          ? `Queda pendiente de cobro ${dec(-diferencia)} €. Rogamos confirmen su conformidad y la fecha de pago.`
+          : `Se ha cobrado ${dec(diferencia)} € por encima del importe. Rogamos confirmen su conformidad.`,
+    ].join('\n')
+  }
+
+  /** Abre WhatsApp (en el PC, WhatsApp Web o el programa) con la ficha escrita; se elige a quién mandarla. */
+  function porWhatsApp() {
+    const a = document.createElement('a')
+    a.href = `https://wa.me/?text=${encodeURIComponent(comoWhatsApp())}`
+    a.target = '_blank'
+    a.rel = 'noopener'
+    a.click()
+  }
+
   function porCorreo() {
     const asunto = `Cuadre de estancia — ${nombre}, ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`
     // Con un enlace, no tocando `window.location`: es el mismo apaño que usa
@@ -132,6 +177,10 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
       {/* `solo-esto-al-imprimir`: al imprimir sale esta ficha sola, sin la
           pantalla de Cobros que tiene detrás (ver index.css). */}
       <div className="space-y-4 solo-esto-al-imprimir" translate="no">
+        {/* En pantalla el título va en la barra de la ventana; en papel, aquí. */}
+        <h2 className="hidden print:!block text-lg font-bold text-slate-900">
+          Cuadre de la estancia — {nombre}{r.guestName ? ` · ${r.guestName}` : ''}
+        </h2>
         <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} />
 
         {/* Si el importe no sale de la tarifa y nadie dijo que fuera pactado, se
@@ -192,6 +241,11 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
             title="Abre tu programa de correo con el cuadre escrito, para mandárselo a la agencia"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
             <Mail size={15} /> Enviar a la agencia
+          </button>
+          <button onClick={porWhatsApp}
+            title="Abre WhatsApp con el cuadre escrito; ahí eliges a quién mandarlo"
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-green-300 text-green-800 rounded-lg hover:bg-green-50">
+            <MessageCircle size={15} /> WhatsApp
           </button>
           <button onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">

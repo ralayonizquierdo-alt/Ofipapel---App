@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { BookOpen, ChevronDown, ChevronRight } from 'lucide-react'
+import { VOLVER } from '../lib/operativas'
 
 /**
  * El cuadro de «Operativa» de una pantalla: con qué cuentas, acuerdos y
@@ -38,6 +39,8 @@ function Resaltado({ texto }: { texto: string }) {
 export default function Operativa({ titulo, reglas }: { titulo?: string; reglas: ReglaOperativa[] }) {
   const [abierto, setAbierto] = useState(false)
   if (reglas.length === 0) return null
+  // «← Volver» está en todas las pantallas, así que su regla también.
+  const todas = [...reglas, VOLVER]
 
   return (
     <div className="mb-5 bg-white rounded-xl border border-slate-200 overflow-hidden print:hidden">
@@ -57,7 +60,7 @@ export default function Operativa({ titulo, reglas }: { titulo?: string; reglas:
         <div className="max-h-[50vh] overflow-y-auto border-t border-slate-200">
         <table className="w-full text-sm">
           <tbody>
-            {reglas.map(r => (
+            {todas.map(r => (
               <tr key={r.que} className="border-b border-slate-100 last:border-0 align-top">
                 <th scope="row" className="text-left py-2 px-4 font-medium text-slate-700 w-56">{r.que}</th>
                 <td className="py-2 px-4">

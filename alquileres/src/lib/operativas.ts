@@ -17,6 +17,16 @@ import type { ReglaOperativa } from '../components/Operativa'
 
 // ─── Las que comparten varias pantallas ───────────────────────────────────────
 
+/**
+ * Va al final de la Operativa de todas las pantallas: el botón está en todas.
+ * components/BotonVolver.tsx, lib/volver.ts
+ */
+export const VOLVER: ReglaOperativa = {
+  que: '← Volver',
+  nota: 'Abajo en el centro, en cuanto se ha pasado de una pantalla a otra. **Deshace el camino paso a paso** y '
+    + 'cada pantalla vuelve **como se dejó**: los mismos filtros y, si había una ficha abierta, abierta otra vez.',
+}
+
 // lib/priceCalc.ts — precioPorNoches()
 const PRECIO: ReglaOperativa = {
   que: 'Precio de una estancia',
@@ -290,7 +300,8 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
     // components/CeldaDesglose.tsx, components/FichaCuadre.tsx
     que: 'Ver el cuadre de una estancia',
     nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
-      + 'abrir la ficha, imprimirla o enviarla a la agencia. **La tarifa en azul lleva a Precios**.',
+      + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. **La tarifa en azul '
+      + 'lleva a Precios**. Al imprimir sale **solo la ficha**, en una hoja.',
   },
   PRECIO_DE_LA_RESERVA,
 ]
