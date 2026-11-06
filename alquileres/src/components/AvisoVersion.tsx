@@ -34,8 +34,10 @@ export default function AvisoVersion() {
 
   if (!hayNueva) return null
   return (
+    // Pegada arriba aunque se haya bajado por la pantalla: si no, quien está a
+    // mitad de una tabla larga no la ve.
     <div role="status"
-      className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 bg-yellow-100 border-b-2 border-yellow-400 text-sm text-yellow-900 print:hidden">
+      className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 bg-yellow-100 border-b-2 border-yellow-400 text-sm text-yellow-900 shadow-sm print:hidden">
       <span className="font-semibold">Hay una versión nueva de Alquileres.</span>
       <button type="button" onClick={actualizar}
         className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-yellow-950 font-bold">

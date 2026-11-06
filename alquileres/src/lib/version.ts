@@ -34,7 +34,14 @@ export async function consultarServidor(): Promise<EstadoVersion> {
   }
 }
 
-/** Tira la caché y recarga saltándosela, que es lo que no se podía hacer a mano. */
+/**
+ * Tira la caché y recarga saltándosela, que es lo que no se podía hacer a mano.
+ *
+ * Recarga desde la entrada de la app, no desde la pantalla en la que se esté: la
+ * copia de GitHub Pages no sabe servir «/alquileres/cobros» al recargar y da
+ * «Página no encontrada» (Luis, 06/11/2026, con Ctrl + F5). Desde la entrada, la
+ * app intenta volver a la última pantalla (`RecuerdaPantalla` en App.tsx).
+ */
 export async function actualizar() {
   try {
     if ('caches' in window) {
@@ -46,7 +53,7 @@ export async function actualizar() {
   } catch {
     // Si no se puede limpiar, la recarga con parámetro nuevo suele bastar.
   }
-  const url = new URL(location.href)
+  const url = new URL(import.meta.env.BASE_URL || '/', location.origin)
   url.searchParams.set('v', String(Date.now()))
   location.replace(url.toString())
 }
