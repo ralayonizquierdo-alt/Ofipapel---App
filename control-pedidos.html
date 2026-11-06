@@ -2814,13 +2814,16 @@ async function leerFicheroProveedor(file, idProgreso, numero, partes) {
     const res = apli || await leerConIA(file, 'documento');
     const trozos = CP.separarPorPedido(res);
     if (trozos.length > 1) {
-      const docs = trozos.map(CP.lineasDeDocumento);
+      const marcaApli = (d) => (apli ? Object.assign(d, { control: Object.assign({}, d.control, { apli: true }) }) : d);
+      const docs = trozos.map(CP.lineasDeDocumento).map(marcaApli);
       if (partes) return docs;
       const n = String(numero || '').replace(/\D/g, '');
       const suyo = n && docs.find((d) => d.cabecera.numeroPedido === Number(n));
       if (suyo) return suyo;
     }
-    return CP.lineasDeDocumento(res);
+    const doc = CP.lineasDeDocumento(res);
+    if (apli) doc.control = Object.assign({}, doc.control, { apli: true });
+    return doc;
   } finally {
     const c = idProgreso && document.getElementById(idProgreso);
     if (c) c.textContent = '';
@@ -2831,6 +2834,8 @@ async function leerFicheroProveedor(file, idProgreso, numero, partes) {
 function avisoControl(doc) {
   if (!doc || !doc.control) return '';
   const c = doc.control;
+  // Factura de Apli leída del PDF sin IA: ya se comprobó que cuadra con su Subtotal (las partes no traen base propia).
+  if (c.apli) return '';
   if (c.exacto) return `<div class="aviso-caja ok">Pedido de Géminis leído directamente del PDF, sin IA: ${(doc.lineas || []).length} líneas, con la columna «Unidades» como cantidad y «Rfc.Compra» como referencia.</div>`;
   const dudas = (doc.lineas || []).filter((l) => l.duda).length;
   const base = c.base == null
