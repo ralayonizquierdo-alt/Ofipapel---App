@@ -490,6 +490,7 @@ function equivalenciasDe(p) {
   return Object.assign(CP.emparejarReferencias(p.lineas, conMan), manuales);
 }
 function comparar(p) {
+  if (!p.decisiones) p.decisiones = {}; // pedidos que nunca tuvieron propuesta (5/11/2026: bloqueó la app)
   repararAltas(p);
   if (!p.propuesta) return null;
   // La referencia del proveedor que es la nuestra con otro código se compara como la nuestra.
@@ -2862,6 +2863,7 @@ function guardarCatalogo(proveedor, archivo, catalogo) {
  *  demás (hay que volver a decidirlas). Devuelve un texto para avisar, o ''. */
 function asignarPropuesta(p, archivo, prop) {
   let aviso = '';
+  if (!p.decisiones) p.decisiones = {};
   if (p.propuesta) {
     const r = CP.decisionesQueSiguen(p.propuesta.lineas, prop.lineas, p.decisiones);
     p.decisiones = r.decisiones;
