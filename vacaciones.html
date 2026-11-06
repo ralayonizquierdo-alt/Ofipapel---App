@@ -2531,7 +2531,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
    (Turnos de sábado, compensación de festivos, Categorías) guardan cada cambio al momento. */
 let periodSnapshot = '';
 const isModalOpen = id=> document.getElementById(id).classList.contains('open');
-const hasText = (...ids)=> ids.some(id=> document.getElementById(id).value.trim());
+const hasText = (...ids)=> ids.some(id=>{ const el = document.getElementById(id); return el && el.value.trim(); }); // un campo que esa pestaña no tiene no cuenta
 const UNSAVED_GUARDS = {
   employeesOverlay: {
     dirty: ()=> cardEditing && cardValues()!==cardSnapshot,
@@ -2542,11 +2542,11 @@ const UNSAVED_GUARDS = {
     save: ()=>{ document.getElementById('pmSave').click(); return !isModalOpen('periodOverlay'); },
   },
   permisosOverlay: {
-    dirty: ()=> hasText('pmzStart','pmzEnd','pmzMotivo'),
+    dirty: ()=> hasText('pmzStart','pmzEnd','pmzMotivo','pmzHora'),
     save: ()=>{ document.getElementById('btnAddPermiso').click(); return !UNSAVED_GUARDS.permisosOverlay.dirty(); },
   },
   peticionesOverlay: {
-    dirty: ()=> hasText('ptStart','ptEnd','ptMotivo'),
+    dirty: ()=> hasText('ptStart','ptEnd','ptMotivo','ptCorreo'),
     save: ()=>{ document.getElementById('ptAdd').click(); return !UNSAVED_GUARDS.peticionesOverlay.dirty(); },
   },
   festivoEditOverlay: {
