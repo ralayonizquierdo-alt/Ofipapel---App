@@ -136,6 +136,15 @@ const STOPWORDS_BUSQUEDA = new Set([
   'sobre', 'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros',
   'ustedes', 'sido', 'el', 'la', 'lo', 'un', 'y', 'o', 'de', 'en', 'al', 'se',
   'me', 'mi', 'tu', 'su', 'vendeis', 'vendéis', 'venden',
+  // Lo que se cuela cuando el cliente EXPLICA lo que va a hacer (6/11/2026,
+  // el del cartón pluma y el spray de pegamento): sin esto, «vuestro carton»
+  // o «sea bueno» competían como términos de búsqueda con «carton pluma».
+  'vuestro', 'vuestra', 'vuestros', 'vuestras', 'nuestro', 'nuestra',
+  'es', 'son', 'sea', 'ser', 'ademas', 'además', 'algun', 'algún', 'alguna',
+  'bueno', 'buena', 'seguro', 'segura', 'voy', 'vas', 'hacer', 'otro', 'otra',
+  'encima', 'pregunta', 'preguntar', 'gustaria', 'gustaría', 'comprar',
+  'recomendarian', 'recomendarían', 'recomiendan', 'recomendais', 'recomendáis',
+  'recomiendas', 'si',
   // "cartucho hp NÚMERO 305" — aquí "número" solo introduce la referencia, no
   // describe el producto, y de paso ensucia la búsqueda.
   'numero', 'número',
@@ -613,9 +622,64 @@ function singularize(word) {
 // la pena preguntarle al buscador de WordPress. El orden importa porque no se
 // lanzan todas (ver MAX_TERMINOS_BUSQUEDA): las primeras son las que en las
 // pruebas contra el catálogo real resolvieron por sí solas el caso.
+// UN MENSAJE LARGO NO ES UN TÉRMINO DE BÚSQUEDA.
+//
+// Visto en real el 6/11/2026. Un cliente escribió: «me gustaría comprar
+// vuestro cartón pluma para pegar encima papel fotográfico. Mi pregunta es si
+// además tienen algún spray de pegamento que sea bueno y seguro… o qué otro
+// pegamento me recomendarían». Al catálogo se le preguntó por la frase entera,
+// de 24 palabras, DOS VECES (la segunda con una letra distinta) y nada más.
+//
+// Dos consecuencias, las dos vistas en esa conversación: el **spray de
+// pegamento** nunca llegó a buscarse —el bot contestó «no tengo la respuesta
+// para eso»— y el enlace que se le mandó llevaba las 24 palabras dentro, así
+// que al abrirlo no salía nada.
+//
+// El núcleo es lo que el cliente repite. Aquí dijo «cartón pluma» tres veces:
+// eso es lo que quiere. Y «spray pegamento» va junto, así que también merece su
+// búsqueda. Buscar por parejas de palabras seguidas es lo que haría cualquiera,
+// y es lo que encuentra cosas en el buscador de WordPress, que con una frase
+// larga no devuelve nada.
+function paresDePalabras(words) {
+  const vecesPalabra = new Map();
+  for (const w of words) vecesPalabra.set(w, (vecesPalabra.get(w) || 0) + 1);
+
+  const cuenta = new Map();
+  for (let i = 0; i < words.length - 1; i++) {
+    if (words[i] === words[i + 1]) continue; // «pegamento pegamento» no es nada
+    const par = `${words[i]} ${words[i + 1]}`;
+    cuenta.set(par, (cuenta.get(par) || 0) + 1);
+  }
+
+  // Lo que se repite pesa más, y lo formado por palabras que el cliente repite
+  // también: quien dice «cartón pluma» tres veces está diciendo qué quiere.
+  const ordenados = [...cuenta.entries()]
+    .map(([par, veces]) => [par, veces * 10 + par.split(' ').reduce((s, w) => s + (vecesPalabra.get(w) || 0), 0)])
+    .sort((a, b) => b[1] - a[1])
+    .map(([par]) => par);
+
+  // Y una vez elegido el núcleo, las siguientes parejas tienen que hablar de
+  // OTRA cosa: si no, «cartón pluma», «pluma pegar» y «pegar papel» se comen
+  // los tres huecos y el «spray de pegamento» —que es la otra mitad de lo que
+  // preguntaba— no se busca nunca.
+  const elegidas = [];
+  const usadas = new Set();
+  for (const par of ordenados) {
+    const palabras = par.split(' ');
+    if (palabras.some((w) => usadas.has(w))) continue;
+    elegidas.push(par);
+    palabras.forEach((w) => usadas.add(w));
+  }
+  return elegidas;
+}
+
 function construirTerminos(words) {
   const frase = words.join(' ');
-  const terminos = [frase];
+  // Con pocas palabras la frase entera ES el término bueno («cartucho hp 305»)
+  // y esto no cambia nada. El problema solo aparece cuando el cliente cuenta lo
+  // que va a hacer, y entonces la frase entera no sirve para buscar.
+  const terminos = words.length > 6 ? paresDePalabras(words).slice(0, 3) : [];
+  if (!terminos.includes(frase)) terminos.push(frase);
   const añadir = (t) => {
     if (t && !terminos.includes(t)) terminos.push(t);
   };
@@ -858,7 +922,16 @@ function categoryUrl(slug) {
 // El formato es el que usa el buscador de ofipapel.net (`dgwt_wcas`), tal cual
 // lo pasó el propietario.
 function urlDeBusqueda(texto) {
-  const limpio = sanitizeQuery(texto);
+  // EL ENLACE LLEVA LO QUE BUSCA, NO EL MENSAJE ENTERO.
+  //
+  // El 6/11/2026 se le mandó a un cliente un enlace con sus 24 palabras dentro
+  // («?s=vuestro+carton+pluma+pegar+encima+papel+fotografico+es+ademas+…»).
+  // Al abrirlo no salía nada, y encima ocupaba media pantalla del móvil.
+  //
+  // Se usa el mismo núcleo con el que se busca en el catálogo, así que el
+  // enlace enseña exactamente lo que el bot miró.
+  const palabras = sanitizeWords(texto);
+  const limpio = palabras.length > 6 ? (paresDePalabras(palabras)[0] || palabras.slice(0, 2).join(' ')) : sanitizeQuery(texto);
   if (!limpio) return null;
   const params = new URLSearchParams({ s: limpio, post_type: 'product', dgwt_wcas: '1' });
   return `https://ofipapel.net/?${params.toString()}`;
