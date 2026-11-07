@@ -65,6 +65,7 @@ const {
   isSellosQuestion,
   isWithinBusinessHours,
   esProblemaDeCuenta,
+  pidioHablarConAlguien,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
   preguntaSiEsNuestroCorreo,
@@ -1361,8 +1362,35 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   }
 
   if (isExplicitRequest) {
-    // El cliente pidió expresamente hablar con alguien (o es una queja/
-    // presupuesto) — no hace falta explicar el motivo, se escala directo.
+    // «PÁSAME A UN AGENTE» NO SE CONTESTA PREGUNTANDO SI QUIERE UN AGENTE.
+    //
+    // Visto en real el 6/11/2026. El bot le dijo «puedo pasarte con un agente»,
+    // el cliente contestó «Pásame a un agente», y se le respondió «¿Quieres
+    // que igualmente te pongamos en contacto?». Un aro más para algo que
+    // acababa de pedir con todas las letras. El comentario que había aquí
+    // decía «se escala directo» y lo que hacía era volver a preguntar.
+    //
+    // Cuando lo pide él, se hace: lo mismo que al pulsar «Sí» —se para el bot
+    // 24 h y se avisa al equipo— sin el paso intermedio. Los botones se quedan
+    // para cuando el escalado lo propone el bot (una queja, un presupuesto, una
+    // respuesta que no se ha podido dar): ahí sí hay que preguntar.
+    if (pidioHablarConAlguien(text)) {
+      const reply = greeting + agenteInfoEn(idioma);
+      await sendWhatsappMessage(message.from, reply);
+      await appendToHistory(message.from, text, `[Lo pidió él: pasado a una persona] ${reply}`);
+      await pauseBot(message.from, 24);
+      await notifyOwner({
+        channel: 'Meta',
+        from: message.from,
+        customerMessage: text,
+        botReply: reply,
+      });
+      await notifyOwnerByWhatsapp(message.from, text);
+      return;
+    }
+
+    // El resto (una queja, un presupuesto) lo propone el bot, así que se
+    // pregunta antes de molestar a nadie.
     await sendEscalateButtons(message.from, greeting, idioma);
     await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion(idioma)}`);
     return;

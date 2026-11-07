@@ -382,6 +382,36 @@ function mensajeSobreElCorreo({ correo, esNuestro }, idioma = 'es') {
     : `${correo} no me consta como dirección nuestra. La que usamos para pedidos y presupuestos es pedidos@ofipapelsl.com — si mandaste algo a la otra, lo más seguro es que lo reenvíes ahí. `;
 }
 
+// ¿LO HA PEDIDO ÉL, O SE LO ESTAMOS PROPONIENDO NOSOTROS?
+//
+// No es lo mismo. Si el cliente escribe «pásame a un agente», preguntarle
+// «¿quieres que te pongamos en contacto?» es un aro de más para algo que
+// acaba de pedir (visto el 6/11/2026). Si lo que hay es una queja o un
+// presupuesto, el escalado lo propone el bot y entonces sí hay que preguntar:
+// nadie ha pedido todavía que se moleste a una persona.
+//
+// Tiene que ser una PETICIÓN, no la palabra suelta: «un agente comercial pasó
+// por la tienda» no pide nada, y «no quiero hablar con una persona» menos.
+const _QUIEN = '(?:agente|persona|alguien|humano|operador|comercial|encargado|dependiente)';
+const PIDE_UNA_PERSONA = [
+  // «pásame con un agente», «ponme con alguien», «quiero hablar con una persona»
+  new RegExp(`\\b(p[áa]same|pasame|ponme|p[áa]sa?me|comun[íi]came|derívame|derivame)\\b[^.!?]{0,20}\\b${_QUIEN}\\b`, 'i'),
+  new RegExp(`\\b(quiero|necesito|prefiero|puedo|podr[íi]a|quisiera|me\\s+gustar[íi]a|d[ée]jame)\\b[^.!?]{0,25}\\bhablar\\b[^.!?]{0,20}\\b${_QUIEN}\\b`, 'i'),
+  new RegExp(`\\bhablar\\s+con\\s+(?:un|una|alg[úu]n|el|la)?\\s*${_QUIEN}\\b`, 'i'),
+  // En inglés, que el bot también atiende.
+  /\b(connect|put|transfer)\s+me\b[^.!?]{0,20}\b(agent|person|someone|human)\b/i,
+  /\b(i\s+want|i'd\s+like|can\s+i|let\s+me)\b[^.!?]{0,20}\b(speak|talk)\b[^.!?]{0,20}\b(agent|person|someone|human)\b/i,
+];
+
+// «No quiero hablar con nadie», «sin pasarme con una persona»: lo contrario.
+const _NO_QUIERE = /\bno\s+(quiero|necesito|hace\s+falta|me\s+pases)\b|\bsin\s+(hablar|pasarme)\b/i;
+
+function pidioHablarConAlguien(texto) {
+  const t = String(texto || '');
+  if (_NO_QUIERE.test(t)) return false;
+  return PIDE_UNA_PERSONA.some((re) => re.test(t));
+}
+
 function esProblemaDeCuenta(texto) {
   return /\b(contrase[nñ]a|password|restablec|recuperar (?:mi )?(?:cuenta|acceso)|iniciar sesi[oó]n|login|no puedo (?:entrar|acceder)|no me deja (?:entrar|acceder)|mi cuenta|correo de confirmaci[oó]n|no me llega (?:el|ning[uú]n) (?:correo|email|mail))\b/i.test(
     String(texto || '')
@@ -1802,6 +1832,7 @@ module.exports = {
   isAgenteInfoEnCualquierIdioma,
   esProblemaDeCuenta,
   mensajeProblemaDeCuenta,
+  pidioHablarConAlguien,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
   preguntaSiEsNuestroCorreo,
