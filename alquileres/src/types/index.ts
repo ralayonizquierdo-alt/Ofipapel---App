@@ -62,7 +62,9 @@ export interface PrecioPactado {
   motivo: string
   /** Quién lo anotó. */
   por?: string
-  /** Cuándo se anotó, AAAA-MM-DD. */
+  /** Con quién se pactó: la agencia, el cliente… (Luis, 07/11/2026). */
+  con?: string
+  /** Cuándo se pactó, AAAA-MM-DD; si no se dice, el día en que se anotó. */
   fecha: string
 }
 

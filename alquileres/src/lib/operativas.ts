@@ -303,6 +303,13 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
       + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. **La tarifa en azul '
       + 'lleva a Precios**. Al imprimir sale **solo la ficha**, en una hoja.',
   },
+  {
+    // components/FichaCuadre.tsx — modelo 'conformidad'
+    que: 'Conformidad de la reserva',
+    nota: 'Segunda pestaña de la ficha, para mandar a la agencia **cuando envía una reserva**: precio, noches y '
+      + 'desglose por mes, **sin cobros, resto ni diferencia** y sin la comparación con la tarifa. Si el precio es '
+      + 'pactado, dice **el importe, la fecha y con quién** se pactó. Lleva **Observaciones** para escribir.',
+  },
   PRECIO_DE_LA_RESERVA,
 ]
 

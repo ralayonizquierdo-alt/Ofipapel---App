@@ -35,9 +35,17 @@ import type { Reservation } from '../types'
 
 const dec = (n: number) => num(n, 2)
 
-export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
+export type ModeloFicha = 'cuadre' | 'conformidad'
+
+export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInicial = 'cuadre' }: {
   reserva: Reservation
   onClose: () => void
+  /**
+   * «Cuadre de cobros» (lo cobrado mes a mes) o «Conformidad de la reserva»
+   * (Luis, 07/11/2026): la que se manda a la agencia cuando envía una reserva,
+   * para corroborar precio y noches, sin nada de cobros.
+   */
+  modeloInicial?: ModeloFicha
   /**
    * Enseñar todos los cobros de ese apartamento en ese año. Lo pidió el
    * propietario con el descuadre delante: «que me muestre la relación de
@@ -53,18 +61,39 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
   // aquí, la ficha lo enseña al momento.
   const r = reservations.find(x => x.id === reserva.id) ?? reserva
   const cuadre = useCuadreEstancia(r)
+  const [modelo, setModelo] = useState<ModeloFicha>(modeloInicial)
+  const conformidad = modelo === 'conformidad'
+  /** Lo que se escribe en «Observaciones» de la conformidad: va al papel, al correo y al WhatsApp. */
+  const [observaciones, setObservaciones] = useState('')
   const [anotando, setAnotando] = useState(false)
   const [motivo, setMotivo] = useState('')
+  const [conQuien, setConQuien] = useState('')
+  const [fechaPacto, setFechaPacto] = useState(today())
 
   function anotarPactado() {
     if (!motivo.trim()) return
     updateReservation(r.id, {
-      precioPactado: { motivo: motivo.trim(), por: usuarioActual() ?? undefined, fecha: today() },
+      precioPactado: {
+        motivo: motivo.trim(), ...(conQuien.trim() ? { con: conQuien.trim() } : {}),
+        por: usuarioActual() ?? undefined, fecha: fechaPacto || today(),
+      },
     })
     setAnotando(false)
     setMotivo('')
+    setConQuien('')
   }
   const { nombre, tarifa, visibles, suma, cobrado, diferencia, mesCorto } = cuadre
+
+  /** «Precio pactado: 2.400,00 €, acordado el 08/01/2026 con Real Estate. Estancia larga.» */
+  const lineaPactado = (() => {
+    const p = cuadre.precio
+    if (p.tipo !== 'pactado') return ''
+    return `Precio pactado: ${dec(r.total)} €`
+      + (p.pactado.fecha ? `, acordado el ${formatDate(p.pactado.fecha)}` : '')
+      + (p.pactado.con ? ` con ${p.pactado.con}` : '')
+      + (p.pactado.motivo ? `. ${p.pactado.motivo}` : '') + '.'
+  })()
+  const textoConformidad = 'Rogamos nos confirmen su conformidad con los datos de esta reserva (fechas, noches e importe).'
 
   /** La ficha en texto llano, para el correo a la agencia. */
   function comoTexto() {
@@ -105,6 +134,60 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
         : diferencia < 0
           ? `Queda pendiente de cobro ${dec(-diferencia)} €. Rogamos confirmen su conformidad y la fecha de pago.`
           : `Se ha cobrado ${dec(diferencia)} € por encima del importe. Rogamos confirmen su conformidad.`,
+    ].join('\n')
+  }
+
+  /** La conformidad en texto llano, para el correo: sin cobros ni diferencia. */
+  function conformidadComoTexto() {
+    const sep = '-'.repeat(52)
+    const filas = visibles.map(l =>
+      `${mesCorto(l.mes).padEnd(12)}${String(l.noches).padStart(4)}  `
+      + `${dec(l.alojamiento).padStart(10)}  ${(l.limpieza ? dec(l.limpieza) : '').padStart(8)}  `
+      + `${dec(l.alojamiento + (l.limpieza || 0)).padStart(10)}`)
+    return [
+      `CONFORMIDAD DE LA RESERVA — ${nombre}`,
+      `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)} · ${r.nights} noches`
+        + (r.guestName ? ` · ${r.guestName}` : ''),
+      '',
+      tarifa
+        ? `Operativa: ${dec(tarifa.precioTramo)} / ${tarifa.diasTramo} = `
+          + `${dec(tarifa.precioTramo / tarifa.diasTramo)} x ${r.nights} noches = ${dec(tarifa.base)}`
+        : `Precio base: ${dec(r.basePrice)}`,
+      `Cargos (limpieza): ${dec(r.cleaningFee || 0)}`,
+      `IMPORTE NETO DE LA RESERVA: ${dec(r.total)}`,
+      ...(lineaPactado ? [lineaPactado] : []),
+      '',
+      sep,
+      `${'Mes'.padEnd(12)}${'Noch'.padStart(4)}  ${'Alojam.'.padStart(10)}  ${'Limp.'.padStart(8)}  ${'Total mes'.padStart(10)}`,
+      sep,
+      ...filas,
+      sep,
+      `${'TOTALES'.padEnd(12)}${String(suma.noches).padStart(4)}  ${dec(suma.alojamiento).padStart(10)}  `
+        + `${dec(suma.limpieza).padStart(8)}  ${dec(suma.alojamiento + suma.limpieza).padStart(10)}`,
+      ...(observaciones.trim() ? ['', 'Observaciones:', observaciones.trim()] : []),
+      '',
+      textoConformidad,
+    ].join('\n')
+  }
+
+  /** La conformidad para WhatsApp, por líneas. */
+  function conformidadComoWhatsApp() {
+    return [
+      `*Conformidad de la reserva — ${nombre}*`,
+      `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)} · ${r.nights} noches` + (r.guestName ? ` · ${r.guestName}` : ''),
+      '',
+      tarifa
+        ? `Tarifa: ${dec(tarifa.precioTramo)} ÷ ${tarifa.diasTramo} días × ${r.nights} noches = ${dec(tarifa.base)} €`
+        : `Precio base: ${dec(r.basePrice)} €`,
+      `Limpieza: ${dec(r.cleaningFee || 0)} €`,
+      `*Importe de la reserva: ${dec(r.total)} €*`,
+      ...(lineaPactado ? [lineaPactado] : []),
+      '',
+      '*Por meses*',
+      ...visibles.map(l => `• ${mesCorto(l.mes)}: ${l.noches} noches, ${dec(l.alojamiento + (l.limpieza || 0))} €`),
+      ...(observaciones.trim() ? ['', '*Observaciones*', observaciones.trim()] : []),
+      '',
+      textoConformidad,
     ].join('\n')
   }
 
@@ -157,31 +240,59 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
   /** Abre WhatsApp (en el PC, WhatsApp Web o el programa) con la ficha escrita; se elige a quién mandarla. */
   function porWhatsApp() {
     const a = document.createElement('a')
-    a.href = `https://wa.me/?text=${encodeURIComponent(comoWhatsApp())}`
+    a.href = `https://wa.me/?text=${encodeURIComponent(conformidad ? conformidadComoWhatsApp() : comoWhatsApp())}`
     a.target = '_blank'
     a.rel = 'noopener'
     a.click()
   }
 
   function porCorreo() {
-    const asunto = `Cuadre de estancia — ${nombre}, ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`
+    const asunto = `${conformidad ? 'Conformidad de reserva' : 'Cuadre de estancia'} — ${nombre}, `
+      + `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`
     // Con un enlace, no tocando `window.location`: es el mismo apaño que usa
     // el registro para descargar el CSV y no se pelea con el compilador.
     const a = document.createElement('a')
-    a.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(comoTexto())}`
+    a.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(conformidad ? conformidadComoTexto() : comoTexto())}`
     a.click()
   }
 
   return (
-    <Modal title={`Cuadre · ${nombre}`} onClose={onClose} size="lg">
+    <Modal title={`${conformidad ? 'Conformidad' : 'Cuadre'} · ${nombre}`} onClose={onClose} size="lg">
       {/* `solo-esto-al-imprimir`: al imprimir sale esta ficha sola, sin la
           pantalla de Cobros que tiene detrás (ver index.css). */}
       <div className="space-y-4 solo-esto-al-imprimir" translate="no">
         {/* En pantalla el título va en la barra de la ventana; en papel, aquí. */}
+        {/* Los dos modelos de la ficha: el cuadre de lo cobrado y la conformidad
+            de la reserva para la agencia (Luis, 07/11/2026). */}
+        <div className="flex gap-1 border-b border-slate-200 print:hidden" role="tablist">
+          {([['cuadre', '🧾 Cuadre de cobros'], ['conformidad', '✅ Conformidad de la reserva']] as const).map(([m, texto]) => (
+            <button key={m} type="button" role="tab" aria-selected={modelo === m} onClick={() => setModelo(m)}
+              className={`px-3 py-2 text-sm font-medium rounded-t-lg border border-b-0 -mb-px ${modelo === m
+                ? 'bg-white border-slate-200 text-blue-700'
+                : 'bg-slate-50 border-transparent text-slate-500 hover:text-slate-700'}`}>
+              {texto}
+            </button>
+          ))}
+        </div>
         <h2 className="hidden print:!block text-lg font-bold text-slate-900">
-          Cuadre de la estancia — {nombre}{r.guestName ? ` · ${r.guestName}` : ''}
+          {conformidad ? 'Conformidad de la reserva' : 'Cuadre de la estancia'} — {nombre}{r.guestName ? ` · ${r.guestName}` : ''}
         </h2>
-        <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} />
+        <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} conformidad={conformidad} />
+
+        {conformidad && (
+          <div>
+            <label htmlFor="observaciones-conformidad" className="block text-xs font-semibold text-slate-600 mb-1">
+              Observaciones
+            </label>
+            <textarea id="observaciones-conformidad" value={observaciones} onChange={e => setObservaciones(e.target.value)}
+              rows={3} placeholder="Lo que quieras añadir para la agencia"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm print:hidden" />
+            {/* En papel: lo escrito, o el recuadro en blanco para escribir a mano. */}
+            <div className="hidden print:!block border border-slate-300 rounded p-2 text-sm whitespace-pre-wrap min-h-[5rem]">
+              {observaciones.trim()}
+            </div>
+          </div>
+        )}
 
         {/* Si el importe no sale de la tarifa y nadie dijo que fuera pactado, se
             decide aquí mismo: corregir la reserva o anotar por qué es así. */}
@@ -206,6 +317,13 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
                 <input id="motivo-pactado" autoFocus value={motivo} onChange={e => setMotivo(e.target.value)}
                   placeholder="Estancia larga, acordado con el cliente"
                   className="flex-1 min-w-[16rem] border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
+                <label htmlFor="con-pactado" className="text-sm text-amber-900">Con quién:</label>
+                <input id="con-pactado" value={conQuien} onChange={e => setConQuien(e.target.value)}
+                  placeholder="Real Estate, el cliente…"
+                  className="w-48 border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
+                <label htmlFor="fecha-pactado" className="text-sm text-amber-900">Fecha:</label>
+                <input id="fecha-pactado" type="date" value={fechaPacto} onChange={e => setFechaPacto(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
                 <button type="submit" disabled={!motivo.trim()}
                   className="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40">
                   Guardar
@@ -221,8 +339,9 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
 
         {/* Solo en el papel: el pie del recibo que se manda a la agencia. */}
         <p className="hidden print:!block text-xs text-slate-500 border-t border-slate-200 pt-2">
-          Documento de cuadre emitido el {formatDate(new Date().toISOString().slice(0, 10))} por la
-          aplicación de gestión. Rogamos confirmen su conformidad.
+          {conformidad
+            ? <>Conformidad de reserva emitida el {formatDate(today())}. {textoConformidad}</>
+            : <>Documento de cuadre emitido el {formatDate(today())} por la aplicación de gestión. Rogamos confirmen su conformidad.</>}
         </p>
 
         <div className="flex flex-wrap justify-end gap-2 pt-1 print:hidden">
@@ -238,12 +357,12 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros }: {
             </button>
           )}
           <button onClick={porCorreo}
-            title="Abre tu programa de correo con el cuadre escrito, para mandárselo a la agencia"
+            title="Abre tu programa de correo con la ficha escrita, para mandársela a la agencia"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
             <Mail size={15} /> Enviar a la agencia
           </button>
           <button onClick={porWhatsApp}
-            title="Abre WhatsApp con el cuadre escrito; ahí eliges a quién mandarlo"
+            title="Abre WhatsApp con la ficha escrita; ahí eliges a quién mandarla"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-green-300 text-green-800 rounded-lg hover:bg-green-50">
             <MessageCircle size={15} /> WhatsApp
           </button>

@@ -19,7 +19,8 @@ function EstadoDelPrecio({ cuadre, compacto }: { cuadre: CuadreEstancia; compact
     return <p className={`${caja} border-green-300 bg-green-50 text-green-800`}>✅ El importe sale de la tarifa.</p>
   }
   if (p.tipo === 'pactado') {
-    const quien = [p.pactado.por, p.pactado.fecha ? formatDate(p.pactado.fecha) : ''].filter(Boolean).join(', ')
+    const quien = [p.pactado.por, p.pactado.con ? `con ${p.pactado.con}` : '', p.pactado.fecha ? formatDate(p.pactado.fecha) : '']
+      .filter(Boolean).join(', ')
     return (
       <p className={`${caja} border-blue-300 bg-blue-50 text-blue-900`}>
         🔵 <b>Precio pactado</b>: «{p.pactado.motivo}»{quien ? ` (${quien})` : ''}.
@@ -44,16 +45,42 @@ function EstadoDelPrecio({ cuadre, compacto }: { cuadre: CuadreEstancia; compact
 }
 
 /**
+ * En la conformidad que se manda a la agencia, del precio solo se dice si fue
+ * pactado: qué importe, cuándo y con quién (Luis, 07/11/2026). Lo de si cuadra
+ * con la tarifa es cosa nuestra y no sale.
+ */
+function PactadoParaLaAgencia({ cuadre }: { cuadre: CuadreEstancia }) {
+  const p = cuadre.precio
+  if (p.tipo !== 'pactado') return null
+  const { motivo, fecha, con } = p.pactado
+  return (
+    <p className="rounded border border-blue-300 bg-blue-50 text-blue-900 px-2 py-1.5 mt-2 print:bg-transparent">
+      <b>Precio pactado: {eur(cuadre.reserva.total)}</b>
+      {fecha && <>, acordado el {formatDate(fecha)}</>}
+      {con && <> con {con}</>}
+      {motivo && <>. {motivo}</>}.
+    </p>
+  )
+}
+
+/**
  * El cuadro de una estancia, con el formato de la hoja de Excel del propietario:
  * la reserva, la operativa del importe, el desglose por meses con sus cobros y
  * la diferencia. `compacto` es para el recuadro que sale al pasar el ratón, que
  * tiene que caber en pantalla sin desplazarse.
  */
-export default function CuadroEstancia({ cuadre, compacto = false, onTarifa }: {
+export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, conformidad = false }: {
   cuadre: CuadreEstancia
   compacto?: boolean
   /** Con esto la tarifa se puede pinchar para ir a verla en Precios (Luis, 06/11/2026). */
   onTarifa?: () => void
+  /**
+   * La «conformidad» que se manda a la agencia cuando envía una reserva, para
+   * corroborar precio y noches (Luis, 07/11/2026): el mismo cuadro sin cobros,
+   * sin resto, sin lo cobrado ni la diferencia, y sin la comparación con la
+   * tarifa. Del precio, solo si fue pactado.
+   */
+  conformidad?: boolean
 }) {
   const { reserva: r, tarifa, visibles, suma, cobrado, diferencia, mesCorto } = cuadre
   const celda = `${compacto ? 'py-0.5 px-1.5' : 'py-1.5 px-2'} border border-slate-300`
@@ -122,11 +149,52 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa }: {
           <p className={`flex justify-between border-t border-slate-200 font-bold text-slate-900 ${compacto ? 'pt-0.5 mt-0.5' : 'pt-1.5 mt-1.5'}`}>
             <span>IMPORTE NETO DE LA RESERVA</span><span>{eur(r.total)}</span>
           </p>
-          <EstadoDelPrecio cuadre={cuadre} compacto={compacto} />
+          {conformidad
+            ? <PactadoParaLaAgencia cuadre={cuadre} />
+            : <EstadoDelPrecio cuadre={cuadre} compacto={compacto} />}
         </div>
       </div>
 
+      {/* ── Conformidad: el desglose por meses, sin cobros ── */}
+      {conformidad && (
+        <table className="w-full text-xs tabular-nums">
+          <thead>
+            <tr className="bg-slate-100 text-slate-600">
+              <th className={`${celda} text-left font-medium`} colSpan={5}>
+                Importes de la reserva (desglose por mes)
+              </th>
+            </tr>
+            <tr className="bg-slate-50 text-slate-500">
+              <th className={`${celda} text-left font-medium`}>Mes</th>
+              <th className={`${celda} text-right font-medium`}>Noches</th>
+              <th className={`${celda} text-right font-medium`}>Alojamiento</th>
+              <th className={`${celda} text-right font-medium`}>Limpieza</th>
+              <th className={`${celda} text-right font-medium`}>Total del mes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibles.map(l => (
+              <tr key={l.mes} className="text-slate-700">
+                <td className={`${celda} capitalize`}>{mesCorto(l.mes)}</td>
+                <td className={`${celda} text-right`}>{l.noches || ''}</td>
+                <td className={`${celda} text-right`}>{l.alojamiento ? dec(l.alojamiento) : ''}</td>
+                <td className={`${celda} text-right`}>{l.limpieza ? dec(l.limpieza) : ''}</td>
+                <td className={`${celda} text-right font-medium`}>{dec(l.alojamiento + (l.limpieza || 0))}</td>
+              </tr>
+            ))}
+            <tr className="bg-slate-50 font-bold text-slate-800">
+              <td className={celda}>Totales</td>
+              <td className={`${celda} text-right`}>{suma.noches}</td>
+              <td className={`${celda} text-right`}>{dec(suma.alojamiento)}</td>
+              <td className={`${celda} text-right`}>{dec(suma.limpieza)}</td>
+              <td className={`${celda} text-right`}>{eur(suma.alojamiento + suma.limpieza)}</td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+
       {/* ── El desglose por meses y sus cobros ── */}
+      {!conformidad && (<>
       <table className="w-full text-xs tabular-nums">
         <thead>
           <tr className="bg-slate-100 text-slate-600">
@@ -197,6 +265,7 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa }: {
           </tr>
         </tbody>
       </table>
+      </>)}
     </>
   )
 }

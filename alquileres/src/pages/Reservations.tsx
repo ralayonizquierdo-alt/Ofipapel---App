@@ -394,6 +394,8 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
    * avisar de que el importe no sale de la tarifa.
    */
   const [motivoPactado, setMotivoPactado] = useState(editing?.precioPactado?.motivo ?? '')
+  const [conPactado, setConPactado] = useState(editing?.precioPactado?.con ?? '')
+  const [fechaPactado, setFechaPactado] = useState(editing?.precioPactado?.fecha ?? today())
 
   const nights = checkOut && checkIn ? getNights(checkIn, checkOut) : 0
   const tarifa = useMemo(
@@ -428,14 +430,17 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   function handleSave() {
     if (!aptId || !checkIn || !checkOut) return alert('Completa los campos obligatorios')
     const newTotal = calcTotal(basePrice, cleaningFee, discountPct)
-    // La marca de pactado solo con precio pactado y un motivo escrito. Si el
-    // motivo no cambia se conserva quién y cuándo lo anotó; con «Tarifa por
-    // tramos», o sin motivo, se quita (null: así se borra también en la base).
+    // La marca de pactado solo con precio pactado y un motivo escrito. Si no
+    // cambia nada se conserva quién la anotó; con «Tarifa por tramos», o sin
+    // motivo, se quita (null: así se borra también en la base).
     const motivo = motivoPactado.trim()
+    const con = conPactado.trim()
+    const fechaPacto = fechaPactado || today()
+    const antes = editing?.precioPactado
     const marca = pactado && motivo
-      ? (editing?.precioPactado?.motivo === motivo
-          ? editing.precioPactado
-          : { motivo, por: usuarioActual() ?? undefined, fecha: today() })
+      ? (antes && antes.motivo === motivo && (antes.con ?? '') === con && antes.fecha === fechaPacto
+          ? antes
+          : { motivo, ...(con ? { con } : {}), por: usuarioActual() ?? undefined, fecha: fechaPacto })
       : null
     const data = {
       apartmentId: aptId, guestName, guests: guests > 0 ? guests : undefined, checkIn, checkOut,
@@ -621,6 +626,19 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
                 <input id="motivo-pactado" value={motivoPactado} onChange={e => setMotivoPactado(e.target.value)}
                   placeholder="Estancia larga, acordado con el cliente"
                   className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white" />
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <label className="text-xs text-blue-900">
+                    Con quién se pactó
+                    <input id="con-pactado" value={conPactado} onChange={e => setConPactado(e.target.value)}
+                      placeholder="Real Estate, el cliente…"
+                      className="mt-0.5 w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white" />
+                  </label>
+                  <label className="text-xs text-blue-900">
+                    Fecha del pacto
+                    <input id="fecha-pactado" type="date" value={fechaPactado} onChange={e => setFechaPactado(e.target.value)}
+                      className="mt-0.5 block border border-slate-300 rounded px-2 py-1.5 text-sm bg-white" />
+                  </label>
+                </div>
                 <p className="text-xs text-blue-800" translate="no">
                   {segunTarifa === null
                     ? 'No hay tarifa para estas fechas con la que comparar.'
