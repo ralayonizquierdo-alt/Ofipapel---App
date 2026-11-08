@@ -72,5 +72,40 @@ for (const frase of [
   ok(!daElEnlace(frase), `NO sale: ${frase}`);
 }
 
+// ———————————————————————————————————————————————————————————————
+// PEGAMENTO EN SPRAY (8/11/2026). Mismo encargo —«le pasaré este link»— pero
+// con una diferencia que importa: el spray casi nunca se pregunta solo.
+//
+// El caso que lo motivó pedía cartón pluma «y además» un spray de pegamento, y
+// el bot contestó «no tengo la respuesta para eso». Si esta respuesta cortara
+// el turno, el cliente se quedaría ahora sin la otra mitad — el fallo de las
+// agendas del 2/11. Por eso esta SÍ se aparta cuando se nombra otra cosa.
+const SPRAY = 'https://ofipapel.net/?s=Pegamento+spray&post_type=product&dgwt_wcas=1';
+const daElSpray = (texto) => respuesta(texto).includes(SPRAY);
+
+console.log('\n=== Pegamento en spray: el enlace');
+for (const frase of [
+  '¿tenéis pegamento en spray?',
+  'vendéis spray de pegamento',
+  'busco un spray adhesivo',
+  '¿me recomendáis algún spray de pegamento?',
+  'cola en spray',
+]) {
+  ok(daElSpray(frase), frase);
+}
+
+console.log('\n=== Pero no tapa lo demás: eso lo contesta el catálogo');
+for (const frase of [
+  'me gustaría comprar vuestro cartón pluma y además un spray de pegamento',
+  'quiero el spray adhesivo 3M Photo Mount',
+]) {
+  ok(!daElSpray(frase), `NO corta el turno: ${frase}`);
+}
+
+console.log('\n=== Y no es cualquier pegamento');
+for (const frase of ['¿tenéis pegamento de barra?', 'quiero cola blanca', '¿a qué hora abrís?']) {
+  ok(!daElSpray(frase), `NO sale: ${frase}`);
+}
+
 console.log(fallos === 0 ? '\n✔ Sin fallos\n' : `\n✗ ${fallos} fallo(s)\n`);
 process.exit(fallos === 0 ? 0 : 1);
