@@ -47,12 +47,29 @@ function aRgb(color: string): string {
   return rgb
 }
 
-/** El HTML de `raiz` con los estilos escritos dentro, listo para un correo. */
-export function htmlConEstilos(raiz: HTMLElement): string {
+/** Medidas que se encogen con la escala: letra y espacios, no el grosor de las líneas. */
+const SE_ESCALAN = new Set([
+  'font-size', 'line-height', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+  'margin-top', 'margin-bottom', 'border-radius',
+])
+/** «12px» × 0,75 → «9px». Lo que no son píxeles («normal», «0») se queda igual. */
+function escalaPx(valor: string, escala: number): string {
+  return escala === 1 ? valor : valor.replace(/(-?\d+(?:\.\d+)?)px/g, (_, n) => `${+(Number(n) * escala).toFixed(2)}px`)
+}
+
+/**
+ * El HTML de `raiz` con los estilos escritos dentro, listo para un correo.
+ * `escala` lo encoge: en Outlook salía muy grande (Luis, 08/11/2026: «hazlo
+ * con un 75 %»), y el ancho se fija al de la ventana por esa escala, para que
+ * no se estire a todo el correo.
+ */
+export function htmlConEstilos(raiz: HTMLElement, escala = 1): string {
   const copia = raiz.cloneNode(true) as HTMLElement
   const originales = [raiz, ...raiz.querySelectorAll<HTMLElement>('*')]
   const copias = [copia, ...copia.querySelectorAll<HTMLElement>('*')]
   const quitar: HTMLElement[] = []
+  /** Filas «texto … cifra» (flex con los dos extremos): Outlook no entiende flex y las pegaba. */
+  const filasAExtremos: HTMLElement[] = []
 
   originales.forEach((o, i) => {
     const d = copias[i]
@@ -66,9 +83,13 @@ export function htmlConEstilos(raiz: HTMLElement): string {
       return
     }
     const estilo = [
-      ...PROPIEDADES.map(p => `${p}:${cs.getPropertyValue(p)}`),
+      ...PROPIEDADES.map(p => `${p}:${SE_ESCALAN.has(p) ? escalaPx(cs.getPropertyValue(p), escala) : cs.getPropertyValue(p)}`),
       ...COLORES.map(p => `${p}:${aRgb(cs.getPropertyValue(p))}`),
     ]
+    // El ancho de la ventana normal, aunque esté ampliada: si no, el cuadro
+    // copiado desde la ventana grande saldría el doble de ancho.
+    if (o === raiz) estilo.push(`width:${Math.round(Math.min(o.getBoundingClientRect().width, 640) * escala)}px`, 'max-width:100%')
+    if (cs.display === 'flex' && cs.justifyContent === 'space-between' && o.children.length === 2) filasAExtremos.push(d)
     if (o.tagName === 'TABLE') estilo.push('border-collapse:collapse', 'width:100%')
     // Lo que en pantalla se pincha (la tarifa) en el correo es una cifra más.
     if (o.getAttribute('role') === 'link') {
@@ -85,6 +106,24 @@ export function htmlConEstilos(raiz: HTMLElement): string {
     d.removeAttribute('title')
   })
   for (const q of quitar) q.remove()
+  // «IMPORTE BRUTO DE LA RESERVA ……… 3.291,00 €»: en vez de flex, una tabla de
+  // una fila con el texto a la izquierda y la cifra a la derecha.
+  for (const fila of filasAExtremos) {
+    const [izq, der] = [...fila.children] as HTMLElement[]
+    if (!izq || !der) continue
+    const tabla = document.createElement('table')
+    tabla.setAttribute('style', 'width:100%;border-collapse:collapse')
+    tabla.setAttribute('role', 'presentation')
+    const tr = tabla.insertRow()
+    const a = tr.insertCell()
+    const b = tr.insertCell()
+    a.setAttribute('style', 'padding:0;text-align:left')
+    b.setAttribute('style', 'padding:0;text-align:right;white-space:nowrap')
+    a.append(izq)
+    b.append(der)
+    fila.replaceChildren(tabla)
+    fila.style.display = 'block'
+  }
   return copia.outerHTML
 }
 

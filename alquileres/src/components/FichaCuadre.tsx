@@ -231,7 +231,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
     if (!fichaRef.current) return false
     try {
       // Para el correo, solo con formato: ver copiarConFormato().
-      await copiarConFormato(htmlConEstilos(fichaRef.current), paraCorreo ? null : `${asunto}\n\n${textoLlano()}`)
+      await copiarConFormato(htmlConEstilos(fichaRef.current, 0.75), paraCorreo ? null : `${asunto}\n\n${textoLlano()}`)
       setCopiado(true)
       return true
     } catch {
