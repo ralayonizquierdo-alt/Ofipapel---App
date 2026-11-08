@@ -11,8 +11,9 @@ import { subeJustificante, ErrorJustificante, tamanoLegible } from '../lib/justi
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
 import { limpiezaDe, vaSinLimpieza } from '../lib/limpieza'
 import { formatDate } from '../lib/dateUtils'
-import type { Reservation } from '../types'
+import type { Payment, Reservation } from '../types'
 import Modal from './ui/Modal'
+import FichaCuadre from './FichaCuadre'
 import { num } from '../lib/formato'
 
 const eur = (n: number) =>
@@ -124,14 +125,20 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     const choca = reservations.find(r =>
       r.apartmentId === l.apartmentId && r.status !== 'cancelada' &&
       r.checkIn < l.checkOut! && l.checkIn! < r.checkOut)
+    // La misma reserva otra vez (mismo piso, misma entrada y salida): no se crea
+    // y se enseña la que ya hay (Luis, 08/11/2026: «¡¡¡YA EXISTE ESTE REGISTRO!!!»).
+    const existe = reservations.find(r =>
+      r.apartmentId === l.apartmentId && r.status !== 'cancelada' &&
+      r.checkIn === l.checkIn && r.checkOut === l.checkOut)
     return {
       linea: l,
+      existe,
       total: tarifa ? calcTotal(tarifa.base, limpieza, 0) : 0,
       limpieza,
       base: tarifa?.base ?? 0,
       aviso: [
         !tarifa ? 'No hay precios cargados para esas fechas: se creará sin importe' : '',
-        choca ? `Ya hay una reserva del ${formatDate(choca.checkIn)} al ${formatDate(choca.checkOut)}` : '',
+        choca && !existe ? `Ya hay una reserva del ${formatDate(choca.checkIn)} al ${formatDate(choca.checkOut)}` : '',
         l.nota ?? '',
         vaSinLimpieza(l.apartmentId) ? 'El Arenal va sin limpieza: no se le suman los 40 €' : '',
         // Airbnb nunca manda el precio, así que conviene decir de dónde sale.
@@ -155,7 +162,26 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     return null
   }, [cobro, reservations])
 
-  const validas = propuestas.filter(p => !p.linea.problema)
+  const validas = propuestas.filter(p => !p.linea.problema && !('existe' in p && p.existe))
+  /** Las reservas pegadas que ya estaban cargadas: no se vuelven a crear. */
+  const yaCargadas = propuestas.flatMap(p => ('existe' in p && p.existe ? [p.existe] : []))
+
+  /**
+   * El cobro que ya está anotado: mismo importe y misma fecha de pago en esa
+   * reserva (o en ese piso, si vino del Excel sin reserva). Sin fecha no se
+   * puede saber: dos mensualidades iguales son dos cobros distintos.
+   */
+  const cobroExistente = useMemo((): Payment | null => {
+    if (!cobro?.paymentDate || !cobro.apartmentId) return null
+    return payments.find(p => p.received && p.paymentDate === cobro.paymentDate
+      && Math.abs(p.amount - cobro.amount) < 0.01
+      && ((reservaDelCobro && p.reservationId === reservaDelCobro.id)
+        || (!p.reservationId && p.apartmentId === cobro.apartmentId))) ?? null
+  }, [cobro, payments, reservaDelCobro])
+
+  /** La ficha del registro que ya existe, para verlo entero. */
+  const [fichaDe, setFichaDe] = useState<Reservation | null>(null)
+  const cobradoDe = (id: string) => payments.filter(p => p.reservationId === id && p.received).reduce((s, p) => s + p.amount, 0)
 
   /**
    * Trae de un toque lo que haya copiado.
@@ -447,6 +473,45 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           </div>
         )}
 
+        {/* ── Lo pegado ya estaba cargado ── */}
+        {(yaCargadas.length > 0 || cobroExistente) && (
+          <div className="border-2 border-red-400 bg-red-50 rounded-lg p-3 space-y-2" translate="no">
+            <p className="text-center text-base font-bold text-red-700">¡¡¡YA EXISTE ESTE REGISTRO!!!</p>
+            {cobroExistente && (() => {
+              const r = reservations.find(x => x.id === cobroExistente.reservationId)
+              return (
+                <div className="bg-white border border-red-200 rounded-lg p-3 text-sm flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-slate-700">
+                    <b>Cobro de {eur(cobroExistente.amount)}</b> del {formatDate(cobroExistente.paymentDate!)}
+                    {' · '}{nombreApt(cobroExistente.apartmentId ?? r?.apartmentId ?? null)}
+                    {r && <> · reserva del {formatDate(r.checkIn)} al {formatDate(r.checkOut)}</>}
+                    {cobroExistente.entryNumber && <> · asiento {cobroExistente.entryNumber}</>}
+                  </p>
+                  {r && (
+                    <button type="button" onClick={() => setFichaDe(r)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-800 hover:bg-red-100">
+                      Ver su ficha
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
+            {yaCargadas.map(r => (
+              <div key={r.id} className="bg-white border border-red-200 rounded-lg p-3 text-sm flex flex-wrap items-center justify-between gap-2">
+                <p className="text-slate-700">
+                  <b>{nombreApt(r.apartmentId)}</b> · del {formatDate(r.checkIn)} al {formatDate(r.checkOut)} · {r.nights} noches
+                  {' · '}importe {eur(r.total)} · cobrado {eur(cobradoDe(r.id))}
+                </p>
+                <button type="button" onClick={() => setFichaDe(r)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-800 hover:bg-red-100">
+                  Ver su ficha
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {fichaDe && <FichaCuadre reserva={fichaDe} onClose={() => setFichaDe(null)} />}
+
         {/* ── Un justificante de transferencia ── */}
         {cobro && (
           <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -485,7 +550,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                 )}
               </p>
               <div className="pt-2 mt-1 border-t border-slate-100">
-                {reservaDelCobro ? (
+                {cobroExistente ? (
+                  <p className="text-sm font-medium text-red-700">No se anota: este cobro ya está cargado.</p>
+                ) : reservaDelCobro ? (
                   <p className="text-sm text-slate-700">
                     Se anotará en la reserva del{' '}
                     <b>{formatDate(reservaDelCobro.checkIn)}</b> al{' '}
@@ -542,7 +609,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                 : 'Marcar como anulada'}
             </button>
           ) : cobro ? (
-            <button onClick={guardarCobro} disabled={guardando || !reservaDelCobro}
+            <button onClick={guardarCobro} disabled={guardando || !reservaDelCobro || !!cobroExistente}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
               Anotar el cobro
             </button>

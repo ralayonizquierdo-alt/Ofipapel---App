@@ -27,6 +27,15 @@ export const VOLVER: ReglaOperativa = {
     + 'cada pantalla vuelve **como se dejó**: los mismos filtros y, si había una ficha abierta, abierta otra vez.',
 }
 
+// components/PegarWhatsApp.tsx — cargado, yaCargadas, cobroExistente
+const ENTRADA_RAPIDA: ReglaOperativa = {
+  que: 'Entrada rápida',
+  formula: 'OK. RESERVA (verde) · OK. COBRO (azul) · OK. ANULADA (rojo)',
+  nota: 'Al cargar algo bien, lo dice **dentro de la caja** hasta lo siguiente. Si lo pegado **ya estaba cargado** '
+    + '(misma reserva: piso, entrada y salida; mismo cobro: importe y fecha), sale **«¡¡¡YA EXISTE ESTE '
+    + 'REGISTRO!!!»** con el que ya hay, y **no se carga dos veces**.',
+}
+
 // lib/priceCalc.ts — precioPorNoches()
 const PRECIO: ReglaOperativa = {
   que: 'Precio de una estancia',
@@ -108,6 +117,7 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     formula: 'estancia TERMINADA, sin cobrar del todo, desde 2026',
     nota: 'Lo que aún no ha terminado no es un aviso: es lo normal.',
   },
+  ENTRADA_RAPIDA,
   PRECIO_DE_LA_RESERVA,
   {
     // pages/Dashboard.tsx — AvisoRojo
@@ -207,6 +217,7 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
     que: 'Pegar desde WhatsApp',
     nota: '**Nada se guarda sin enseñarlo antes.** Entiende avisos de reserva, anulaciones y justificantes de cobro.',
   },
+  ENTRADA_RAPIDA,
   {
     // components/ImportarReservas.tsx
     que: 'Cargar calendario',
@@ -456,6 +467,7 @@ export const OPERATIVA_SUBIR: ReglaOperativa[] = [
     que: 'Antes de guardar',
     nota: '**Nada se guarda hasta que lo confirmas**: primero se enseña lo que ha entendido.',
   },
+  ENTRADA_RAPIDA,
   {
     que: 'Queda apuntado',
     nota: 'Todo lo que subas queda en el Registro **con tu nombre y la fecha**.',
