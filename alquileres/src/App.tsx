@@ -434,6 +434,11 @@ export default function App() {
               )}
               <Route path="*" element={<Navigate to={INICIO[rol]} replace />} />
             </Routes>
+            {/* Hueco al final de cada pantalla: al bajar del todo, «← Volver» y
+                «Preguntar», que flotan abajo, quedan sobre él y no tapan la
+                última fila (Luis, 08/11/2026: el TOTAL ANUAL de Cobros quedaba
+                debajo de los dos botones). */}
+            <div className="h-24 print:hidden" aria-hidden="true" />
           </main>
         </div>
       </div>
