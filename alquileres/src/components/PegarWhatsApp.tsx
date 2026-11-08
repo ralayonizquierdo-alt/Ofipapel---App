@@ -63,10 +63,20 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   const [arrastrando, setArrastrando] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState('')
+  /**
+   * Qué se acaba de cargar, para decirlo dentro de la caja: «RESERVA · Apto. 104».
+   * Antes, al guardar, la caja se vaciaba y volvía el ejemplo «ALAYON 104…»,
+   * y parecía que no había pasado nada (Luis, 08/11/2026).
+   */
+  const [cargado, setCargado] = useState('')
   const [error, setError] = useState('')
   const areaRef = useRef<HTMLTextAreaElement>(null)
 
   const nombreApt = (id: string | null) => apartments.find(a => a.id === id)?.name || id || '¿?'
+  /** «Apartamento 104» → «Apto. 104»; los demás nombres («Ático 402», «Piso 3») tal cual. */
+  const apto = (id: string | null) => nombreApt(id).replace(/^Apartamento\s+/i, 'Apto. ')
+  /** «Apto. 104, Apto. 105», sin repetir. */
+  const aptos = (ids: (string | null)[]) => [...new Set(ids.map(apto))].join(', ')
 
   // Cuatro formatos distintos, y se distinguen solos. La anulación se mira
   // antes que nada: trae fechas y vivienda igual que un alta, y leerla como un
@@ -218,6 +228,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       })
     }
     setHecho(`${n} ${n === 1 ? 'reserva creada' : 'reservas creadas'}`)
+    setCargado(`${n === 1 ? 'RESERVA' : 'RESERVAS'} · ${aptos(validas.map(p => p.linea.apartmentId))}`)
     setTexto(''); setFichero(null); setGuardando(false)
   }
 
@@ -254,6 +265,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       year: Number(aAnular[0].elegida!.checkIn.slice(0, 4)),
       reservas: aAnular.length,
     })
+    setCargado(`${aAnular.length === 1 ? 'ANULACIÓN' : 'ANULACIONES'} · ${aptos(aAnular.map(x => x.elegida!.apartmentId))}`)
     setHecho(`${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`
       + (cobrado > 0 ? `. Ojo: hay ${eur(cobrado)} ya cobrados, míralo` : ''))
     setTexto(''); setFichero(null); setElegidas({}); setGuardando(false)
@@ -303,6 +315,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       cobros: 1,
       ...conPapel,
     })
+    setCargado(`PAGO · ${apto(cobro.apartmentId)}`)
     setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}`
       + (papel ? ` · justificante guardado (${papel.nombre})` : ''))
     setTexto(''); setFichero(null); setGuardando(false)
@@ -310,13 +323,6 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
 
   return (
     <div className="space-y-4">
-        {hecho && (
-          <div className="bg-green-50 border border-green-300 rounded-lg p-3 flex gap-2.5">
-            <CheckCircle2 className="text-green-600 shrink-0 mt-0.5" size={18} />
-            <p className="text-sm font-medium text-green-900">{hecho}</p>
-          </div>
-        )}
-
         {/* Se puede escribir, pegar o soltar el PDF encima: las tres cosas
             acaban en el mismo sitio. Los manejadores van en el envoltorio para
             que valga soltar en cualquier punto, no solo sobre el recuadro. */}
@@ -333,19 +339,40 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           <textarea
             ref={areaRef}
             value={texto}
-            onChange={e => { setTexto(e.target.value); setHecho(''); setError('') }}
+            onChange={e => { setTexto(e.target.value); setHecho(''); setCargado(''); setError('') }}
             onPaste={e => {
               // Algunos gestores de correo y el propio móvil pegan el PDF como
               // fichero en vez de como texto.
               const f = [...e.clipboardData.files][0]
               if (f) { e.preventDefault(); leeFichero(f) }
             }}
-            rows={compacta ? 3 : 6}
-            placeholder={EJEMPLO}
+            rows={compacta ? 4 : 6}
+            aria-label="Pega aquí el texto"
+            // El ejemplo de lo que vale pegar, ahora al pasar el ratón: dentro de
+            // la caja confundía, porque volvía a salir después de cargar algo.
+            title={EJEMPLO}
             className={`w-full border rounded-lg px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              arrastrando ? 'border-blue-500 bg-blue-50/60' : 'border-slate-200'
+              arrastrando ? 'border-blue-500 bg-blue-50/60'
+                : !texto && hecho ? 'border-green-400 bg-green-50' : 'border-slate-200'
             }`}
           />
+          {/* Con la caja vacía, en el centro: qué hacer, o lo que se acaba de
+              cargar. No deja pinchar: el clic llega a la caja de debajo. */}
+          {!texto && !arrastrando && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3 pointer-events-none">
+              {hecho ? (
+                <>
+                  <p className="flex items-center gap-1.5 text-base font-bold text-green-700">
+                    <CheckCircle2 size={18} /> ¡OK, COPIADO!
+                  </p>
+                  {cargado && <p className="text-sm font-semibold text-green-900">{cargado}</p>}
+                  <p className="text-xs text-green-800 line-clamp-2">{hecho}</p>
+                </>
+              ) : (
+                <p className="text-sm font-semibold tracking-wide text-slate-400">PEGA AQUÍ EL TEXTO</p>
+              )}
+            </div>
+          )}
           {arrastrando && (
             <div className="absolute inset-0 rounded-lg bg-blue-50/90 border-2 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
               <p className="text-sm font-medium text-blue-700">Suelta aquí el PDF o la foto</p>
@@ -374,7 +401,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           </label>
           <span className="text-xs text-slate-400">o arrástralo sobre el recuadro</span>
           {texto && (
-            <button onClick={() => { setTexto(''); setHecho(''); areaRef.current?.focus() }}
+            <button onClick={() => { setTexto(''); setHecho(''); setCargado(''); areaRef.current?.focus() }}
               className="text-xs text-slate-400 hover:text-slate-600 ml-auto">Limpiar</button>
           )}
         </div>
