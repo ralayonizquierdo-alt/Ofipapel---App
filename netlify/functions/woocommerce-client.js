@@ -1159,6 +1159,10 @@ function isSpamOrder(order) {
 }
 
 module.exports = {
+  // Las palabras con contenido de un mensaje (sin muletillas ni acentos). La
+  // usa whatsapp-respuesta-catalogo.js para comprobar que un resultado tiene
+  // algo que ver con lo que se pidió.
+  sanitizeWords,
   isConfigured,
   searchProducts,
   buscarEnCatalogo,

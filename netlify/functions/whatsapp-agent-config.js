@@ -345,8 +345,45 @@ const UN_CORREO = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
 // Preguntar si algo es correcto, no anunciar que se ha escrito a una dirección.
 // El bot atiende también en inglés, así que «correct», «right» y «valid»
 // cuentan igual: sin ellas, «is this the correct email?» no se reconocía.
+// El 8/11/2026 el sondeo (`scripts/sondeo-bot.js`) descubrió que esta red no
+// saltaba con la forma MÁS normal de preguntarlo, que es sin artículo:
+// «pedidos@ofipapel.net es vuestro correo?», «este correo es vuestro?». El
+// patrón pedía «es EL vuestro». Se añaden también el plural y el «de ustedes»
+// que se usa aquí.
 const PREGUNTA_SI_VALE =
-  /\b(correct[oa]?s?|right|valid|v[áa]lid[oa]s?|buen[oa]s?|bien|works?)\b|\bes\s+(?:el|la)\s+(?:vuestr|suy)|\bsigue\s+(?:siendo|activ)|\bfunciona\b|\bexiste\b|\bes\s+esa?\b/i;
+  /\b(correct[oa]?s?|right|valid|v[áa]lid[oa]s?|buen[oa]s?|bien|works?)\b|\b(?:es|son)\s+(?:el\s+|la\s+|los\s+|las\s+)?(?:vuestr|suy|tuy)|\b(?:es|son)\s+de\s+(?:ustedes|vosotros)\b|\bsigue\s+(?:siendo|activ)|\bfunciona\b|\bexiste\b|\bes\s+esa?\b/i;
+
+// EL CLIENTE QUE YA ESCRIBIÓ A UN BUZÓN QUE NO EXISTE (8/11/2026).
+//
+// Peor que preguntar si vale: ya lo mandó. «Os mandé el pedido a
+// pedidos@ofipapel.net y no me habéis contestado». Y claro que no: en
+// ofipapel.net no hay correo, así que eso no llegó a ninguna parte — y la
+// persona está esperando con razón, convencida de que la pelota está en
+// nuestro tejado.
+//
+// Antes caía en la IA, que podía contestar cualquier cosa (y de hecho invitaba
+// a esperar). Esto se contesta con lo único cierto: no ha llegado, y hay que
+// volver a mandarlo. Es el mismo problema que el de Fabiana (6/11/2026) visto
+// desde el otro lado: un mensaje que nadie recibió.
+const DICE_QUE_ESCRIBIO =
+  /\b(?:mand[eéo]|mandado|mand[eé]|envi[eéo]|enviado|escrib[ií]|escrito|pas[eé]|ped[ií]|solicit[eé])\b|\bhe\s+(?:mandado|enviado|escrito)\b|\bno\s+me\s+(?:hab[eé]is|han|hab[ií]an)\s+(?:contestado|respondido)\b/i;
+
+// Devuelve { correo } si el cliente cuenta que escribió a una dirección de un
+// dominio nuestro que NO existe, o null. Un correo de otro dominio
+// («mándame el presupuesto a juan@gmail.com») no es esto: ahí el buzón es suyo
+// y funciona.
+function avisaQueEscribioA(texto) {
+  const t = String(texto || '');
+  if (!DICE_QUE_ESCRIBIO.test(t)) return null;
+  UN_CORREO.lastIndex = 0;
+  const encontrados = t.match(UN_CORREO) || [];
+  for (const bruto of encontrados) {
+    const correo = bruto.toLowerCase().replace(/[.,;:]+$/, '');
+    if (CORREOS_DE_LA_CASA.includes(correo)) continue;
+    if (/@[\w.-]*ofipapel/i.test(correo)) return { correo };
+  }
+  return null;
+}
 
 // Devuelve { correo, esNuestro } si el cliente pregunta por una dirección
 // nuestra, o null. Hacen falta las dos cosas: una dirección escrita Y la
@@ -741,6 +778,107 @@ function pareceConsultaDeProducto(text) {
   return REFERENCIA_DE_PRODUCTO.test(String(text || ''));
 }
 
+// ¿EL MENSAJE NOMBRA UN ARTÍCULO DE LOS QUE VENDEMOS?
+//
+// Encontrado con el sondeo del 8/11/2026 (`scripts/sondeo-bot.js`), y es el
+// agujero más grande que había: para decidir si se mira el catálogo se
+// buscaban **formas de preguntar** («tenéis», «precio», «busco»…). Pero media
+// clientela no pregunta, enumera:
+//
+//   «post it amarillos»        «boligrafos bic azules»
+//   «sillas de oficina»        «una calculadora cientifica»
+//   «carton pluma 100x140»     «archivadores de palanca»
+//
+// De 18 formas normales de pedir algo, 16 no abrían la puerta: el catálogo no
+// se miraba y contestaba la IA de memoria. Se tapaba a medias porque, si la IA
+// intentaba confirmar un producto, eso disparaba una segunda búsqueda — pero
+// eso depende de que la IA lo intente, y desde que la respuesta de producto la
+// escribe el catálogo (8/11/2026) esa búsqueda tardía ya no sirve: llega
+// después del punto donde se compone la respuesta.
+//
+// La señal de verdad no es el verbo: es **nombrar una cosa de la tienda**. Así
+// que esto es el vocabulario del negocio. Buscar de más solo cuesta unos
+// segundos; buscar de menos es contestar a ciegas, que es lo que llevamos dos
+// semanas pagando.
+//
+// NO se invierte la puerta («buscar siempre salvo…») a propósito: ahora que la
+// respuesta de producto sale del catálogo, una búsqueda sobre «cuánto es 2+2»
+// podría devolver cualquier cosa por parecido y acabar en una lista de precios
+// a quien no ha pedido nada. Por eso hace falta que el mensaje nombre algo.
+//
+// Las reglas fijas (horarios, envíos, pedidos, devoluciones, quejas) contestan
+// y cortan el turno ANTES de llegar aquí, así que esta lista no compite con
+// ellas.
+const ARTICULOS = [
+  // Papel y soportes
+  'papel', 'papeles', 'folio', 'folios', 'cartulina', 'carton', 'cartones', 'pluma', 'plumas',
+  'resma', 'resmas', 'bloc', 'blocs', 'cuaderno', 'cuadernos', 'libreta', 'libretas',
+  'agenda', 'agendas', 'calendario', 'calendarios', 'planning', 'cuadriculado',
+  // Archivo
+  'archivador', 'archivadores', 'carpeta', 'carpetas', 'subcarpeta', 'subcarpetas',
+  'funda', 'fundas', 'clasificador', 'clasificadores', 'revistero', 'revisteros',
+  'caja', 'cajas', 'cajonera', 'cajoneras', 'separador', 'separadores', 'portafolios',
+  // Escritura
+  'boligrafo', 'boligrafos', 'boli', 'bolis', 'portaminas', 'lapiz', 'lapices', 'lapicero',
+  'goma', 'gomas', 'sacapuntas', 'afilalapices', 'rotulador', 'rotuladores', 'marcador',
+  'marcadores', 'subrayador', 'subrayadores', 'tiza', 'tizas', 'mina', 'minas',
+  'recambio', 'recambios', 'estilografica', 'estilograficas',
+  // Manualidades y bellas artes
+  'pincel', 'pinceles', 'acuarela', 'acuarelas', 'tempera', 'temperas', 'plastilina',
+  'cera', 'ceras', 'oleo', 'lienzo', 'lienzos', 'bastidor', 'purpurina', 'goma eva',
+  // Pegar y unir
+  'pegamento', 'pegamentos', 'cola', 'spray', 'celo', 'cinta', 'cintas', 'precinto',
+  'grapadora', 'grapadoras', 'grapa', 'grapas', 'clip', 'clips', 'chincheta', 'chinchetas',
+  'quitagrapas', 'taladradora', 'taladro', 'perforadora', 'encuadernadora', 'canutillo',
+  // Cortar y medir
+  'tijera', 'tijeras', 'cutter', 'cuter', 'regla', 'reglas', 'escuadra', 'cartabon',
+  'compas', 'metro', 'guillotina',
+  // Informática y consumibles
+  'calculadora', 'calculadoras', 'impresora', 'impresoras', 'cartucho', 'cartuchos',
+  'toner', 'toners', 'tinta', 'tintas', 'multifuncion', 'escaner', 'destructora',
+  'plastificadora', 'laminadora', 'monitor', 'teclado', 'raton', 'usb', 'pendrive',
+  'disco', 'cable', 'cables', 'cargador', 'auriculares', 'altavoz', 'altavoces', 'webcam',
+  'pila', 'pilas', 'bateria', 'baterias', 'alfombrilla', 'funda de portatil',
+  // Mobiliario
+  'silla', 'sillas', 'sillon', 'sillones', 'mesa', 'mesas', 'escritorio', 'armario',
+  'estanteria', 'estanterias', 'lampara', 'flexo', 'papelera', 'papeleras',
+  'pizarra', 'pizarras', 'corcho', 'rotafolios', 'atril', 'expositor', 'expositores',
+  'reposapies', 'percha', 'buzon',
+  // Sellos y envíos
+  'sello', 'sellos', 'tampon', 'almohadilla', 'sobre', 'sobres', 'bolsa', 'bolsas',
+  'etiqueta', 'etiquetas', 'film', 'burbuja', 'embalaje', 'flejado',
+  // Escolar y mochilas
+  'mochila', 'mochilas', 'estuche', 'estuches', 'portatodo', 'cartera', 'maletin',
+  'fiambrera', 'botella', 'termo', 'taza', 'babi', 'bata', 'forro',
+  // Limpieza e higiene (lo vendemos a empresas)
+  'servilleta', 'servilletas', 'vaso', 'vasos', 'plato', 'platos', 'mantel',
+  'guantes', 'mascarilla', 'mascarillas', 'gel', 'jabon', 'bayeta', 'fregona',
+  'escoba', 'detergente', 'lejia', 'ambientador', 'higienico', 'secamanos',
+  // Marcas (nombrar una marca es nombrar un producto)
+  'bic', 'pilot', 'staedtler', 'faber', 'castell', 'posca', 'uni', 'stabilo', 'pelikan',
+  'milan', 'oxford', 'finocam', 'miquelrius', 'apli', 'fellowes', 'leitz', 'esselte',
+  'petrus', 'dymo', 'casio', 'epson', 'canon', 'brother', 'kyocera', 'lexmark', 'ricoh',
+  'post-it', 'postit', 'post it', 'tesa', 'scotch', 'pritt', 'parker', 'waterman', 'sadipal',
+  'guarro', 'canson', 'liderpapel', 'grafoplas', 'exacompta', 'erik', 'senfort',
+  'mattio', 'navigator', 'rotring', 'edding', 'artline', 'giotto', 'alpino', 'plastidecor',
+  // Formatos: fuera de un producto no se escriben
+  'a4', 'a3', 'a5', 'a2', 'a6', 'din a4', 'dina4', 'dina 4', 'folio apaisado',
+];
+
+// Cada entrada se busca como palabra entera, para que «cola» no salte con
+// «colaborar» ni «mina» con «terminal». Los acentos se quitan antes, así que
+// el vocabulario va sin ellos.
+const RE_ARTICULOS = new RegExp(
+  '(?<![a-z0-9])(?:'
+    + ARTICULOS.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+')).join('|')
+    + ')(?![a-z0-9])',
+  'i',
+);
+
+function nombraUnArticulo(texto) {
+  return RE_ARTICULOS.test(sinAcentos(texto));
+}
+
 function isUnverifiedConfirmation(text) {
   return FALSE_CONFIDENCE_PATTERN.test(text || '');
 }
@@ -942,7 +1080,9 @@ function medidasSinRespaldo(respuesta, respaldo) {
 // igual a las cuatro de la mañana. Eso es decirle al cliente una cosa que no
 // es, para ganar tiempo.
 const MIRARLO_LUEGO_PATTERNS = [
-  /\bd[ée]jame\s+(?:que\s+)?(consultar|consulte|verificar|verifique|comprobar|compruebe|mirar|mire|revisar|revise|confirmar|confirme)\b/i,
+  // «preguntar/pregunte» y «pedir/pida» faltaban (sondeo del 8/11/2026):
+  // «déjame que lo pregunte al equipo» es la forma más natural de todas.
+  /\bd[ée]jame\s+(?:que\s+)?(?:lo\s+|la\s+|eso\s+)?(consultar|consulte|verificar|verifique|comprobar|compruebe|mirar|mire|revisar|revise|confirmar|confirme|preguntar|pregunte|pedir|pida|averiguar|averig[üu]e)\b/i,
   /\bvoy\s+a\s+(consultar|verificar|comprobar|mirar|revisar|confirmar)\b/i,
   // La mentira del catálogo que «se abre» con la tienda.
   /\b(tenga|tengamos|tener|tenemos)\s+acceso\s+al\s+cat[áa]logo\b/i,
@@ -952,11 +1092,75 @@ const MIRARLO_LUEGO_PATTERNS = [
   // ciego cuando no lo está.
   /\bno\s+tengo\s+acceso\s+al\s+cat[áa]logo\b/i,
   /\bte\s+(?:lo\s+)?(confirmo|digo|aviso)\s+(?:en\s+cuanto|cuando)\s+(?:lo\s+)?(mire|consulte|compruebe|revise|verifique)\b/i,
+  // Encontradas con el sondeo del 8/11/2026 (`scripts/sondeo-bot.js`). La red
+  // existía; le faltaban las formas más naturales de prometer, que son
+  // precisamente las que suenan mejor:
+  //
+  //   «lo consulto con el almacén y te confirmo en un rato»
+  //   «te lo reservo»  ·  «te lo dejo apartado»
+  //
+  // Son peores que una medida inventada, porque el cliente se queda esperando
+  // sin motivo: aquí no hay nadie que vaya a volver con la respuesta, y el
+  // mensaje no le llega a ninguna persona. Pasó de verdad con Fabiana
+  // (6/11/2026), que se quedó esperando un presupuesto que nunca salió.
+  /\b(?:lo|la|eso)\s+(?:consulto|pregunto|miro|reviso|compruebo)\s+(?:con|al)\s+(?:el\s+|la\s+|mi\s+)?(almac[eé]n|equipo|compa[ñn]er|jefe|encargad|tienda|proveedor)/i,
+  /\bte\s+(?:lo\s+)?(?:confirmo|aviso|digo|escribo|contesto)\s+(?:en\s+un|en\s+breve|dentro\s+de|luego|m[áa]s\s+tarde|enseguida|ahora\s+mismo|esta\s+(?:tarde|ma[ñn]ana)|ma[ñn]ana)/i,
+  /\bte\s+(?:lo\s+)?(?:reservo|aparto|guardo|dejo\s+apartad|tengo\s+apartad)/i,
+  /\b(?:me\s+encargo\s+de|yo\s+me\s+encargo|me\s+ocupo\s+de)\b/i,
+  /\b(?:paso|traslado|mando|env[ií]o)\s+(?:tu|su|el)\s+(?:mensaje|consulta|petici[oó]n|pedido)\s+(?:a|al)\b/i,
+  // Inglés, por el mismo camino.
+  /\b(?:let\s+me\s+(?:check|confirm|ask)|i'?ll\s+(?:check|confirm|get\s+back|let\s+you\s+know)|i\s+will\s+check)\b/i,
 ];
 
 function prometeMirarloLuego(texto) {
   const t = String(texto || '');
   return MIRARLO_LUEGO_PATTERNS.some((p) => p.test(t));
+}
+
+// OJO al tocar estos patrones: `ESPERA_REPLY` («estoy consultando el catálogo
+// y te contesto enseguida») encaja con el penúltimo, y es un texto CORRECTO —
+// lo manda el webhook cuando delega la búsqueda en la función de segundo
+// plano, que sí vuelve con la respuesta. Hoy no pasa por esta red porque se
+// manda por su propio camino; si algún día se junta, hay que exceptuarlo.
+
+// UN ENLACE DE PRODUCTO QUE NO EXISTE (8/11/2026).
+//
+// Encontrado con el sondeo: la IA escribió
+// «https://ofipapel.net/producto/oferta-especial-noviembre». No existe. El
+// cliente pulsa, le sale un 404 y se queda pensando que la tienda está rota —
+// y encima el bot le ha dicho que ahí lo tiene.
+//
+// Esto no hay que «comprobarlo» contra nada remoto: los enlaces de producto
+// válidos son EXACTAMENTE los que devolvió la búsqueda de este turno. Si la
+// búsqueda no trajo ninguno, cualquier enlace de producto que aparezca es
+// inventado por definición.
+//
+// No se toca el resto de direcciones: la web (ofipapel.net a secas), un enlace
+// de búsqueda, una categoría o el mapa de la tienda son correctos y los ponen
+// los textos fijos.
+const UN_ENLACE_DE_PRODUCTO = /https?:\/\/[^\s)]*ofipapel\.net\/(?:producto|product|p)\/[^\s)",;]*/gi;
+
+function quitarEnlacesInventados(respuesta, urlsBuenas = []) {
+  const buenas = new Set(
+    (urlsBuenas || []).filter(Boolean).map((u) => String(u).replace(/\/+$/, '').toLowerCase()),
+  );
+  const quitados = [];
+  const texto = String(respuesta || '').replace(UN_ENLACE_DE_PRODUCTO, (url) => {
+    const limpia = url.replace(/[.,;:]+$/, '');
+    if (buenas.has(limpia.replace(/\/+$/, '').toLowerCase())) return url;
+    quitados.push(limpia);
+    return '';
+  });
+  if (quitados.length === 0) return { texto: String(respuesta || ''), quitados };
+  // Al quitar la dirección suele quedar un hueco o una línea suelta («Aquí lo
+  // tienes:»), que se recoge para que el mensaje no salga descosido.
+  const limpio = texto
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/^[ \t]*(?:aqu[ií] (?:lo|la|los|las) tienes|aqu[ií] te (?:lo|la) dejo|enlace|link)\s*:?\s*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+  return { texto: limpio, quitados };
 }
 
 // Lo que se contesta en su lugar: la búsqueda de la web, ya hecha.
@@ -1396,6 +1600,11 @@ const FAQ_RULES = [
     //
     // Y «mesilla»/«mesillas» llevan «silla»/«sillas» dentro: la coincidencia de
     // palabras clave no mira fronteras de palabra, aquí sí.
+    // No `familiaDeProducto` (ver arriba), pero sí apartarse cuando el
+    // mensaje pide además otra cosa: si no, los cartuchos de
+    // «¿tenéis cartuchos de epson? y una silla de oficina barata?» se quedan
+    // sin contestar (sondeo del 8/11/2026).
+    seApartaSiPidenOtroArticulo: true,
     reply: (normalizedText) => {
       if (!/\bsillas?\b|\bsillones?\b/.test(normalizedText)) return null;
       return /\bgaming\b|\bgamer\b/.test(normalizedText) ? SILLAS_GAMING_INFO : SILLAS_INFO;
@@ -1869,6 +2078,7 @@ Instrucciones:
 module.exports = {
   BUSINESS_NAME,
   STORES,
+  CORREOS_DE_LA_CASA,
   GREETING,
   PRESENTACION,
   PRESENTACION_BREVE,
@@ -1890,6 +2100,7 @@ module.exports = {
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
   preguntaSiEsNuestroCorreo,
+  avisaQueEscribioA,
   mensajeSobreElCorreo,
   isAgenteInfoMessage,
   isWithinBusinessHours,
@@ -1915,6 +2126,7 @@ module.exports = {
   afirmaTenerAlgo,
   noConstaInfo,
   respuestaConEnlace,
+  quitarEnlacesInventados,
   preciosDe,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
@@ -1931,5 +2143,6 @@ module.exports = {
   FAQ_RULES,
   palabrasPropias,
   nombraAlgoConcreto,
+  nombraUnArticulo,
   buildAiSystemPrompt,
 };

@@ -43,13 +43,112 @@ function lineaDe(p, idioma) {
 // el chat: a partir de ahí vale más el enlace de la búsqueda entera.
 const MAXIMO_EN_LISTA = 5;
 
+// ¿LO ENCONTRADO ES LO QUE PIDIÓ, O SOLO SE LE PARECE?
+//
+// Encontrado con el sondeo del 8/11/2026, y es la factura de quitar a la IA de
+// las respuestas de producto: la IA, además de redactar, juzgaba si los
+// resultados venían a cuento («si no tienen nada que ver, ignóralos por
+// completo», dice el prompt). Al dejar de escribir ella, ese juicio se perdió
+// y pasó esto:
+//
+//   cliente: «necesito una caja registradora»   (no vendemos)
+//   bot:     «Esto es lo que tenemos: • SOBRE BURBUJA 270x360 (Caja 100 uds)»
+//
+// El buscador de la web es generoso a propósito —puntúa por parecido— así que
+// con «caja» ya devuelve cosas. El fallo no es que las devuelva: es
+// presentarlas como si fueran lo que el cliente pidió.
+//
+// No hace falta acertar con el juicio, que es difícil y se equivocaría: basta
+// con no afirmar más de lo que se sabe. Si lo encontrado cuadra, «esto es lo
+// que tenemos»; si solo se le parece, «no encuentro exactamente eso, esto es
+// lo más parecido». En los dos casos ve los productos de verdad, con su precio
+// y su enlace, y decide él — que es lo que pide el propietario: enseñarle lo
+// que hay, no adivinar.
+//
+// Se mide por cuántas de sus palabras aparecen en el nombre del producto:
+//   «cartucho 603xl negro» → CARTUCHO EPSON 603XL Negro        3 de 3 → cuadra
+//   «papel a4»             → PAPEL Fotocopia A-4 80gr          2 de 2 → cuadra
+//   «papel a4»             → PAPEL Fotocopia A-3 80gr          1 de 2 → parecido
+//   «plastificadora a3»    → PLASTIFICADORA FELLOWES Halo A-4  1 de 2 → parecido
+//   «caja registradora»    → SOBRE BURBUJA (Caja 100 uds)      1 de 2 → parecido
+const CUADRA_DESDE = 0.6;
+
+// Muletillas con las que se pide algo. No dicen nada del artículo, así que no
+// cuentan para la cuenta («¿cuánto vale el papel A4?» son dos palabras:
+// «papel» y «a4»). La lista de `sanitizeWords` quita las de siempre («el»,
+// «de»); estas son las de preguntar, que allí sí hacen falta para buscar.
+const AL_PEDIR = new Set([
+  'cuanto', 'cuanta', 'cuantos', 'cuantas', 'vale', 'valen', 'cuesta', 'cuestan',
+  'precio', 'precios', 'teneis', 'tienen', 'tiene', 'tenes', 'hay', 'vendeis', 'venden',
+  'vende', 'quiero', 'quisiera', 'queria', 'necesito', 'necesitaba', 'necesitamos',
+  'busco', 'buscando', 'interesa', 'interesan', 'dame', 'ponme', 'mandame', 'manda',
+  'por', 'favor', 'para', 'con', 'sin', 'una', 'uno', 'unos', 'unas', 'algun', 'alguna',
+  'mas', 'menos', 'tambien', 'hola', 'buenas', 'gracias', 'disponible', 'disponibles',
+  'stock', 'me', 'mi', 'tu', 'su', 'eso', 'esto', 'que', 'si', 'no',
+]);
+
+const sinSignos = (s) =>
+  String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '');
+
+// Cuántas de las palabras del cliente aparecen en el nombre, de 0 a 1. Se
+// comparan sin acentos ni guiones («a4» = «A-4») y aguantando el plural
+// («boligrafos» = «BOLIGRAFO», «azules» = «Azul»).
+function cuantoCuadra(nombre, palabras) {
+  if (!palabras.length) return 1;
+  const enElNombre = sinSignos(nombre);
+  const aciertos = palabras.filter((p) => {
+    const limpia = sinSignos(p);
+    if (!limpia) return false;
+    if (enElNombre.includes(limpia)) return true;
+    // Plural: se prueba sin la «s» o sin «es», solo si queda algo con cuerpo.
+    const singular = limpia.replace(/(?:es|s)$/, '');
+    return singular.length >= 4 && enElNombre.includes(singular);
+  }).length;
+  return aciertos / palabras.length;
+}
+
+function palabrasDeLaConsulta(consulta) {
+  if (!consulta) return [];
+  try {
+    const { sanitizeWords } = require('./woocommerce-client');
+    return sanitizeWords(consulta).filter((p) => !AL_PEDIR.has(p));
+  } catch {
+    // Sin la lista de muletillas se mide con todo: como mucho dirá «parecido»
+    // alguna vez de más, que es el lado seguro.
+    return String(consulta).toLowerCase().split(/\s+/).filter((p) => p.length > 2 && !AL_PEDIR.has(p));
+  }
+}
+
+// Cuando lo encontrado solo se parece. Se repite lo que pidió para que vea que
+// se le ha entendido, recortado para no soltarle su propio mensaje entero.
+function cabeceraParecido(idioma, consulta) {
+  const pedido = String(consulta || '').trim().replace(/\s+/g, ' ').slice(0, 45);
+  if (idioma === 'en') {
+    return pedido
+      ? `I can't find exactly "${pedido}". This is the closest I have:`
+      : "I can't find exactly that. This is the closest I have:";
+  }
+  return pedido
+    ? `No encuentro exactamente «${pedido}». Esto es lo más parecido que tengo:`
+    : 'No encuentro exactamente eso. Esto es lo más parecido que tengo:';
+}
+
 // Construye la respuesta a partir de lo que devolvió la web, o null si no hay
 // nada que decir (y entonces el webhook sigue por donde iba).
 //
 // `consulta` es lo que escribió el cliente: se usa solo para encabezar la
 // lista, nunca para deducir nada.
-function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null } = {}) {
+function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null, consulta = '' } = {}) {
   if (!Array.isArray(productos) || productos.length === 0) return null;
+
+  // Lo que más cuadra, primero: el buscador ya ordena por parecido, pero con
+  // las palabras del cliente delante se afina (ver cuantoCuadra).
+  const palabras = palabrasDeLaConsulta(consulta);
+  const puntuados = productos
+    .map((p) => ({ p, cuadre: cuantoCuadra(p.nombre, palabras) }))
+    .sort((a, b) => b.cuadre - a.cuadre);
+  const ordenados = puntuados.map((x) => x.p);
+  const cuadra = (puntuados[0]?.cuadre ?? 1) >= CUADRA_DESDE;
 
   // EL STOCK SE AVISA, NO ESCONDE.
   //
@@ -57,12 +156,14 @@ function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null }
   // productos que el cliente había pedido: preguntó por «bolígrafos o plumas
   // estilográficas» y solo veía el bolígrafo. Se respeta el orden que trae la
   // búsqueda, que es el de relevancia, y cada línea dice si hay o no hay.
-  const lista = productos.slice(0, MAXIMO_EN_LISTA);
+  const lista = ordenados.slice(0, MAXIMO_EN_LISTA);
 
   // UNO SOLO: se confirma con su nombre, su precio y su enlace.
   if (lista.length === 1) {
     const p = lista[0];
-    const cabecera = idioma === 'en' ? 'This is what we have:' : 'Esto es lo que tenemos:';
+    const cabecera = cuadra
+      ? (idioma === 'en' ? 'This is what we have:' : 'Esto es lo que tenemos:')
+      : cabeceraParecido(idioma, consulta);
     const aviso = p.disponible
       ? ''
       : idioma === 'en'
@@ -74,8 +175,9 @@ function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null }
   // VARIOS: se enseñan tal cual, con su precio y su enlace, y se le deja elegir
   // a él. Preguntarle «¿qué tamaño quieres?» antes de enseñarle nada es lo que
   // hacía la IA, y por el camino se inventaba los tamaños.
-  const cabecera =
-    idioma === 'en' ? 'This is what we have, with prices:' : 'Esto es lo que tenemos, con sus precios:';
+  const cabecera = cuadra
+    ? (idioma === 'en' ? 'This is what we have, with prices:' : 'Esto es lo que tenemos, con sus precios:')
+    : cabeceraParecido(idioma, consulta);
   const cierre = enlaceBusqueda
     ? idioma === 'en'
       ? `\n\nAll of them here: ${enlaceBusqueda}`

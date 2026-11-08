@@ -69,6 +69,7 @@ const {
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
   preguntaSiEsNuestroCorreo,
+  avisaQueEscribioA,
   mensajeSobreElCorreo,
   mensajeProblemaDeCuenta,
   STORES,
@@ -96,6 +97,7 @@ const {
   confirmaLoQueNoHay,
   noConstaInfo,
   respuestaConEnlace,
+  quitarEnlacesInventados,
   buildAiSystemPrompt,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
@@ -1362,6 +1364,22 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     return;
   }
 
+  // YA ESCRIBIÓ A UN BUZÓN QUE NO EXISTE, Y ESTÁ ESPERANDO (8/11/2026).
+  //
+  // «Os mandé el pedido a pedidos@ofipapel.net y no me habéis contestado». No
+  // ha llegado y no va a llegar: ahí no hay correo. Antes esto caía en la IA,
+  // que como mucho le invitaba a esperar un poco más. Lo único útil es
+  // decírselo y darle la dirección buena, y de paso pasarle con una persona:
+  // si ya ha escrito, lo que mandó hay que recuperarlo.
+  const avisoDeCorreo = text ? avisaQueEscribioA(text) : null;
+  if (avisoDeCorreo) {
+    const prefijo = greeting + mensajeSobreElCorreo({ ...avisoDeCorreo, esNuestro: false }, idioma);
+    console.error(`whatsapp: el cliente escribió a un buzón que no existe (${avisoDeCorreo.correo}).`);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
+  }
+
   if (isExplicitRequest) {
     // «PÁSAME A UN AGENTE» NO SE CONTESTA PREGUNTANDO SI QUIERE UN AGENTE.
     //
@@ -1540,7 +1558,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
 //     («el papel que me mandasteis viene roto»): ahí no se contesta con
 //     precios, se contesta a la persona.
   if (productosDelCatalogo?.length > 0 && !contextoConsumibles && !pareceUnaIncidencia(text)) {
-    const delCatalogo = respuestaDeCatalogo(productosDelCatalogo, { idioma, enlaceBusqueda });
+    const delCatalogo = respuestaDeCatalogo(productosDelCatalogo, { idioma, enlaceBusqueda, consulta: text });
     if (delCatalogo) {
       const reply = greeting + delCatalogo;
       await appendToHistory(message.from, text, reply);
@@ -1584,6 +1602,10 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   let respuesta = aiReply;
   let datosDeCatalogo = productContext;
   let impresorasVistas = impresoras;
+  // Los únicos enlaces de producto válidos de este turno (ver
+  // quitarEnlacesInventados). Si la búsqueda no trajo nada, la lista va vacía
+  // a propósito: entonces cualquier enlace de producto es inventado.
+  let productosBuenos = productosDelCatalogo || [];
 
   // UN PRECIO QUE NO SALE DE NINGÚN SITIO es la tercera señal, y la más clara
   // de todas: si la IA se arranca con una cifra que no está en lo que le hemos
@@ -1612,6 +1634,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     if (segunda.productContext) {
       datosDeCatalogo = segunda.productContext;
       impresorasVistas = segunda.impresoras;
+      productosBuenos = segunda.productos || productosBuenos;
       respuesta = await askClaude(
         text,
         history,
@@ -1698,6 +1721,20 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     await sendEscalateButtons(message.from, greeting + noConsta, idioma);
     await appendToHistory(message.from, text, `${greeting}${noConsta}${escalateQuestion(idioma)}`);
     return;
+  }
+
+  // Un enlace de producto que no salió de la búsqueda se quita antes de nada:
+  // el cliente pulsaría y le saldría un 404 (ver quitarEnlacesInventados).
+  const enlaces = quitarEnlacesInventados(respuesta, productosBuenos.map((p) => p.url));
+  if (enlaces.quitados.length > 0) {
+    console.error(`whatsapp: enlaces inventados quitados (${enlaces.quitados.join(', ')}).`);
+    // Si al quitarlos no queda nada que decir, se contesta con la búsqueda de
+    // verdad, que es lo que el cliente quería: ver lo que hay. Y si tampoco
+    // hay búsqueda, con lo honesto — NUNCA se vuelve a la respuesta original,
+    // que es la que llevaba el enlace falso dentro.
+    respuesta = enlaces.texto.trim()
+      || respuestaConEnlace(enlaceBusqueda, idioma)
+      || PRODUCTO_NO_VERIFICADO_INFO;
   }
 
   const medidasInventadas = medidasSinRespaldo(respuesta, respaldoDeMedidas);
