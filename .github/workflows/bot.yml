@@ -1,0 +1,111 @@
+name: Bot de WhatsApp
+
+# Las pruebas del bot, que hasta el 8/11/2026 NO corrían en ningún sitio.
+#
+# Había 29 baterías en `scripts/probar-*.js`, cada una nacida de un fallo real
+# con un cliente, y se pasaban a mano cuando alguien se acordaba. El CI de
+# siempre (`ci.yml`) solo mira `joe-app` y `alquileres`, que son las dos apps
+# con build — así que justo lo que más veces se ha roto era lo único sin red.
+#
+# Tres cosas, de más a menos estricta:
+#
+#   1. BATERÍAS — puerta de verdad: si una falla, el cambio no entra. Cada una
+#      es un fallo que ya le pasó a un cliente, así que volver a romperlo no es
+#      una regresión cualquiera.
+#   2. SONDEO — las ~105 preguntas de `scripts/sondeo-bot.js`. No dice «pasa» ni
+#      «falla» (es una red de arrastre), pero el número de avisos es
+#      determinista, así que se compara con la línea base de
+#      `scripts/sondeo-base.txt`: si sube, algo se ha roto; si baja, se
+#      actualiza la línea base en el mismo cambio. El informe entero queda
+#      guardado para leerlo.
+#   3. CADA LUNES — el bot depende de cosas que cambian sin que toquemos el
+#      código (el catálogo de la web, el modelo, las notas del panel), así que
+#      se repasa aunque nadie haya subido nada. GitHub avisa por correo solo si
+#      falla, que es cuando hace falta.
+on:
+  pull_request:
+    paths:
+      - 'netlify/functions/**'
+      - 'scripts/probar-*.js'
+      - 'scripts/sondeo-bot.js'
+      - 'scripts/sondeo-base.txt'
+      - '.github/workflows/bot.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'netlify/functions/**'
+      - 'scripts/probar-*.js'
+      - 'scripts/sondeo-bot.js'
+      - 'scripts/sondeo-base.txt'
+      - '.github/workflows/bot.yml'
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Sin las dependencias de las funciones, una docena de baterías falla por
+      # no encontrar un `require`, y el fallo no se parece en nada a la causa.
+      - name: Dependencias de las funciones
+        run: npm ci
+        working-directory: netlify/functions
+
+      - name: Baterías del bot
+        run: |
+          fallos=0
+          for f in scripts/probar-*.js; do
+            case "$f" in *control-pedidos*) continue;; esac
+            echo "── $f"
+            if ! salida=$(node "$f" 2>&1); then
+              echo "$salida"; echo "::error file=$f::terminó con error"; fallos=1; continue
+            fi
+            # Las baterías no siempre devuelven código de error: marcan con ✗.
+            if printf '%s' "$salida" | grep -q '✗'; then
+              echo "$salida"; echo "::error file=$f::hay comprobaciones en rojo"; fallos=1
+            else
+              printf '%s\n' "$salida" | tail -1
+            fi
+          done
+          exit $fallos
+
+      - name: Lógica de Control de Pedidos
+        run: node --test scripts/probar-control-pedidos.js
+
+      - name: Sondeo (~105 preguntas)
+        id: sondeo
+        run: |
+          node scripts/sondeo-bot.js > sondeo-informe.txt 2>&1 || true
+          tail -12 sondeo-informe.txt
+          avisos=$(grep -oE 'RESUMEN — [0-9]+' sondeo-informe.txt | grep -oE '[0-9]+' | head -1)
+          if [ -z "$avisos" ]; then
+            echo "::error::el sondeo no llegó a dar un resumen (mira el informe)"; exit 1
+          fi
+          base=$(grep -oE '^[0-9]+' scripts/sondeo-base.txt | head -1)
+          echo "avisos=$avisos  base=$base"
+          if [ "$avisos" -gt "$base" ]; then
+            echo "::error::el sondeo da $avisos avisos y la línea base es $base. Mira sondeo-informe.txt: o es un fallo nuevo, o es un aviso que hay que explicar en la cabecera del script."
+            exit 1
+          fi
+          if [ "$avisos" -lt "$base" ]; then
+            echo "::notice::el sondeo baja de $base a $avisos avisos. Actualiza scripts/sondeo-base.txt en este mismo cambio."
+          fi
+
+      # El informe completo, siempre: es lo que de verdad se lee cuando algo
+      # sube, y en el repaso de los lunes es el único sitio donde queda.
+      - name: Guardar el informe del sondeo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sondeo-informe
+          path: sondeo-informe.txt
+          retention-days: 30

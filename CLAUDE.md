@@ -89,6 +89,9 @@ bash build.sh   # compila alquileres y joe-app, y ensambla todo en _site/
 - **CI** (`.github/workflows/ci.yml`) corre `lint` + `build` (incluye
   `tsc -b`) para `joe-app` y `alquileres` en cada PR y push a `main`. Los
   HTML monolíticos no tienen build ni lint automatizado.
+- **CI del bot** (`.github/workflows/bot.yml`, 8/11/2026) corre las baterías
+  del bot, la lógica de Control de Pedidos y el sondeo en cada PR/push que
+  toque `netlify/functions/**` o los scripts, y cada lunes. Ver Convenciones.
 - `.github/dependabot.yml` abre PRs semanales de actualización de
   dependencias npm para ambas apps y de GitHub Actions.
 
@@ -249,8 +252,24 @@ para tener contexto antes de tocar código.
   después comprueba que `ofipapel.netlify.app/control-pedidos.html` sirve la
   versión nueva. Cualquier PR que toque otras apps del repo lo sigue
   fusionando el propietario.
-- Casi no hay tests automatizados (CI cubre lint + build). La excepción es
-  `scripts/probar-control-pedidos.js` (`node --test`), que no corre en CI.
+- **Las pruebas del bot SÍ corren en CI** desde el 8/11/2026
+  (`.github/workflows/bot.yml`, en cada PR/push que toque
+  `netlify/functions/**` o los scripts, y cada lunes): las ~29 baterías de
+  `scripts/probar-*.js` como **puerta** (si una se pone en rojo, el cambio no
+  entra — cada una nació de un fallo real con un cliente), la lógica de
+  Control de Pedidos (`node --test scripts/probar-control-pedidos.js`) y el
+  **sondeo** (`scripts/sondeo-bot.js`), que no dice «pasa» ni «falla» pero da
+  un número determinista de avisos: se compara con `scripts/sondeo-base.txt`
+  y, si sube, falla; si baja, se actualiza la línea base en el mismo cambio.
+  El informe completo del sondeo queda guardado como artefacto 30 días. Una
+  batería no siempre devuelve código de error: marca con `✗`, y el flujo mira
+  las dos cosas. El repaso de los lunes existe porque el bot depende de cosas
+  que cambian sin que toquemos el código (el catálogo de la web, el modelo,
+  las notas del panel); GitHub avisa por correo solo cuando falla.
+- El resto del repo sigue con poca prueba automática: `ci.yml` cubre lint +
+  build de `joe-app` y `alquileres`, y los HTML monolíticos no tienen ni build
+  ni lint. Las pruebas del publicador (`py scripts/probar-publicador.py`)
+  tampoco corren en CI: necesitan Windows y los `.dbf` de GeminisWin.
 - `joe-app` y `alquileres` comparten patrón de ESLint flat config
   (`eslint.config.js`) con `typescript-eslint` + `eslint-plugin-react-hooks`.
   `alquileres` tiene `react-hooks/set-state-in-effect` degradado a warning
