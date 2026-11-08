@@ -130,3 +130,21 @@
     Cache-Control = "no-cache, no-store, must-revalidate"
     Pragma = "no-cache"
     Expires = "0"
+
+# ── Cabeceras de seguridad (hardening 6/11/2026, ISO 27001 A.8.9/A.8.26 · SOC 2 CC6.6/CC6.7) ──
+# Valen para TODO el sitio. Se dejaron fuera a propósito:
+#   · Content-Security-Policy: los HTML monolíticos llevan JS y CSS en línea y cargan
+#     librerías de varias CDN; una CSP que no bloquee nada no protege y una que sí
+#     bloquea rompe las apps. Ver docs/seguridad/POLITICA_SEGURIDAD.md (plan por fases).
+#   · camera/microphone/geolocation NO se prohíben: control-pedidos (foto del pedido),
+#     joe-app y falcontrol (dictado por voz) y fichaje (ubicación) los usan.
+# X-Frame-Options SAMEORIGIN: control-pedidos incrusta importacion-pedidos-proveedores
+# en un iframe del mismo sitio; ninguna otra página se incrusta en un dominio ajeno.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=(), interest-cohort=()"
+    Cross-Origin-Resource-Policy = "same-site"
