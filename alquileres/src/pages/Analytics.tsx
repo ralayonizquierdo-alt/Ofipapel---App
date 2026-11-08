@@ -154,8 +154,8 @@ export default function Analytics() {
           </p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Gastos totales</p>
-          <p className="text-2xl font-bold text-red-700 mt-1">{eur(totGastos)}</p>
+          <p className="text-xs text-slate-500">Total gastos</p>
+          <p className="text-2xl font-bold text-purple-700 mt-1">{eur(totGastos)}</p>
           <p className="text-xs text-slate-400 mt-0.5">gastos + reparaciones</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -198,7 +198,7 @@ export default function Analytics() {
                     <th className="text-right py-2.5 px-4 font-medium text-slate-500">Dif.</th>
                   </>
                 )}
-                <th className="text-right py-2.5 px-4 font-medium text-red-700">Gastos</th>
+                <th className="text-right py-2.5 px-4 font-medium text-purple-700">Total Gastos</th>
                 <th className="text-right py-2.5 px-4 font-medium text-amber-700">Deducible</th>
                 <th className="text-right py-2.5 px-4 font-medium text-blue-700">Resultado</th>
               </tr>
@@ -219,7 +219,7 @@ export default function Analytics() {
                       </td>
                     </>
                   )}
-                  <td className="py-2 px-4 text-right text-red-700 tabular-nums">{eur(m.gastos)}</td>
+                  <td className="py-2 px-4 text-right text-purple-700 tabular-nums">{eur(m.gastos)}</td>
                   <td className="py-2 px-4 text-right text-amber-700 tabular-nums">{eur(m.deducible)}</td>
                   <td className="py-2 px-4 text-right font-semibold text-blue-700 tabular-nums">{eur(m.resultado)}</td>
                 </tr>
@@ -237,7 +237,7 @@ export default function Analytics() {
                     </td>
                   </>
                 )}
-                <td className="py-3 px-4 text-right font-bold text-red-700 tabular-nums">{eur(totGastos)}</td>
+                <td className="py-3 px-4 text-right font-bold text-purple-700 tabular-nums">{eur(totGastos)}</td>
                 <td className="py-3 px-4 text-right font-bold text-amber-700 tabular-nums">{eur(totDeducible)}</td>
                 <td className="py-3 px-4 text-right font-bold text-blue-700 tabular-nums">{eur(totResultado)}</td>
               </tr>
@@ -257,7 +257,7 @@ export default function Analytics() {
             <Tooltip formatter={(v) => `${numSuelto(Number(v))} €`} />
             <Legend />
             <Bar dataKey="ingresos" name="Ingresos" fill="#22c55e" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="gastos" name="Total gastos" fill="#7c3aed" radius={[3, 3, 0, 0]} />
             <Bar dataKey="resultado" name="Resultado" fill="#3b82f6" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -277,7 +277,7 @@ export default function Analytics() {
                 <th className="text-right py-3 px-4 font-medium text-slate-600">Libres</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-600">Ocupación</th>
                 <th className="text-right py-3 px-4 font-medium text-green-700">Ingresos</th>
-                <th className="text-right py-3 px-4 font-medium text-red-700">Gastos</th>
+                <th className="text-right py-3 px-4 font-medium text-purple-700">Total Gastos</th>
                 <th className="text-right py-3 px-4 font-medium text-amber-700">Deducible</th>
                 <th className="text-right py-3 px-4 font-medium text-blue-700">Resultado</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500">IGIC 7%</th>
@@ -300,7 +300,7 @@ export default function Analytics() {
                     </div>
                   </td>
                   <td className="py-3 px-4 text-right font-semibold text-green-700 tabular-nums">{eur(a.ingresos)}</td>
-                  <td className="py-3 px-4 text-right text-red-700 tabular-nums">{a.gastos ? eur(a.gastos) : '—'}</td>
+                  <td className="py-3 px-4 text-right text-purple-700 tabular-nums">{a.gastos ? eur(a.gastos) : '—'}</td>
                   <td className="py-3 px-4 text-right text-amber-700 tabular-nums">{a.deducible ? eur(a.deducible) : '—'}</td>
                   <td className="py-3 px-4 text-right font-bold text-blue-700 tabular-nums">{eur(a.resultado)}</td>
                   <td className="py-3 px-4 text-right text-slate-500 text-xs tabular-nums">{eur(a.igic)}</td>
@@ -319,7 +319,7 @@ export default function Analytics() {
                   {totNoches + totDiasLibres > 0 ? Math.round((totNoches / (totNoches + totDiasLibres)) * 100) : 0}%
                 </td>
                 <td className="py-3 px-4 text-right font-bold text-green-700 tabular-nums">{eur(totIngresos)}</td>
-                <td className="py-3 px-4 text-right font-bold text-red-700 tabular-nums">{eur(totGastos)}</td>
+                <td className="py-3 px-4 text-right font-bold text-purple-700 tabular-nums">{eur(totGastos)}</td>
                 <td className="py-3 px-4 text-right font-bold text-amber-700 tabular-nums">{eur(totDeducible)}</td>
                 <td className="py-3 px-4 text-right font-bold text-blue-700 tabular-nums">{eur(totResultado)}</td>
                 <td className="py-3 px-4 text-right font-semibold text-slate-600 text-xs tabular-nums">{eur(calcIGIC(totIngresos))}</td>
