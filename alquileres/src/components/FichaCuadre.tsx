@@ -206,7 +206,10 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
    */
   function porCorreo() {
     const a = document.createElement('a')
-    a.href = 'https://outlook.office.com/mail/deeplink/compose'
+    // La dirección de su Outlook, no la general (outlook.office.com): con la
+    // general pasaba por el inicio de sesión y se perdía el correo nuevo por el
+    // camino. Comprobado con Luis el 08/11/2026.
+    a.href = 'https://outlook.cloud.microsoft/mail/deeplink/compose'
       + `?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(textoLlano())}`
     a.target = '_blank'
     a.rel = 'noopener'
