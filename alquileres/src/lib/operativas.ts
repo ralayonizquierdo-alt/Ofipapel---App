@@ -126,6 +126,13 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     nota: 'Lo que aún no ha terminado no es un aviso: es lo normal.',
   },
   ENTRADA_RAPIDA,
+  {
+    // components/CorregirTarifaAno.tsx, lib/tarifaAnoSiguiente.ts
+    que: 'Tarifa del año siguiente',
+    nota: 'Hasta el 06/11/2026 algunas reservas se calcularon con la tabla de Precios del **año siguiente**. El aviso '
+      + 'ámbar las enseña con su **importe correcto** y lo ya cobrado; se corrigen **solo las que dejes marcadas** '
+      + '(el pendiente se ajusta y queda en el Registro). Las de precio pactado no salen.',
+  },
   PRECIO_DE_LA_RESERVA,
   {
     // pages/Dashboard.tsx — AvisoRojo

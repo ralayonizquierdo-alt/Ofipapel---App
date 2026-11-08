@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
 import { TarjetaSolapes } from '../components/AvisoSolapes'
 import CorreccionesLuis from '../components/CorreccionesLuis'
+import CorregirTarifaAno from '../components/CorregirTarifaAno'
 import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
@@ -157,6 +158,8 @@ export default function Dashboard() {
       {/* Arreglo de una vez de las estancias que se pisaban. Desaparece solo
           cuando no queda nada pendiente. */}
       <CorreccionesLuis />
+      {/* Reservas calculadas con la tarifa del año siguiente (fallo corregido el 06/11/2026). */}
+      <CorregirTarifaAno />
 
       {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
           pidió el propietario para poder cerrar el ejercicio. */}
