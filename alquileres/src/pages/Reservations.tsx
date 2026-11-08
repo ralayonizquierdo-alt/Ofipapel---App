@@ -762,10 +762,18 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
 function PaymentModal({ reservation, aptName, onClose }:
   { reservation: Reservation; aptName: string; onClose: () => void }) {
 
-  const { payments, addPayment, updatePayment, deletePayment } = useData()
+  const { payments, addPayment, updatePayment, deletePayment, prices, offerPrices } = useData()
   const modalPayments = payments.filter(p => p.reservationId === reservation.id)
   const totalPaid = modalPayments.filter(p => p.received).reduce((s, p) => s + p.amount, 0)
   const pending = reservation.total - totalPaid
+  /**
+   * Lo que daría la tarifa, al lado de lo cobrado (Luis, 08/11/2026): «Pendiente
+   * 0» y «no cuadra con tarifa» no se contradicen —uno mira el dinero y otro el
+   * precio—, y así se ve de un vistazo. Menos de 1 € es redondeo.
+   */
+  const estado = estadoPrecio(reservation, prices, offerPrices)
+  const porTarifa = estado.tipo === 'fuera' ? null : importeSegunTarifa(reservation, prices, offerPrices)
+  const difTarifa = porTarifa === null ? null : Math.round((reservation.total - porTarifa) * 100) / 100
 
   function handleUpdateField(id: string, field: 'amount' | 'paymentDate' | 'entryNumber' | 'paymentMethod', value: string) {
     if (field === 'amount') updatePayment(id, { amount: Number(value) })
@@ -776,7 +784,7 @@ function PaymentModal({ reservation, aptName, onClose }:
   return (
     <Modal title={`Pagos — ${aptName}`} onClose={onClose} size="lg">
       <div className="space-y-4">
-        <div className="bg-slate-50 rounded-lg p-4 grid grid-cols-3 gap-4 text-center">
+        <div className="bg-slate-50 rounded-lg p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div>
             <p className="text-xs text-slate-500">Total reserva</p>
             <p className="text-xl font-bold text-slate-800">{numSuelto(reservation.total)} €</p>
@@ -790,6 +798,25 @@ function PaymentModal({ reservation, aptName, onClose }:
             <p className={`text-xl font-bold ${pending > 0 ? 'text-amber-600' : 'text-green-600'}`}>
               {numSuelto(pending)} €
             </p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">Por tarifa</p>
+            {porTarifa === null || difTarifa === null ? (
+              <>
+                <p className="text-xl font-bold text-slate-400">—</p>
+                <p className="text-[11px] text-slate-500">{estado.tipo === 'fuera' ? 'no se compara' : 'sin tarifa'}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xl font-bold text-slate-700">{numSuelto(porTarifa)} €</p>
+                <p className={`text-[11px] ${estado.tipo === 'pactado' ? 'text-blue-700'
+                  : Math.abs(difTarifa) < 1 ? 'text-slate-500' : 'text-amber-700 font-medium'}`}>
+                  {estado.tipo === 'pactado' ? '🔵 precio pactado'
+                    : Math.abs(difTarifa) < 0.005 ? 'coincide'
+                    : `${eur(Math.abs(difTarifa))} ${difTarifa < 0 ? 'menos' : 'más'} · ${Math.abs(difTarifa) < 1 ? 'redondeo' : 'no cuadra'}`}
+                </p>
+              </>
+            )}
           </div>
         </div>
 
