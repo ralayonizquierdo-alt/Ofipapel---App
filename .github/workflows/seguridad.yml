@@ -1,0 +1,49 @@
+name: Seguridad
+
+# Controles automáticos de seguridad (ISO 27001 A.8.8 gestión de vulnerabilidades,
+# A.8.28 · SOC 2 CC7.1). No sustituyen a una auditoría: vigilan que no se cuele
+# un secreto y que las dependencias de producción no acumulen fallos graves.
+#
+# Se lanza en cada PR/push que toque código o dependencias y, además, cada lunes:
+# un fallo nuevo en una librería aparece días después de haberla instalado.
+on:
+  pull_request:
+    paths-ignore: ['.claude/**', 'docs/**', '**.md']
+  push:
+    branches: [main]
+    paths-ignore: ['.claude/**', 'docs/**', '**.md']
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secretos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/comprobar-secretos.sh
+
+  dependencias:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { dir: joe-app,          nivel: high }
+          - { dir: netlify/functions, nivel: high }
+          # alquileres arrastra un fallo de `firebase` cuyo arreglo propuesto por npm
+          # es una versión ANTIGUA (9.14); hasta que salga una corrección real solo
+          # se bloquea lo crítico. Revisar cada mes (docs/seguridad/POLITICA_SEGURIDAD.md).
+          - { dir: alquileres,       nivel: critical }
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm audit --omit=dev --audit-level=${{ matrix.nivel }}

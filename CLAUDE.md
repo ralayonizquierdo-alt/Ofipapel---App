@@ -190,6 +190,16 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
 - Dos canales de WhatsApp en paralelo (Meta y Twilio): ya resuelto — se
   eliminó Twilio, Meta Cloud API es el único canal.
 
+## Hardening ISO 27001 / 27701 / SOC 2 (6/11/2026)
+
+Base documental en `docs/seguridad/` (política, plan de incidentes, registro de tratamientos de datos personales y mapa de
+controles → evidencia) y `SECURITY.md`; **no es una certificación**. Técnicamente: cabeceras de seguridad en `netlify.toml`
+(sin CSP a propósito: los HTML llevan JS en línea; plan por fases en la política), flujo `.github/workflows/seguridad.yml`
+(`scripts/comprobar-secretos.sh` + `npm audit` de producción, cada cambio y cada lunes) y lockfiles actualizados
+(`npm audit fix` sin cambios mayores: joe-app y netlify/functions a 0 altas; alquileres conserva 4 de `firebase`, cuyo
+arreglo propuesto por npm es una versión antigua). El estado real de cada hueco vive fuera de git en
+`.claude/rax/auditoria-iso-soc2-2026-11.md` (por el mismo motivo que los demás informes de auditoría: el repo es público).
+
 ## Estudio de diseño (RAX)
 
 `design-studio/README.md` documenta cómo crear banners, posts, flyers y
