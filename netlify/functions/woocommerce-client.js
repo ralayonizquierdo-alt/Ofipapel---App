@@ -135,7 +135,7 @@ const STOPWORDS_BUSQUEDA = new Set([
   'teneis', 'teneís', 'tenéis', 'hay', 'hola', 'buenas', 'gracias', 'favor',
   'sobre', 'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros',
   'ustedes', 'sido', 'el', 'la', 'lo', 'un', 'y', 'o', 'de', 'en', 'al', 'se',
-  'me', 'mi', 'tu', 'su', 'vendeis', 'vendéis', 'venden',
+  'me', 'mi', 'tu', 'su', 'vendeis', 'vendéis', 'venden', 'tenes', 'tenés',
   // Lo que se cuela cuando el cliente EXPLICA lo que va a hacer (6/11/2026,
   // el del cartón pluma y el spray de pegamento): sin esto, «vuestro carton»
   // o «sea bueno» competían como términos de búsqueda con «carton pluma».

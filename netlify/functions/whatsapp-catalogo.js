@@ -235,6 +235,10 @@ async function construirContextoCatalogo({ from, text, history, forzar = false }
 
   return {
     productContext: bloques.length > 0 ? bloques.join('\n\n') : null,
+    // Los productos TAL CUAL los devolvió la web, además del texto que se le
+    // da a la IA. Desde el 8/11/2026 la respuesta de producto se escribe con
+    // estos datos y no la redacta la IA (ver whatsapp-respuesta-catalogo.js).
+    productos,
     contextoConsumibles,
     impresoras,
     fallo,

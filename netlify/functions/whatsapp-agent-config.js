@@ -1371,6 +1371,7 @@ const FAQ_RULES = [
       'silla de oficina', 'sillas de oficina', 'silla oficina', 'sillas oficina',
       'silla ergonomica', 'sillas ergonomicas', 'silla ergonomicas',
       'silla de escritorio', 'sillas de escritorio',
+      'silla gaming', 'sillas gaming', 'silla gamer', 'sillas gamer',
     ],
     // NO lleva `familiaDeProducto`, y es una decisión, no un olvido.
     //
@@ -1385,26 +1386,20 @@ const FAQ_RULES = [
     // («la silla Topstar Syncro») también recibe el enlace en vez de su ficha
     // del catálogo. Aceptado a sabiendas — el enlace lleva a todas las sillas,
     // así que la encuentra igual.
-    // LAS GAMING NO VAN EN ESTE ENLACE.
+    // CADA SILLA A SU PÁGINA.
     //
     // Aviso del propietario (4/11/2026): «esas son sólo las sillas de oficina,
-    // las de gaming tienen otro enlace, ojo con eso». Y tenía razón: estaban
-    // entre las palabras clave, así que a quien pedía una silla gaming se le
-    // mandaba el enlace de las de oficina — el cliente abre la página y no
-    // encuentra lo suyo.
-    //
-    // Hasta que llegue el enlace bueno, una gaming se aparta de aquí y la
-    // contesta el catálogo, que busca en la web de verdad. Mandar el enlace
-    // equivocado es peor que buscar.
+    // las de gaming tienen otro enlace, ojo con eso». Tenía razón: estaban
+    // entre las palabras clave y a quien pedía una gaming se le mandaba el
+    // enlace de oficina — abre la página y no encuentra lo suyo. El 8/11 pasó
+    // el enlace bueno, que es una categoría entera de la web.
     //
     // Y «mesilla»/«mesillas» llevan «silla»/«sillas» dentro: la coincidencia de
     // palabras clave no mira fronteras de palabra, aquí sí.
-    reply: (normalizedText) =>
-      /\bgaming\b|\bgamer\b/.test(normalizedText)
-        ? null
-        : /\bsillas?\b|\bsillones?\b/.test(normalizedText)
-          ? SILLAS_INFO
-          : null,
+    reply: (normalizedText) => {
+      if (!/\bsillas?\b|\bsillones?\b/.test(normalizedText)) return null;
+      return /\bgaming\b|\bgamer\b/.test(normalizedText) ? SILLAS_GAMING_INFO : SILLAS_INFO;
+    },
   },
   {
     // 'que regalo'/'qué regalo' a secas se quitaron: coincidían con preguntas
@@ -1753,7 +1748,16 @@ const SPRAY_URL = 'https://ofipapel.net/?s=Pegamento+spray&post_type=product&dgw
 const SPRAY_INFO = `Aquí tienes nuestros pegamentos en spray, con fotos y precios: ${SPRAY_URL}\n\nSi me dices sobre qué material lo vas a usar, se lo paso a una persona del equipo para que te diga cuál va mejor.`;
 
 const SILLAS_URL = 'https://ofipapel.net/?s=Silla+oficina+gama+senior&post_type=product&dgwt_wcas=1';
+
+// LAS GAMING TIENEN SU PROPIA PÁGINA.
+//
+// Aviso del propietario el 4/11/2026 —«esas son sólo las sillas de oficina,
+// las de gaming tienen otro enlace, ojo con eso»— y su enlace, el 8/11. Es una
+// página de categoría de la web, no una búsqueda: enseña la sección entera.
+const SILLAS_GAMING_URL = 'https://ofipapel.net/categoria-producto/a-z-superofertas-multiproducto/sillas-gaming/';
 const SILLAS_INFO = `Aquí tienes nuestras sillas de oficina y ergonómicas, con fotos y precios: ${SILLAS_URL}\n\nY si prefieres probarlas antes de decidir, tenemos exposición de mobiliario de oficina en la tienda.`;
+
+const SILLAS_GAMING_INFO = `Aquí tienes nuestras sillas gaming, con fotos y precios: ${SILLAS_GAMING_URL}\n\nY si prefieres probarlas antes de decidir, tenemos exposición de mobiliario de oficina en la tienda.`;
 
 const CATALOGO_INFO = `Además de papelería, vendemos: accesorios de telefonía, accesorios de informática, ordenadores, artículos para el hogar, electrodomésticos, y uno de los mayores stocks de Canarias en consumibles para todo tipo de impresoras (tóner, tinta, etc.), además de impresoras y multifunción láser e inkjet, entre muchos otros artículos. También ofrecemos leasing de impresoras. Tenemos además amplia exposición de mobiliario de oficina, con gran variedad de sillas gaming y sillas ergonómicas de oficina.`;
 

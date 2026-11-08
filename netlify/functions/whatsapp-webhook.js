@@ -108,6 +108,7 @@ const woocommerce = require('./woocommerce-client');
 const gestion = require('./gestion-pedidos');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
 const { paraWhatsapp } = require('./whatsapp-formato');
+const { respuestaDeCatalogo, pareceUnaIncidencia } = require('./whatsapp-respuesta-catalogo');
 const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
 
 // EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
@@ -1485,6 +1486,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
   const {
     productContext,
+    productos: productosDelCatalogo,
     contextoConsumibles,
     impresoras,
     fallo: falloCatalogo,
@@ -1511,6 +1513,40 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     }
     // Si no se pudo delegar, se sigue adelante y se contesta sin catálogo: más
     // vale una respuesta imperfecta que dejar al cliente sin nada.
+  }
+
+  // LA RESPUESTA DE PRODUCTO LA ESCRIBE EL CATÁLOGO, NO LA IA (8/11/2026).
+  //
+  // «La IA no debe contestar sobre productos del catálogo» (propietario). Cada
+  // fallo de estas semanas ha sido la IA redactando sobre productos: medidas
+  // de cartón pluma inventadas, «sí, tenemos tornillos de rosca chapa» con el
+  // enlace vacío, «no tengo acceso al catálogo en tiempo real», el spray que
+  // nunca se buscó. Se taparon con siete redes que revisan lo que la IA ya ha
+  // escrito, y seguían saliendo formas nuevas — porque el agujero no era
+  // ninguna red, era dejar que la conclusión la escribiera quien no tiene los
+  // datos.
+  //
+  // Si la web ha contestado con productos, la respuesta se arma con ellos:
+  // nombre, precio y enlace, tal cual. No hay nada que revisar después porque
+  // no hay nada inventado.
+  //
+  // SE DEJA FUERA, a propósito, lo que no es una consulta de producto a secas:
+  //   - Cuando hay contexto de consumibles («¿qué cartucho lleva mi Epson?»),
+  //     la respuesta tiene que unir la referencia de la impresora con el
+  //     precio, y eso sigue siendo de la IA.
+  //   - Cuando el mensaje pide además otra cosa (hablar con alguien, el estado
+  //     de un pedido): esas puertas están antes y ya han pasado.
+//   - Cuando el mensaje es una incidencia con mercancía que ya tiene
+//     («el papel que me mandasteis viene roto»): ahí no se contesta con
+//     precios, se contesta a la persona.
+  if (productosDelCatalogo?.length > 0 && !contextoConsumibles && !pareceUnaIncidencia(text)) {
+    const delCatalogo = respuestaDeCatalogo(productosDelCatalogo, { idioma, enlaceBusqueda });
+    if (delCatalogo) {
+      const reply = greeting + delCatalogo;
+      await appendToHistory(message.from, text, reply);
+      await sendWhatsappMessage(message.from, reply);
+      return;
+    }
   }
 
   const aiReply = await askClaude(

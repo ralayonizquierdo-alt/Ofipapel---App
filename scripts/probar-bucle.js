@@ -53,9 +53,20 @@ const CATALOGO = [
   'PAPEL Fotocopia A-4 80gr -MATTIO "Oferta" (Pv-500-H)',
 ];
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ');
+// El buscador de WordPress NO exige todas las palabras: puntúa y devuelve lo
+// que se parece. Este simulador pedía que estuvieran TODAS, que es mucho más
+// estricto que la web real — y con eso «tenes boligrafos o plumas
+// estilograficas» no devolvía ninguna pluma. La prueba pasaba igual porque la
+// IA simulada se inventaba la respuesta buena, que es justo lo que se quería
+// dejar de hacer (8/11/2026).
 const comoWordpress = (term) => {
-  const partes = norm(term).split(/\s+/).filter(Boolean);
-  return partes.length ? CATALOGO.filter((n) => partes.every((p) => norm(n).includes(p))) : [];
+  const partes = norm(term).split(/\s+/).filter(Boolean).filter((p) => p.length > 2);
+  if (partes.length === 0) return [];
+  // Primero lo que casa con todo; si no, lo que casa con alguna palabra, que
+  // es como se comporta el buscador real.
+  const todas = CATALOGO.filter((n) => partes.every((p) => norm(n).includes(p)));
+  if (todas.length > 0) return todas;
+  return CATALOGO.filter((n) => partes.some((p) => norm(n).includes(p)));
 };
 
 let enviados = [];
