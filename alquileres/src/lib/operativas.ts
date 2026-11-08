@@ -455,6 +455,12 @@ export const OPERATIVA_REGISTRO: ReglaOperativa[] = [
       + 'WhatsApp se apunta que **se preparó**: la aplicación no sabe si al final se le dio a Enviar.',
   },
   {
+    // components/PegarWhatsApp.tsx — texto
+    que: 'Lo pegado',
+    nota: 'Lo que se pega en la Entrada rápida (mensaje, aviso de Airbnb, anulación, justificante) se guarda '
+      + '**tal cual llegó**, debajo del resumen. Lo pegado antes del 08/11/2026 no lo tiene.',
+  },
+  {
     que: 'No se toca',
     nota: 'Es un histórico: **no se edita ni se borra** desde la aplicación.',
   },

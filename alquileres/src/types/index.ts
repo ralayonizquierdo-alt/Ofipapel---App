@@ -334,6 +334,13 @@ export interface ImportLog {
   year?: number
   /** Qué pasó, en una línea y en cristiano. */
   resumen?: string
+  /**
+   * Lo pegado, tal cual llegó (el mensaje de WhatsApp, el aviso de Airbnb o
+   * de la anulación, el justificante). Luis, 08/11/2026: en el registro tiene
+   * que salir todo tal cual se pegó, no solo el resumen. Los apuntes de antes
+   * de esa fecha no lo traen.
+   */
+  texto?: string
 
   // Cuántos apuntes entraron de cada cosa.
   reservas?: number
