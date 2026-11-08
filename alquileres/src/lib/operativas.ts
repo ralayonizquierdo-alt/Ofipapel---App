@@ -313,7 +313,8 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
     // components/CeldaDesglose.tsx, components/FichaCuadre.tsx
     que: 'Ver el cuadre de una estancia',
     nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
-      + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. **La tarifa en azul '
+      + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. Por correo, **el cuadro va '
+      + 'copiado**: en el correo, clic donde va el texto y **Ctrl+V**. **La tarifa en azul '
       + 'lleva a Precios**. Al imprimir sale **solo la ficha**, en una hoja. Si se abre la reserva desde la ficha, '
       + '**al cerrarla se vuelve a la ficha**.',
   },

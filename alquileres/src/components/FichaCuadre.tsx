@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Printer, Mail, Pencil, ListFilter, MessageCircle, Copy, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
@@ -7,6 +7,7 @@ import { usuarioActual } from '../lib/auth'
 import { formatDate, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import { useRecordado } from '../lib/recordado'
+import { copiarConFormato, htmlConEstilos } from '../lib/copiarConFormato'
 import { cobradoDeReserva } from '../lib/anuladas'
 import Modal from './ui/Modal'
 import CuadroEstancia from './CuadroEstancia'
@@ -200,40 +201,53 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   const textoLlano = () => (conformidad ? conformidadComoWhatsApp() : comoWhatsApp()).replace(/\*/g, '')
 
   /**
-   * Abre Outlook en la web, en una pestaña nueva, con el asunto y el texto
-   * puestos; solo falta el destinatario. Antes era un enlace «mailto:», que
-   * abría el Outlook de escritorio del ordenador, sin cuenta configurada, en vez
-   * del Outlook en la web que usa Luis (08/11/2026).
+   * Copia el cuadro **tal como se ve** —tablas incluidas— para pegarlo con
+   * Ctrl+V en el correo (Luis, 08/11/2026: «yo quería que se copiara el cuadro
+   * tal cual»). Lo mismo que sale al imprimir. Ver lib/copiarConFormato.ts.
    */
-  function porCorreo() {
+  const fichaRef = useRef<HTMLDivElement>(null)
+  /** Ya está copiado: se dice en la ficha cómo pegarlo, hasta cerrarla. */
+  const [copiado, setCopiado] = useState(false)
+  async function copiarCuadro(): Promise<boolean> {
+    if (!fichaRef.current) return false
+    try {
+      await copiarConFormato(htmlConEstilos(fichaRef.current), `${asunto}\n\n${textoLlano()}`)
+      setCopiado(true)
+      return true
+    } catch {
+      window.alert('El navegador no ha dejado copiar el cuadro. Prueba otra vez.')
+      return false
+    }
+  }
+
+  /**
+   * Copia el cuadro y abre Outlook en la web, en una pestaña nueva, con el
+   * asunto puesto: falta el destinatario y pegar el cuadro con Ctrl+V. El enlace
+   * solo puede llevar texto llano, por eso el cuadro va por el portapapeles; si
+   * no se pudo copiar, el correo lleva el texto llano. Antes era un «mailto:»,
+   * que abría el Outlook de escritorio sin cuenta configurada (08/11/2026).
+   */
+  async function porCorreo() {
+    // Primero copiar: con el correo ya abierto, la pestaña de la app pierde el
+    // foco y el navegador no deja escribir en el portapapeles.
+    const conCuadro = await copiarCuadro()
     const a = document.createElement('a')
     // La dirección de su Outlook, no la general (outlook.office.com): con la
     // general pasaba por el inicio de sesión y se perdía el correo nuevo por el
     // camino. Comprobado con Luis el 08/11/2026.
     a.href = 'https://outlook.cloud.microsoft/mail/deeplink/compose'
-      + `?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(textoLlano())}`
+      + `?subject=${encodeURIComponent(asunto)}`
+      + (conCuadro ? '' : `&body=${encodeURIComponent(textoLlano())}`)
     a.target = '_blank'
     a.rel = 'noopener'
     a.click()
-  }
-
-  /** Copia asunto y texto, para pegarlos en cualquier otro correo o mensaje. */
-  const [copiado, setCopiado] = useState(false)
-  async function copiarTexto() {
-    try {
-      await navigator.clipboard.writeText(`${asunto}\n\n${textoLlano()}`)
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2500)
-    } catch {
-      window.alert('El navegador no ha dejado copiar. Prueba otra vez.')
-    }
   }
 
   return (
     <Modal title={`${conformidad ? 'Conformidad' : 'Cuadre'} · ${nombre}`} onClose={onClose} size="lg">
       {/* `solo-esto-al-imprimir`: al imprimir sale esta ficha sola, sin la
           pantalla de Cobros que tiene detrás (ver index.css). */}
-      <div className="space-y-4 solo-esto-al-imprimir" translate="no">
+      <div ref={fichaRef} className="space-y-4 solo-esto-al-imprimir" translate="no">
         {/* En pantalla el título va en la barra de la ventana; en papel, aquí. */}
         {/* Los dos modelos de la ficha: el cuadre de lo cobrado y la conformidad
             de la reserva para la agencia (Luis, 07/11/2026). */}
@@ -357,6 +371,13 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             : <>Documento de cuadre emitido el {formatDate(today())} por la aplicación de gestión. Rogamos confirmen su conformidad.</>}
         </p>
 
+        {copiado && (
+          <p className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900 print:hidden">
+            <Check size={16} className="text-green-600 shrink-0" />
+            <span><b>Cuadro copiado.</b> En el correo, haz clic donde va el texto y pulsa <b>Ctrl+V</b>.</span>
+          </p>
+        )}
+
         <div className="flex flex-wrap justify-end gap-2 pt-1 print:hidden">
           <button onClick={() => { onClose(); navigate(`/reservas?edit=${r.id}`) }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
@@ -370,14 +391,14 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             </button>
           )}
           <button onClick={porCorreo}
-            title="Abre Outlook en la web con la ficha escrita; solo falta poner a quién"
+            title="Copia el cuadro y abre Outlook con el asunto puesto: pega el cuadro con Ctrl+V y pon a quién"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
             <Mail size={15} /> Enviar por correo
           </button>
-          <button onClick={copiarTexto}
-            title="Copia el asunto y el texto para pegarlos en cualquier correo o mensaje"
+          <button onClick={() => { void copiarCuadro() }}
+            title="Copia el cuadro tal como se ve, para pegarlo con Ctrl+V en cualquier correo o documento"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
-            {copiado ? <><Check size={15} className="text-green-600" /> ¡Copiado!</> : <><Copy size={15} /> Copiar el texto</>}
+            <Copy size={15} /> Copiar el cuadro
           </button>
           <button onClick={porWhatsApp}
             title="Abre WhatsApp con la ficha escrita; ahí eliges a quién mandarla"

@@ -14,7 +14,9 @@ const dec = (n: number) => num(n, 2)
  */
 function EstadoDelPrecio({ cuadre, compacto }: { cuadre: CuadreEstancia; compacto: boolean }) {
   const p = cuadre.precio
-  const caja = `rounded border px-2 ${compacto ? 'py-0.5 mt-1' : 'py-1.5 mt-2'}`
+  // Es para nosotros, no para la agencia: no sale al imprimir ni al copiar el
+  // cuadro para el correo (ni el aviso de tarifa ni el motivo de un pactado).
+  const caja = `rounded border px-2 print:hidden ${compacto ? 'py-0.5 mt-1' : 'py-1.5 mt-2'}`
   if (p.tipo === 'tarifa') {
     return <p className={`${caja} border-green-300 bg-green-50 text-green-800`}>✅ El importe sale de la tarifa.</p>
   }
@@ -147,7 +149,11 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
           )}
           <p className="text-slate-700">Cargos (limpieza): <b>{dec(r.cleaningFee || 0)}</b></p>
           <p className={`flex justify-between border-t border-slate-200 font-bold text-slate-900 ${compacto ? 'pt-0.5 mt-0.5' : 'pt-1.5 mt-1.5'}`}>
-            <span>IMPORTE NETO DE LA RESERVA</span><span>{eur(r.total)}</span>
+            {/* Bruto: lo que paga el cliente, antes de la comisión de la agencia,
+                que va aparte como gasto (Luis, 08/11/2026). El Arenal es la
+                excepción: se apunta lo que llega de SOC, ya descontado. */}
+            <span>{r.apartmentId === 'AP2B' ? 'IMPORTE NETO DE LA RESERVA (lo que paga SOC)' : 'IMPORTE BRUTO DE LA RESERVA'}</span>
+            <span>{eur(r.total)}</span>
           </p>
           {conformidad
             ? <PactadoParaLaAgencia cuadre={cuadre} />
