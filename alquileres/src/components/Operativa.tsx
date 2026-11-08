@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BookOpen, ChevronDown, ChevronRight } from 'lucide-react'
-import { VOLVER } from '../lib/operativas'
+import { VENTANAS, VOLVER } from '../lib/operativas'
 
 /**
  * El cuadro de «Operativa» de una pantalla: con qué cuentas, acuerdos y
@@ -40,7 +40,7 @@ export default function Operativa({ titulo, reglas }: { titulo?: string; reglas:
   const [abierto, setAbierto] = useState(false)
   if (reglas.length === 0) return null
   // «← Volver» está en todas las pantallas, así que su regla también.
-  const todas = [...reglas, VOLVER]
+  const todas = [...reglas, VOLVER, VENTANAS]
 
   return (
     <div className="mb-5 bg-white rounded-xl border border-slate-200 overflow-hidden print:hidden">

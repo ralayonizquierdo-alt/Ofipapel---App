@@ -92,11 +92,12 @@ export function htmlConEstilos(raiz: HTMLElement): string {
  * Lo pone en el portapapeles como HTML y, para donde no se pueda pegar con
  * formato, también como texto llano.
  */
-export async function copiarConFormato(html: string, textoLlano: string): Promise<void> {
-  await navigator.clipboard.write([
-    new ClipboardItem({
-      'text/html': new Blob([html], { type: 'text/html' }),
-      'text/plain': new Blob([textoLlano], { type: 'text/plain' }),
-    }),
-  ])
+export async function copiarConFormato(html: string, textoLlano: string | null): Promise<void> {
+  // Sin texto llano (`null`), lo copiado solo se puede pegar con formato. Es lo
+  // que va al correo: Outlook abre con el cursor en «Para», y al pegar ahí el
+  // texto llano se troceaba en veinte «correos no válidos» (Luis, 08/11/2026);
+  // sin él, en «Para» no se pega nada y en el cuerpo sale el cuadro.
+  const partes: Record<string, Blob> = { 'text/html': new Blob([html], { type: 'text/html' }) }
+  if (textoLlano !== null) partes['text/plain'] = new Blob([textoLlano], { type: 'text/plain' })
+  await navigator.clipboard.write([new ClipboardItem(partes)])
 }

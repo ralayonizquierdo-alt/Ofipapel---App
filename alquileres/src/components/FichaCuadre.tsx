@@ -227,10 +227,11 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   const fichaRef = useRef<HTMLDivElement>(null)
   /** Ya está copiado: se dice en la ficha cómo pegarlo, hasta cerrarla. */
   const [copiado, setCopiado] = useState(false)
-  async function copiarCuadro(): Promise<boolean> {
+  async function copiarCuadro(paraCorreo = false): Promise<boolean> {
     if (!fichaRef.current) return false
     try {
-      await copiarConFormato(htmlConEstilos(fichaRef.current), `${asunto}\n\n${textoLlano()}`)
+      // Para el correo, solo con formato: ver copiarConFormato().
+      await copiarConFormato(htmlConEstilos(fichaRef.current), paraCorreo ? null : `${asunto}\n\n${textoLlano()}`)
       setCopiado(true)
       return true
     } catch {
@@ -249,7 +250,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   async function porCorreo() {
     // Primero copiar: con el correo ya abierto, la pestaña de la app pierde el
     // foco y el navegador no deja escribir en el portapapeles.
-    const conCuadro = await copiarCuadro()
+    const conCuadro = await copiarCuadro(true)
     const a = document.createElement('a')
     // La dirección de su Outlook, no la general (outlook.office.com): con la
     // general pasaba por el inicio de sesión y se perdía el correo nuevo por el
@@ -401,7 +402,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
         {copiado && (
           <p className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900 print:hidden">
             <Check size={16} className="text-green-600 shrink-0" />
-            <span><b>Cuadro copiado.</b> En el correo, haz clic donde va el texto y pulsa <b>Ctrl+V</b>.</span>
+            <span><b>Cuadro copiado.</b> En el correo, haz clic <b>en el cuerpo, debajo del asunto</b> (no en «Para») y pulsa <b>Ctrl+V</b>.</span>
           </p>
         )}
 

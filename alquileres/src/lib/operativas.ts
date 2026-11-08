@@ -27,6 +27,13 @@ export const VOLVER: ReglaOperativa = {
     + 'cada pantalla vuelve **como se dejó**: los mismos filtros y, si había una ficha abierta, abierta otra vez.',
 }
 
+/** También en todas: las ventanas (fichas, formularios) se amplían. components/ui/Modal.tsx */
+export const VENTANAS: ReglaOperativa = {
+  que: 'Ventanas',
+  nota: 'Se mueven **arrastrando el título**. El botón **⤢** de arriba a la derecha la **amplía** a casi toda la '
+    + 'pantalla; otra vez, y vuelve a su tamaño.',
+}
+
 // components/PegarWhatsApp.tsx — cargado, yaCargadas, cobroExistente
 const ENTRADA_RAPIDA: ReglaOperativa = {
   que: 'Entrada rápida',
@@ -314,7 +321,7 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
     que: 'Ver el cuadre de una estancia',
     nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
       + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. Por correo, **el cuadro va '
-      + 'copiado**: en el correo, clic donde va el texto y **Ctrl+V**. **La tarifa en azul '
+      + 'copiado**: en el correo, clic **en el cuerpo** (no en «Para») y **Ctrl+V**. **La tarifa en azul '
       + 'lleva a Precios**. Al imprimir sale **solo la ficha**, en una hoja. Si se abre la reserva desde la ficha, '
       + '**al cerrarla se vuelve a la ficha**.',
   },

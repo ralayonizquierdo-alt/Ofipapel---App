@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { Maximize2, Minimize2, X } from 'lucide-react'
 import { useRef, useState, type PointerEvent as EventoPuntero, type ReactNode } from 'react'
 
 interface ModalProps {
@@ -20,6 +20,12 @@ interface ModalProps {
 export default function Modal({ title, onClose, children, size = 'md' }: ModalProps) {
   const widths = { md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-4xl' }
   const [pos, setPos] = useState({ x: 0, y: 0 })
+  /**
+   * Ampliada a casi toda la pantalla, como en la ERP (Luis, 08/11/2026: «la
+   * ventana no la puedo expandir»). Con su botón al lado de la X; otra vez, y
+   * vuelve a su tamaño.
+   */
+  const [grande, setGrande] = useState(false)
   /** Dónde se agarró la ventana, para que no pegue un salto al empezar. */
   const agarre = useRef<{ x: number; y: number } | null>(null)
   const caja = useRef<HTMLDivElement>(null)
@@ -60,17 +66,26 @@ export default function Modal({ title, onClose, children, size = 'md' }: ModalPr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div
         ref={caja}
-        className={`bg-white rounded-xl shadow-2xl w-full ${widths[size]} max-h-[90vh] flex flex-col`}
-        style={pos.x || pos.y ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : undefined}>
+        className={`bg-white rounded-xl shadow-2xl w-full flex flex-col ${grande
+          ? 'max-w-[96vw] h-[94vh] max-h-[94vh]' : `${widths[size]} max-h-[90vh]`}`}
+        style={!grande && (pos.x || pos.y) ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : undefined}>
         <div
-          onPointerDown={empieza} onPointerMove={mueve} onPointerUp={suelta} onPointerCancel={suelta}
+          onPointerDown={e => { if (!grande) empieza(e) }} onPointerMove={mueve} onPointerUp={suelta} onPointerCancel={suelta}
           onDoubleClick={() => setPos({ x: 0, y: 0 })}
-          title="Arrastra para mover la ventana (doble clic para centrarla)"
-          className="flex items-center justify-between px-5 py-4 border-b cursor-move select-none touch-none">
+          title={grande ? undefined : 'Arrastra para mover la ventana (doble clic para centrarla)'}
+          className={`flex items-center justify-between px-5 py-4 border-b select-none touch-none ${grande ? '' : 'cursor-move'}`}>
           <h2 className="font-semibold text-slate-800 text-base">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded cursor-pointer">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => { setGrande(g => !g); setPos({ x: 0, y: 0 }) }}
+              title={grande ? 'Volver al tamaño normal' : 'Ampliar la ventana'}
+              aria-label={grande ? 'Volver al tamaño normal' : 'Ampliar la ventana'}
+              className="text-slate-400 hover:text-slate-600 p-1 rounded cursor-pointer">
+              {grande ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+            </button>
+            <button onClick={onClose} aria-label="Cerrar" className="text-slate-400 hover:text-slate-600 p-1 rounded cursor-pointer">
+              <X size={18} />
+            </button>
+          </div>
         </div>
         <div className="overflow-y-auto flex-1 p-5">{children}</div>
       </div>
