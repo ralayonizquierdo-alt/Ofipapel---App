@@ -19,6 +19,7 @@ import FichaCuadre from '../components/FichaCuadre'
 import { useEnHistorial } from '../lib/volver'
 import { anuladasConCobros } from '../lib/anuladas'
 import { porApartamento } from '../lib/apartamentos'
+import { useRecordado } from '../lib/recordado'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_DASHBOARD } from '../lib/operativas'
 
@@ -72,9 +73,16 @@ export default function Dashboard() {
    * alerta, es lo normal — y mezclarlas tapaba las que sí importan. Las que
    * están por venir se siguen viendo en Reservas, con su columna «falta».
    */
-  // Por apartamento, en el orden de la casa, y dentro de cada uno por fecha
-  // (Luis, 08/11/2026: «haz que vayan ordenados por apartamentos»).
-  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now).sort(porApartamento)
+  /**
+   * Cómo van los avisos rojos: por apartamento, en el orden de la casa, o por
+   * fecha de entrada (Luis, 08/11/2026: «incluir la opción de ordenar por
+   * apartamento y por fechas»). Se recuerda en este ordenador.
+   */
+  const [orden, setOrden] = useRecordado<'apartamento' | 'fecha'>('dashboard.orden', 'apartamento')
+  const ordenAvisos = (a: Reservation, b: Reservation) => orden === 'fecha'
+    ? a.checkIn.localeCompare(b.checkIn) || porApartamento(a, b)
+    : porApartamento(a, b)
+  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now).sort(ordenAvisos)
   const porVenir = pendingPayment.length - vencidas.length
 
   /**
@@ -87,11 +95,18 @@ export default function Dashboard() {
       const p = estadoPrecio(r, prices, offerPrices)
       return p.tipo === 'descuadre' ? [{ r, esperado: p.esperado, diferencia: p.diferencia }] : []
     })
-    .sort((a, b) => porApartamento(a.r, b.r)),
-  [reservations, prices, offerPrices])
+    .sort((a, b) => orden === 'fecha'
+      ? a.r.checkIn.localeCompare(b.r.checkIn) || porApartamento(a.r, b.r)
+      : porApartamento(a.r, b.r)),
+  [reservations, prices, offerPrices, orden])
   const eur = (n: number) => `${num(n, 2)} €`
   /** Anuladas que se quedaron con dinero cobrado: ver lib/anuladas.ts. */
-  const anuladasCobradas = useMemo(() => anuladasConCobros(reservations, payments), [reservations, payments])
+  const anuladasCobradas = useMemo(
+    () => [...anuladasConCobros(reservations, payments)].sort((a, b) => orden === 'fecha'
+      ? a.r.checkIn.localeCompare(b.r.checkIn) || porApartamento(a.r, b.r)
+      : porApartamento(a.r, b.r)),
+    [reservations, payments, orden])
+  const hayAvisosRojos = vencidas.length + sinCuadrarConTarifa.length + anuladasCobradas.length > 1
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -191,6 +206,18 @@ export default function Dashboard() {
                 <p className="font-medium text-blue-800 text-sm">Renovación de precios</p>
                 <p className="text-blue-700 text-xs mt-0.5">Enero es el mes para actualizar la lista de precios del próximo año. Recuerda revisar la sección <strong>Precios</strong>.</p>
               </div>
+            </div>
+          )}
+          {hayAvisosRojos && (
+            <div className="flex items-center justify-end gap-2 text-xs text-slate-500" role="group" aria-label="Ordenar los avisos">
+              <span>Ordenar por</span>
+              {(['apartamento', 'fecha'] as const).map(o => (
+                <button key={o} type="button" onClick={() => setOrden(o)} aria-pressed={orden === o}
+                  className={`px-2.5 py-1 rounded-full border ${orden === o
+                    ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+                  {o === 'apartamento' ? 'Apartamento' : 'Fecha'}
+                </button>
+              ))}
             </div>
           )}
           {anuladasCobradas.map(({ r, cobrado }) => (

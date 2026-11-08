@@ -22,6 +22,8 @@ import Operativa from '../components/Operativa'
 import FichaCuadre from '../components/FichaCuadre'
 import { useEnHistorial } from '../lib/volver'
 import { rutaDeTarifa } from '../lib/cuadreEstancia'
+import { useRecordado } from '../lib/recordado'
+import { porApartamento } from '../lib/apartamentos'
 import { OPERATIVA_RESERVAS } from '../lib/operativas'
 
 const STAY_LABELS: Record<StayType, string> = {
@@ -60,6 +62,7 @@ export default function Reservations() {
   useEnHistorial('ficha', ficha?.id ?? null, id => setFicha(id ? reservations.find(r => r.id === id) ?? null : null))
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
+  const [ordenLista, setOrdenLista] = useRecordado<'fecha' | 'apartamento'>('reservas.orden', 'fecha')
   /**
    * Filtro por de dónde sale el importe (Luis, 06/11/2026): las de precio
    * pactado, con su motivo, y las que no cuadran con la tarifa sin constar como
@@ -115,7 +118,10 @@ export default function Reservations() {
   const cuantas = (tipo: 'pactado' | 'descuadre') => sinFiltroPrecio.filter(r => precioDe(r).tipo === tipo).length
   const filtered = sinFiltroPrecio
     .filter(r => !filterPrecio || precioDe(r).tipo === filterPrecio)
-    .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
+    // Por fecha (lo más reciente arriba) o por apartamento (Luis, 08/11/2026).
+    .sort((a, b) => ordenLista === 'apartamento'
+      ? porApartamento(a, b) || b.checkIn.localeCompare(a.checkIn)
+      : b.checkIn.localeCompare(a.checkIn))
 
   const years = [...new Set(reservations.map(r => r.checkIn.slice(0, 4)))].sort((a, b) => b.localeCompare(a))
 
@@ -213,6 +219,12 @@ export default function Reservations() {
           <option value="">Todos los precios</option>
           <option value="pactado">🔵 Precio pactado ({cuantas('pactado')})</option>
           <option value="descuadre">⚠️ No cuadran con la tarifa ({cuantas('descuadre')})</option>
+        </select>
+        <select value={ordenLista} onChange={e => setOrdenLista(e.target.value as typeof ordenLista)}
+          aria-label="Ordenar la lista"
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-700">
+          <option value="fecha">Ordenar por fecha</option>
+          <option value="apartamento">Ordenar por apartamento</option>
         </select>
       </div>
 
