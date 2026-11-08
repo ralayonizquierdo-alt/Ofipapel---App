@@ -18,6 +18,17 @@ import { num } from '../lib/formato'
 const eur = (n: number) =>
   `${num(n, 2)} €`
 
+/**
+ * Lo que se acaba de cargar y su color dentro de la caja (Luis, 08/11/2026):
+ * «OK. RESERVA» en verde, «OK. COBRO» en azul y «OK. ANULADA» en rojo.
+ */
+type TipoCargado = 'reserva' | 'cobro' | 'anulada'
+const COLOR_CARGADO: Record<TipoCargado, { texto: string; caja: string; titulo: string; detalle: string }> = {
+  reserva: { texto: 'RESERVA', caja: 'border-green-400 bg-green-50', titulo: 'text-green-700', detalle: 'text-green-900' },
+  cobro: { texto: 'COBRO', caja: 'border-blue-400 bg-blue-50', titulo: 'text-blue-700', detalle: 'text-blue-900' },
+  anulada: { texto: 'ANULADA', caja: 'border-red-400 bg-red-50', titulo: 'text-red-700', detalle: 'text-red-900' },
+}
+
 const EJEMPLO = `Pega aquí el mensaje, tal cual llega:
 
 ALAYON 104: entra 30/07/2026 y sale 13/08/2026.
@@ -68,7 +79,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
    * Antes, al guardar, la caja se vaciaba y volvía el ejemplo «ALAYON 104…»,
    * y parecía que no había pasado nada (Luis, 08/11/2026).
    */
-  const [cargado, setCargado] = useState('')
+  const [cargado, setCargado] = useState<{ tipo: TipoCargado; aptos: string } | null>(null)
   const [error, setError] = useState('')
   const areaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -228,7 +239,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       })
     }
     setHecho(`${n} ${n === 1 ? 'reserva creada' : 'reservas creadas'}`)
-    setCargado(`${n === 1 ? 'RESERVA' : 'RESERVAS'} · ${aptos(validas.map(p => p.linea.apartmentId))}`)
+    setCargado({ tipo: 'reserva', aptos: aptos(validas.map(p => p.linea.apartmentId)) })
     setTexto(''); setFichero(null); setGuardando(false)
   }
 
@@ -265,7 +276,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       year: Number(aAnular[0].elegida!.checkIn.slice(0, 4)),
       reservas: aAnular.length,
     })
-    setCargado(`${aAnular.length === 1 ? 'ANULACIÓN' : 'ANULACIONES'} · ${aptos(aAnular.map(x => x.elegida!.apartmentId))}`)
+    setCargado({ tipo: 'anulada', aptos: aptos(aAnular.map(x => x.elegida!.apartmentId)) })
     setHecho(`${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`
       + (cobrado > 0 ? `. Ojo: hay ${eur(cobrado)} ya cobrados, míralo` : ''))
     setTexto(''); setFichero(null); setElegidas({}); setGuardando(false)
@@ -315,7 +326,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       cobros: 1,
       ...conPapel,
     })
-    setCargado(`PAGO · ${apto(cobro.apartmentId)}`)
+    setCargado({ tipo: 'cobro', aptos: apto(cobro.apartmentId) })
     setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}`
       + (papel ? ` · justificante guardado (${papel.nombre})` : ''))
     setTexto(''); setFichero(null); setGuardando(false)
@@ -339,7 +350,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           <textarea
             ref={areaRef}
             value={texto}
-            onChange={e => { setTexto(e.target.value); setHecho(''); setCargado(''); setError('') }}
+            onChange={e => { setTexto(e.target.value); setHecho(''); setCargado(null); setError('') }}
             onPaste={e => {
               // Algunos gestores de correo y el propio móvil pegan el PDF como
               // fichero en vez de como texto.
@@ -353,22 +364,25 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
             title={EJEMPLO}
             className={`w-full border rounded-lg px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               arrastrando ? 'border-blue-500 bg-blue-50/60'
-                : !texto && hecho ? 'border-green-400 bg-green-50' : 'border-slate-200'
+                : !texto && hecho ? COLOR_CARGADO[cargado?.tipo ?? 'reserva'].caja : 'border-slate-200'
             }`}
           />
           {/* Con la caja vacía, en el centro: qué hacer, o lo que se acaba de
               cargar. No deja pinchar: el clic llega a la caja de debajo. */}
           {!texto && !arrastrando && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3 pointer-events-none">
-              {hecho ? (
-                <>
-                  <p className="flex items-center gap-1.5 text-base font-bold text-green-700">
-                    <CheckCircle2 size={18} /> ¡OK, COPIADO!
-                  </p>
-                  {cargado && <p className="text-sm font-semibold text-green-900">{cargado}</p>}
-                  <p className="text-xs text-green-800 line-clamp-2">{hecho}</p>
-                </>
-              ) : (
+              {hecho ? (() => {
+                const c = COLOR_CARGADO[cargado?.tipo ?? 'reserva']
+                return (
+                  <>
+                    <p className={`flex items-center gap-1.5 text-lg font-bold ${c.titulo}`}>
+                      <CheckCircle2 size={20} /> OK. {c.texto}
+                    </p>
+                    {cargado?.aptos && <p className={`text-sm font-semibold ${c.detalle}`}>{cargado.aptos}</p>}
+                    <p className={`text-xs line-clamp-2 ${c.detalle}`}>{hecho}</p>
+                  </>
+                )
+              })() : (
                 <p className="text-sm font-semibold tracking-wide text-slate-400">PEGA AQUÍ EL TEXTO</p>
               )}
             </div>
@@ -401,7 +415,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           </label>
           <span className="text-xs text-slate-400">o arrástralo sobre el recuadro</span>
           {texto && (
-            <button onClick={() => { setTexto(''); setHecho(''); setCargado(''); areaRef.current?.focus() }}
+            <button onClick={() => { setTexto(''); setHecho(''); setCargado(null); areaRef.current?.focus() }}
               className="text-xs text-slate-400 hover:text-slate-600 ml-auto">Limpiar</button>
           )}
         </div>
