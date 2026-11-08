@@ -261,7 +261,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           .map(p => `${nombreApt(p.linea.apartmentId)} ${formatDate(p.linea.checkIn!)} a ${formatDate(p.linea.checkOut!)}`)
           .join(' · '),
         year: Number(validas[0].linea.checkIn!.slice(0, 4)),
-        reservas: n, cobros: n, texto: texto.trim(),
+        reservas: n, cobros: n,
+        // Solo la línea de cada reserva, sin saludos: lo mismo que va a la reserva.
+        texto: validas.map(p => p.linea.texto).join('\n'),
       })
     }
     setHecho(`${n} ${n === 1 ? 'reserva creada' : 'reservas creadas'}`)
@@ -300,7 +302,8 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       origen: 'anulacion',
       resumen: `${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`,
       year: Number(aAnular[0].elegida!.checkIn.slice(0, 4)),
-      reservas: aAnular.length, texto: texto.trim(),
+      reservas: aAnular.length,
+      texto: aAnular.map(x => x.a.texto).join('\n'),
     })
     setCargado({ tipo: 'anulada', aptos: aptos(aAnular.map(x => x.elegida!.apartmentId)) })
     setHecho(`${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`
@@ -349,7 +352,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       resumen: `${eur(cobro.amount)} en ${nombreApt(cobro.apartmentId)}, reserva del `
         + `${formatDate(reservaDelCobro.checkIn)} al ${formatDate(reservaDelCobro.checkOut)}`,
       year: Number((cobro.paymentDate ?? reservaDelCobro.checkIn).slice(0, 4)),
-      cobros: 1, texto: texto.trim(),
+      cobros: 1,
       ...conPapel,
     })
     setCargado({ tipo: 'cobro', aptos: apto(cobro.apartmentId) })

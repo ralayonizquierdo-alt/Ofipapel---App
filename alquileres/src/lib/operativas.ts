@@ -457,8 +457,8 @@ export const OPERATIVA_REGISTRO: ReglaOperativa[] = [
   {
     // components/PegarWhatsApp.tsx — texto
     que: 'Lo pegado',
-    nota: 'Lo que se pega en la Entrada rápida (mensaje, aviso de Airbnb, anulación, justificante) se guarda '
-      + '**tal cual llegó**, debajo del resumen. Lo pegado antes del 08/11/2026 no lo tiene.',
+    nota: 'De lo pegado en la Entrada rápida se guarda **la línea de cada reserva o anulación**, tal cual '
+      + '(«ALAYON 104: entra… y sale…»), **sin saludos**, debajo del resumen. Lo pegado antes del 08/11/2026 no la tiene.',
   },
   {
     que: 'No se toca',
