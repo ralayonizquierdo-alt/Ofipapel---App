@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Printer, Mail, Pencil, ListFilter, MessageCircle } from 'lucide-react'
+import { Printer, Mail, Pencil, ListFilter, MessageCircle, Copy, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { useCuadreEstancia, rutaDeTarifa } from '../lib/cuadreEstancia'
@@ -109,79 +109,8 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
       + (p.pactado.motivo ? `. ${p.pactado.motivo}` : '') + '.'
   })()
 
-  /** La ficha en texto llano, para el correo a la agencia. */
-  function comoTexto() {
-    const sep = '-'.repeat(58)
-    const filas = visibles.map(l =>
-      `${mesCorto(l.mes).padEnd(12)}${String(l.noches).padStart(4)}  `
-      + `${dec(l.alojamiento).padStart(10)}  ${(l.limpieza ? dec(l.limpieza) : '').padStart(8)}  `
-      + `${(l.transferencia ? dec(l.transferencia) : '').padStart(11)}  `
-      + `${(l.efectivo ? dec(l.efectivo) : '').padStart(9)}  ${dec(l.resto).padStart(10)}`)
-    return [
-      `CUADRE DE LA ESTANCIA — ${nombre}`,
-      `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)} · ${r.nights} noches`
-        + (r.guestName ? ` · ${r.guestName}` : ''),
-      '',
-      tarifa
-        ? `Operativa: ${dec(tarifa.precioTramo)} / ${tarifa.diasTramo} = `
-          + `${dec(tarifa.precioTramo / tarifa.diasTramo)} x ${r.nights} noches = ${dec(tarifa.base)}`
-        : `Precio pactado: ${dec(r.basePrice)}`,
-      `Cargos (limpieza): ${dec(r.cleaningFee || 0)}`,
-      `IMPORTE NETO DE LA RESERVA: ${dec(r.total)}`,
-      '',
-      sep,
-      `${'Mes'.padEnd(12)}${'Noch'.padStart(4)}  ${'Alojam.'.padStart(10)}  ${'Limp.'.padStart(8)}  `
-        + `${'Transfer.'.padStart(11)}  ${'Efectivo'.padStart(9)}  ${'Resto'.padStart(10)}`,
-      sep,
-      ...filas,
-      sep,
-      `${'TOTALES'.padEnd(12)}${String(suma.noches).padStart(4)}  ${dec(suma.alojamiento).padStart(10)}  `
-        + `${dec(suma.limpieza).padStart(8)}  ${dec(suma.transferencia).padStart(11)}  `
-        + `${dec(suma.efectivo).padStart(9)}`,
-      '',
-      `Importe de la reserva: ${dec(r.total)}`,
-      `Cobrado:               ${dec(cobrado)}`,
-      `Diferencia:            ${dec(diferencia)}`,
-      '',
-      diferencia === 0
-        ? 'La estancia queda cuadrada. Rogamos confirmen su conformidad respondiendo a este correo.'
-        : diferencia < 0
-          ? `Queda pendiente de cobro ${dec(-diferencia)} €. Rogamos confirmen su conformidad y la fecha de pago.`
-          : `Se ha cobrado ${dec(diferencia)} € por encima del importe. Rogamos confirmen su conformidad.`,
-    ].join('\n')
-  }
-
-  /** La conformidad en texto llano, para el correo: sin cobros ni diferencia. */
-  function conformidadComoTexto() {
-    const sep = '-'.repeat(52)
-    const filas = visibles.map(l =>
-      `${mesCorto(l.mes).padEnd(12)}${String(l.noches).padStart(4)}  `
-      + `${dec(l.alojamiento).padStart(10)}  ${(l.limpieza ? dec(l.limpieza) : '').padStart(8)}  `
-      + `${dec(l.alojamiento + (l.limpieza || 0)).padStart(10)}`)
-    return [
-      `CONFORMIDAD DE LA RESERVA — ${nombre}`,
-      `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)} · ${r.nights} noches`
-        + (r.guestName ? ` · ${r.guestName}` : ''),
-      '',
-      tarifa
-        ? `Operativa: ${dec(tarifa.precioTramo)} / ${tarifa.diasTramo} = `
-          + `${dec(tarifa.precioTramo / tarifa.diasTramo)} x ${r.nights} noches = ${dec(tarifa.base)}`
-        : `Precio base: ${dec(r.basePrice)}`,
-      `Cargos (limpieza): ${dec(r.cleaningFee || 0)}`,
-      `IMPORTE NETO DE LA RESERVA: ${dec(r.total)}`,
-      ...(lineaPactado ? [lineaPactado] : []),
-      '',
-      sep,
-      `${'Mes'.padEnd(12)}${'Noch'.padStart(4)}  ${'Alojam.'.padStart(10)}  ${'Limp.'.padStart(8)}  ${'Total mes'.padStart(10)}`,
-      sep,
-      ...filas,
-      sep,
-      `${'TOTALES'.padEnd(12)}${String(suma.noches).padStart(4)}  ${dec(suma.alojamiento).padStart(10)}  `
-        + `${dec(suma.limpieza).padStart(8)}  ${dec(suma.alojamiento + suma.limpieza).padStart(10)}`,
-      '',
-      dialogo,
-    ].join('\n')
-  }
+  /** «*Total: 89 noches, 2.400,00 €*», debajo de los meses. */
+  const lineaTotales = `*Total: ${suma.noches} noches, ${dec(suma.alojamiento + suma.limpieza)} €*`
 
   /** La conformidad para WhatsApp, por líneas. */
   function conformidadComoWhatsApp() {
@@ -198,6 +127,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
       '',
       '*Por meses*',
       ...visibles.map(l => `• ${mesCorto(l.mes)}: ${l.noches} noches, ${dec(l.alojamiento + (l.limpieza || 0))} €`),
+      lineaTotales,
       '',
       dialogo,
     ].join('\n')
@@ -237,6 +167,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
       '',
       '*Por meses*',
       ...lineas,
+      lineaTotales,
       '',
       `Cobrado: ${dec(cobrado)} €`,
       `*Diferencia: ${dec(diferencia)} €*`,
@@ -258,14 +189,40 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
     a.click()
   }
 
+  const asunto = `${conformidad ? 'Conformidad de reserva' : 'Cuadre de estancia'} — ${nombre}, `
+    + `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`
+  /**
+   * El texto para el correo y para copiar: el mismo que va por WhatsApp, por
+   * líneas y sin los asteriscos de la negrita de WhatsApp. En columnas no
+   * sirve: en Outlook la letra no es de máquina y las columnas se descolocan.
+   */
+  const textoLlano = () => (conformidad ? conformidadComoWhatsApp() : comoWhatsApp()).replace(/\*/g, '')
+
+  /**
+   * Abre Outlook en la web, en una pestaña nueva, con el asunto y el texto
+   * puestos; solo falta el destinatario. Antes era un enlace «mailto:», que
+   * abría el Outlook de escritorio del ordenador, sin cuenta configurada, en vez
+   * del Outlook en la web que usa Luis (08/11/2026).
+   */
   function porCorreo() {
-    const asunto = `${conformidad ? 'Conformidad de reserva' : 'Cuadre de estancia'} — ${nombre}, `
-      + `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`
-    // Con un enlace, no tocando `window.location`: es el mismo apaño que usa
-    // el registro para descargar el CSV y no se pelea con el compilador.
     const a = document.createElement('a')
-    a.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(conformidad ? conformidadComoTexto() : comoTexto())}`
+    a.href = 'https://outlook.office.com/mail/deeplink/compose'
+      + `?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(textoLlano())}`
+    a.target = '_blank'
+    a.rel = 'noopener'
     a.click()
+  }
+
+  /** Copia asunto y texto, para pegarlos en cualquier otro correo o mensaje. */
+  const [copiado, setCopiado] = useState(false)
+  async function copiarTexto() {
+    try {
+      await navigator.clipboard.writeText(`${asunto}\n\n${textoLlano()}`)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2500)
+    } catch {
+      window.alert('El navegador no ha dejado copiar. Prueba otra vez.')
+    }
   }
 
   return (
@@ -379,9 +336,14 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             </button>
           )}
           <button onClick={porCorreo}
-            title="Abre tu programa de correo con la ficha escrita, para mandársela a la agencia"
+            title="Abre Outlook en la web con la ficha escrita; solo falta poner a quién"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
-            <Mail size={15} /> Enviar a la agencia
+            <Mail size={15} /> Enviar por correo
+          </button>
+          <button onClick={copiarTexto}
+            title="Copia el asunto y el texto para pegarlos en cualquier correo o mensaje"
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
+            {copiado ? <><Check size={15} className="text-green-600" /> ¡Copiado!</> : <><Copy size={15} /> Copiar el texto</>}
           </button>
           <button onClick={porWhatsApp}
             title="Abre WhatsApp con la ficha escrita; ahí eliges a quién mandarla"
