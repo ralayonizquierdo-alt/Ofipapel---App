@@ -64,7 +64,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   onVerCobros?: (apartmentId: string, year: number) => void
 }) {
   const navigate = useNavigate()
-  const { reservations, payments, updateReservation } = useData()
+  const { reservations, payments, updateReservation, anotaVolcado } = useData()
   // La reserva tal como está ahora en la base: si se marca como pactada desde
   // aquí, la ficha lo enseña al momento.
   const r = reservations.find(x => x.id === reserva.id) ?? reserva
@@ -94,6 +94,11 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
         motivo: motivo.trim(), ...(conQuien.trim() ? { con: conQuien.trim() } : {}),
         por: usuarioActual() ?? undefined, fecha: fechaPacto || today(),
       },
+    })
+    anotaVolcado({
+      origen: 'precio-pactado', reservas: 1, year: Number(r.checkIn.slice(0, 4)),
+      resumen: `${nombre} del ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}: precio pactado ${dec(r.total)} €`
+        + (conQuien.trim() ? ` con ${conQuien.trim()}` : '') + `, el ${formatDate(fechaPacto || today())} — ${motivo.trim()}`,
     })
     setAnotando(false)
     setMotivo('')
@@ -189,6 +194,20 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
     a.target = '_blank'
     a.rel = 'noopener'
     a.click()
+    apuntaEnvio('WhatsApp')
+  }
+
+  /**
+   * Queda en el Registro que se preparó el envío (Luis, 08/11/2026). «Preparado»
+   * y no «enviado»: la aplicación abre el correo o el WhatsApp, pero no sabe si
+   * al final se le dio a Enviar.
+   */
+  function apuntaEnvio(por: 'Correo' | 'WhatsApp') {
+    anotaVolcado({
+      origen: 'envio', year: Number(r.checkIn.slice(0, 4)),
+      resumen: `${por} preparado: ${conformidad ? 'conformidad' : 'cuadre'} de ${nombre}, `
+        + `del ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`,
+    })
   }
 
   const asunto = `${conformidad ? 'Conformidad de reserva' : 'Cuadre de estancia'} — ${nombre}, `
@@ -241,6 +260,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
     a.target = '_blank'
     a.rel = 'noopener'
     a.click()
+    apuntaEnvio('Correo')
   }
 
   return (
@@ -356,7 +376,14 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
                 Hay que devolverlos o pasarlos a otra reserva. Cuando esté hecho, márcalo y el aviso del Dashboard se quita.
               </p>
               <button type="button"
-                onClick={() => updateReservation(r.id, { anulacionResuelta: { por: usuarioActual() ?? undefined, fecha: today() } })}
+                onClick={() => {
+                  updateReservation(r.id, { anulacionResuelta: { por: usuarioActual() ?? undefined, fecha: today() } })
+                  anotaVolcado({
+                    origen: 'anulacion-resuelta', year: Number(r.checkIn.slice(0, 4)),
+                    resumen: `${nombre} del ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)} (anulada): `
+                      + `${dec(cobradoAqui)} € cobrados dados por resueltos`,
+                  })
+                }}
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700">
                 <Check size={15} /> Ya está resuelto
               </button>

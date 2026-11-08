@@ -383,7 +383,8 @@ function MemoriaPrecio({ lineas }: { lineas: string[] }) {
 function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   { apartments: Apartment[]; prices: PriceEntry[]; editing: Reservation | null; onClose: () => void; onSave: () => void }) {
 
-  const { addReservation, updateReservation, deleteReservation, addPayment, updatePayment, payments, offerPrices } = useData()
+  const { addReservation, updateReservation, deleteReservation, addPayment, updatePayment, payments, offerPrices, anotaVolcado } = useData()
+  const nombreApto = (id: string) => apartments.find(a => a.id === id)?.name ?? id
 
   const [aptId, setAptId] = useState(editing?.apartmentId || apartments[0]?.id || '')
   const [checkIn, setCheckIn] = useState(editing?.checkIn || today())
@@ -466,6 +467,35 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
       basePrice, cleaningFee, discountPct, total: newTotal, status, notes,
       precioPactado: editing ? marca : (marca ?? undefined),
     }
+    // Al Registro, lo que se hace a mano (Luis, 08/11/2026): el alta, o qué
+    // cambió y de qué a qué. Si no cambia nada, no se apunta.
+    const fechas = (a: string, b: string) => `del ${formatDate(a)} al ${formatDate(b)}`
+    if (editing) {
+      const cambios: string[] = []
+      if (editing.apartmentId !== aptId) cambios.push(`apartamento ${nombreApto(editing.apartmentId)} → ${nombreApto(aptId)}`)
+      if (editing.checkIn !== checkIn) cambios.push(`entrada ${formatDate(editing.checkIn)} → ${formatDate(checkIn)}`)
+      if (editing.checkOut !== checkOut) cambios.push(`salida ${formatDate(editing.checkOut)} → ${formatDate(checkOut)}`)
+      if (Math.abs((editing.total || 0) - newTotal) > 0.005) cambios.push(`importe ${eur(editing.total || 0)} → ${eur(newTotal)}`)
+      if (editing.status !== status) cambios.push(`estado ${editing.status} → ${status}`)
+      if (nombreDe(editing) !== guestName) cambios.push(`huésped «${nombreDe(editing)}» → «${guestName}»`)
+      if (editing.channel !== channel) cambios.push(`canal ${editing.channel} → ${channel}`)
+      if ((editing.precioPactado?.motivo ?? '') !== (marca?.motivo ?? '')
+        || (editing.precioPactado?.con ?? '') !== (marca?.con ?? '')) {
+        cambios.push(marca ? `precio pactado «${marca.motivo}»${marca.con ? ` con ${marca.con}` : ''}` : 'quitada la marca de precio pactado')
+      }
+      if ((editing.notes ?? '') !== (notes ?? '')) cambios.push('nota cambiada')
+      if (cambios.length) {
+        anotaVolcado({
+          origen: 'edicion', reservas: 1, year: Number(checkIn.slice(0, 4)),
+          resumen: `${nombreApto(aptId)} ${fechas(checkIn, checkOut)}: ${cambios.join('; ')}`,
+        })
+      }
+    } else {
+      anotaVolcado({
+        origen: 'edicion', reservas: 1, cobros: 1, year: Number(checkIn.slice(0, 4)),
+        resumen: `Alta a mano: ${nombreApto(aptId)} ${fechas(checkIn, checkOut)}, ${eur(newTotal)}`,
+      })
+    }
     if (editing) {
       updateReservation(editing.id, data)
       if (newTotal !== editing.total) {
@@ -490,6 +520,11 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   function handleDelete() {
     if (!editing || !confirm('¿Eliminar esta reserva?')) return
     deleteReservation(editing.id, payments)
+    anotaVolcado({
+      origen: 'edicion', borrados: 1, year: Number(editing.checkIn.slice(0, 4)),
+      resumen: `Borrada a mano: ${nombreApto(editing.apartmentId)} del ${formatDate(editing.checkIn)} `
+        + `al ${formatDate(editing.checkOut)}, ${eur(editing.total || 0)}`,
+    })
     onSave()
   }
 

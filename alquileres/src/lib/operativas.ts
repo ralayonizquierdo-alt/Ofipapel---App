@@ -431,6 +431,13 @@ export const OPERATIVA_REGISTRO: ReglaOperativa[] = [
     nota: 'Todo lo que entra en la aplicación: **quién, cuándo, por dónde y qué**.',
   },
   {
+    // components/FichaCuadre.tsx, pages/Reservations.tsx — anotaVolcado
+    que: 'También',
+    formula: 'correo o WhatsApp a la agencia · precio pactado · anulación resuelta · reserva a mano',
+    nota: 'Las reservas dadas de alta, cambiadas (**qué cambió y de qué a qué**) o borradas a mano. Del correo y el '
+      + 'WhatsApp se apunta que **se preparó**: la aplicación no sabe si al final se le dio a Enviar.',
+  },
+  {
     que: 'No se toca',
     nota: 'Es un histórico: **no se edita ni se borra** desde la aplicación.',
   },

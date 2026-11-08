@@ -286,6 +286,12 @@ export type OrigenSubida =
   | 'justificante'      // transferencia, pegada o leída de su PDF
   | 'anulacion'         // aviso de reserva cancelada, pegado como texto
   | 'correcciones'      // arreglo puntual de datos ya cargados
+  // Lo que no es una subida pero conviene que quede (Luis, 08/11/2026: «creo que
+  // hay un registro de todo esto?»):
+  | 'envio'             // correo o WhatsApp preparado desde la ficha de una estancia
+  | 'precio-pactado'    // se anota que un importe es un precio pactado
+  | 'anulacion-resuelta' // el dinero de una reserva anulada se da por resuelto
+  | 'edicion'           // reserva dada de alta, cambiada o borrada a mano
 
 export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
   'excel-gastos': 'Resumen anual de ingresos y gastos',
@@ -297,6 +303,10 @@ export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
   'justificante': 'Justificante de transferencia',
   'anulacion': 'Aviso de anulación',
   'correcciones': 'Corrección de datos',
+  'envio': 'Correo o WhatsApp a la agencia',
+  'precio-pactado': 'Precio pactado',
+  'anulacion-resuelta': 'Anulación resuelta',
+  'edicion': 'Reserva a mano',
 }
 
 /**

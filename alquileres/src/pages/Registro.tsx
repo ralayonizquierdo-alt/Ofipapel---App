@@ -48,6 +48,10 @@ const COLOR_ORIGEN: Record<OrigenSubida, string> = {
   'justificante': 'bg-violet-50 text-violet-700 border-violet-200',
   'anulacion': 'bg-orange-50 text-orange-800 border-orange-200',
   'correcciones': 'bg-amber-50 text-amber-800 border-amber-200',
+  'envio': 'bg-cyan-50 text-cyan-800 border-cyan-200',
+  'precio-pactado': 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  'anulacion-resuelta': 'bg-teal-50 text-teal-800 border-teal-200',
+  'edicion': 'bg-slate-50 text-slate-700 border-slate-300',
 }
 
 function cuando(iso: string): string {
