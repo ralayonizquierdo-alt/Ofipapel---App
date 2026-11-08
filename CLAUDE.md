@@ -254,7 +254,7 @@ para tener contexto antes de tocar código.
   fusionando el propietario.
 - **Las pruebas del bot SÍ corren en CI** desde el 8/11/2026
   (`.github/workflows/bot.yml`, en cada PR/push que toque
-  `netlify/functions/**` o los scripts, y cada lunes): las ~29 baterías de
+  `netlify/functions/**` o los scripts, y cada lunes): las 28 baterías de
   `scripts/probar-*.js` como **puerta** (si una se pone en rojo, el cambio no
   entra — cada una nació de un fallo real con un cliente), la lógica de
   Control de Pedidos (`node --test scripts/probar-control-pedidos.js`) y el

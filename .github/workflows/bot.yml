@@ -2,7 +2,8 @@ name: Bot de WhatsApp
 
 # Las pruebas del bot, que hasta el 8/11/2026 NO corrían en ningún sitio.
 #
-# Había 29 baterías en `scripts/probar-*.js`, cada una nacida de un fallo real
+# Había 28 baterías en `scripts/probar-*.js` (29 ficheros, uno es el de Control
+# de Pedidos, que va con `node --test`), cada una nacida de un fallo real
 # con un cliente, y se pasaban a mano cuando alguien se acordaba. El CI de
 # siempre (`ci.yml`) solo mira `joe-app` y `alquileres`, que son las dos apps
 # con build — así que justo lo que más veces se ha roto era lo único sin red.
@@ -11,7 +12,8 @@ name: Bot de WhatsApp
 #
 #   1. BATERÍAS — puerta de verdad: si una falla, el cambio no entra. Cada una
 #      es un fallo que ya le pasó a un cliente, así que volver a romperlo no es
-#      una regresión cualquiera.
+#      una regresión cualquiera. Comprobado en el primer verde: las 28 corren
+#      («── scripts/probar-…» por cada una en el registro).
 #   2. SONDEO — las ~105 preguntas de `scripts/sondeo-bot.js`. No dice «pasa» ni
 #      «falla» (es una red de arrastre), pero el número de avisos es
 #      determinista, así que se compara con la línea base de
