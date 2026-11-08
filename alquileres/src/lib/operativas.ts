@@ -30,8 +30,8 @@ export const VOLVER: ReglaOperativa = {
 /** También en todas: las ventanas (fichas, formularios) se amplían. components/ui/Modal.tsx */
 export const VENTANAS: ReglaOperativa = {
   que: 'Ventanas',
-  nota: 'Se mueven **arrastrando el título**. El botón **⤢** de arriba a la derecha la **amplía** a casi toda la '
-    + 'pantalla; otra vez, y vuelve a su tamaño.',
+  nota: 'Se mueven **arrastrando el título**. Se **redimensionan tirando de la esquina** de abajo a la derecha '
+    + '(las rayitas). El botón **⤢** de arriba la **amplía** a casi toda la pantalla; otra vez, y vuelve a su tamaño.',
 }
 
 // components/PegarWhatsApp.tsx — cargado, yaCargadas, cobroExistente
