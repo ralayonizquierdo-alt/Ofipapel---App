@@ -356,10 +356,16 @@ export default function App() {
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
-      <div className="flex min-h-screen bg-slate-100">
+      {/* La pantalla mide lo que la ventana y lo que desplaza es solo el
+          contenido (<main>): así hay UNA barra vertical y una horizontal, las
+          dos siempre a la vista, y lo que va pegado arriba —la cabecera de las
+          tablas de Cobros— se pega de verdad (Luis, 08/11/2026: «las barras de
+          desplazamiento me tienen loco»). En papel, todo seguido. */}
+      <div className="flex h-dvh bg-slate-100 print:block print:h-auto">
         {/* Desktop sidebar. En papel no se imprime: la hoja de la asesoría
-            salía con el menú lateral pegado al margen. */}
-        <div className="hidden md:flex print:hidden!">
+            salía con el menú lateral pegado al margen. Si no cabe de alto,
+            desplaza ella sola. */}
+        <div className="hidden md:flex md:overflow-y-auto print:hidden!">
           <Sidebar
             rol={rol}
             alerts={alertCount}
@@ -370,7 +376,7 @@ export default function App() {
           />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Arriba del todo: avisa cuando se ha publicado una versión nueva. */}
           <AvisoVersion />
           {/* Mobile header */}
@@ -398,7 +404,7 @@ export default function App() {
           {rol === 'gestion' && <AvisoSolapes />}
           {/* «← Volver a …» en todas las pantallas, en cuanto hay a dónde volver. */}
           <BotonVolver />
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 min-h-0 overflow-auto print:overflow-visible">
             {/* Las rutas se montan según el rol: lo que alguien no puede ver
                 no existe para su sesión, así que escribir «/cobros» a mano
                 tampoco lleva a ninguna parte. */}

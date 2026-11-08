@@ -626,7 +626,7 @@ export default function Collections() {
           const qTransf = Math.round((qTotal - qEfectivo) * 100) / 100
           const qIGIC = calcIGIC(qTotal)
           return (
-            <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
                 <h3 className="font-semibold text-white">{label}</h3>
                 <div className="text-right">
@@ -634,7 +634,7 @@ export default function Collections() {
                   <span className="text-slate-300 text-xs ml-3">IGIC: {numSuelto(qIGIC)} €</span>
                 </div>
               </div>
-              <div className="overflow-auto">
+              <div>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
@@ -748,11 +748,11 @@ export default function Collections() {
         })}
 
         {/* Annual summary by apartment */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
           <div className="px-5 py-3 bg-slate-600">
             <h3 className="font-semibold text-white">Cobros Anuales {year} — Transferencia vs Efectivo</h3>
           </div>
-          <div className="overflow-auto">
+          <div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
@@ -1254,7 +1254,11 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   )
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    // `overflow-clip` y no `overflow-hidden`: recorta igual las esquinas, pero no
+    // hace de caja con desplazamiento propio, así que la cabecera se pega a la
+    // pantalla. La caja crece a lo ancho de la tabla (`w-max`) y lo que no cabe
+    // se ve con la barra horizontal de la pantalla, siempre abajo a la vista.
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
       <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
         <h3 className="font-semibold text-white">Reservas y cobros · {year}</h3>
         <span className="text-white font-bold">{eur(suma(lineas))}</span>
@@ -1271,11 +1275,11 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
       </div>
       {/* El listado es largo —doce meses por ocho inmuebles— y sin la cabecera
           a la vista no hay quien sepa qué columna está mirando a mitad de
-          agosto. La caja tiene altura propia y desplaza por dentro: así el
-          `sticky` tiene contra qué pegarse (con `overflow` en el padre, el
-          navegador lo pega a la caja, no a la página). Al imprimir se quita el
-          tope de altura y sale el listado entero. */}
-      <div className="overflow-auto max-h-[70vh] print:max-h-none print:overflow-visible">
+          agosto. Antes la caja desplazaba por dentro para que la cabecera se
+          pegara, y eso daba dos barras verticales y la horizontal escondida al
+          pie de la caja (Luis, 08/11/2026). Ahora desplaza solo la pantalla y
+          la cabecera se pega a ella: ninguna caja de por medio con `overflow`. */}
+      <div>
         <table className="w-full text-sm" translate="no">
           <thead className="sticky top-0 z-20 shadow-sm">
             <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">
@@ -1535,7 +1539,7 @@ function PagosPorReserva({ year, filterApt, apartments, reservations, payments, 
   const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
       <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
         <h3 className="font-semibold text-white">Pagos por reserva · {year}</h3>
         <span className="text-white font-bold">{eur(totalCobrado)}</span>
@@ -1544,7 +1548,7 @@ function PagosPorReserva({ year, filterApt, apartments, reservations, payments, 
         {fichas.length} reservas · <b className="text-slate-700">{varios}</b> con más de un pago ·{' '}
         <b className="text-slate-700">{aPlazos}</b> repartidas en varios meses
       </div>
-      <div className="overflow-auto max-h-[70vh] print:max-h-none print:overflow-visible">
+      <div>
         <table className="w-full text-sm" translate="no">
           <thead className="sticky top-0 z-20 shadow-sm">
             <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">
