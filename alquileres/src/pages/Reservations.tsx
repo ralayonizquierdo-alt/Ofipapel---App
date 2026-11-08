@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Pencil, Trash2, CheckCircle, Circle, ClipboardPaste, CalendarRange, Paperclip, FileText } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { Reservation, Apartment, PriceEntry, StayType, Channel, PaymentMethod } from '../types'
 import { formatDate, getNights, today } from '../lib/dateUtils'
@@ -65,6 +65,15 @@ export default function Reservations() {
   /** De los años cerrados no se cuadra nada: ver el comentario de `suma`. */
   const cuadra = (r: Reservation) => Number(r.checkIn.slice(0, 4)) >= EJERCICIO_APP
 
+  /**
+   * Una reserva abierta desde otra pantalla (la ficha de cuadre, el Planning,
+   * un aviso) devuelve allí al cerrarla o guardarla, no a la lista de Reservas
+   * (Luis, 08/11/2026: «no es lógico, debe llevarme al recibo donde dice qué
+   * pasa con este importe»). La ficha vuelve abierta: ver lib/volver.ts.
+   */
+  const [abiertaDesdeFuera, setAbiertaDesdeFuera] = useState(false)
+  const navigate = useNavigate()
+
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (!editId || reservations.length === 0) return
@@ -72,9 +81,18 @@ export default function Reservations() {
     if (res) {
       setEditing(res)
       setShowForm(true)
+      setAbiertaDesdeFuera(true)
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, reservations])
+
+  function cerrarFormulario() {
+    setShowForm(false)
+    if (!abiertaDesdeFuera) return
+    setAbiertaDesdeFuera(false)
+    // Solo si hay a dónde volver dentro de la aplicación.
+    if (((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0) navigate(-1)
+  }
 
   const precioDe = useMemo(() => {
     const m = new Map(reservations.map(r => [r.id, estadoPrecio(r, prices, offerPrices)]))
@@ -321,8 +339,8 @@ export default function Reservations() {
           apartments={apartments}
           prices={prices}
           editing={editing}
-          onClose={() => setShowForm(false)}
-          onSave={() => setShowForm(false)}
+          onClose={cerrarFormulario}
+          onSave={cerrarFormulario}
         />
       )}
 

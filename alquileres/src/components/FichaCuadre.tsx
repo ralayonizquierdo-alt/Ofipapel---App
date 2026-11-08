@@ -6,6 +6,7 @@ import { useCuadreEstancia, rutaDeTarifa } from '../lib/cuadreEstancia'
 import { usuarioActual } from '../lib/auth'
 import { formatDate, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
+import { useRecordado } from '../lib/recordado'
 import Modal from './ui/Modal'
 import CuadroEstancia from './CuadroEstancia'
 import type { Reservation } from '../types'
@@ -35,6 +36,11 @@ import type { Reservation } from '../types'
 
 const dec = (n: number) => num(n, 2)
 
+/** El mensaje de la conformidad, mientras no se escriba otro (texto de Luis, 08/11/2026, pulido). */
+const MENSAJE_CONFORMIDAD = 'Les rogamos que revisen la reserva adjunta y comprueben las noches asignadas a cada '
+  + 'mes y el importe que corresponde a cada uno. Si todo es correcto, les agradeceremos que nos envíen su '
+  + 'conformidad; en caso contrario, indíquennos las diferencias.\n\nGracias. Un saludo.'
+
 export type ModeloFicha = 'cuadre' | 'conformidad'
 
 export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInicial = 'cuadre' }: {
@@ -63,8 +69,17 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   const cuadre = useCuadreEstancia(r)
   const [modelo, setModelo] = useState<ModeloFicha>(modeloInicial)
   const conformidad = modelo === 'conformidad'
-  /** Lo que se escribe en «Observaciones» de la conformidad: va al papel, al correo y al WhatsApp. */
-  const [observaciones, setObservaciones] = useState('')
+  /**
+   * El cuadro de diálogo de la conformidad (Luis, 08/11/2026): un mensaje para
+   * la agencia que **se queda puesto** hasta que se cambie («queda fijo
+   * mientras no lo cambie», guardado en este ordenador), dos líneas en blanco y
+   * en la tercera «NOTAS:», con lo propio de esta reserva, que **no se guarda**.
+   * Va igual al papel, al correo y al WhatsApp.
+   */
+  const [mensaje, setMensaje] = useRecordado('conformidad.mensaje', MENSAJE_CONFORMIDAD)
+  const [notas, setNotas] = useState('')
+  /** El cuadro tal como se manda: el mensaje, dos líneas en blanco y «NOTAS:». */
+  const dialogo = `${mensaje.trim()}\n\n\nNOTAS: ${notas.trim()}`.trimEnd()
   const [anotando, setAnotando] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [conQuien, setConQuien] = useState('')
@@ -93,7 +108,6 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
       + (p.pactado.con ? ` con ${p.pactado.con}` : '')
       + (p.pactado.motivo ? `. ${p.pactado.motivo}` : '') + '.'
   })()
-  const textoConformidad = 'Rogamos nos confirmen su conformidad con los datos de esta reserva (fechas, noches e importe).'
 
   /** La ficha en texto llano, para el correo a la agencia. */
   function comoTexto() {
@@ -164,9 +178,8 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
       sep,
       `${'TOTALES'.padEnd(12)}${String(suma.noches).padStart(4)}  ${dec(suma.alojamiento).padStart(10)}  `
         + `${dec(suma.limpieza).padStart(8)}  ${dec(suma.alojamiento + suma.limpieza).padStart(10)}`,
-      ...(observaciones.trim() ? ['', 'Observaciones:', observaciones.trim()] : []),
       '',
-      textoConformidad,
+      dialogo,
     ].join('\n')
   }
 
@@ -185,9 +198,8 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
       '',
       '*Por meses*',
       ...visibles.map(l => `• ${mesCorto(l.mes)}: ${l.noches} noches, ${dec(l.alojamiento + (l.limpieza || 0))} €`),
-      ...(observaciones.trim() ? ['', '*Observaciones*', observaciones.trim()] : []),
       '',
-      textoConformidad,
+      dialogo,
     ].join('\n')
   }
 
@@ -280,16 +292,26 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
         <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} conformidad={conformidad} />
 
         {conformidad && (
-          <div>
-            <label htmlFor="observaciones-conformidad" className="block text-xs font-semibold text-slate-600 mb-1">
-              Observaciones
-            </label>
-            <textarea id="observaciones-conformidad" value={observaciones} onChange={e => setObservaciones(e.target.value)}
-              rows={3} placeholder="Lo que quieras añadir para la agencia"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm print:hidden" />
-            {/* En papel: lo escrito, o el recuadro en blanco para escribir a mano. */}
-            <div className="hidden print:!block border border-slate-300 rounded p-2 text-sm whitespace-pre-wrap min-h-[5rem]">
-              {observaciones.trim()}
+          <div className="space-y-2">
+            <div className="print:hidden">
+              <label htmlFor="mensaje-conformidad" className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                <span>Mensaje para la agencia <span className="font-normal text-slate-400">· se queda guardado</span></span>
+                {mensaje !== MENSAJE_CONFORMIDAD && (
+                  <button type="button" onClick={() => setMensaje(MENSAJE_CONFORMIDAD)}
+                    className="font-normal text-blue-700 hover:underline">Volver al texto de siempre</button>
+                )}
+              </label>
+              <textarea id="mensaje-conformidad" value={mensaje} onChange={e => setMensaje(e.target.value)}
+                rows={6} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+              <label htmlFor="notas-conformidad" className="block text-xs font-semibold text-slate-600 mt-2 mb-1">
+                NOTAS <span className="font-normal text-slate-400">· solo para esta reserva, no se guarda</span>
+              </label>
+              <textarea id="notas-conformidad" value={notas} onChange={e => setNotas(e.target.value)}
+                rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            {/* En papel: el mensaje, dos líneas en blanco y «NOTAS:». */}
+            <div className="hidden print:!block border border-slate-300 rounded p-3 text-sm whitespace-pre-wrap">
+              {dialogo}
             </div>
           </div>
         )}
@@ -340,7 +362,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
         {/* Solo en el papel: el pie del recibo que se manda a la agencia. */}
         <p className="hidden print:!block text-xs text-slate-500 border-t border-slate-200 pt-2">
           {conformidad
-            ? <>Conformidad de reserva emitida el {formatDate(today())}. {textoConformidad}</>
+            ? <>Conformidad de reserva emitida el {formatDate(today())}.</>
             : <>Documento de cuadre emitido el {formatDate(today())} por la aplicación de gestión. Rogamos confirmen su conformidad.</>}
         </p>
 
