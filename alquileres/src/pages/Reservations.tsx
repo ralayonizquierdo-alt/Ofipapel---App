@@ -21,6 +21,7 @@ import { num, numSuelto } from '../lib/formato'
 import Operativa from '../components/Operativa'
 import FichaCuadre from '../components/FichaCuadre'
 import { useEnHistorial } from '../lib/volver'
+import { rutaDeTarifa } from '../lib/cuadreEstancia'
 import { OPERATIVA_RESERVAS } from '../lib/operativas'
 
 const STAY_LABELS: Record<StayType, string> = {
@@ -362,6 +363,7 @@ export default function Reservations() {
           reservation={selectedRes}
           aptName={getAptName(selectedRes.apartmentId)}
           onClose={() => setSelectedRes(null)}
+          onEditar={() => { const r = selectedRes; setSelectedRes(null); setEditing(r); setShowForm(true) }}
         />
       )}
 
@@ -398,13 +400,41 @@ function MemoriaPrecio({ lineas }: { lineas: string[] }) {
  * «Cómo se calcula» de la ventana de Pagos: la cuenta de la reserva, la de la
  * tarifa de hoy y la diferencia, con lo que hay que hacer si no cuadra.
  */
-function ComoSeCalcula({ reservation: r, estado, porTarifa, difTarifa }: {
+function ComoSeCalcula({ reservation: r, estado, porTarifa, difTarifa, onEditar, onClose }: {
   reservation: Reservation
   estado: ReturnType<typeof estadoPrecio>
   porTarifa: number | null
   difTarifa: number | null
+  /** Cierra la ventana y abre el formulario de la reserva. */
+  onEditar: () => void
+  onClose: () => void
 }) {
-  const { prices, offerPrices } = useData()
+  const { prices, offerPrices, updateReservation, anotaVolcado } = useData()
+  const navigate = useNavigate()
+  /**
+   * Desde aquí mismo se va a la tarifa y se anota el precio pactado (Luis,
+   * 08/11/2026: «que desde esta ventana se pueda acceder a la tarifa y a donde
+   * se anota si el precio es pactado, así tenemos todo coordinado»).
+   */
+  const [anotando, setAnotando] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const [conQuien, setConQuien] = useState('')
+  const [fechaPacto, setFechaPacto] = useState(today())
+  function anotarPactado() {
+    if (!motivo.trim()) return
+    updateReservation(r.id, {
+      precioPactado: {
+        motivo: motivo.trim(), ...(conQuien.trim() ? { con: conQuien.trim() } : {}),
+        por: usuarioActual() ?? undefined, fecha: fechaPacto || today(),
+      },
+    })
+    anotaVolcado({
+      origen: 'precio-pactado', reservas: 1, year: Number(r.checkIn.slice(0, 4)),
+      resumen: `${r.apartmentId} del ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}: precio pactado ${eur(r.total)}`
+        + (conQuien.trim() ? ` con ${conQuien.trim()}` : '') + `, el ${formatDate(fechaPacto || today())} — ${motivo.trim()}`,
+    })
+    setAnotando(false)
+  }
   const tarifa = estado.tipo === 'fuera' ? null : buscaTarifa(prices, r.apartmentId, r.checkIn, r.nights, offerPrices)
   const limpiezaTarifa = tarifa ? limpiezaDe(r.apartmentId, Number(tarifa.entry.cleaningFee) || 40) : 0
   const dto = Number(r.discountPct) || 0
@@ -441,11 +471,55 @@ function ComoSeCalcula({ reservation: r, estado, porTarifa, difTarifa }: {
                 + (estado.tipo === 'pactado' ? 'precio pactado' : Math.abs(difTarifa) < 1 ? 'redondeo' : 'no cuadra')}
           </p>
         )}
-        {noCuadra && (
-          <p className="mt-1 rounded bg-amber-50 border border-amber-200 px-2 py-1.5 text-xs text-amber-900">
-            Si el precio bueno es el de la tarifa: abre la reserva (lápiz ✏️) y guárdala con «Tarifa por tramos».
-            Si se acordó así: márcalo como <b>precio pactado</b>.
+        {estado.tipo === 'pactado' && (
+          <p className="text-blue-800">
+            <span className="inline-block w-32 text-slate-500">Precio pactado</span>
+            «{estado.pactado.motivo}»{estado.pactado.con ? ` con ${estado.pactado.con}` : ''}
+            {estado.pactado.fecha ? `, el ${formatDate(estado.pactado.fecha)}` : ''}
           </p>
+        )}
+
+        {/* Los tres caminos, aquí mismo. */}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {tarifa && (
+            <button type="button" onClick={() => { onClose(); navigate(rutaDeTarifa(tarifa)) }}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-300 text-blue-700 bg-white hover:bg-blue-50">
+              Ver la tarifa en Precios
+            </button>
+          )}
+          {noCuadra && !anotando && (
+            <>
+              <button type="button" onClick={() => setAnotando(true)}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                🔵 Es un precio pactado
+              </button>
+              <button type="button" onClick={onEditar}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-400 text-amber-900 bg-white hover:bg-amber-50">
+                ✏️ Está mal: corregir la reserva
+              </button>
+            </>
+          )}
+        </div>
+        {anotando && (
+          <form className="flex flex-wrap items-end gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2"
+            onSubmit={e => { e.preventDefault(); anotarPactado() }}>
+            <label className="text-xs text-blue-900 flex-1 min-w-[14rem]">Motivo
+              <input id="motivo-pactado-pagos" autoFocus value={motivo} onChange={e => setMotivo(e.target.value)}
+                placeholder="Estancia larga, acordado con el cliente"
+                className="mt-0.5 w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white" />
+            </label>
+            <label className="text-xs text-blue-900">Con quién
+              <input value={conQuien} onChange={e => setConQuien(e.target.value)} placeholder="Real Estate, el cliente…"
+                className="mt-0.5 block w-40 border border-slate-300 rounded px-2 py-1.5 text-sm bg-white" />
+            </label>
+            <label className="text-xs text-blue-900">Fecha
+              <input type="date" value={fechaPacto} onChange={e => setFechaPacto(e.target.value)}
+                className="mt-0.5 block border border-slate-300 rounded px-2 py-1.5 text-sm bg-white" />
+            </label>
+            <button type="submit" disabled={!motivo.trim()}
+              className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40">Guardar</button>
+            <button type="button" onClick={() => setAnotando(false)} className="px-2 py-1.5 text-sm text-slate-600">Cancelar</button>
+          </form>
         )}
       </div>
     </div>
@@ -577,9 +651,9 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
         const newPending = newTotal - totalPaid
         const unreceived = resPayments.filter(p => !p.received)
         if (unreceived.length === 0) {
-          if (newPending > 0) addPayment({ reservationId: editing.id, amount: newPending, received: false })
+          if (newPending > 0) addPayment({ reservationId: editing.id, amount: Math.round(newPending * 100) / 100, received: false })
         } else {
-          updatePayment(unreceived[0].id, { amount: Math.max(0, newPending) })
+          updatePayment(unreceived[0].id, { amount: Math.max(0, Math.round(newPending * 100) / 100) })
           unreceived.slice(1).forEach(p => updatePayment(p.id, { amount: 0 }))
         }
       }
@@ -817,10 +891,13 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
 }
 
 // ── Payment Modal ─────────────────────────────────────────────────────────────
-function PaymentModal({ reservation, aptName, onClose }:
-  { reservation: Reservation; aptName: string; onClose: () => void }) {
+function PaymentModal({ reservation: abierta, aptName, onClose, onEditar }:
+  { reservation: Reservation; aptName: string; onClose: () => void; onEditar: () => void }) {
 
-  const { payments, addPayment, updatePayment, deletePayment, prices, offerPrices } = useData()
+  const { reservations, payments, addPayment, updatePayment, deletePayment, prices, offerPrices } = useData()
+  // La reserva tal como está ahora: si se anota aquí el precio pactado, la
+  // ventana lo dice al momento, sin cerrarla y volverla a abrir.
+  const reservation = reservations.find(x => x.id === abierta.id) ?? abierta
   const modalPayments = payments.filter(p => p.reservationId === reservation.id)
   const totalPaid = modalPayments.filter(p => p.received).reduce((s, p) => s + p.amount, 0)
   const pending = reservation.total - totalPaid
@@ -887,7 +964,8 @@ function PaymentModal({ reservation, aptName, onClose }:
             daría la tarifa de hoy, con la diferencia y qué hacer (Luis,
             08/11/2026: «si la tarifa es 1.990, ¿cómo es que la reserva es
             2.185?»). */}
-        <ComoSeCalcula reservation={reservation} estado={estado} porTarifa={porTarifa} difTarifa={difTarifa} />
+        <ComoSeCalcula reservation={reservation} estado={estado} porTarifa={porTarifa} difTarifa={difTarifa}
+          onEditar={onEditar} onClose={onClose} />
 
         <div className="space-y-2">
           <div className="grid gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
@@ -901,7 +979,7 @@ function PaymentModal({ reservation, aptName, onClose }:
                   {p.received ? <CheckCircle size={18} className="text-green-600" /> : <Circle size={18} className="text-amber-400" />}
                 </button>
               </div>
-              <input type="number" defaultValue={p.amount}
+              <input type="number" step="0.01" defaultValue={Math.round(p.amount * 100) / 100}
                 onBlur={e => handleUpdateField(p.id, 'amount', e.target.value)}
                 className="w-full border border-slate-200 rounded px-2 py-1 text-sm" />
               <input type="date" defaultValue={p.paymentDate || ''}
