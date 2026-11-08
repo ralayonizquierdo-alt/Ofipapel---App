@@ -394,6 +394,64 @@ function MemoriaPrecio({ lineas }: { lineas: string[] }) {
   )
 }
 
+/**
+ * «Cómo se calcula» de la ventana de Pagos: la cuenta de la reserva, la de la
+ * tarifa de hoy y la diferencia, con lo que hay que hacer si no cuadra.
+ */
+function ComoSeCalcula({ reservation: r, estado, porTarifa, difTarifa }: {
+  reservation: Reservation
+  estado: ReturnType<typeof estadoPrecio>
+  porTarifa: number | null
+  difTarifa: number | null
+}) {
+  const { prices, offerPrices } = useData()
+  const tarifa = estado.tipo === 'fuera' ? null : buscaTarifa(prices, r.apartmentId, r.checkIn, r.nights, offerPrices)
+  const limpiezaTarifa = tarifa ? limpiezaDe(r.apartmentId, Number(tarifa.entry.cleaningFee) || 40) : 0
+  const dto = Number(r.discountPct) || 0
+  const conDto = dto ? ` − ${dto} % dto` : ''
+  const noCuadra = estado.tipo === 'descuadre'
+
+  return (
+    <div className="rounded-lg border border-slate-200 text-sm" translate="no">
+      <p className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">Cómo se calcula</p>
+      <div className="px-3 py-2 space-y-1.5">
+        <p className="text-slate-700">
+          <span className="inline-block w-32 text-slate-500">Esta reserva</span>
+          base {eur(r.basePrice)} + limpieza {eur(r.cleaningFee || 0)}{conDto} = <b>{eur(r.total)}</b>
+          <span className="text-slate-400"> · registrada como «{STAY_LABELS[r.stayType]}»</span>
+        </p>
+        {tarifa && porTarifa !== null ? (
+          <p className="text-slate-700">
+            <span className="inline-block w-32 text-slate-500">Por tarifa hoy</span>
+            {tarifa.oferta ? <>oferta «{nombreOferta(tarifa.oferta)}»: </> : null}
+            {TRAMO_LABEL[tarifa.tramo]} {eur(tarifa.precioTramo)} ÷ {tarifa.diasTramo} días × {r.nights} noches
+            = {eur(tarifa.base)} + limpieza {eur(limpiezaTarifa)}{conDto} = <b>{eur(porTarifa)}</b>
+          </p>
+        ) : (
+          <p className="text-slate-500">
+            <span className="inline-block w-32">Por tarifa hoy</span>
+            {estado.tipo === 'fuera' ? `no se compara: ${estado.motivo}` : 'no hay tarifa en Precios para estas fechas'}
+          </p>
+        )}
+        {difTarifa !== null && porTarifa !== null && (
+          <p className={estado.tipo === 'pactado' ? 'text-blue-800' : Math.abs(difTarifa) < 1 ? 'text-slate-600' : 'text-amber-800 font-medium'}>
+            <span className="inline-block w-32 text-slate-500 font-normal">Diferencia</span>
+            {Math.abs(difTarifa) < 0.005 ? 'ninguna: sale de la tarifa'
+              : `${eur(Math.abs(difTarifa))} ${difTarifa < 0 ? 'menos' : 'más'} que la tarifa · `
+                + (estado.tipo === 'pactado' ? 'precio pactado' : Math.abs(difTarifa) < 1 ? 'redondeo' : 'no cuadra')}
+          </p>
+        )}
+        {noCuadra && (
+          <p className="mt-1 rounded bg-amber-50 border border-amber-200 px-2 py-1.5 text-xs text-amber-900">
+            Si el precio bueno es el de la tarifa: abre la reserva (lápiz ✏️) y guárdala con «Tarifa por tramos».
+            Si se acordó así: márcalo como <b>precio pactado</b>.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Reservation Form ──────────────────────────────────────────────────────────
 function ReservationForm({ apartments, prices, editing, onClose, onSave }:
   { apartments: Apartment[]; prices: PriceEntry[]; editing: Reservation | null; onClose: () => void; onSave: () => void }) {
@@ -824,18 +882,12 @@ function PaymentModal({ reservation, aptName, onClose }:
           {formatDate(reservation.checkIn)} → {formatDate(reservation.checkOut)} · {reservation.nights} noches · {reservation.notes}
         </div>
 
-        {/* Aquí se parte de lo que quedó guardado en la reserva, no de la tarifa
-            vigente hoy: el precio de una reserva cerrada no puede moverse
-            porque más adelante se cambie la lista de precios. */}
-        <MemoriaPrecio lineas={[
-          `Estancia registrada como «${STAY_LABELS[reservation.stayType]}»`,
-          ...lineasPrecio({
-            nights: reservation.nights,
-            basePrice: reservation.basePrice,
-            cleaningFee: reservation.cleaningFee,
-            discountPct: reservation.discountPct,
-          }),
-        ]} />
+        {/* Las dos cuentas una debajo de otra: lo que quedó guardado en la
+            reserva (eso no se mueve aunque cambie la lista de precios) y lo que
+            daría la tarifa de hoy, con la diferencia y qué hacer (Luis,
+            08/11/2026: «si la tarifa es 1.990, ¿cómo es que la reserva es
+            2.185?»). */}
+        <ComoSeCalcula reservation={reservation} estado={estado} porTarifa={porTarifa} difTarifa={difTarifa} />
 
         <div className="space-y-2">
           <div className="grid gap-2 text-xs font-medium text-slate-500 px-2" style={{gridTemplateColumns: '1fr 3fr 3fr 2fr 2fr 2fr'}}>
