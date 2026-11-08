@@ -7,6 +7,7 @@ import { usuarioActual } from '../lib/auth'
 import { formatDate, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import { useRecordado } from '../lib/recordado'
+import { cobradoDeReserva } from '../lib/anuladas'
 import Modal from './ui/Modal'
 import CuadroEstancia from './CuadroEstancia'
 import type { Reservation } from '../types'
@@ -62,7 +63,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   onVerCobros?: (apartmentId: string, year: number) => void
 }) {
   const navigate = useNavigate()
-  const { reservations, updateReservation } = useData()
+  const { reservations, payments, updateReservation } = useData()
   // La reserva tal como está ahora en la base: si se marca como pactada desde
   // aquí, la ficha lo enseña al momento.
   const r = reservations.find(x => x.id === reserva.id) ?? reserva
@@ -318,6 +319,36 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             )}
           </div>
         )}
+
+        {/* Anulada con dinero cobrado: avisa en el Dashboard hasta que se dice
+            aquí que está resuelto (Luis, 08/11/2026). Ver lib/anuladas.ts. */}
+        {r.status === 'cancelada' && (() => {
+          const cobradoAqui = cobradoDeReserva(r.id, payments)
+          if (r.anulacionResuelta) {
+            return (
+              <p className="text-xs text-slate-500 print:hidden">
+                Reserva anulada. El dinero cobrado se dio por resuelto
+                {r.anulacionResuelta.por ? ` por ${r.anulacionResuelta.por}` : ''} el {formatDate(r.anulacionResuelta.fecha)}.
+              </p>
+            )
+          }
+          if (cobradoAqui <= 0.005) return null
+          return (
+            <div className="rounded-lg border-2 border-red-300 bg-red-50 p-3 space-y-2 print:hidden">
+              <p className="text-sm font-semibold text-red-900">
+                Reserva anulada con {dec(cobradoAqui)} € cobrados
+              </p>
+              <p className="text-sm text-red-800">
+                Hay que devolverlos o pasarlos a otra reserva. Cuando esté hecho, márcalo y el aviso del Dashboard se quita.
+              </p>
+              <button type="button"
+                onClick={() => updateReservation(r.id, { anulacionResuelta: { por: usuarioActual() ?? undefined, fecha: today() } })}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700">
+                <Check size={15} /> Ya está resuelto
+              </button>
+            </div>
+          )
+        })()}
 
         {/* Solo en el papel: el pie del recibo que se manda a la agencia. */}
         <p className="hidden print:!block text-xs text-slate-500 border-t border-slate-200 pt-2">

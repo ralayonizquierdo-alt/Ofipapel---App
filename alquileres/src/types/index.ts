@@ -56,6 +56,12 @@ export interface Reservation {
    * de la tarifa no se distingue de uno mal metido. `null` = se quitó la marca.
    */
   precioPactado?: PrecioPactado | null
+  /**
+   * Una reserva anulada que tenía cobros avisa en el Dashboard hasta que alguien
+   * dice que ese dinero ya está resuelto: devuelto o pasado a otra reserva
+   * (Luis, 08/11/2026). Quién lo dijo y cuándo.
+   */
+  anulacionResuelta?: { por?: string; fecha: string } | null
 }
 
 export interface PrecioPactado {

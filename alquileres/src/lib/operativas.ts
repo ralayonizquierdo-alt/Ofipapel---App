@@ -122,7 +122,7 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
   {
     // pages/Dashboard.tsx — AvisoRojo
     que: 'Avisos en rojo',
-    formula: 'cobros vencidos e importes que no cuadran con la tarifa',
+    formula: 'reservas anuladas con cobros · cobros vencidos · importes que no cuadran con la tarifa',
     nota: '**Se pinchan** y abren el cuadre de la estancia para corregirlo. **Se van solos** en cuanto queda corregido.',
   },
   {
@@ -210,7 +210,9 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
   {
     // components/PegarWhatsApp.tsx — anular
     que: 'Anulaciones',
-    nota: 'Anular **no borra nada**: la reserva se queda con sus cobros y su historial, y sale del planning.',
+    nota: 'Anular **no borra nada**: la reserva se queda con sus cobros y su historial, y sale del planning. '
+      + 'Si tenía dinero cobrado, **avisa en rojo en el Dashboard** hasta que se devuelve o se pasa a otra reserva '
+      + 'y se pulsa **«Ya está resuelto»** en su ficha (desde 2026).',
   },
   {
     // components/PegarWhatsApp.tsx

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight, Ban } from 'lucide-react'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
@@ -16,6 +16,7 @@ import { num, numSuelto } from '../lib/formato'
 import { estadoPrecio, textoDiferencia } from '../lib/precioReserva'
 import FichaCuadre from '../components/FichaCuadre'
 import { useEnHistorial } from '../lib/volver'
+import { anuladasConCobros } from '../lib/anuladas'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_DASHBOARD } from '../lib/operativas'
 
@@ -85,6 +86,8 @@ export default function Dashboard() {
     .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn)),
   [reservations, prices, offerPrices])
   const eur = (n: number) => `${num(n, 2)} €`
+  /** Anuladas que se quedaron con dinero cobrado: ver lib/anuladas.ts. */
+  const anuladasCobradas = useMemo(() => anuladasConCobros(reservations, payments), [reservations, payments])
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -160,7 +163,7 @@ export default function Dashboard() {
       <AlertasDescuadre />
 
       {/* Alerts */}
-      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
+      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || anuladasCobradas.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
           {copiaPendiente && (
             <Link to="/config"
@@ -184,6 +187,14 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+          {anuladasCobradas.map(({ r, cobrado }) => (
+            <AvisoRojo key={`anulada-${r.id}`} icono={<Ban size={16} className="shrink-0 text-red-600" />}
+              titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
+              que="reserva anulada con cobros"
+              onClick={() => setFicha(r)}>
+              Tiene <strong>{eur(cobrado)}</strong> cobrados: hay que devolverlos o pasarlos a otra reserva.
+            </AvisoRojo>
+          ))}
           {vencidas.slice(0, 5).map(r => {
             const paid = getPaidAmount(r)
             const pending = r.total - paid
