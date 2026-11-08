@@ -99,7 +99,8 @@ const PRECIO_DE_LA_RESERVA: ReglaOperativa = {
   que: '¿De dónde sale el importe?',
   formula: '✅ de la tarifa · 🔵 precio pactado (con su motivo) · ⚠️ no cuadra con la tarifa',
   nota: 'Se rehace la cuenta con la tarifa y se compara con el importe guardado. **⚠️ quiere decir que no '
-    + 'consta como pactado**: o se corrige la reserva o se anota el motivo. No se compara el Arenal (lo pone '
+    + 'consta como pactado**: o se corrige la reserva o se anota el motivo. **Menos de 1 € de diferencia es '
+    + 'redondeo** y no avisa. El ⚠️ **se pincha** y abre la ficha con la tarifa. No se compara el Arenal (lo pone '
     + 'SOC) ni las estancias que **acabaron antes de 2026**; las que entran en 2025 y siguen en 2026, sí.',
 }
 

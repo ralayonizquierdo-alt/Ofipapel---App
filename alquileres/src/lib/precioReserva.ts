@@ -23,7 +23,10 @@ import { EJERCICIO_APP } from './cuentas'
 const PRECIO_DE_FUERA = ['AP2B']
 
 /** Diferencia que se da por buena: redondeos de céntimos. */
-const TOLERANCIA = 0.05
+// Menos de 1 €: la tarifa por noche lleva decimales y el importe se apuntó
+// redondeado. El Ático 402 del 02/07/2026 avisaba por 0,11 € (1.390,25 frente a
+// 1.390,36), y eso no es un descuadre (Luis, 08/11/2026).
+const TOLERANCIA = 1
 
 export type EstadoPrecio =
   | { tipo: 'tarifa'; esperado: number }

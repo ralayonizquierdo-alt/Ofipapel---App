@@ -19,6 +19,8 @@ import ImportarAirbnb from '../components/ImportarAirbnb'
 import { nombreDe, personasDe } from '../lib/huesped'
 import { num, numSuelto } from '../lib/formato'
 import Operativa from '../components/Operativa'
+import FichaCuadre from '../components/FichaCuadre'
+import { useEnHistorial } from '../lib/volver'
 import { OPERATIVA_RESERVAS } from '../lib/operativas'
 
 const STAY_LABELS: Record<StayType, string> = {
@@ -48,6 +50,13 @@ export default function Reservations() {
   const [showAirbnb, setShowAirbnb] = useState(false)
   const [editing, setEditing] = useState<Reservation | null>(null)
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null)
+  /**
+   * La ficha de cuadre, al pinchar el «⚠️ no cuadra con tarifa» de una fila: ahí
+   * se ve la tarifa, la cuenta y el enlace a Precios (Luis, 08/11/2026: «¿cuál
+   * es la tarifa? ¿se puede acceder a la tarifa?»). Al volver, abierta otra vez.
+   */
+  const [ficha, setFicha] = useState<Reservation | null>(null)
+  useEnHistorial('ficha', ficha?.id ?? null, id => setFicha(id ? reservations.find(r => r.id === id) ?? null : null))
   const [filterApt, setFilterApt] = useState('')
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()))
   /**
@@ -254,8 +263,12 @@ export default function Reservations() {
                           className="block text-[10px] font-medium text-blue-700">🔵 pactado</span>
                       )
                       if (p.tipo === 'descuadre') return (
-                        <span title={`Por tarifa serían ${eur(p.esperado)}: ${textoDiferencia(p.diferencia, eur)}. No consta como precio pactado.`}
-                          className="block text-[10px] font-medium text-amber-700">⚠️ no cuadra con tarifa</span>
+                        <button type="button"
+                          onClick={e => { e.stopPropagation(); setFicha(r) }}
+                          title={`Por tarifa serían ${eur(p.esperado)}: ${textoDiferencia(p.diferencia, eur)}. No consta como precio pactado. Pincha para ver la tarifa y la cuenta.`}
+                          className="block ml-auto text-[10px] font-medium text-amber-700 underline decoration-dotted hover:text-amber-900">
+                          ⚠️ no cuadra con tarifa
+                        </button>
                       )
                       const of = ofertaDeReserva(r, prices, offerPrices)
                       if (!of) return null
@@ -351,6 +364,8 @@ export default function Reservations() {
           onClose={() => setSelectedRes(null)}
         />
       )}
+
+      {ficha && <FichaCuadre reserva={ficha} onClose={() => setFicha(null)} />}
 
       {showPegar && <PegarWhatsApp onClose={() => setShowPegar(false)} />}
 
@@ -695,7 +710,7 @@ function ReservationForm({ apartments, prices, editing, onClose, onSave }:
                 <p className="text-xs text-blue-800" translate="no">
                   {segunTarifa === null
                     ? 'No hay tarifa para estas fechas con la que comparar.'
-                    : dif !== null && Math.abs(dif) > 0.05
+                    : dif !== null && Math.abs(dif) >= 1
                       ? `Por tarifa serían ${eur(segunTarifa)}: este importe es ${textoDiferencia(dif, eur)}.`
                       : `Coincide con la tarifa (${eur(segunTarifa)}).`}
                 </p>

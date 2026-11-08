@@ -26,7 +26,7 @@ function EstadoDelPrecio({ cuadre, compacto }: { cuadre: CuadreEstancia; compact
     return (
       <p className={`${caja} border-blue-300 bg-blue-50 text-blue-900`}>
         🔵 <b>Precio pactado</b>: «{p.pactado.motivo}»{quien ? ` (${quien})` : ''}.
-        {p.esperado !== null && p.diferencia !== null && Math.abs(p.diferencia) > 0.05 && (
+        {p.esperado !== null && p.diferencia !== null && Math.abs(p.diferencia) >= 1 && (
           <> Por tarifa serían {eur(p.esperado)}: {textoDiferencia(p.diferencia, eur)}.</>
         )}
       </p>
