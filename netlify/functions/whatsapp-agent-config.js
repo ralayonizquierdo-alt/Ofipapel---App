@@ -1256,6 +1256,24 @@ const RELLENO_AL_PEDIR = new Set([
   'viene', 'proximo', 'próximo', 'proxima', 'próxima', 'siguiente', 'nuevo', 'nueva',
   'unidades', 'unidad', 'uds', 'ud', 'por', 'sin', 'mas', 'más',
   'si', 'no', 'ok', 'vale',
+  // VERBOS Y MULETILLAS, que no son «otra cosa que pide».
+  //
+  // Esta lista decide si una respuesta de familia se aparta para que conteste
+  // el catálogo: lo que sobra tras quitar la palabra clave cuenta como «ha
+  // nombrado algo concreto». Con «vendéis spray de pegamento» sobraba
+  // «vendeis» y la respuesta se apartaba por una conjugación — el mismo fallo
+  // que obligó a quitarle la marca a las sillas el 4/11/2026.
+  //
+  // Lo que SÍ tiene que seguir contando es un producto («cartón pluma y
+  // además un spray»): ahí se aparta con razón, porque el cliente pide dos
+  // cosas y el catálogo las contesta mejor que una respuesta fija.
+  'vendeis', 'vendéis', 'vende', 'vendes', 'dispone', 'dispones', 'disponeis',
+  'disponéis', 'disponen', 'interesa', 'interesan', 'interesaria', 'interesaría',
+  'recomendais', 'recomendáis', 'recomiendan', 'recomienda', 'recomendarian',
+  'recomendarían', 'trabajais', 'trabajáis', 'trabajan', 'manejais', 'manejáis',
+  'vuestro', 'vuestra', 'vuestros', 'vuestras', 'nuestro', 'nuestra',
+  'ademas', 'además', 'tambien', 'también', 'aparte', 'encima', 'pregunta',
+  'sirve', 'sirven', 'valdria', 'valdría', 'habria', 'habría',
 ]);
 
 function palabrasPropias(normalizedText, keywords = []) {
@@ -1308,6 +1326,29 @@ const FAQ_RULES = [
     // sabe lo que quiere.
     familiaDeProducto: true,
     reply: (normalizedText) => (/agendar/.test(normalizedText) ? null : AGENDAS_INFO),
+  },
+  {
+    // PEGAMENTO EN SPRAY: el enlace, pero sin tapar lo demás.
+    //
+    // Enlace del propietario (8/11/2026). A diferencia del de las sillas, este
+    // SÍ lleva `familiaDeProducto`, y es a propósito: el spray casi nunca se
+    // pregunta solo. El caso que lo motivó pedía cartón pluma «y además» un
+    // spray, y si esta respuesta cortara el turno el cliente se quedaría sin
+    // la mitad — justo el fallo de las agendas del 2/11.
+    //
+    // Así, «¿tenéis pegamento en spray?» recibe el enlace, y «cartón pluma y
+    // además un spray» lo contesta el catálogo, que sabe de las dos cosas.
+    // Para que eso funcione hubo que arreglar antes la lista de muletillas:
+    // «vendéis» contaba como «otra cosa» y apartaba la respuesta por una
+    // conjugación.
+    keywords: [
+      'pegamento en spray', 'pegamento spray', 'spray de pegamento', 'spray pegamento',
+      'adhesivo en spray', 'adhesivo spray', 'spray adhesivo', 'cola en spray', 'spray de cola',
+    ],
+    familiaDeProducto: true,
+    // Función, no la constante: SPRAY_INFO se declara más abajo, igual que el
+    // resto de textos, y aquí se leería antes de existir.
+    reply: () => SPRAY_INFO,
   },
   {
     // SILLAS DE OFICINA Y ERGONÓMICAS: el enlace, directo.
@@ -1702,6 +1743,15 @@ const FAQ_RULES = [
 //
 // La dirección la fijó el propietario el 3/11/2026 — es la búsqueda de la web
 // ya hecha, con fotos y precios. No se toca ni se «mejora» sin que lo pida.
+// PEGAMENTO EN SPRAY.
+//
+// La dirección la fijó el propietario el 8/11/2026, después de la conversación
+// del cartón pluma: un cliente preguntó por cartón pluma Y por un spray de
+// pegamento para pegar encima papel fotográfico, y el bot contestó «lo siento,
+// no tengo la respuesta para eso» porque nunca llegó a buscarlo.
+const SPRAY_URL = 'https://ofipapel.net/?s=Pegamento+spray&post_type=product&dgwt_wcas=1';
+const SPRAY_INFO = `Aquí tienes nuestros pegamentos en spray, con fotos y precios: ${SPRAY_URL}\n\nSi me dices sobre qué material lo vas a usar, se lo paso a una persona del equipo para que te diga cuál va mejor.`;
+
 const SILLAS_URL = 'https://ofipapel.net/?s=Silla+oficina+gama+senior&post_type=product&dgwt_wcas=1';
 const SILLAS_INFO = `Aquí tienes nuestras sillas de oficina y ergonómicas, con fotos y precios: ${SILLAS_URL}\n\nY si prefieres probarlas antes de decidir, tenemos exposición de mobiliario de oficina en la tienda.`;
 
