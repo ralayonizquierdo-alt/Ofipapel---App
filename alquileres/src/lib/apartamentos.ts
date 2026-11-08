@@ -34,3 +34,13 @@ export function ordenaApartamentos<T extends { id: string; name?: string }>(list
 export function ordenDeApartamento(apartmentId: string): number {
   return posicion(apartmentId)
 }
+
+/** Reservas por apartamento, en el orden de la casa, y dentro de cada uno por fecha de entrada. */
+export function porApartamento(
+  a: { apartmentId: string; checkIn: string },
+  b: { apartmentId: string; checkIn: string },
+): number {
+  return posicion(a.apartmentId) - posicion(b.apartmentId)
+    || a.apartmentId.localeCompare(b.apartmentId)
+    || a.checkIn.localeCompare(b.checkIn)
+}

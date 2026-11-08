@@ -17,6 +17,7 @@ import { estadoPrecio, textoDiferencia } from '../lib/precioReserva'
 import FichaCuadre from '../components/FichaCuadre'
 import { useEnHistorial } from '../lib/volver'
 import { anuladasConCobros } from '../lib/anuladas'
+import { porApartamento } from '../lib/apartamentos'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_DASHBOARD } from '../lib/operativas'
 
@@ -70,7 +71,9 @@ export default function Dashboard() {
    * alerta, es lo normal — y mezclarlas tapaba las que sí importan. Las que
    * están por venir se siguen viendo en Reservas, con su columna «falta».
    */
-  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now)
+  // Por apartamento, en el orden de la casa, y dentro de cada uno por fecha
+  // (Luis, 08/11/2026: «haz que vayan ordenados por apartamentos»).
+  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now).sort(porApartamento)
   const porVenir = pendingPayment.length - vencidas.length
 
   /**
@@ -83,7 +86,7 @@ export default function Dashboard() {
       const p = estadoPrecio(r, prices, offerPrices)
       return p.tipo === 'descuadre' ? [{ r, esperado: p.esperado, diferencia: p.diferencia }] : []
     })
-    .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn)),
+    .sort((a, b) => porApartamento(a.r, b.r)),
   [reservations, prices, offerPrices])
   const eur = (n: number) => `${num(n, 2)} €`
   /** Anuladas que se quedaron con dinero cobrado: ver lib/anuladas.ts. */

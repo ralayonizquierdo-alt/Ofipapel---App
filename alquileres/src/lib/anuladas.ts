@@ -1,5 +1,6 @@
 import type { Payment, Reservation } from '../types'
 import { EJERCICIO_APP } from './cuentas'
+import { porApartamento } from './apartamentos'
 
 /**
  * Reservas anuladas que se quedaron con dinero cobrado.
@@ -22,5 +23,5 @@ export function anuladasConCobros(reservations: Reservation[], payments: Payment
     .filter(r => r.status === 'cancelada' && !r.anulacionResuelta && r.checkOut > `${EJERCICIO_APP}-01-01`)
     .map(r => ({ r, cobrado: cobradoDeReserva(r.id, payments) }))
     .filter(x => x.cobrado > 0.005)
-    .sort((a, b) => a.r.checkIn.localeCompare(b.r.checkIn))
+    .sort((a, b) => porApartamento(a.r, b.r))
 }

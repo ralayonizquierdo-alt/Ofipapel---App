@@ -130,7 +130,8 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     // pages/Dashboard.tsx — AvisoRojo
     que: 'Avisos en rojo',
     formula: 'reservas anuladas con cobros · cobros vencidos · importes que no cuadran con la tarifa',
-    nota: '**Se pinchan** y abren el cuadre de la estancia para corregirlo. **Se van solos** en cuanto queda corregido.',
+    nota: 'Van **por apartamento**, en el orden de la casa. **Se pinchan** y abren el cuadre de la estancia para '
+      + 'corregirlo. **Se van solos** en cuanto queda corregido.',
   },
   {
     // components/AvisoSolapes.tsx
