@@ -1545,6 +1545,7 @@ async function syncImportLogToCloud(){
 }
 
 const IMPORT_LOG_LABELS = {
+  impuestos:'Impuestos presentados (Excel diario)',
   volcado:'Volcado Diario (Excel)', cajaCierres:'Cierre de Cajas (PDF)',
   cajaBancoRecibos:'Banco / Comprobantes de ingreso (PDF)', ventasCaja:'Ventas Caja (Excel)',
   ventasWeb:'Ventas Web (Excel)', ventasAnual:'Ventas Anuales (Excel)',
@@ -1917,6 +1918,8 @@ function applyCloudDataset(key, payload){
     if(Array.isArray(payload)){ CONF_SANT_DATA=payload; try{ localStorage.setItem('op_confirming',JSON.stringify(CONF_SANT_DATA)); }catch(e){} renderPagares(); renderAlertas(); }
   } else if(key==='pagarestotales'){
     if(payload&&typeof payload.total==='number'){ PAG_TOTALES=payload; try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} renderPagares(); }
+  } else if(key==='impuestos'){
+    if(Array.isArray(payload)){ IMPUESTOS_PRES=payload; try{ localStorage.setItem('op_impuestos',JSON.stringify(IMPUESTOS_PRES)); }catch(e){} try{ renderAlertas(); }catch(e){} }
   } else if(key==='avisoexcel'){
     if(payload&&Array.isArray(payload.faltan)){ AVISO_EXCEL=payload; try{ localStorage.setItem('op_avisoexcel',JSON.stringify(AVISO_EXCEL)); }catch(e){} try{ renderAlertas(); }catch(e){} }
   } else if(key==='pagareshistorial'){
@@ -3502,6 +3505,7 @@ function getFiscalAlertas(){
   }
 
   return events
+    .filter(e => !_impuestoPresentado(e.mod))
     .map(e => { const diff = Math.round((e.dt - today) / MS); return {...e, diff}; })
     .filter(e => e.diff >= -30 && e.diff <= 90)
     .sort((a,b) => a.diff - b.diff)
@@ -4024,6 +4028,25 @@ function _parseConfirmingSheet(wb){
 // Solo se guarda lo de los últimos 120 días y lo futuro: lo anterior sin marca de cobro (pagarés de 2011-2024 con el «ingresado» sin rellenar) es historia ya cuadrada en los totales del Excel y saldría como falsos pendientes.
 // ── Aviso para quien sube el Excel diario: qué hojas faltan o vienen vacías (Pagarés, Confirming, Pool) ──
 let AVISO_EXCEL = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_avisoexcel')||'null'); if(g&&Array.isArray(g.faltan)) return g; }catch(e){} return {faltan:[]}; })();
+// ── Impuestos presentados: hoja «Impuestos» del Excel diario (Modelo | Descripción | Fecha límite | Presentado el | Importe | Notas) ──
+let IMPUESTOS_PRES = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_impuestos')||'null'); if(Array.isArray(g)) return g; }catch(e){} return []; })();
+const _kImp=t=>String(t==null?'':t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+function _impuestoPresentado(mod){ const k=_kImp(mod); return IMPUESTOS_PRES.some(x=>_kImp(x.mod)===k); }
+function _parseImpuestosSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/impuesto/i.test(n)); if(!nombre) return null;
+  const data=_datosHoja(wb,nombre,8), h=data.findIndex(r=>r.some(c=>/^\s*modelo\s*$/i.test(String(c==null?'':c))));
+  if(h<0) return {ok:false,filas:[]};
+  const col={}; data[h].forEach((c,j)=>{ const t=String(c==null?'':c).toLowerCase(); if(/^\s*modelo/.test(t)) col.mod=j; else if(/presentad/.test(t)) col.pres=j; else if(/importe/.test(t)) col.imp=j; else if(/nota|observ/.test(t)) col.nota=j; });
+  if(col.mod==null||col.pres==null) return {ok:false,filas:[]};
+  const filas=[];
+  data.slice(h+1).forEach(r=>{
+    const mod=String(r[col.mod]==null?'':r[col.mod]).trim(); let v=r[col.pres];
+    if(!mod||v===''||v==null) return;
+    let fecha=''; if(typeof v==='number') fecha=_serialAIso(v); else { const m=String(v).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/); if(m) fecha=`${m[3].length===2?'20'+m[3]:m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; else if(!/^\s*(si|sí|x|ok|presentado)\s*$/i.test(String(v))) return; }
+    filas.push({mod,presentado:fecha||'si',importe:typeof r[col.imp]==='number'?r[col.imp]:null,nota:String(r[col.nota]==null?'':r[col.nota]).trim()});
+  });
+  return {ok:true,filas};
+}
 function _guardarAvisoExcel(faltan,archivo){
   AVISO_EXCEL={ts:new Date().toISOString(),user:currentUser||'—',archivo:archivo||'',faltan};
   try{ localStorage.setItem('op_avisoexcel',JSON.stringify(AVISO_EXCEL)); }catch(e){}
@@ -4079,6 +4102,11 @@ function _importarPagConf(wb,archivo){
     }
     const pm=_importarPool(wb,archivo); if(pm) msg.push(pm.replace(/^ · /,''));
   }catch(e){ console.warn('Hoja Pool Bancario:',e); faltan.push('No se ha podido leer la hoja del Pool Bancario.'); }
+  try{
+    const im=_parseImpuestosSheet(wb);
+    if(im&&!im.ok) faltan.push('La hoja «Impuestos» no tiene la columna «Modelo» o «Presentado el» en su cabecera.');
+    else if(im){ IMPUESTOS_PRES=im.filas; try{ localStorage.setItem('op_impuestos',JSON.stringify(IMPUESTOS_PRES)); }catch(e){} syncDatasetToCloud('impuestos',IMPUESTOS_PRES); logImport('impuestos',archivo,IMPUESTOS_PRES.length); msg.push(`Impuestos: ${IMPUESTOS_PRES.length} presentado(s)`); }
+  }catch(e){ console.warn('Hoja Impuestos:',e); faltan.push('No se ha podido leer la hoja «Impuestos».'); }
   _guardarAvisoExcel(faltan,archivo);
   if(faltan.length) msg.push('⚠️ '+faltan.length+' aviso(s): ver la ventana roja');
   return msg.length?' · '+msg.join(' · '):'';
