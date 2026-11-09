@@ -286,10 +286,11 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
 
 export const OPERATIVA_COBROS: ReglaOperativa[] = [
   {
-    // Payment.mes — ver CLAUDE.md
-    que: 'Mes contable',
-    formula: 'manda el mes contable del cobro, no la fecha en que se pagó',
-    nota: 'El alquiler de enero del 106 se pagó el 31 de diciembre y **cuenta en enero**. Sin mes contable, se usa la fecha.',
+    // lib/mesContable.ts
+    que: 'Mes del cobro',
+    formula: 'cada pago cuenta en el mes de la reserva que paga, no en el de la fecha del pago',
+    nota: 'La reserva de diciembre pagada el 5 de enero **cuenta en diciembre**, como lo declara la asesoría. '
+      + 'Los cobros del Excel, en su mes contable.',
   },
   {
     // pages/Collections.tsx — CobrosPorReserva
@@ -427,6 +428,12 @@ export const OPERATIVA_ASESORIA: ReglaOperativa[] = [
     // lib/cuentas.ts — cuentasDe()
     que: 'De dónde salen las cifras',
     nota: 'Del **mismo cálculo** que Analítica. Con Excel de ingresos del año, manda el Excel.',
+  },
+  {
+    // lib/mesContable.ts
+    que: 'Mes de cada ingreso',
+    formula: 'el mes de la reserva que paga, no el de la fecha del pago',
+    nota: 'Así **el total del año cuadra con la asesoría**: la reserva de diciembre pagada en enero es de ese año.',
   },
   {
     // lib/compararGestor.ts

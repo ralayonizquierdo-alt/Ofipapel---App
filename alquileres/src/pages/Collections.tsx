@@ -1,4 +1,5 @@
 import { Fragment, useState, useMemo, useCallback, type ReactNode } from 'react'
+import { mesContable, mesContableCon } from '../lib/mesContable'
 import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote, Check } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import Modal from '../components/ui/Modal'
@@ -67,7 +68,7 @@ export default function Collections() {
     for (const p of payments) {
       const r = reservations.find(x => x.id === p.reservationId)
       const apt = p.apartmentId ?? r?.apartmentId
-      const cuando = p.mes ?? p.paymentDate
+      const cuando = mesContable(p, r)
       if (apt && cuando?.startsWith(String(year))) conMovimiento.add(apt)
     }
     return allApartments.filter(a => a.active || conMovimiento.has(a.id))
@@ -90,11 +91,11 @@ export default function Collections() {
   /**
    * Mes al que pertenece un cobro, «AAAA-MM».
    *
-   * Manda el mes contable del Excel cuando lo trae: el alquiler de enero del
-   * 106 se pagó el 31 de diciembre y cuenta en enero. Si no, la fecha del
-   * movimiento, que es lo único que tienen los cobros metidos por la app.
+   * Manda el mes contable del Excel cuando lo trae. Si no, el mes de la
+   * reserva que paga (Luis, 09/11/2026: la de diciembre pagada el 5 de enero
+   * es de diciembre). Ver lib/mesContable.ts.
    */
-  const mesDe = useCallback((p: Payment) => p.mes || p.paymentDate?.slice(0, 7), [])
+  const mesDe = useMemo(() => mesContableCon(reservations), [reservations])
 
   /**
    * Apartamento de un cobro: el suyo propio si lo lleva —los del Excel van por
