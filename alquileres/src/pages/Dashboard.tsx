@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight, Ban } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight, Ban, Mail } from 'lucide-react'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
@@ -15,7 +15,8 @@ import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
 import { num, numSuelto } from '../lib/formato'
 import { estadoPrecio, textoDiferencia } from '../lib/precioReserva'
-import FichaCuadre from '../components/FichaCuadre'
+import FichaCuadre, { type ModeloFicha } from '../components/FichaCuadre'
+import { conformidadesPorEnviar, HORAS_ESPERA } from '../lib/conformidades'
 import { useEnHistorial } from '../lib/volver'
 import { anuladasConCobros } from '../lib/anuladas'
 import { porApartamento } from '../lib/apartamentos'
@@ -32,6 +33,20 @@ export default function Dashboard() {
    * una vez corregido se elimine»).
    */
   const [ficha, setFicha] = useState<Reservation | null>(null)
+  /** Con qué pestaña se abre la ficha: la conformidad, si se viene de su aviso. */
+  const [modeloFicha, setModeloFicha] = useState<ModeloFicha>('cuadre')
+  const abreFicha = (r: Reservation, modelo: ModeloFicha = 'cuadre') => { setModeloFicha(modelo); setFicha(r) }
+  /**
+   * Conformidades por enviar (Luis, 09/11/2026): avisan a las HORAS_ESPERA de
+   * entrar la reserva. Se mira cada minuto para que salgan a su hora sin
+   * recargar. Ver lib/conformidades.ts.
+   */
+  const [ahora, setAhora] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setAhora(new Date()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const conformidades = useMemo(() => conformidadesPorEnviar(reservations, ahora), [reservations, ahora])
   // Si desde la ficha se va a otra pantalla, al volver sale otra vez abierta.
   useEnHistorial('ficha', ficha?.id ?? null, id => setFicha(id ? reservations.find(r => r.id === id) ?? null : null))
 
@@ -170,6 +185,39 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {conformidades.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border-2 border-blue-300 overflow-hidden">
+          <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-200 flex items-center gap-2">
+            <Mail size={16} className="text-blue-700" />
+            <p className="text-sm font-bold text-blue-900">Conformidades por enviar</p>
+            <span className="bg-red-600 text-white text-xs rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center font-bold">
+              {conformidades.length}
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {conformidades.map(({ r }) => (
+              <div key={r.id} className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {r.nights} noches · {eur(r.total)} · entró el {new Date(r.createdAt).toLocaleString('es-ES', {
+                      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+                <button type="button" onClick={() => abreFicha(r, 'conformidad')}
+                  title={`Abre la conformidad; desde ahí, «Enviar por correo». Avisa a las ${HORAS_ESPERA} horas de entrar la reserva.`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
+                  <Mail size={14} /> Preparar correo
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Arreglo de una vez de las estancias que se pisaban. Desaparece solo
           cuando no queda nada pendiente. */}
       <CorreccionesLuis />
@@ -224,7 +272,7 @@ export default function Dashboard() {
             <AvisoRojo key={`anulada-${r.id}`} icono={<Ban size={16} className="shrink-0 text-red-600" />}
               titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
               que="reserva anulada con cobros"
-              onClick={() => setFicha(r)}>
+              onClick={() => abreFicha(r)}>
               Tiene <strong>{eur(cobrado)}</strong> cobrados: hay que devolverlos o pasarlos a otra reserva.
             </AvisoRojo>
           ))}
@@ -235,7 +283,7 @@ export default function Dashboard() {
               <AvisoRojo key={r.id} icono={<Clock size={16} className="shrink-0 text-red-600" />}
                 titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
                 que="ya terminó y no está cobrada del todo"
-                onClick={() => setFicha(r)}>
+                onClick={() => abreFicha(r)}>
                 Falta por cobrar: <strong>{pending.toFixed(2)} €</strong> · cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €
               </AvisoRojo>
             )
@@ -247,7 +295,7 @@ export default function Dashboard() {
             <AvisoRojo key={`tarifa-${r.id}`} icono={<AlertTriangle size={16} className="shrink-0 text-red-600" />}
               titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
               que="el importe no sale de la tarifa"
-              onClick={() => setFicha(r)}>
+              onClick={() => abreFicha(r)}>
               Importe <strong>{eur(r.total)}</strong> · por tarifa serían {eur(esperado)}, {textoDiferencia(diferencia, eur)}.
               No consta como precio pactado.
             </AvisoRojo>
@@ -311,7 +359,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {ficha && <FichaCuadre reserva={ficha} onClose={() => setFicha(null)} />}
+      {ficha && <FichaCuadre key={`${ficha.id}-${modeloFicha}`} reserva={ficha} modeloInicial={modeloFicha}
+        onClose={() => setFicha(null)} />}
     </div>
   )
 }

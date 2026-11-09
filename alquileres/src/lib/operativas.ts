@@ -128,6 +128,14 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
   },
   ENTRADA_RAPIDA,
   {
+    // lib/conformidades.ts
+    que: 'Conformidades por enviar',
+    formula: 'reserva pegada en la Entrada rápida + 2 horas',
+    nota: 'A las **2 horas** de entrar una reserva (salvo las de Airbnb) sale aquí y como **globo rojo en el icono '
+      + 'de Alquileres del hub**. «Preparar correo» abre su conformidad: «Enviar por correo» y **se quita sola**. '
+      + 'El globo del hub se pone al día al abrir Alquileres en ese ordenador.',
+  },
+  {
     // components/CorregirTarifaAno.tsx, lib/tarifaAnoSiguiente.ts
     que: 'Tarifa del año siguiente',
     nota: 'Hasta el 06/11/2026 algunas reservas se calcularon con la tabla de Precios del **año siguiente**. El aviso '

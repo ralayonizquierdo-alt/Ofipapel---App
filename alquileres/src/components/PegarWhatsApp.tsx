@@ -249,6 +249,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         channel: l.origen === 'airbnb' ? 'airbnb' : 'inmobiliaria',
         basePrice: p.base ?? 0, cleaningFee: p.limpieza ?? 0, discountPct: 0,
         total: p.total, status: 'confirmada',
+        // La de la inmobiliaria pide su conformidad a la asesoría; la de Airbnb
+        // (el Arenal) la gestiona SOC. Ver lib/conformidades.ts.
+        ...(l.origen === 'airbnb' ? {} : { pideConformidad: true }),
         notes: `Alta desde ${l.origen === 'airbnb' ? 'el aviso de Airbnb' : 'el mensaje'}: ${l.texto}`,
       })
       addPayment({ reservationId: res.id, amount: p.total, received: false })

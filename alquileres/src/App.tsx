@@ -13,6 +13,7 @@ import AvisoSolapes from './components/AvisoSolapes'
 import AvisoVersion from './components/AvisoVersion'
 import BotonVolver from './components/BotonVolver'
 import { solapes } from './lib/solapes'
+import { conformidadesPorEnviar, publicaParaElHub } from './lib/conformidades'
 import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
@@ -321,7 +322,8 @@ export default function App() {
     // haber, y así se ven desde cualquier pantalla sin entrar en el panel.
     // `solapes()` ya solo devuelve los de hoy en adelante.
     const pisadas = solapes(reservations).length
-    return pisadas + reservations.filter(r => {
+    // Y las conformidades que ya toca preparar (lib/conformidades.ts).
+    return pisadas + conformidadesPorEnviar(reservations).length + reservations.filter(r => {
       if (r.status === 'cancelada') return false
       if (new Date(r.checkOut) < today) return false
       const paid = payments
@@ -330,6 +332,13 @@ export default function App() {
       return paid < r.total
     }).length
   }, [reservations, payments])
+
+  // El globo del icono de Alquileres en el hub (inicio.html) sale de aquí:
+  // cada vez que cambian las reservas se le deja la lista de conformidades
+  // pendientes. Sin datos cargados no se toca, para no borrarle el globo.
+  useEffect(() => {
+    if (!loading && currentUser) publicaParaElHub(reservations)
+  }, [reservations, loading, currentUser])
 
   // Primero la sesión y luego los datos: sin sesión no se pide nada, así que
   // esperar a «loading» antes del login dejaría la pantalla colgada.

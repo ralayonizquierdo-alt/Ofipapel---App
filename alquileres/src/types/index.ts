@@ -57,6 +57,13 @@ export interface Reservation {
    */
   precioPactado?: PrecioPactado | null
   /**
+   * La reserva entró por la Entrada rápida del Dashboard y hay que mandar a la
+   * asesoría su conformidad (Luis, 09/11/2026). Ver lib/conformidades.ts.
+   */
+  pideConformidad?: boolean
+  /** Cuándo y quién preparó el correo o el WhatsApp de la conformidad. */
+  conformidadPreparada?: { fecha: string; por?: string; via: 'correo' | 'whatsapp' } | null
+  /**
    * Una reserva anulada que tenía cobros avisa en el Dashboard hasta que alguien
    * dice que ese dinero ya está resuelto: devuelto o pasado a otra reserva
    * (Luis, 08/11/2026). Quién lo dijo y cuándo.

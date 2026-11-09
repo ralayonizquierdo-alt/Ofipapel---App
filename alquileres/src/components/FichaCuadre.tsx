@@ -203,6 +203,15 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
    * al final se le dio a Enviar.
    */
   function apuntaEnvio(por: 'Correo' | 'WhatsApp') {
+    // Con la conformidad preparada, deja de avisar en el Dashboard y en el hub.
+    if (conformidad) {
+      updateReservation(r.id, {
+        conformidadPreparada: {
+          fecha: new Date().toISOString(), por: usuarioActual() ?? undefined,
+          via: por === 'Correo' ? 'correo' : 'whatsapp',
+        },
+      })
+    }
     anotaVolcado({
       origen: 'envio', year: Number(r.checkIn.slice(0, 4)),
       resumen: `${por} preparado: ${conformidad ? 'conformidad' : 'cuadre'} de ${nombre}, `
