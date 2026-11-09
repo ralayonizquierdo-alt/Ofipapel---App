@@ -4082,24 +4082,43 @@ function _importarPagConf(wb,archivo){
 }
 // ── Hoja «Pool Bancario (TOTAL)» (o «POOL (BANCOS)»): los préstamos reales, con saldo, cuota y vencimiento ──
 function _parsePoolSheet(wb){
-  const nombre=(wb.SheetNames||[]).find(n=>/pool.*total/i.test(n))||(wb.SheetNames||[]).find(n=>/pool/i.test(n)); if(!nombre) return null;
-  const data=_datosHoja(wb,nombre,15), items=[]; let actualizado='';
+  // Hojas del pool: «Pool Bancario (TOTAL)» primero (lleva además los préstamos de Luis) y «POOL (BANCOS)» de respaldo.
+  // Las columnas se buscan por los títulos de la cabecera (en la TOTAL están corridas una columna respecto a la otra y pueden traer restos a la izquierda).
+  const hojas=(wb.SheetNames||[]).filter(n=>/pool/i.test(n)).sort((x,y)=>(/total/i.test(y)?1:0)-(/total/i.test(x)?1:0)); if(!hojas.length) return null;
   const fEs=iso=>iso?iso.split('-').reverse().join('/'):'';
   const bancoDe=k=>{ const t=String(k||'').trim(), n=t.replace(/\D/g,''); const b=/CX|CAIXA/i.test(t)?'CaixaBank':/BS|SANT/i.test(t)?'Santander':/BBVA/i.test(t)?'BBVA':t.replace(/\d/g,''); return b+(n?` (${n})`:''); };
-  data.forEach(r=>{
-    const act=String(r[2]||'').match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(act) actualizado=`${act[3]}-${act[2].padStart(2,'0')}-${act[1].padStart(2,'0')}`;
-    const titulo=String(r[2]||'').replace(/\s+/g,' ').trim(), nominal=r[3];
-    if(!titulo||typeof nominal!=='number') return;
-    let vto=''; if(typeof r[6]==='number') vto=fEs(_serialAIso(r[6])); else { const m=String(r[6]||'').match(/^(\d{2})(\d{2})\/(\d{4})$/); if(m) vto=`${m[1]}/${m[2]}/${m[3]}`; }
-    const pend=typeof r[5]==='number'?Math.abs(r[5]):nominal, poliza=/poliza|póliza/i.test(titulo);
-    const hip=/hipoteca/i.test(String(r[12]||'')), ico=/\bICO\b/i.test(titulo);
-    const e0=v=>Math.round(v).toLocaleString('es-ES');
-    const detalle=[(typeof r[8]==='number'&&typeof r[9]==='number')?`Capital ${e0(r[8])}€ + Interés ${e0(r[9])}€`:'',String(r[13]||'').trim()?String(r[13]).trim():'',String(r[11]||'').trim()?`Cargo a ${String(r[11]).trim()}`:''].filter(Boolean).join(' · ');
-    items.push({nombre:titulo,banco:bancoDe(r[10]),tipo:hip?'hip':ico?'ico2':'',nominal,pendiente:pend,cuota:typeof r[7]==='number'?r[7]:0,vto,
-      pct:nominal>0?Math.max(0,Math.min(100,Math.round((poliza?pend/nominal:1-pend/nominal)*100))):0,detalle,estado:'normal',origen:'excel'});
-  });
-  // la fecha «ACTUALIZADO …» puede estar en la otra hoja del pool («POOL (BANCOS)») y no en la «TOTAL»
-  if(!actualizado) (wb.SheetNames||[]).filter(n=>/pool/i.test(n)&&n!==nombre).forEach(n=>{ _datosHoja(wb,n,15).forEach(r=>{ const act=String(r[2]||'').match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(act){ const f=`${act[3]}-${act[2].padStart(2,'0')}-${act[1].padStart(2,'0')}`; if(f>actualizado) actualizado=f; } }); });
+  const e0=v=>Math.round(v).toLocaleString('es-ES');
+  let actualizado='';
+  const leer=nombre=>{
+    const data=_datosHoja(wb,nombre,20), items=[];
+    data.forEach(r=>r.forEach(c=>{ const m=String(c==null?'':c).match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(m){ const f=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; if(f>actualizado) actualizado=f; } }));
+    let h=data.findIndex(r=>r.some(c=>/^\s*t[ií]tulo\s*$/i.test(String(c==null?'':c))));
+    let col={titulo:2,nominal:3,saldo:5,vto:6,cuota:7,cap:8,int:9,banco:10,cargo:11,tipo:12,obs:13};   // disposición antigua, si no hay cabecera
+    if(h>=0){
+      col={};
+      data[h].forEach((c,j)=>{ const t=String(c==null?'':c).toLowerCase().replace(/[\s.º]+/g,' ').trim();
+        if(/^t[ií]tulo$/.test(t)) col.titulo=j; else if(t==='nominal') col.nominal=j; else if(/^saldo/.test(t)) col.saldo=j; else if(/fecha vto|^vto/.test(t)) col.vto=j;
+        else if(/pago mes/.test(t)) col.cuota=j; else if(/^capital/.test(t)) col.cap=j; else if(/^intereses/.test(t)) col.int=j; else if(/^banco/.test(t)) col.banco=j;
+        else if(/^cargo/.test(t)) col.cargo=j; else if(/^hipoteca/.test(t)) col.tipo=j; else if(/^observ/.test(t)) col.obs=j; });
+      if(col.titulo==null||col.nominal==null) return items;
+    }
+    data.slice(h>=0?h+1:0).forEach(r=>{
+      const titulo=String(r[col.titulo]==null?'':r[col.titulo]).replace(/\s+/g,' ').trim(), nominal=r[col.nominal];
+      if(!titulo||typeof nominal!=='number'||/actualizado/i.test(titulo)) return;
+      const v=r[col.vto]; let vto=''; if(typeof v==='number') vto=fEs(_serialAIso(v)); else { const m=String(v||'').match(/^(\d{2})(\d{2})\/(\d{4})$/); if(m) vto=`${m[1]}/${m[2]}/${m[3]}`; }
+      const sal=r[col.saldo], pend=typeof sal==='number'?Math.abs(sal):nominal, poliza=/poliza|póliza/i.test(titulo);
+      const tipoTxt=String(r[col.tipo]==null?'':r[col.tipo]), hip=/hipoteca/i.test(tipoTxt), ico=/\bICO\b/i.test(titulo)||/\bICO\b/i.test(tipoTxt);
+      const cap=r[col.cap], inte=r[col.int], obs=String(r[col.obs]==null?'':r[col.obs]).trim(), cargo=String(r[col.cargo]==null?'':r[col.cargo]).trim();
+      const detalle=[(typeof cap==='number'&&typeof inte==='number')?`Capital ${e0(cap)}€ + Interés ${e0(inte)}€`:'',obs,cargo?`Cargo a ${cargo}`:''].filter(Boolean).join(' · ');
+      items.push({nombre:titulo,banco:bancoDe(r[col.banco]),tipo:hip?'hip':ico?'ico2':'',nominal,pendiente:pend,cuota:typeof r[col.cuota]==='number'?r[col.cuota]:0,vto,
+        pct:nominal>0?Math.max(0,Math.min(100,Math.round((poliza?pend/nominal:1-pend/nominal)*100))):0,detalle,estado:'normal',origen:'excel'});
+    });
+    return items;
+  };
+  let items=[];
+  for(const n of hojas){ const it=leer(n); if(it.length>=3){ items=it; break; } if(it.length>items.length) items=it; }
+  // la fecha «ACTUALIZADO …» puede estar solo en la otra hoja del pool: se mira en todas
+  hojas.forEach(n=>_datosHoja(wb,n,20).forEach(r=>r.forEach(c=>{ const m=String(c==null?'':c).match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(m){ const f=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; if(f>actualizado) actualizado=f; } })));
   items.forEach(i=>i.actualizado=actualizado);
   return {items,actualizado};
 }
