@@ -3250,8 +3250,11 @@ function renderAlertas(){
   if(confProx.length>0) alerts.push({type:'warn', ico:'🏦', ttl:`Confirming Santander — ${confProx.length} pago(s) esta semana`, txt:`Total a pagar en los próximos 7 días: ${fmt(sumConf7)}. Proveedores: ${confProx.map(c=>c.proveedor).join(', ')}.`});
 
   // Carga financiera
-  const cargaMes = DEUDA_DATA.filter(d=>d.tipo!=='alerta'&&(d.estado||'normal')!=='alerta'&&d.estado!=='resuelto').reduce((t,d)=>t+d.cuota,0);
-  alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.`});
+  // «Estructural» = hipotecas, ICO y préstamos de siempre; los préstamos puntuales de IGIC (3 meses para pagar el trimestre) se cuentan aparte
+  const _vivos = DEUDA_DATA.filter(d=>d.tipo!=='alerta'&&(d.estado||'normal')!=='alerta'&&d.estado!=='resuelto');
+  const cargaMes = _vivos.filter(d=>!/igic/i.test(d.nombre)).reduce((t,d)=>t+d.cuota,0);
+  const cargaIgic = _vivos.filter(d=>/igic/i.test(d.nombre)).reduce((t,d)=>t+d.cuota,0);
+  alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.${cargaIgic>0?` Además, los préstamos puntuales de IGIC suman ${fmt(cargaIgic)}/mes hasta que se paguen.`:''}`});
 
   const fiscalAlerts = getFiscalAlertas();
 
