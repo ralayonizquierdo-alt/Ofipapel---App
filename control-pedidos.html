@@ -534,7 +534,7 @@ function filaMovil(p, e) {
   const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
   return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</div>
     <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.hayRepetida ? ` <span class="chip mal">foto repetida</span>` : ''}</div>
-    <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
+    <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${chipVisto(p)}</div>`;
 }
 function celdaFotos(p) {
   const r = hojasDe(p);
@@ -886,7 +886,7 @@ function vistaGrupo(g, i) {
         <td class="num c-d">${p.lineas.length}</td>
         <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
+        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${chipVisto(p)}</td>
         <td class="c-movil">${filaMovil(p, e)}</td>
         <td class="no-imprimir c-borrar">${esRepo(p) ? `<button class="btn peque" title="Archivar este pedido (queda abajo, en Archivados)" onclick="event.stopPropagation(); archivarPedido('${p.id}', true)">📦</button> ` : ''}<button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
@@ -1480,8 +1480,29 @@ function quitarFoto(nombre) {
 const CLAVE_AVISOS = 'ofipapel-control-pedidos-avisos';
 let avisos = (() => { try { return JSON.parse(localStorage.getItem(CLAVE_AVISOS)) || []; } catch { return []; } })();
 function guardarAvisos() { try { localStorage.setItem(CLAVE_AVISOS, JSON.stringify(avisos)); } catch { /* solo en memoria */ } }
+// Visto se apunta también en el propio pedido (p.vistos {usuario: fecha}):
+// así se quita en los demás aparatos de esa persona y quien lo subió ve
+// «👁️ Visto por …».
+function yaVisto(p) { return !!(p && nube.usuario && p.vistos && p.vistos[nube.usuario]); }
+function marcarVisto(ids) {
+  if (!nube.usuario) return;
+  let cambio = false;
+  for (const id of ids) {
+    const p = pedidoPorId(id);
+    if (!p || yaVisto(p)) continue;
+    p.vistos = Object.assign({}, p.vistos, { [nube.usuario]: new Date().toISOString() });
+    cambio = true;
+  }
+  if (cambio) guardar();
+}
+function chipVisto(p) {
+  const otros = Object.entries(p.vistos || {}).filter(([u]) => u !== nube.usuario);
+  if (!otros.length) return '';
+  const nombre = (u) => u.charAt(0).toUpperCase() + u.slice(1);
+  return ` <span class="chip ok" title="${h(otros.map(([u, f]) => nombre(u) + ' · ' + fmtFecha(String(f).slice(0, 10))).join('\n'))}">👁️ Visto por ${h(otros.map(([u]) => nombre(u)).join(', '))}</span>`;
+}
 function avisosVivos() {
-  const vivos = avisos.filter((a) => pedidoPorId(a.id));
+  const vivos = avisos.filter((a) => { const p = pedidoPorId(a.id); return p && !yaVisto(p); });
   if (vivos.length !== avisos.length) { avisos = vivos; guardarAvisos(); }
   return avisos;
 }
@@ -1498,7 +1519,7 @@ function pintarCampana() {
 function quitarAviso(id) {
   const antes = avisos.length;
   avisos = avisos.filter((a) => a.id !== id);
-  if (avisos.length !== antes) { guardarAvisos(); pintarCampana(); }
+  if (avisos.length !== antes) { marcarVisto([id]); guardarAvisos(); pintarCampana(); }
 }
 function abrirAvisos() {
   const lista = avisosVivos();
@@ -1523,7 +1544,7 @@ function abrirAvisos() {
       </div>`).join('')}`).join('')
     : '<div class="vacio">No hay pedidos nuevos.</div>'}
     <div class="fila" style="margin-top:14px">
-      ${lista.length ? `<button class="btn" onclick="avisos = []; guardarAvisos(); pintarCampana(); document.getElementById('dlgAvisos').close()">✓ Marcar todo como visto</button>` : ''}
+      ${lista.length ? `<button class="btn" onclick="marcarVisto(avisos.map((a) => a.id)); avisos = []; guardarAvisos(); pintarCampana(); document.getElementById('dlgAvisos').close()">✓ Marcar todo como visto</button>` : ''}
       <button class="btn peque" onclick="document.getElementById('dlgAvisos').close()">Cerrar</button>
     </div>`;
   dlg.showModal();
@@ -4283,7 +4304,7 @@ async function sincronizar() {
         for (const f of filas) {
           if (f.coleccion !== 'pedidos' || f.borrado || teniamos.has(f.id) || !f.autor || f.autor === nube.usuario) continue;
           const p = E.pedidos.find((x) => String(x.id) === f.id);
-          if (!p || avisos.some((a) => a.id === p.id) || (esComercial() && esRepo(p))) continue;
+          if (!p || yaVisto(p) || avisos.some((a) => a.id === p.id) || (esComercial() && esRepo(p))) continue;
           avisos.push({ id: p.id, autor: f.autor, cuando: f.actualizado });
         }
         guardarAvisos();
