@@ -416,10 +416,10 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                 )
               })() : (
                 <>
-                  <p className="text-2xl font-semibold tracking-wide text-slate-400">PEGA AQUÍ EL TEXTO</p>
+                  <p className="text-xl sm:text-2xl font-semibold tracking-wide text-slate-400">PEGA AQUÍ EL TEXTO</p>
                   {/* Qué se puede pegar, con el color con que sale al cargarlo
                       (Luis, 10/11/2026). */}
-                  <p className="mt-1 text-xl font-bold tracking-wide">
+                  <p className="mt-1 text-[15px] sm:text-xl font-bold sm:tracking-wide whitespace-nowrap">
                     <span className={COLOR_CARGADO.reserva.titulo}>RESERVAS</span>
                     <span className="text-slate-300"> · </span>
                     <span className={COLOR_CARGADO.cobro.titulo}>COBROS</span>
