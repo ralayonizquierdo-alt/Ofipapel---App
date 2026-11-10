@@ -454,8 +454,13 @@ test('control de la factura final: lo que no ha venido, lo que sobra y los cambi
 });
 
 test('hojas del pedido: cuenta fotos y avisa de la hoja que falta', () => {
-  const r = CP.hojasDelPedido([{ hoja: '1/4' }, { hoja: 'Hoja 2 de 4' }, { hoja: '4-4' }, { hoja: '' }]);
-  assert.deepEqual([r.fotos, r.hojas, r.total, r.faltan], [4, [1, 2, 4], 4, [3]]);
+  const r = CP.hojasDelPedido([{ hoja: '1/4' }, { hoja: 'Hoja 2 de 4' }, { hoja: '4-4' }]);
+  assert.deepEqual([r.fotos, r.hojas, r.total, r.faltan], [3, [1, 2, 4], 4, [3]]);
+  // una foto sin nº de hoja cubre la que falta
+  assert.deepEqual(CP.hojasDelPedido([{ hoja: '1/4' }, { hoja: 'Hoja 2 de 4' }, { hoja: '4-4' }, { hoja: '' }]).faltan, []);
+  // pedido de 1 hoja puesto a mano, con su foto sin nº: no falta nada (caso real 10/11/2026)
+  assert.deepEqual(CP.hojasDelPedido([{ hoja: '' }], 1).faltan, []);
+  assert.deepEqual(CP.hojasDelPedido([], 1).faltan, [1]);
   assert.deepEqual(CP.hojasDelPedido([{ hoja: '1/1' }]).faltan, []);
   assert.equal(CP.hojasDelPedido([{ hoja: '' }, { hoja: 'pedido 5' }]).total, null, 'sin numeración no se adivina');
   assert.equal(CP.hojasDelPedido([]).fotos, 0);
