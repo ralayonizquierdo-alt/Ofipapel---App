@@ -130,6 +130,15 @@ function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null, 
   // Lo que más cuadra, primero: el buscador ya ordena por parecido, pero con
   // las palabras del cliente delante se afina (ver cuantoCuadra).
   const palabras = palabrasDeLaConsulta(consulta);
+
+  // SIN NINGUNA PALABRA DE PRODUCTO, AQUÍ NO HAY NADA QUE CONTESTAR.
+  //
+  // «Si existen, ¿cuánto cuestan?» se queda sin una sola palabra con
+  // contenido: son todas muletillas. Antes eso contaba como «cuadra perfecto»
+  // (cero de cero) y se le colocaba el primer resultado de la búsqueda —
+  // justo el fallo del 10/11/2026. Un mensaje así es una pregunta de
+  // seguimiento: la contesta la IA, que tiene el hilo.
+  if (consulta && palabras.length === 0) return null;
   const puntuados = productos
     .map((p) => ({ p, cuadre: cuantoCuadra(p.nombre, palabras) }))
     .sort((a, b) => b.cuadre - a.cuadre);
