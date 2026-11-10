@@ -187,7 +187,7 @@ console.log('\n=== 5. El buzón que no existe (ofipapel.net no tiene correo)');
   comprobar(!avisaQueEscribioA('escribi a pedidos@ofipapelsl.com y nada'), 'ni con el nuestro, que sí existe');
 }
 
-console.log('\n=== 6. Lo encontrado cuadra, o se dice que solo se parece');
+console.log('\n=== 6. O cuadra de verdad, o aquí no se contesta');
 {
   // La IA, además de redactar, juzgaba si los resultados venían a cuento. Al
   // quitarla de las respuestas de producto se perdió ese juicio y «necesito
@@ -205,14 +205,21 @@ console.log('\n=== 6. Lo encontrado cuadra, o se dice que solo se parece');
     comprobar(/Esto es lo que tenemos/.test(t), `cuadra: «${consulta}»`, t && t.split('\n')[0]);
   }
 
-  const soloSeParece = [
+  // Lo que NO cuadra no se contesta aquí: devuelve null y sigue el turno por
+  // donde iba, que es la IA — la única que tiene el hilo de la conversación.
+  //
+  // Hasta el 10/11/2026 sí contestaba, encabezando con «no encuentro
+  // exactamente X, esto es lo más parecido», y salió mal en real dos veces el
+  // mismo día (ver el caso 8). Esta comprobación cambió a propósito: lo que
+  // daba por bueno era justo lo que había que corregir.
+  const noCuadra = [
     ['necesito una caja registradora', P('SOBRE BURBUJA 270x360 (Caja 100 uds)', '38,90€')],
     ['plastificadora A3', P('PLASTIFICADORA FELLOWES Halo 125 A-4', '74,50€')],
     ['papel a4', P('PAPEL Fotocopia A-3 80gr', '19,80€')],
   ];
-  for (const [consulta, prod] of soloSeParece) {
+  for (const [consulta, prod] of noCuadra) {
     const t = respuestaDeCatalogo([prod], { consulta });
-    comprobar(/lo m[aá]s parecido/.test(t), `solo se parece: «${consulta}»`, t && t.split('\n')[0]);
+    comprobar(t === null, `no cuadra, no contesta: «${consulta}»`, t && t.split('\n')[0]);
   }
 
   // Y lo que cuadra se enseña primero.
@@ -246,8 +253,45 @@ console.log('\n=== 7. Una regla fija no se come la otra mitad del mensaje');
   }
 }
 
+console.log('\n=== 8. Los dos de la mañana del 10/11/2026');
+{
+  const P = (nombre, precio) => ({ nombre, precio, url: 'https://ofipapel.net/producto/x', disponible: true });
+
+  // «¿Tienes láminas de sublimación para transferir diseños a tazas?» se
+  // contestó bien (no me aparece). Pero al preguntar «Si existen, ¿cuánto
+  // cuestan?» —que habla de ESAS láminas— el bot trató la frase entera como
+  // si fuera el nombre de un producto, se la repitió al cliente y le ofreció
+  // unas láminas magnéticas para móviles.
+  const seguimiento = respuestaDeCatalogo(
+    [P('PACK 3 LAMINAS MAGNETICAS PARA SMARTPHONES XO', '1.30€')],
+    { consulta: 'Si existen, ¿cuánto cuestan?' },
+  );
+  comprobar(seguimiento === null, 'una pregunta de seguimiento no se contesta con un producto suelto');
+
+  // Y el mismo fallo con un saludo largo: además de ofrecer un mueble al azar,
+  // le repetía su propio mensaje CORTADO a mitad de palabra («…precio tien»).
+  const vago = respuestaDeCatalogo(
+    [P('MUEBLE ORGANIZADOR PLASTICO 377X142X228MM CON 24 CAJONES ARTPLAST', '16.90€')],
+    { consulta: 'Buenos días me gustaría saber qué precio tiene el mueble que tienen en la web gracias' },
+  );
+  comprobar(vago === null, 'un «¿qué precio tiene el mueble de la web?» tampoco');
+
+  // Nunca, bajo ninguna circunstancia, se le devuelve al cliente su propio
+  // mensaje como si fuera el nombre de un artículo.
+  const frases = [
+    'Si existen, ¿cuánto cuestan?',
+    'Buenos días me gustaría saber qué precio tiene el mueble que tienen en la web gracias',
+    '¿tienes láminas de sublimación para transferir diseños a tazas?',
+  ];
+  for (const f of frases) {
+    const t = respuestaDeCatalogo([P('PAPEL Fotocopia A-4 80gr', '9,90€')], { consulta: f });
+    const repite = t && t.includes(f.slice(0, 25));
+    comprobar(!repite, `no le repite su mensaje: «${f.slice(0, 38)}…»`);
+  }
+}
+
 if (fallos > 0) {
   console.log(`\n✗ ${fallos} fallo(s)\n`);
   process.exit(1);
 }
-console.log('\n✔ Los siete huecos del sondeo siguen tapados\n');
+console.log('\n✔ Los huecos del sondeo siguen tapados\n');

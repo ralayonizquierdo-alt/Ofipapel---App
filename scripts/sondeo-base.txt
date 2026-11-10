@@ -1,15 +1,17 @@
-30
-# Cuántos avisos da hoy el sondeo (`node scripts/sondeo-bot.js`) sobre sus 212
+39
+# Cuántos avisos da hoy el sondeo (`node scripts/sondeo-bot.js`) sobre sus 218
 # respuestas — la primera línea es el número y es lo único que lee el CI.
 #
 # Sirve de línea base: si SUBE, algo se ha roto y hay que mirar el informe. Si
 # BAJA, se ha arreglado algo y este número se actualiza en el mismo cambio, para
 # que el siguiente que lo rompa se entere.
 #
-# Los 30 que quedan están explicados uno a uno en la cabecera de sondeo-bot.js:
-# casi todos son la IA mentirosa del propio sondeo repitiendo sus diez mentiras
-# fijas, la regla de agendas contestando a «agendas 2027» (correcto, porque en la
-# web solo están los modelos básicos) y una lista larga que es toda producto,
-# precio y enlace.
+# En modo HONESTO quedan 4, todos mirados y correctos: la regla fija de agendas
+# contestando a «agendas 2027», «la web no me deja pagar» acabando en una
+# persona igual que una queja, y dos formas de pedir bolígrafos/libretas que dan
+# la misma lista (que es lo correcto). El resto son de la IA mentirosa del
+# propio sondeo, que reparte diez mentiras fijas y por fuerza se repite.
 #
-# Historia: 85 de 104 el 8/11/2026, antes del primer sondeo.
+# Historia: 85 de 104 el 8/11/2026 (antes del primer sondeo) → 30 de 212 ese
+# mismo día → 39 de 218 el 10/11/2026, al añadir los tres mensajes reales de esa
+# mañana y arreglar dos fallos del propio simulador.

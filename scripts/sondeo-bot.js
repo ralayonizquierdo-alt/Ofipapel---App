@@ -194,9 +194,18 @@ function iaHonesta(system, ultimo) {
       : `No encuentro «${eco}» en el catálogo de la web, pero puede estar en tienda o con otro nombre. `
         + 'Si quieres, pregúntalo en el 922 753 520 o en pedidos@ofipapelsl.com y te lo confirman.';
   }
-  const primero = ultimosDatos[0];
+  // De TODAS las búsquedas del turno, no solo de la última: un mensaje lanza
+  // varias y la última puede volver vacía aunque el bot sí tenga datos. Con
+  // `ultimosDatos` el simulador contestaba «no he encontrado nada» a medio
+  // banco de preguntas, y el detector de «misma respuesta» marcaba eso.
+  const primero = datosDelTurno[0] || ultimosDatos[0];
   if (!primero) return 'No he encontrado nada que encaje.';
-  return `Tenemos ${primero[0]}: ${primero[1].replace('.', ',')}€ + IGIC.\n`
+  // Lleva dentro lo que preguntó el cliente, igual que la rama sin datos: una
+  // IA de verdad no contesta lo mismo a dos preguntas distintas, y si aquí lo
+  // hiciera, el detector de «misma respuesta» marcaría a mi simulador en vez
+  // de al bot (pasó el 10/11/2026: 48 avisos, todos míos).
+  const eco = String(ultimo).slice(0, 40);
+  return `Sobre «${eco}»: tenemos ${primero[0]}: ${primero[1].replace('.', ',')}€ + IGIC.\n`
     + `https://ofipapel.net/producto/${norm(primero[0]).trim().replace(/ /g, '-')}`;
 }
 
@@ -506,6 +515,11 @@ const PREGUNTAS = [
   ['b2b', 'necesito 50 cajas de folios para un colegio, cuanto me costaria'],
   ['b2b', 'hacéis contratos de suministro a empresas?'],
   ['b2b', 'quiero abrir cuenta de cliente'],
+
+  // Los dos de la mañana del 10/11/2026, tal cual llegaron.
+  ['seguimiento', 'Si existen, ¿cuánto cuestan?'],
+  ['seguimiento', '¿Por casualidad tienes láminas de sublimación para transferir diseños a tazas?'],
+  ['seguimiento', 'Buenos días me gustaría saber qué precio tiene el mueble que tienen en la web gracias'],
 
   ['largo', 'Buenas tardes, le escribo porque soy el administrador de una comunidad '
     + 'de propietarios y necesitamos material de oficina de forma recurrente, sobre todo '
