@@ -307,6 +307,9 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   font-size:5pt; font-weight:700; color:#fff; white-space:nowrap; }
 .p-blocked{ position:absolute; top:0; height:5mm; opacity:.7;
   background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
+.p-esc-nom{ position:absolute; top:0; height:5mm; box-sizing:border-box; padding-right:0.7mm; z-index:3;
+  display:flex; align-items:center; justify-content:flex-end; font-size:6pt; white-space:nowrap; color:#1A2E1A; }
+#printArea.fmt-a4 .p-esc-nom{ height:4mm; font-size:4.6pt; }
 .p-days{ width:9mm; flex-shrink:0; text-align:right; font-size:7pt; color:#59775A; }
 
 .p-footer{ margin-top:4mm; text-align:center; font-size:6.5pt; color:#999; }
@@ -819,12 +822,16 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <div class="ppm-header">
       <div>
         <h3 id="operativaImpresion">Vista previa de impresión del calendario</h3>
-        <div style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
+        <div id="ppmVistaNota" style="font-size:.68rem;color:var(--texto2);margin-top:2px;">
           Empleados ordenados por fecha de inicio dentro de cada unidad. Imprimir y Guardar como PDF abren el cuadro de impresión del navegador.
         </div>
       </div>
-      <div class="left" style="display:flex;gap:8px;">
+      <div class="left" style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost" id="ppmWhatsapp">📱 WhatsApp</button>
+        <select id="ppmVista" title="Cómo se dibuja el cuadrante" style="padding:6px 8px;border:1px solid var(--borde);border-radius:7px;font-size:.8rem;">
+          <option value="lineal">Planning Lineal</option>
+          <option value="escala">Planning Escala</option>
+        </select>
         <select id="ppmFormat" title="Tamaño de papel" style="padding:6px 8px;border:1px solid var(--borde);border-radius:7px;font-size:.8rem;">
           <option value="A3">A3</option>
           <option value="A4">A4</option>
@@ -4065,7 +4072,7 @@ function buildPrintArea(){
 
   const header = document.createElement('div'); header.className='p-header';
   const now = new Date();
-  header.innerHTML = `<h1>Ofipapel · Cuadrante de Vacaciones ${y} · ${PLANNINGS[currentPlanning].name}</h1>
+  header.innerHTML = `<h1>Ofipapel · Cuadrante de Vacaciones ${y} · ${PLANNINGS[currentPlanning].name}${printVista==='escala' ? ' · Planning Escala' : ''}</h1>
     <div class="p-sub">Generado el ${now.toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'})}</div>`;
   const legend = document.createElement('div'); legend.className='p-legend';
   let legendHtml='';
@@ -4126,79 +4133,12 @@ function buildPrintArea(){
     return true;
   });
 
-  for(const u of UNITS){
-    let emps = filteredEmployees.filter(e=>e.unitId===u.id);
+  if(printVista==='escala') buildEscalaRows(grid, filteredEmployees, y, n, pos);
+  else for(const u of UNITS){
+    const emps = filteredEmployees.filter(e=>e.unitId===u.id);
     if(!emps.length) continue;
     if(onlyConflicts && !unitHasConflict(u.id, y)) continue;
-
-    // orden por fecha de inicio del primer periodo — dibuja el efecto "escalera" del Excel de dirección
-    emps = emps.map(e=>{
-      const firstPeriod = periodsOfYear(e.id, y).sort((a,b)=>a.start.localeCompare(b.start))[0];
-      return {emp:e, firstStart: firstPeriod ? isoToIndex(y, firstPeriod.start) : Infinity};
-    }).sort((a,b)=> a.firstStart - b.firstStart || empLabel(a.emp).localeCompare(empLabel(b.emp),'es')).map(x=>x.emp);
-
-    const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
-    const title = document.createElement('div'); title.className='p-unit-title';
-    title.textContent = u.name+' ('+emps.length+')';
-    unitDiv.appendChild(title);
-
-    for(const emp of emps){
-      const row = document.createElement('div'); row.className='p-emp-row';
-      const nameCell = document.createElement('div'); nameCell.className='p-name';
-      const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
-      const pNom = document.createElement('span'); pNom.className='p-nom'; pNom.textContent = empLabel(emp);
-      const pSim = document.createElement('span'); pSim.className='p-sim'; pSim.textContent = pBadges.replace(/ /g,'');
-      nameCell.append(pNom, pSim);
-      nameCell.title = emp.name;
-      if(hasFixedPref(emp.id)) nameCell.style.color = "#E74C3C";
-      row.appendChild(nameCell);
-
-      const track = document.createElement('div'); track.className='p-track';
-      appendCellLines(track, y, n, pos);
-      for(const b of state.blockedRanges){
-        const segs = blockedSegmentsForYear(b, y, n);
-        for(const seg of segs){
-          const ov = document.createElement('div'); ov.className='p-blocked';
-          ov.style.left = pos(seg.start)+'%';
-          ov.style.width = (pos(seg.end+1)-pos(seg.start))+'%';
-          track.appendChild(ov);
-        }
-      }
-      const myPeriods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
-      const pFestivo = festivoCarriers(emp, y);
-      myPeriods.forEach((p,i)=>{
-        const s = Math.max(0, isoToIndex(y,p.start));
-        const e = Math.min(n-1, isoToIndex(y,p.end));
-        if(e<0||s>=n) return;
-        const blk = document.createElement('div'); blk.className='p-block';
-        blk.style.left = pos(s)+'%';
-        blk.style.width = (pos(e+1)-pos(s))+'%';
-        blk.style.background = periodColor(i+1);
-        const dStart = dateFromIndex(y, s), dEnd = dateFromIndex(y, e);
-        const blkMm = (pos(e+1)-pos(s))/100*(printFormat==='A4' ? 230 : 328); // ancho de la barra en el papel
-        const mmPerChar = printFormat==='A4' ? 0.8 : 1.15;
-        const fitsLabel = text=> text.length*mmPerChar <= blkMm ? text : '';
-        blk.textContent = dStart.getUTCMonth()===dEnd.getUTCMonth()
-          ? fitsLabel(`${dStart.getUTCDate()}–${dEnd.getUTCDate()}`)
-          : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
-        blk.title = fmtRange(p.start,p.end);
-        track.appendChild(blk);
-        if(pFestivo.has(p.id)){
-          const m = document.createElement('div'); m.className = 'p-festivo';
-          m.style.left = pos(e+1)+'%';
-          track.appendChild(m);
-        }
-      });
-      row.appendChild(track);
-
-      const used = diasUsados(emp.id, y);
-      const daysCell = document.createElement('div'); daysCell.className='p-days';
-      daysCell.textContent = used+'/'+effectiveDaysPerYear(emp);
-      row.appendChild(daysCell);
-
-      unitDiv.appendChild(row);
-    }
-    grid.appendChild(unitDiv);
+    grid.appendChild(printUnitLineal(u, emps, y, n, pos));
   }
   container.appendChild(grid);
 
@@ -4207,7 +4147,181 @@ function buildPrintArea(){
   container.appendChild(footer);
 }
 
+/* Planning Lineal: una fila por persona, por unidad y por fecha de inicio. */
+function printUnitLineal(u, emps, y, n, pos){
+  // orden por fecha de inicio del primer periodo — dibuja el efecto "escalera" del Excel de dirección
+  emps = emps.map(e=>{
+    const firstPeriod = periodsOfYear(e.id, y).sort((a,b)=>a.start.localeCompare(b.start))[0];
+    return {emp:e, firstStart: firstPeriod ? isoToIndex(y, firstPeriod.start) : Infinity};
+  }).sort((a,b)=> a.firstStart - b.firstStart || empLabel(a.emp).localeCompare(empLabel(b.emp),'es')).map(x=>x.emp);
+
+  const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
+  const title = document.createElement('div'); title.className='p-unit-title';
+  title.textContent = u.name+' ('+emps.length+')';
+  unitDiv.appendChild(title);
+
+  for(const emp of emps){
+    const row = document.createElement('div'); row.className='p-emp-row';
+    const nameCell = document.createElement('div'); nameCell.className='p-name';
+    const pBadges = (emp.floater?' 🔁':'') + (emp.sinSustituto?' 🚫':'') + (findPairPartners(emp.id).length?' 🔗':'') + (findTogetherPartners(emp.id).length?' 💑':'') + (hasFixedPref(emp.id)?' 📌':'');
+    const pNom = document.createElement('span'); pNom.className='p-nom'; pNom.textContent = empLabel(emp);
+    const pSim = document.createElement('span'); pSim.className='p-sim'; pSim.textContent = pBadges.replace(/ /g,'');
+    nameCell.append(pNom, pSim);
+    nameCell.title = emp.name;
+    if(hasFixedPref(emp.id)) nameCell.style.color = "#E74C3C";
+    row.appendChild(nameCell);
+
+    const track = document.createElement('div'); track.className='p-track';
+    appendCellLines(track, y, n, pos);
+    appendPrintBlocked(track, y, n, pos);
+    const myPeriods = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start));
+    const pFestivo = festivoCarriers(emp, y);
+    myPeriods.forEach((p,i)=>{
+      const blk = printBlock(p, i+1, y, n, pos);
+      if(!blk) return;
+      track.appendChild(blk);
+      const e = Math.min(n-1, isoToIndex(y,p.end));
+      if(pFestivo.has(p.id)){
+        const m = document.createElement('div'); m.className = 'p-festivo';
+        m.style.left = pos(e+1)+'%';
+        track.appendChild(m);
+      }
+    });
+    row.appendChild(track);
+
+    const used = diasUsados(emp.id, y);
+    const daysCell = document.createElement('div'); daysCell.className='p-days';
+    daysCell.textContent = used+'/'+effectiveDaysPerYear(emp);
+    row.appendChild(daysCell);
+
+    unitDiv.appendChild(row);
+  }
+  return unitDiv;
+}
+
+function appendPrintBlocked(track, y, n, pos){
+  for(const b of state.blockedRanges){
+    for(const seg of blockedSegmentsForYear(b, y, n)){
+      const ov = document.createElement('div'); ov.className='p-blocked';
+      ov.style.left = pos(seg.start)+'%';
+      ov.style.width = (pos(seg.end+1)-pos(seg.start))+'%';
+      track.appendChild(ov);
+    }
+  }
+}
+/* La barra de un turno, con sus fechas dentro si caben. */
+function printBlock(p, turno, y, n, pos){
+  const s = Math.max(0, isoToIndex(y,p.start));
+  const e = Math.min(n-1, isoToIndex(y,p.end));
+  if(e<0||s>=n) return null;
+  const blk = document.createElement('div'); blk.className='p-block';
+  blk.style.left = pos(s)+'%';
+  blk.style.width = (pos(e+1)-pos(s))+'%';
+  blk.style.background = periodColor(turno);
+  const dStart = dateFromIndex(y, s), dEnd = dateFromIndex(y, e);
+  const blkMm = (pos(e+1)-pos(s))/100*printTrackMm(); // ancho de la barra en el papel
+  const mmPerChar = printFormat==='A4' ? 0.8 : 1.15;
+  const fitsLabel = text=> text.length*mmPerChar <= blkMm ? text : '';
+  blk.textContent = dStart.getUTCMonth()===dEnd.getUTCMonth()
+    ? fitsLabel(`${dStart.getUTCDate()}–${dEnd.getUTCDate()}`)
+    : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
+  blk.title = fmtRange(p.start,p.end);
+  return blk;
+}
+function printTrackMm(){ return printFormat==='A4' ? 230 : 328; }
+
+/* Planning Escala (Luis, 05/11/2026): cada lista que rueda (Tiendas, cada unidad de Ventas) en escalera. El 1.º
+   turno (azul) empieza en la fila de abajo y sube una fila por persona, el 2.º (verde) baja desde arriba, el 3.º
+   vuelve a subir... El nombre va junto a cada barra, porque una persona sale en filas distintas. Si una barra
+   choca con otra de su fila, pasa a la siguiente libre en el mismo sentido. Oficina y Limpieza, como en el Lineal. */
+const ESCALA_APARTE = ['oficina','limpieza'];
+function buildEscalaRows(grid, emps, y, n, pos){
+  const listas = new Map();
+  for(const u of UNITS){
+    const del = emps.filter(e=>e.unitId===u.id);
+    if(!del.length) continue;
+    if(ESCALA_APARTE.includes(u.id)){ listas.set('u:'+u.id, {unidad:u, emps:del}); continue; }
+    const k = rotationListKey(del[0]);
+    if(!listas.has(k)) listas.set(k, {titulo: k==='tiendas' ? 'Tiendas' : u.name, emps:[]});
+    listas.get(k).emps.push(...del);
+  }
+  for(const l of listas.values()){
+    if(l.unidad){
+      if(onlyConflicts && !unitHasConflict(l.unidad.id, y)) continue;
+      grid.appendChild(printUnitLineal(l.unidad, l.emps, y, n, pos));
+    } else grid.appendChild(printEscala(l.titulo, l.emps, y, n, pos));
+  }
+}
+function printEscala(titulo, emps, y, n, pos){
+  const trackMm = printTrackMm(), mmPorLetra = printFormat==='A4' ? 0.95 : 1.25;
+  const items = [];
+  for(const emp of emps){
+    const fest = festivoCarriers(emp, y);
+    periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start)).forEach((p,i)=>{
+      const s = Math.max(0, isoToIndex(y,p.start)), e = Math.min(n-1, isoToIndex(y,p.end));
+      if(e<0||s>=n) return;
+      const nombre = empLabel(emp);
+      const ancho = (nombre.length*mmPorLetra + 1.5)/trackMm*100; // sitio del nombre, a la izquierda de la barra
+      items.push({emp, p, turno:i+1, s, e, nombre, a:pos(s)-ancho, b:pos(e+1)+0.3, festivo:fest.has(p.id)});
+    });
+  }
+  const filas = Array.from({length:Math.max(1, emps.length)}, ()=>[]);
+  const libre = (q,it)=> filas[q].every(o=> it.b<=o.a || it.a>=o.b);
+  const maxTurno = items.reduce((m,it)=>Math.max(m,it.turno), 0);
+  for(let t=1; t<=maxTurno; t++){
+    const sube = t%2===1, paso = sube ? -1 : 1;
+    let r = sube ? filas.length-1 : 0;
+    const delTurno = items.filter(it=>it.turno===t).sort((a,b)=> a.s-b.s || a.nombre.localeCompare(b.nombre,'es'));
+    for(const it of delTurno){
+      r = Math.min(Math.max(r,0), filas.length-1);
+      let q = r;
+      while(q>=0 && q<filas.length && !libre(q,it)) q += paso;
+      if(q<0 || q>=filas.length){ // en ese sentido no cabe: la libre más cercana, o una fila nueva
+        q = -1;
+        for(let d=1; d<filas.length && q<0; d++){
+          if(r-d>=0 && libre(r-d,it)) q = r-d; else if(r+d<filas.length && libre(r+d,it)) q = r+d;
+        }
+        if(q<0){ if(sube){ filas.unshift([]); q = 0; } else { filas.push([]); q = filas.length-1; } }
+      }
+      filas[q].push(it);
+      r = q + paso;
+    }
+  }
+  const unitDiv = document.createElement('div'); unitDiv.className='p-unit';
+  const title = document.createElement('div'); title.className='p-unit-title';
+  title.textContent = titulo+' ('+emps.length+')';
+  unitDiv.appendChild(title);
+  for(const fila of filas){
+    const row = document.createElement('div'); row.className='p-emp-row';
+    row.appendChild(Object.assign(document.createElement('div'), {className:'p-name'}));
+    const track = document.createElement('div'); track.className='p-track';
+    appendCellLines(track, y, n, pos);
+    appendPrintBlocked(track, y, n, pos);
+    for(const it of fila){
+      const nom = document.createElement('div'); nom.className='p-esc-nom';
+      nom.style.left = it.a+'%';
+      nom.style.width = (pos(it.s)-it.a)+'%';
+      nom.textContent = it.nombre;
+      nom.title = it.emp.name;
+      if(hasFixedPref(it.emp.id)) nom.style.color = '#E74C3C';
+      track.appendChild(nom);
+      track.appendChild(printBlock(it.p, it.turno, y, n, pos));
+      if(it.festivo){
+        const m = document.createElement('div'); m.className = 'p-festivo';
+        m.style.left = pos(it.e+1)+'%';
+        track.appendChild(m);
+      }
+    }
+    row.appendChild(track);
+    row.appendChild(Object.assign(document.createElement('div'), {className:'p-days'}));
+    unitDiv.appendChild(row);
+  }
+  return unitDiv;
+}
+
 let printFormat = 'A3'; // tamaño del calendario: 'A3' | 'A4'
+let printVista = 'lineal'; // 'lineal' | 'escala'
+try{ if(localStorage.getItem('ofipapel_vacaciones_vista')==='escala') printVista = 'escala'; }catch(e){}
 function setPrintPageSize(){
   const size = activePrintTarget==='vacaciones' ? printFormat+' landscape' : 'A4 portrait';
   document.getElementById('printPageSize').textContent = `@media print{ @page{ size:${size}; margin:0; } }`;
@@ -4231,6 +4345,7 @@ function openPrintPreview(){
   activePrintTarget = 'vacaciones';
   setPrintPageSize();
   document.getElementById('turnosPrintArea').style.display = 'none';
+  pintarVistaNota();
   buildPrintArea();
   const pa = document.getElementById('printArea');
   pa.style.display = 'block';
@@ -4270,6 +4385,19 @@ function closeTurnosPrintPreview(){
 
 document.getElementById('btnPrint').onclick = openPrintPreview;
 document.getElementById('ppmClose').onclick = closePrintPreview;
+function pintarVistaNota(){
+  document.getElementById('ppmVista').value = printVista;
+  document.getElementById('ppmVistaNota').textContent = printVista==='escala'
+    ? 'Turnos en escalera: el 1.º sube desde abajo y el 2.º baja desde arriba. Imprimir y Guardar como PDF abren el cuadro de impresión del navegador.'
+    : 'Empleados ordenados por fecha de inicio dentro de cada unidad. Imprimir y Guardar como PDF abren el cuadro de impresión del navegador.';
+}
+document.getElementById('ppmVista').onchange = (e)=>{
+  printVista = e.target.value==='escala' ? 'escala' : 'lineal';
+  try{ localStorage.setItem('ofipapel_vacaciones_vista', printVista); }catch(err){}
+  pintarVistaNota();
+  buildPrintArea();
+  requestAnimationFrame(scalePrintPreview);
+};
 document.getElementById('ppmFormat').onchange = (e)=>{
   printFormat = e.target.value;
   setPrintPageSize();
@@ -4414,7 +4542,8 @@ function shareVacationsWhatsapp(){
 }
 /* ═══════════════════ LISTADO (el extracto que se imprime, como el Excel de Luis) ═══════════════════
    Turno = 1º, 2º, 3º... periodo de cada persona por fechas. Las tiendas van separadas por turno y repiten
-   en cada fila los días de la persona; Oficina va al final, intercalada por fechas. */
+   en cada fila los días de la persona; Oficina va al final, intercalada por fechas, y Limpieza detrás de Oficina
+   con su línea en blanco (Luis, 10/11/2026). */
 function listadoData(y){
   const emps = EMPLOYEES.filter(e=>e.active!==false && inPlanning(e)).map(emp=>{
     const fixed = hasFixedPref(emp.id) ? parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y) : [];
@@ -4426,15 +4555,17 @@ function listadoData(y){
     return {emp, periods, days:periods.map(p=>p.days), total:periods.reduce((t,p)=>t+p.days,0)};
   }).filter(x=>x.periods.length);
   const byDate = (a,b)=> a.start.localeCompare(b.start) || empLabel(a.emp).localeCompare(empLabel(b.emp),'es');
-  const main = emps.filter(x=>x.emp.unitId!=='oficina'), office = emps.filter(x=>x.emp.unitId==='oficina');
+  const aparte = ['oficina','limpieza'];
+  const main = emps.filter(x=>!aparte.includes(x.emp.unitId)), office = emps.filter(x=>x.emp.unitId==='oficina');
+  const limpieza = emps.filter(x=>x.emp.unitId==='limpieza');
   const maxTurno = Math.max(0, ...main.map(x=>x.periods.length));
   const turnos = [];
   for(let t=1;t<=maxTurno;t++) turnos.push(main.flatMap(x=>x.periods.filter(p=>p.turno===t)).sort(byDate));
-  return {emps, turnos, office:office.flatMap(x=>x.periods).sort(byDate), columns:Math.max(6, ...emps.map(x=>x.periods.length))};
+  return {emps, turnos, office:office.flatMap(x=>x.periods).sort(byDate), limpieza:limpieza.flatMap(x=>x.periods).sort(byDate), columns:Math.max(6, ...emps.map(x=>x.periods.length))};
 }
 function shortDate(iso){ return iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4); }
 function listadoTableHtml(y){
-  const {emps, turnos, office, columns} = listadoData(y);
+  const {emps, turnos, office, limpieza, columns} = listadoData(y);
   if(!emps.length) return `<p style="font-size:.8rem;color:var(--texto2);">No hay vacaciones guardadas en ${y} en este planning.</p>`;
   const tint = n=> periodColor(n)+'40';
   const byEmp = new Map(emps.map(x=>[x.emp.id,x]));
@@ -4449,8 +4580,8 @@ function listadoTableHtml(y){
   };
   const gap = `<tr class="lv-gap"><td colspan="${columns+6}"></td></tr>`;
   const blocks = turnos.map(list=> list.map(p=>{ const x = byEmp.get(p.emp.id); return row(p, x.days, x.total, festivos(p.emp)); }).join(''));
-  if(office.length){
-    blocks.push(office.map(p=>{
+  for(const aparte of [office, limpieza]) if(aparte.length){
+    blocks.push(aparte.map(p=>{
       const x = byEmp.get(p.emp.id), days = [];
       days[p.turno-1] = p.days;
       const last = p.turno===x.periods.length;
@@ -4469,7 +4600,7 @@ function openListado(){
 }
 function shareListadoWhatsapp(){
   const y = state.year;
-  const {turnos, office} = listadoData(y);
+  const {turnos, office, limpieza} = listadoData(y);
   const line = p=> `• ${empLabel(p.emp)} — ${fmtRange(p.start,p.end)} (${p.days} días)
 `;
   let text = `📄 *Listado de vacaciones ${y} — ${PLANNINGS[currentPlanning].name}*
@@ -4480,6 +4611,9 @@ function shareListadoWhatsapp(){
   if(office.length) text += `
 *Oficina*
 `+office.map(line).join('');
+  if(limpieza.length) text += `
+*Limpieza*
+`+limpieza.map(line).join('');
   openWhatsapp(text);
 }
 document.getElementById('btnListado').onclick = openListado;
@@ -5141,11 +5275,14 @@ const OPERATIVAS = {
   },
   '#operativaImpresion': {
     pasos: [
+      'En el primer desplegable elige <b>Planning Lineal</b> (una fila por persona) o <b>Planning Escala</b> (los turnos en escalera).',
       'Elige el papel, <b>A3</b> o <b>A4</b>, y comprueba cómo saldrá la hoja.',
       'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
     ],
     notas: [
       'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
+      '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
+      'Si una barra choca con otra de su fila, pasa a la siguiente fila libre: por eso la escalera puede no salir perfecta.',
       'Los números de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes, y los símbolos van al final del nombre. Su significado está en la Operativa de la pantalla principal.',
       '<b>WhatsApp</b> prepara un texto con quién está fuera en la fecha elegida en «¿Quién está fuera?». No manda la imagen.',
     ],
@@ -5224,7 +5361,7 @@ const OPERATIVAS = {
     notas: [
       'Esta ventana solo enseña: las fechas se cambian en el cuadrante.',
       'El turno es el 1º, 2º, 3º... periodo de cada persona por fechas. Cada color es un turno.',
-      'Oficina va aparte al final, por fechas.',
+      'Oficina va aparte al final, por fechas, y Limpieza detrás, en su propio bloque.',
       'Los días se cuentan de fecha a fecha. En rojo, las fechas fijas.',
       'La columna Festivos, tras el Total, dice cuántos días de más tiene por festivos trabajados ese año: +1 por cada uno.',
       'Quien no tenga fechas ese año no sale.',
