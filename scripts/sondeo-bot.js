@@ -516,6 +516,8 @@ const PREGUNTAS = [
   ['b2b', 'hacéis contratos de suministro a empresas?'],
   ['b2b', 'quiero abrir cuenta de cliente'],
 
+  ['seguimiento', 'Buenas. Estoy buscando papel o cartulina de lino. Ustedes disponen de este artículo.'],
+
   // Los dos de la mañana del 10/11/2026, tal cual llegaron.
   ['seguimiento', 'Si existen, ¿cuánto cuestan?'],
   ['seguimiento', '¿Por casualidad tienes láminas de sublimación para transferir diseños a tazas?'],
@@ -576,6 +578,30 @@ function detectar({ pregunta, categoria, dicho, buscado, datos }) {
     }
     if (!/ofipapel\.net/.test(limpia) && !/wa\.me|whatsapp\.com|google\.com\/maps|maps\.app\.goo\.gl/.test(limpia)) {
       avisos.push(['ENLACE DE FUERA', limpia]);
+      break;
+    }
+  }
+
+  // UN ENLACE DE BÚSQUEDA CON PALABRAS QUE NO SON DE NINGÚN PRODUCTO.
+  //
+  // Visto en real el 9/11/2026: «Estoy buscando papel o cartulina de lino.
+  // Ustedes disponen de este artículo» salió con
+  // «?s=estoy+papel+cartulina+lino+articulo». Al pulsarlo no sale nada, y el
+  // cliente se queda pensando que no tenemos papel. El enlace se ve y se
+  // pulsa: si lleva basura dentro, es tan malo como un precio inventado.
+  const RELLENO_EN_ENLACE = [
+    'estoy', 'estamos', 'busco', 'buscando', 'quiero', 'necesito', 'articulo',
+    'articulos', 'ustedes', 'disponen', 'teneis', 'tienen', 'hola', 'buenas',
+    'buenos', 'dias', 'tardes', 'gracias', 'favor', 'precio', 'precios',
+    'cuanto', 'cuesta', 'vale', 'saber', 'gustaria', 'casualidad', 'existen',
+  ];
+  for (const url of t.match(/https?:\/\/\S*[?&]s=[^\s&]*/g) || []) {
+    const terminos = decodeURIComponent((url.split(/[?&]s=/)[1] || '').replace(/\+/g, ' '))
+      .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .split(/\s+/).filter(Boolean);
+    const basura = terminos.filter((p) => RELLENO_EN_ENLACE.includes(p));
+    if (basura.length) {
+      avisos.push(['ENLACE CON RELLENO', `busca por ${basura.join(', ')}`]);
       break;
     }
   }

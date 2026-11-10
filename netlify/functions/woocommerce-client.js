@@ -148,6 +148,21 @@ const STOPWORDS_BUSQUEDA = new Set([
   // "cartucho hp NÚMERO 305" — aquí "número" solo introduce la referencia, no
   // describe el producto, y de paso ensucia la búsqueda.
   'numero', 'número',
+  // «Estoy buscando papel o cartulina de lino. Ustedes disponen de este
+  // ARTÍCULO» (9/11/2026): «estoy» y «articulo» entraban en la búsqueda y, lo
+  // que se ve, en el ENLACE que se le manda al cliente —
+  // «?s=estoy+papel+cartulina+lino+articulo»—, que al pulsarlo no devuelve
+  // nada. Ninguna de las dos describe un producto.
+  'estoy', 'estamos', 'estaba', 'estabamos', 'estábamos',
+  'articulo', 'artículo', 'articulos', 'artículos',
+  'cosa', 'cosas', 'algo', 'esos', 'esas', 'mismo', 'misma',
+  'dias', 'días', 'tardes', 'noches', 'buenos',
+  // Preguntar el precio no describe el artículo. «¿Cuánto vale el papel A4?»
+  // acababa en «?s=cuanto+vale+papel+a4», que es un enlace peor que el de
+  // «?s=papel+a4». Se deja fuera «vales» (el talonario sí es un producto).
+  'cuanto', 'cuánto', 'cuanta', 'cuantos', 'cuantas', 'vale', 'valen',
+  'cuesta', 'cuestan', 'precio', 'precios', 'saber', 'casualidad',
+  'existe', 'existen',
   // "¿Sabes la REFERENCIA para PEDIR folios de Dina 4?" — ninguna de las dos
   // describe el artículo, y WordPress exige que estén TODAS las palabras, así
   // que entre las dos dejaban la búsqueda a cero (visto en real el 16/10/2026).
