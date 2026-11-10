@@ -598,10 +598,10 @@
     const fijo = Number(totalAMano) > 0 && Number(totalAMano) <= 50 ? Math.floor(Number(totalAMano)) : null;
     const leidas = new Set();
     const vistas = new Set(), repetidas = new Set();
-    let total = null;
+    let total = null, sinNumero = 0;
     for (const f of lista) {
       const m = String(f.hoja || '').match(/(\d+)\s*(?:\/|-|de)\s*(\d+)/i);
-      if (!m) continue;
+      if (!m) { sinNumero++; continue; }
       const n = Number(m[1]); const t = Number(m[2]);
       if (!n || !t || n > t || t > 50) continue;
       leidas.add(n);
@@ -612,6 +612,9 @@
     if (fijo) { total = fijo; for (const n of [...leidas]) if (n > fijo) leidas.delete(n); }
     const faltan = [];
     if (total) for (let k = 1; k <= total; k++) if (!leidas.has(k)) faltan.push(k);
+    // Una foto en la que no se leyó el nº de hoja cubre una de las que faltan
+    // (pedido de 1 hoja, puesto a mano, con su foto sin nº: no falta nada).
+    for (let i = 0; i < sinNumero && faltan.length; i++) leidas.add(faltan.shift());
     return { fotos: lista.length, hojas: [...leidas].sort((x, y) => x - y), total, faltan, aMano: Boolean(fijo), repetidas: [...repetidas].sort((x, y) => x - y) };
   }
 
