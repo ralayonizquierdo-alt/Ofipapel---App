@@ -158,6 +158,7 @@ const {
   paraElPanel: lecturaParaElPanel,
   ultimaFotoDelHistorial,
   preguntaJustoAntesDeLaFoto,
+  pedidoEnLaLectura,
 } = require('./whatsapp-vision');
 const { responderAUnaFoto } = require('./whatsapp-foto-responder');
 
@@ -567,7 +568,11 @@ function mencionaUnPedidoConcreto(text) {
 
 async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es') {
   if (paso.paso === 'numero') {
-    const match = text.match(/\d{3,}/);
+    // `paso.orderId` es el número ya identificado por quien llama — hoy, el que
+    // venía dentro de una foto. Entonces `text` es lo que se archiva en el panel
+    // (la foto con su lectura debajo), no de donde se saca el número: ahí dentro
+    // hay fechas e importes y el primer `\d{3,}` sería cualquier cosa.
+    const match = paso.orderId ? [String(paso.orderId)] : text.match(/\d{3,}/);
     if (!match) return false; // no parece un número de pedido: se abandona el flujo, turno normal
 
     const orderId = match[0];
@@ -593,9 +598,17 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
         ? idioma === 'en'
           ? `${greeting}I can't check your order right now — our website isn't responding. That doesn't mean your order isn't there. `
           : `${greeting}Ahora mismo no puedo comprobar tu pedido: nuestra web no me contesta. Eso no quiere decir que tu pedido no esté. `
-        : idioma === 'en'
-          ? `${greeting}I can't find any order with the number ${orderId}. `
-          : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
+        // El número que viene de una foto lo ha leído una máquina, así que puede
+        // tener una cifra cambiada. Decirle «no existe el 677260» cuando a lo
+        // mejor es el 677280 es de las mentiras caras: se dice de dónde sale el
+        // número, que es lo único seguro.
+        : paso.orderId && paso.deFoto
+          ? idioma === 'en'
+            ? `${greeting}In the photo I read order number ${orderId}, and I can't find any order with that number — I may have read it wrong. `
+            : `${greeting}En la foto leo el pedido nº ${orderId} y no me aparece ninguno con ese número; puede que lo haya leído mal. `
+          : idioma === 'en'
+            ? `${greeting}I can't find any order with the number ${orderId}. `
+            : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
       await sendEscalateButtons(from, prefix, idioma);
       await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
       return true;
@@ -1022,6 +1035,31 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
           nombreWhatsapp
         );
       }
+    }
+
+    // SI LA FOTO ES SU PEDIDO, SE CONSULTA EL PEDIDO.
+    //
+    // Va delante de todo lo demás de la foto porque no hay nada que decidir: el
+    // cliente ha mandado la captura de su pedido, el número está leído, y lo que
+    // quiere saber es cómo va. Esperar a que escriba la pregunta no aporta nada,
+    // y la rama de abajo acabaría ofreciéndole una persona con el número
+    // delante (visto en real el 10/11/2026).
+    //
+    // El pie de foto manda igual que siempre: si lo que escribe con la foto ya
+    // tiene su propia respuesta fija ("¿me mandáis la factura del pedido?"),
+    // esto no se le adelanta — es la misma regla que en la rama de texto.
+    const pedidoDeLaFoto = lectura ? pedidoEnLaLectura(lectura) : null;
+    const faqDelPieDeFoto = pieDeFoto ? matchFaqRule(pieDeFoto) : null;
+    const pieMandaSobreElPedido = Boolean(faqDelPieDeFoto) && !isPedidoEstadoQuestion(faqDelPieDeFoto);
+    if (pedidoDeLaFoto && woocommerce.isConfigured() && !pieMandaSobreElPedido) {
+      const gestionado = await continuarBusquedaPedido(
+        message.from,
+        registro,
+        { paso: 'numero', orderId: pedidoDeLaFoto, deFoto: true },
+        presentacion,
+        idiomaFoto
+      );
+      if (gestionado) return;
     }
 
     if (lectura?.buscar) {

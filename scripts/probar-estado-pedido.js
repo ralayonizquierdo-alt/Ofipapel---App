@@ -329,6 +329,20 @@ Module.prototype.require = function (p) {
           : { order: null, motivo: m.MOTIVO.NO_EXISTE },
     };
   }
+  // La foto no se lee de verdad (eso lo prueba probar-vision.js): aquí lo que
+  // se mira es qué hace el webhook con lo que la lectura devuelve. El resto del
+  // módulo es el de verdad, `pedidoEnLaLectura` incluida.
+  if (p === './whatsapp-vision') {
+    return { ...m, leerFoto: async () => escenario.lecturaDeLaFoto || null };
+  }
+  if (p === './whatsapp-media') {
+    return {
+      ...m,
+      guardarAdjuntoDeCliente: async (ev_, from, mediaId) => ({
+        mediaId, tipo: 'image/jpeg', bytes: 1234, buffer: Buffer.from([0]),
+      }),
+    };
+  }
   if (p === './whatsapp-agent-core') {
     return {
       ...m,
@@ -361,9 +375,13 @@ global.fetch = async (url, opts) => {
   return { ok: true, status: 200, json: async () => ({}), text: async () => '{}' };
 };
 
-const ev = (texto, desde = '34600777222') => {
+// `mensaje` es el texto del cliente o, para una foto, {type:'image', ...}.
+const ev = (mensaje, desde = '34600777222') => {
+  const contenido = typeof mensaje === 'string'
+    ? { type: 'text', text: { body: mensaje } }
+    : mensaje;
   const body = JSON.stringify({ entry: [{ changes: [{ value: {
-    messages: [{ from: desde, id: `wamid.${Math.random()}`, type: 'text', text: { body: texto } }],
+    messages: [{ from: desde, id: `wamid.${Math.random()}`, ...contenido }],
     contacts: [{ profile: { name: 'Cliente' } }],
   } }] }] });
   return { httpMethod: 'POST', headers: { 'x-hub-signature-256': `sha256=${crypto.createHmac('sha256', SECRETO).update(Buffer.from(body, 'utf8')).digest('hex')}` }, body };
@@ -501,6 +519,70 @@ async function caso(etiqueta, mensaje, revisar, desde) {
     assert.ok(/no encuentro ning[úu]n pedido|can't find any order/i.test(texto('botones')),
       'aquí sí toca decírselo');
   });
+
+  // EL PEDIDO LLEGA EN UNA FOTO (10/11/2026).
+  //
+  // Caso real del propietario: el cliente mandó la captura de su pedido
+  // —«[Pedido #677260] (06/11/2026)»— preguntando por él, y se llevó «he visto
+  // la foto, pero no te puedo confirmar desde aquí» con los botones de hablar
+  // con una persona. La foto se había leído bien y el número estaba dentro.
+  //
+  // Es el mismo razonamiento que con la nota de voz: lo que sale de la foto son
+  // palabras, y tienen que entrar por el camino de siempre.
+  const capturaDelPedido = (caption) => ({
+    type: 'image',
+    image: { id: 'media-1', ...(caption ? { caption } : {}) },
+  });
+
+  escenario.lecturaDeLaFoto = {
+    seVe: 'captura de pantalla de una confirmación de pedido',
+    textoLeido: `[Pedido #${escenario.pedido.id}] (06/11/2026)`,
+    buscar: false,
+  };
+
+  await caso('La captura de su pedido, sin escribir nada', capturaDelPedido(), () => {
+    assert.deepStrictEqual(consultasAGestion, [String(escenario.pedido.id)],
+      'no consultó el pedido que venía leído en la foto');
+    assert.ok(texto('respuesta').includes(String(escenario.pedido.id)),
+      `le contestó otra cosa: ${texto('respuesta')}`);
+    assert.ok(!tiene('botones'), 'le ofreció una persona teniendo el estado delante');
+  });
+
+  // Con pie de foto es lo mismo: la pregunta es justo esa.
+  await caso('La captura y «cómo va mi pedido?»', capturaDelPedido('cómo va mi pedido?'), () => {
+    assert.deepStrictEqual(consultasAGestion, [String(escenario.pedido.id)], 'no lo consultó');
+    assert.ok(texto('respuesta').includes(String(escenario.pedido.id)), texto('respuesta'));
+  });
+
+  // LO QUE NO PUEDE FALLAR, OTRA VEZ: el número sale de la foto, pero la
+  // identidad se sigue comprobando contra WooCommerce. Desde otro teléfono se
+  // le pide el nombre y NO se le dice el estado de nadie.
+  await caso('La misma captura, pero desde otro teléfono', capturaDelPedido(), () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'consultó el estado sin haber verificado nada');
+    assert.ok(/nombre comercial/i.test(texto('respuesta')), 'tenía que pedir el nombre');
+  }, '34600111000');
+
+  // Y si el número leído no existe, no se le dice «ese pedido no consta»: lo
+  // ha leído una máquina y puede tener una cifra cambiada.
+  escenario.lecturaDeLaFoto = {
+    seVe: 'captura de un pedido', textoLeido: 'Pedido #999999', buscar: false,
+  };
+  await caso('El número leído en la foto no existe', capturaDelPedido(), () => {
+    const dicho = texto('botones') + texto('respuesta');
+    assert.ok(/le[íi]do mal|read it wrong/i.test(dicho),
+      `tiene que decir que puede haber leído mal el número: ${dicho}`);
+    assert.ok(tiene('botones'), 'y ofrecerle una persona');
+  });
+
+  // Y una foto que no habla de ningún pedido sigue su camino de siempre: no se
+  // consulta nada.
+  escenario.lecturaDeLaFoto = {
+    seVe: 'caja de folios A4', textoLeido: 'MATTIO A4 80g', buscar: true,
+  };
+  await caso('Una foto de un producto no consulta pedidos', capturaDelPedido(), () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'se puso a consultar pedidos por una foto de folios');
+  });
+  escenario.lecturaDeLaFoto = null;
 
   console.log(fallos === 0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);
