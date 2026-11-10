@@ -160,13 +160,18 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
 
 ## Seguridad conocida
 
-> **Estado real, comprobado en vivo (2026-08-19)**: los datos de Finanzas,
-> Alquileres, Vacaciones y Fichaje son accesibles **sin ninguna contraseña**
-> — en Finanzas incluso con escritura. El login de las apps no protege los
-> datos: se llega a la base de datos sin pasar por él. Ver el informe completo
-> en `.claude/rax/AUDITORIA_SEGURIDAD_2026-08.md` y `DEUDA_TECNICA.md` DT-23.
-> Es el punto abierto más grave del proyecto; el resto de esta sección son
-> problemas menores en comparación.
+> **Estado real, comprobado en vivo (2026-11-08) con `bash scripts/comprobar-seguridad.sh`**:
+> ninguna de las bases de datos se lee ni se escribe sin credencial. Supabase
+> «App Bancos» devuelve 401 en las seis tablas y también a una escritura;
+> Firestore `ofipapelvv` (Alquileres y Vacaciones) y el de Fichaje devuelven
+> 403, y `ofipapelvv` sigue **concediendo sesiones anónimas** —que sus reglas
+> rechazan, pero son lo único que lo impide: apagar ese proveedor es lo que
+> queda—. El cuadro de agosto (`.claude/rax/AUDITORIA_SEGURIDAD_2026-08.md`),
+> que describía Finanzas y Fichaje abiertos, **ya no es el estado actual**: ver
+> `DEUDA_TECNICA.md` DT-23. El script se vuelve a correr cuando se quiera —es
+> la evidencia con fecha que piden SOC 2 CC7.1 e ISO 27001 A.8.8— y lo que
+> queda abierto está en `.claude/rax/auditoria-iso-soc2-2026-11.md` (fuera de
+> git: el repositorio es público, DT-30).
 
 
 - `Index.html`: login 100% client-side (hash SHA-256 sin salt, contraseña
@@ -202,6 +207,15 @@ controles → evidencia) y `SECURITY.md`; **no es una certificación**. Técnica
 (`npm audit fix` sin cambios mayores: joe-app y netlify/functions a 0 altas; alquileres conserva 4 de `firebase`, cuyo
 arreglo propuesto por npm es una versión antigua). El estado real de cada hueco vive fuera de git en
 `.claude/rax/auditoria-iso-soc2-2026-11.md` (por el mismo motivo que los demás informes de auditoría: el repo es público).
+
+**La comprobación de que sigue cerrado es `bash scripts/comprobar-seguridad.sh`** (8/11/2026): con las claves públicas que
+ya van dentro del HTML, intenta leer las seis tablas de Supabase y las colecciones de los dos proyectos Firestore —sin
+credencial y, además, con la sesión anónima que Firebase conceda—, llamar a las funciones que cuestan dinero, y mira las
+cabeceras que sirve el sitio; sale con error si algo responde. Es distinto de `comprobar-secretos.sh`, que busca secretos
+en el código: esto comprueba los permisos **en vivo**, que es lo que de verdad no se puede leer en un fichero. La única
+escritura que intenta es un `PATCH` con un filtro que no casa con ninguna fila, así que no cambia nada ni con permiso. No
+corre en CI a propósito —toca producción— y hay que lanzarlo a mano cada vez que se toquen políticas RLS, reglas de
+Firestore o proveedores de autenticación, y en la revisión periódica.
 
 ## Estudio de diseño (RAX)
 
