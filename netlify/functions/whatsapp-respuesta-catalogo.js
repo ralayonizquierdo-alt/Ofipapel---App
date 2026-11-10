@@ -119,20 +119,6 @@ function palabrasDeLaConsulta(consulta) {
   }
 }
 
-// Cuando lo encontrado solo se parece. Se repite lo que pidió para que vea que
-// se le ha entendido, recortado para no soltarle su propio mensaje entero.
-function cabeceraParecido(idioma, consulta) {
-  const pedido = String(consulta || '').trim().replace(/\s+/g, ' ').slice(0, 45);
-  if (idioma === 'en') {
-    return pedido
-      ? `I can't find exactly "${pedido}". This is the closest I have:`
-      : "I can't find exactly that. This is the closest I have:";
-  }
-  return pedido
-    ? `No encuentro exactamente «${pedido}». Esto es lo más parecido que tengo:`
-    : 'No encuentro exactamente eso. Esto es lo más parecido que tengo:';
-}
-
 // Construye la respuesta a partir de lo que devolvió la web, o null si no hay
 // nada que decir (y entonces el webhook sigue por donde iba).
 //
@@ -148,7 +134,35 @@ function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null, 
     .map((p) => ({ p, cuadre: cuantoCuadra(p.nombre, palabras) }))
     .sort((a, b) => b.cuadre - a.cuadre);
   const ordenados = puntuados.map((x) => x.p);
-  const cuadra = (puntuados[0]?.cuadre ?? 1) >= CUADRA_DESDE;
+
+  // SI NO CUADRA, AQUÍ NO SE CONTESTA (10/11/2026, dos casos reales).
+  //
+  // El primer intento sí contestaba, encabezando con «no encuentro
+  // exactamente X, esto es lo más parecido». Dos conversaciones de verdad
+  // enseñaron que eso está mal de dos maneras a la vez:
+  //
+  //   cliente: «¿tienes láminas de sublimación para tazas?»
+  //   bot:     (bien) no me aparece, pregunta al equipo
+  //   cliente: «Si existen, ¿cuánto cuestan?»
+  //   bot:     «No encuentro exactamente "Si existen, ¿cuánto cuestan?".
+  //             Esto es lo más parecido: PACK 3 LÁMINAS MAGNÉTICAS PARA
+  //             SMARTPHONES»
+  //
+  // 1. La pregunta de seguimiento NO es el nombre de un producto, y aquí se
+  //    trataba como si lo fuera — repitiéndosela al cliente, y cortada a
+  //    mitad de palabra cuando era larga («…qué precio tien»).
+  // 2. «Lo más parecido» salía aunque no se pareciera en NADA: unas láminas
+  //    magnéticas para móviles no son láminas de sublimación.
+  // 3. Y lo de fondo: ese «¿cuánto cuestan?» hablaba de las láminas del
+  //    mensaje anterior. Al componer la respuesta aquí se saltaba a la IA,
+  //    que es quien tiene el historial de la conversación.
+  //
+  // Así que esto contesta SOLO cuando lo encontrado cuadra de verdad. Si no,
+  // devuelve null y sigue el turno por donde iba: la IA, con el catálogo en
+  // el prompt, el hilo de la conversación y todas las redes de seguridad.
+  // Buscar de menos aquí no pierde nada; contestar de más deja al cliente con
+  // un producto que no tiene nada que ver.
+  if ((puntuados[0]?.cuadre ?? 1) < CUADRA_DESDE) return null;
 
   // EL STOCK SE AVISA, NO ESCONDE.
   //
@@ -161,9 +175,7 @@ function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null, 
   // UNO SOLO: se confirma con su nombre, su precio y su enlace.
   if (lista.length === 1) {
     const p = lista[0];
-    const cabecera = cuadra
-      ? (idioma === 'en' ? 'This is what we have:' : 'Esto es lo que tenemos:')
-      : cabeceraParecido(idioma, consulta);
+    const cabecera = idioma === 'en' ? 'This is what we have:' : 'Esto es lo que tenemos:';
     const aviso = p.disponible
       ? ''
       : idioma === 'en'
@@ -175,9 +187,8 @@ function respuestaDeCatalogo(productos, { idioma = 'es', enlaceBusqueda = null, 
   // VARIOS: se enseñan tal cual, con su precio y su enlace, y se le deja elegir
   // a él. Preguntarle «¿qué tamaño quieres?» antes de enseñarle nada es lo que
   // hacía la IA, y por el camino se inventaba los tamaños.
-  const cabecera = cuadra
-    ? (idioma === 'en' ? 'This is what we have, with prices:' : 'Esto es lo que tenemos, con sus precios:')
-    : cabeceraParecido(idioma, consulta);
+  const cabecera =
+    idioma === 'en' ? 'This is what we have, with prices:' : 'Esto es lo que tenemos, con sus precios:';
   const cierre = enlaceBusqueda
     ? idioma === 'en'
       ? `\n\nAll of them here: ${enlaceBusqueda}`
