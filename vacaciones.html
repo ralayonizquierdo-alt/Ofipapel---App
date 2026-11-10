@@ -3280,8 +3280,10 @@ function placeEmployees(targets, y){
     if(pet.status!=='aprobada' || pet.applied || !pet.start.startsWith(y+'-')) continue;
     const emp = targets.find(e=>e.id===pet.employeeId);
     if(!emp) continue;
-    add(emp, pet.start, pet.end);
     usedPeticiones.push(pet.id);
+    // la misma petición apuntada dos veces (pasó con Herminia en 2027) solo cuenta una
+    if(state.periods.some(p=>p.employeeId===emp.id && p.start===pet.start && p.end===pet.end)) continue;
+    add(emp, pet.start, pet.end);
   }
   for(const emp of targets){
     const prefObj = state.employeePrefs[emp.id] || {};
@@ -3301,6 +3303,14 @@ function placeEmployees(targets, y){
     const order = rotationOrderFor(key, emps, y);
     orders[key] = order.map(e=>e.id);
     const listIds = new Set(emps.map(e=>e.id));
+    if(key==='tiendas'){ // Tiendas: en escalera (Luis, 10/11/2026)
+      const todos = new Set(EMPLOYEES.filter(e=>e.active!==false && rotationListKey(e)===key).map(e=>e.id)); // con quien pide sus fechas
+      placeEscalera(order.filter(e=>targets.includes(e)), y, placed, todos, (emp, s, e)=>{
+        add(emp, s, e);
+        fromFallbackCount[emp.id] = (fromFallbackCount[emp.id]||0)+1;
+      });
+      continue;
+    }
     const pending = order.filter(e=>targets.includes(e)).map(emp=>({emp, tramos:tramosFor(emp, y, placed[emp.id]||[])}));
     const turns = Math.max(0, ...pending.map(x=>x.tramos.length));
     const totalDays = pending.reduce((t,x)=>t+x.tramos.reduce((a,b)=>a+b,0),0);
@@ -3335,6 +3345,47 @@ function placeEmployees(targets, y){
     fromFixed:fromFixedCount[emp.id]||0, fromPartner:0, fromPrefs:fromPrefsCount[emp.id]||0, fromFallback:fromFallbackCount[emp.id]||0,
   }));
   return {results, fixedFailed, usedPeticiones, orders};
+}
+/* Reparto en escalera de Tiendas (Luis, 10/11/2026). Turnos de 15 días, y cada uno empieza 10 días después
+   del anterior: se pisan 5 y nunca hay más de 2 fuera (contando peticiones y fechas fijas, también las de quien
+   pide sus fechas). El 1.º turno va en el orden de la lista desde el 15 de enero y el 2.º en el orden contrario
+   (la escalera sube y luego baja). Si no cabe, la escalera se para hasta que haya sitio. Quien ya tiene
+   peticiones o fechas fijas solo hace los turnos que le faltan. De mitad de octubre a Navidad queda de reserva. */
+const ESCALERA_PASO = 10, ESCALERA_MAX_FUERA = 2;
+function escaleraTramos(emp, y, alreadyPlaced){
+  const holidays = Math.max(0, holidaysWorkedBy(emp.id, y).length - diasPorFestivo(emp.id, y));
+  const left = emp.daysPerYear + holidays - alreadyPlaced.reduce((t,d)=>t+d,0);
+  if(left<=0) return [];
+  const n = Math.max(1, Math.round(left/15));
+  return Array.from({length:n}, (_,i)=> Math.floor(left/n) + (i<left%n ? 1 : 0));
+}
+function placeEscalera(order, y, placed, listIds, add){
+  const firstIdx = isoToIndex(y, y+'-01-15'), reserva = isoToIndex(y, y+'-10-15');
+  const pending = order.map(emp=>({emp, tramos:escaleraTramos(emp, y, placed[emp.id]||[])}));
+  const turns = Math.max(0, ...pending.map(x=>x.tramos.length));
+  let cursor = firstIdx;
+  for(let t=0;t<turns;t++){
+    const fila = t%2===0 ? pending : [...pending].reverse();
+    for(const {emp, tramos} of fila){
+      if(t>=tramos.length) continue;
+      const L = tramos[t];
+      let got = null;
+      // primero en su peldaño y antes de la reserva; si no, donde quepa con 2 fuera; y como último recurso, con 3
+      for(const [cap, from, hasta] of [[ESCALERA_MAX_FUERA,cursor,reserva],[ESCALERA_MAX_FUERA,cursor,daysInYear(y)],[ESCALERA_MAX_FUERA,firstIdx,daysInYear(y)],[3,firstIdx,daysInYear(y)]]){
+        for(let s=from; s+L-1<hasta && !got; s++){
+          const e = s+L-1;
+          if(!rangeOk(emp, s, e, y)) continue;
+          const sISO = toISO(dateFromIndex(y,s)), eISO = toISO(dateFromIndex(y,e));
+          if(listConcurrency(listIds, sISO, eISO)>=cap) continue;
+          got = {s, e, sISO, eISO, enPeldano: from===cursor};
+        }
+        if(got) break;
+      }
+      if(!got) continue;
+      add(emp, got.sISO, got.eISO);
+      if(got.enPeldano) cursor = got.s + ESCALERA_PASO;
+    }
+  }
 }
 function commitPlacement(y, usedPeticiones, orders){
   state.rotationOrder = state.rotationOrder || {};
@@ -4252,6 +4303,11 @@ function buildEscalaRows(grid, emps, y, n, pos){
     } else grid.appendChild(printEscala(l.titulo, l.emps, y, n, pos));
   }
 }
+/* En la Escala, las peticiones aprobadas y las fechas fijas van en rojo, aparte de la escalera (Luis, 10/11/2026). */
+function esPeticionOFija(emp, p, y){
+  if((state.peticiones||[]).some(x=>x.employeeId===emp.id && x.status==='aprobada' && x.start===p.start && x.end===p.end)) return true;
+  return hasFixedPref(emp.id) && parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y).some(r=>r.start===p.start && r.end===p.end);
+}
 function printEscala(titulo, emps, y, n, pos){
   const trackMm = printTrackMm(), mmPorLetra = printFormat==='A4' ? 0.95 : 1.25;
   const items = [];
@@ -4305,7 +4361,9 @@ function printEscala(titulo, emps, y, n, pos){
       nom.title = it.emp.name;
       if(hasFixedPref(it.emp.id)) nom.style.color = '#E74C3C';
       track.appendChild(nom);
-      track.appendChild(printBlock(it.p, it.turno, y, n, pos));
+      const blk = printBlock(it.p, it.turno, y, n, pos);
+      if(esPeticionOFija(it.emp, it.p, y)){ blk.style.background = '#C62828'; blk.title += ' · petición o fecha fija'; }
+      track.appendChild(blk);
       if(it.festivo){
         const m = document.createElement('div'); m.className = 'p-festivo';
         m.style.left = pos(it.e+1)+'%';
@@ -5166,6 +5224,8 @@ const OPERATIVAS = {
     notas: [
       'Reparto: primero las fijas, luego las peticiones aprobadas y después la lista, que rueda un puesto cada año.',
       'El primer turno empieza el 15 de enero. Nadie empieza ni termina en festivo. Tiendas, Oficina y cada unidad de Ventas ruedan por separado.',
+      '<b>Tiendas va en escalera:</b> turnos de 15 días, cada uno <b>10 días después</b> del anterior, y <b>nunca más de 2 fuera</b> (contando peticiones y fechas fijas). El 1.º turno sube por la lista y el 2.º baja. Quien tiene petición o fecha fija solo hace los turnos que le faltan.',
+      'De <b>mitad de octubre a Navidad</b> queda de reserva: solo entra ahí lo que no cabe antes.',
       'Quien pide sus fechas no entra en la lista: va por Peticiones.',
       'Hasta que la guardes, la propuesta no cambia nada. Guardarla no toca a quien ya tiene fechas ese año.',
       'Chincheta azul: tuvo fecha fija ese año. Chincheta roja: tiene fecha fija en la propuesta, y esa fecha sale en rojo.',
@@ -5281,7 +5341,7 @@ const OPERATIVAS = {
     ],
     notas: [
       'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
-      '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
+      '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. Las peticiones y fechas fijas van <b>en rojo</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
       'Si una barra choca con otra de su fila, pasa a la siguiente fila libre: por eso la escalera puede no salir perfecta.',
       'Los números de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes, y los símbolos van al final del nombre. Su significado está en la Operativa de la pantalla principal.',
       '<b>WhatsApp</b> prepara un texto con quién está fuera en la fecha elegida en «¿Quién está fuera?». No manda la imagen.',

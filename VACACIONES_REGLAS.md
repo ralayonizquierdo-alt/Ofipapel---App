@@ -507,6 +507,22 @@ resumen del año por texto.
 Esta pantalla es distinta del panel lateral "¿Quién está fuera?" (que muestra solo un día concreto) — el
 Plan anual muestra el año entero de cada persona de un vistazo.
 
+## 16. Reparto en escalera de Tiendas y Planning Escala (10/11/2026)
+
+- **Reparto de Tiendas** (Luis, 10/11/2026): turnos de 15 días y cada uno empieza **10 días después** del
+  anterior, así que se pisan 5 y **nunca hay más de 2 fuera** (contando peticiones y fechas fijas, también
+  las de quien pide sus fechas). El 1.º turno va por el orden de la lista desde el 15 de enero y el 2.º en
+  el orden contrario: la escalera sube y luego baja. Si una petición o fecha fija no deja sitio, la escalera
+  se para hasta que lo haya. Quien tiene petición o fecha fija solo hace los turnos que le faltan.
+- **Reserva**: de mitad de octubre a Navidad queda libre para mover a alguien a última hora; solo entra lo
+  que no cabe antes.
+- Siguen igual: nunca dos de la misma tienda a la vez, las parejas que no pueden coincidir y que nadie
+  empiece en viernes, sábado, domingo o festivo. Oficina, Limpieza y Ventas reparten como antes.
+- **Planning Escala**: en la Vista previa, un desplegable elige Planning Lineal (una fila por persona) o
+  Planning Escala (los turnos en escalera, el nombre junto a cada barra y las peticiones y fechas fijas en
+  rojo). Oficina y Limpieza van debajo, como en el Lineal.
+- **Listado**: Limpieza va al final, detrás de Oficina, con su línea en blanco.
+
 ## Posibles reglas adicionales a valorar
 
 - **Límite de periodos por empleado al año**: ¿máximo de veces que se puede fraccionar el año, o libre?
