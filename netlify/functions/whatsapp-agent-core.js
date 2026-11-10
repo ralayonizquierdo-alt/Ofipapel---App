@@ -4,6 +4,7 @@
 const {
   FAQ_RULES,
   nombraAlgoConcreto,
+  nombraUnArticulo,
   FACTURA_INFO,
   isPedidoEstadoQuestion,
   buildAiSystemPrompt,
@@ -156,8 +157,34 @@ function matchFaqRule(text) {
   // mensaje nombra algo más que la familia — una marca, un modelo, un tipo —,
   // y entonces contesta el catálogo, que es quien lo sabe. «¿Tenéis agendas?»
   // sigue llevándose la respuesta de siempre.
+  //
+  // Y una variante más fina, `seApartaSiPidenOtroArticulo` (8/11/2026, del
+  // sondeo): la de las sillas NO lleva `familiaDeProducto` a propósito —el
+  // propietario quiere que «sillas de oficina» o «sillas ergonómicas» se
+  // lleven su enlace siempre, y con el marcador puesto se apartaban—, pero
+  // tampoco puede comerse media conversación:
+  //
+  //   cliente: «¿tenéis cartuchos de epson? y una silla de oficina barata?»
+  //   bot:     (solo el enlace de las sillas; los cartuchos, sin contestar)
+  //
+  // Así que se aparta solo cuando lo que sobra del mensaje nombra OTRO
+  // artículo de los que vendemos (`nombraUnArticulo` con el vocabulario del
+  // negocio). «¿Vendéis sillones?» o «una silla para la espalda» no nombran
+  // nada más y siguen llevándose su enlace.
+  const pidenOtroArticulo = (candidata) => {
+    if (!candidata.rule.seApartaSiPidenOtroArticulo) return false;
+    // De la más larga a la más corta: quitando «silla» antes que «sillas de
+    // escritorio» quedaría «escritorio» suelto, que SÍ está en el vocabulario,
+    // y la regla se apartaría de su propio caso.
+    const resto = [...(candidata.rule.keywords || [])]
+      .sort((a, b) => b.length - a.length)
+      .reduce((txt, k) => txt.split(k).join(' '), normalized);
+    return nombraUnArticulo(resto);
+  };
+
   const apartadas = candidatas.filter(
-    (c) => c.rule.familiaDeProducto && nombraAlgoConcreto(normalized, c.rule.keywords)
+    (c) => (c.rule.familiaDeProducto && nombraAlgoConcreto(normalized, c.rule.keywords))
+      || pidenOtroArticulo(c)
   );
   if (apartadas.length > 0) {
     candidatas = candidatas.filter((c) => !apartadas.includes(c));
