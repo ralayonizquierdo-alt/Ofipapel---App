@@ -1,0 +1,513 @@
+"""Logica de negocio pura: leer Excel de proveedores, cruzar precios y generar
+los Excel de salida. No depende de red ni de Graph - testeable con archivos
+de ejemplo sin necesidad de conexion.
+"""
+
+import re
+from dataclasses import dataclass, field
+from io import BytesIO
+
+import pandas as pd
+from openpyxl.styles import Font
+
+
+class ExcelFormatoInvalidoError(Exception):
+    pass
+
+
+@dataclass
+class ReporteCruce:
+    incompletas: list[dict] = field(default_factory=list)
+    duplicadas: list[dict] = field(default_factory=list)
+    empates: list[dict] = field(default_factory=list)
+    sin_stock: list[dict] = field(default_factory=list)
+    sin_oferta_valida: list[dict] = field(default_factory=list)
+    excluidos_por_marca: list[dict] = field(default_factory=list)
+    balance_aplicado: list[dict] = field(default_factory=list)
+
+
+def _normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df.columns = [re.sub(r'[\s\xa0]+', ' ', str(c)).strip().lower() for c in df.columns]
+    return df
+
+
+def _normalizar_precio(valor) -> float:
+    if isinstance(valor, str):
+        valor = valor.strip().replace(",", ".")
+        if valor == "":
+            return float("nan")
+    return float(valor)
+
+
+def _precio_valido(valor: float) -> bool:
+    """Un precio en blanco o 0 significa 'sin stock' (no que sea gratis):
+    ese proveedor queda descartado para ese articulo, como si fuera carisimo,
+    pero sin afectar a la comparativa de los demas proveedores.
+    """
+    return pd.notna(valor) and valor > 0
+
+
+def leer_excel_proveedor(
+    contenido_bytes: bytes,
+    nombre_proveedor: str,
+    config_excel: dict,
+    columnas_extra: list[str] = None,
+    columnas_mapa: dict = None,
+) -> pd.DataFrame:
+    """Lee el Excel adjunto de un proveedor y lo normaliza a un formato comun."""
+    df = pd.read_excel(BytesIO(contenido_bytes), header=config_excel["fila_cabecera"], dtype=str)
+    df = _normalizar_columnas(df)
+
+    # Si hay columnas con el mismo nombre, añadir sufijo _1, _2, ...
+    seen: dict[str, int] = {}
+    new_cols = []
+    for col in df.columns:
+        if col in seen:
+            seen[col] += 1
+            new_cols.append(f"{col}_{seen[col]}")
+        else:
+            seen[col] = 0
+            new_cols.append(col)
+    df.columns = new_cols
+
+    # Renombrar columnas con nombre distinto al esperado (p.ej. Inforpor llama
+    # "r_precio_actual" a lo que el resto llama "precio").
+    if columnas_mapa:
+        df = df.rename(columns={k.lower(): v.lower() for k, v in columnas_mapa.items()})
+
+    columnas_esperadas = [c.lower() for c in config_excel["columnas_esperadas"]]
+    faltantes = [c for c in columnas_esperadas if c not in df.columns]
+
+    # Rescatar columnas sin cabecera: pandas las nombra "unnamed: N" donde N es
+    # el indice de columna (base 0), que coincide con la posicion en
+    # columnas_esperadas. Util cuando el proveedor no pone titulo en alguna celda.
+    for col_esperada in list(faltantes):
+        idx = columnas_esperadas.index(col_esperada)
+        col_unnamed = f"unnamed: {idx}"
+        if col_unnamed in df.columns:
+            df = df.rename(columns={col_unnamed: col_esperada})
+            faltantes.remove(col_esperada)
+
+    if faltantes:
+        raise ExcelFormatoInvalidoError(
+            f"El Excel de '{nombre_proveedor}' no tiene las columnas esperadas: {faltantes} "
+            f"(columnas encontradas: {list(df.columns)})"
+        )
+
+    columna_clave = config_excel["columna_clave"].lower()
+    columna_precio = config_excel["columna_precio"].lower()
+
+    cols_a_leer = list(columnas_esperadas)
+    if columnas_extra:
+        for col in [c.lower() for c in columnas_extra]:
+            if col in df.columns and col not in cols_a_leer:
+                cols_a_leer.append(col)
+
+    df = df[cols_a_leer].copy()
+    df[columna_clave] = df[columna_clave].astype(str).str.strip()
+    df[columna_precio] = df[columna_precio].apply(_normalizar_precio)
+    df["proveedor"] = nombre_proveedor
+    df["_orden"] = range(len(df))
+    return df
+
+
+def cruzar_y_determinar_ganador(
+    dfs_por_proveedor: dict[str, pd.DataFrame],
+    columna_clave: str,
+    columna_precio: str,
+    columna_descripcion: str = None,
+    columna_cantidad: str = None,
+    excluir_marcas_por_proveedor: dict[str, list[str]] = None,
+    balance_entre: list[str] = None,
+    balance_tolerancia: float = 0.0,
+    balance_tolerancia_porcentaje: float = 0.0,
+) -> tuple[pd.DataFrame, ReporteCruce]:
+    """Cruza los Excel de los proveedores por columna_clave y asigna, para cada
+    articulo, el proveedor con el precio mas bajo.
+
+    excluir_marcas_por_proveedor: {proveedor: [marcas]} — ese proveedor no puede
+      ganar articulos cuya descripcion contenga alguna de las marcas indicadas.
+    balance_entre: lista de 2 proveedores cuyo importe total de pedido se intenta
+      equilibrar asignando los empates de precio al que lleve menos acumulado.
+    balance_tolerancia: diferencia maxima de precio en euros para considerar
+      dos precios como empate. Por defecto 0 (exacto).
+    balance_tolerancia_porcentaje: diferencia maxima como % del precio minimo
+      (p.ej. 1.0 = 1%). Se toma el maximo entre esta y balance_tolerancia.
+    """
+    reporte = ReporteCruce()
+    proveedores = list(dfs_por_proveedor.keys())
+    total_proveedores = len(proveedores)
+    excluir_marcas_por_proveedor = excluir_marcas_por_proveedor or {}
+    balance_entre = list(balance_entre or [])
+
+    frames = []
+    for nombre, df in dfs_por_proveedor.items():
+        duplicados = df[df.duplicated(subset=[columna_clave], keep=False)]
+        for referencia in duplicados[columna_clave].unique():
+            reporte.duplicadas.append({"proveedor": nombre, "referencia": referencia})
+        if not duplicados.empty:
+            # Entre duplicados, preferimos quedarnos con una fila de precio
+            # valido (>0) antes que con una "sin stock" (blanco o 0).
+            orden = df[columna_precio].where(df[columna_precio].apply(_precio_valido), other=float("inf"))
+            df = df.assign(_orden=orden).sort_values("_orden").drop_duplicates(subset=[columna_clave], keep="first").drop(columns="_orden")
+        frames.append(df)
+
+    consolidado = pd.concat(frames, ignore_index=True)
+
+    # Copia de trabajo para la determinacion de ganadores: aqui aplicamos las
+    # exclusiones por marca sin tocar el consolidado original (que se usara para
+    # generar los Excel de salida con los precios reales de cada proveedor).
+    trabajo = consolidado.copy()
+
+    if excluir_marcas_por_proveedor and columna_descripcion:
+        col_desc = columna_descripcion.lower()
+        if col_desc in trabajo.columns:
+            for proveedor, marcas in excluir_marcas_por_proveedor.items():
+                if not marcas:
+                    continue
+                patron = "|".join(re.escape(m) for m in marcas)
+                mask = (
+                    (trabajo["proveedor"] == proveedor)
+                    & trabajo[col_desc].str.contains(patron, case=False, na=False)
+                )
+                if mask.any():
+                    for ref in trabajo.loc[mask, columna_clave].unique():
+                        reporte.excluidos_por_marca.append({
+                            "referencia": ref,
+                            "proveedor": proveedor,
+                        })
+                    trabajo.loc[mask, columna_precio] = float("nan")
+
+    cobertura = consolidado.groupby(columna_clave)["proveedor"].nunique()
+    for referencia in cobertura[cobertura < total_proveedores].index:
+        presentes = consolidado.loc[consolidado[columna_clave] == referencia, "proveedor"].tolist()
+        reporte.incompletas.append({
+            "referencia": referencia,
+            "proveedores_con_cotizacion": presentes,
+            "proveedores_sin_cotizacion": [p for p in proveedores if p not in presentes],
+        })
+
+    # Acumulado de importe (precio x cantidad) por proveedor para el balanceo
+    totales_balance = {p: 0.0 for p in balance_entre}
+
+    ganador_por_referencia = {}
+    for referencia, grupo in trabajo.groupby(columna_clave):
+        es_valido = grupo[columna_precio].apply(_precio_valido)
+        validos = grupo[es_valido]
+        sin_stock = grupo[~es_valido]["proveedor"].tolist()
+        if sin_stock:
+            reporte.sin_stock.append({"referencia": referencia, "proveedores_sin_stock": sin_stock})
+
+        if validos.empty:
+            reporte.sin_oferta_valida.append({"referencia": referencia, "proveedores_sin_stock": sin_stock})
+            continue
+
+        precio_minimo = validos[columna_precio].min()
+        tol_pct = precio_minimo * (balance_tolerancia_porcentaje / 100.0) if balance_tolerancia_porcentaje > 0 else 0.0
+        tol_efectiva = max(balance_tolerancia, tol_pct)
+        empatados = validos[
+            (validos[columna_precio] - precio_minimo).abs() <= tol_efectiva
+        ].sort_values("proveedor")
+        empatados_lista = empatados["proveedor"].tolist()
+
+        # Si ambos proveedores de balanceo estan empatados al precio minimo,
+        # asignar al que lleve menos importe acumulado (empate secundario: orden
+        # alfabetico para garantizar determinismo).
+        balance_en_empate = [p for p in balance_entre if p in empatados_lista]
+        if len(balance_en_empate) >= 2:
+            ganador = min(balance_en_empate, key=lambda p: (totales_balance.get(p, 0.0), p))
+            otro = next(p for p in balance_en_empate if p != ganador)
+            reporte.balance_aplicado.append({
+                "referencia": referencia,
+                "precio": precio_minimo,
+                "ganador": ganador,
+                "otro_proveedor": otro,
+            })
+        else:
+            ganador = empatados.iloc[0]["proveedor"]
+
+        if len(empatados) > 1:
+            reporte.empates.append({
+                "referencia": referencia,
+                "precio": precio_minimo,
+                "proveedores_empatados": empatados_lista,
+                "ganador_asignado": ganador,
+            })
+
+        ganador_por_referencia[referencia] = ganador
+
+        # Actualizar acumulado del ganador (para proximas decisiones de balanceo)
+        if ganador in totales_balance:
+            fila = validos[validos["proveedor"] == ganador].iloc[0]
+            precio = fila[columna_precio]
+            qty = 1.0
+            if columna_cantidad:
+                col_qty = columna_cantidad.lower()
+                if col_qty in fila.index:
+                    try:
+                        q = float(fila[col_qty])
+                        if pd.notna(q) and q > 0:
+                            qty = q
+                    except (ValueError, TypeError):
+                        pass
+            totales_balance[ganador] += precio * qty
+
+    consolidado["proveedor_ganador"] = consolidado[columna_clave].map(ganador_por_referencia)
+    return consolidado, reporte
+
+
+def construir_excel_por_proveedor(
+    df_consolidado: pd.DataFrame,
+    nombre_proveedor: str,
+    columnas_salida: list[str],
+    columnas_extra: list[str] = None,
+    columna_precio: str = None,
+    columna_cantidad: str = None,
+    ruta_plantilla: str = None,
+) -> bytes:
+    """Genera el .xlsx con los articulos en los que nombre_proveedor resulto ganador.
+
+    Si ruta_plantilla apunta al fichero de plantilla de pedido, el Excel de salida
+    respeta el formato de dicha plantilla (cabecera preformateada, datos desde fila 11).
+    """
+    import openpyxl as _opx
+
+    columnas_salida = [c.lower() for c in columnas_salida]
+    cols_final = list(columnas_salida)
+    if columnas_extra:
+        for col in [c.lower() for c in columnas_extra]:
+            if col not in cols_final and col in df_consolidado.columns:
+                cols_final.append(col)
+
+    es_ganador = df_consolidado["proveedor_ganador"] == nombre_proveedor
+    es_propio = df_consolidado["proveedor"] == nombre_proveedor
+    df_propio = df_consolidado[es_ganador & es_propio]
+    if "_orden" in df_propio.columns:
+        df_propio = df_propio.sort_values("_orden")
+    filtrado = df_propio[cols_final].copy()
+
+    col_precio = columna_precio.lower() if columna_precio else None
+    col_cantidad = columna_cantidad.lower() if columna_cantidad else None
+
+    if ruta_plantilla:
+        return _construir_con_plantilla(filtrado, nombre_proveedor, col_precio, col_cantidad, ruta_plantilla)
+
+    # --- formato simple (sin plantilla) ---
+    from openpyxl.styles import PatternFill
+
+    tiene_importe = (
+        col_precio and col_cantidad
+        and col_precio in filtrado.columns
+        and col_cantidad in filtrado.columns
+    )
+    if tiene_importe:
+        qty = pd.to_numeric(filtrado[col_cantidad], errors="coerce").fillna(0)
+        prc = pd.to_numeric(filtrado[col_precio], errors="coerce").fillna(0)
+        filtrado["importe"] = qty * prc
+        total_importe = filtrado["importe"].sum()
+    else:
+        total_importe = None
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        filtrado.to_excel(writer, index=False, sheet_name="Ganador")
+        hoja = writer.sheets["Ganador"]
+        for celda in hoja[1]:
+            celda.font = Font(bold=True)
+        if total_importe is not None:
+            fila_total = hoja.max_row + 1
+            fill_total = PatternFill(fill_type="solid", fgColor="D9D9D9")
+            col_importe_idx = None
+            for celda in hoja[1]:
+                if str(celda.value).lower() == "importe":
+                    col_importe_idx = celda.column
+                    break
+            for col_idx in range(1, hoja.max_column + 1):
+                c = hoja.cell(row=fila_total, column=col_idx)
+                c.fill = fill_total
+                c.font = Font(bold=True)
+            hoja.cell(row=fila_total, column=1).value = "TOTAL"
+            if col_importe_idx:
+                celda_total = hoja.cell(row=fila_total, column=col_importe_idx)
+                celda_total.value = total_importe
+                celda_total.number_format = "#,##0.00"
+        for columna in hoja.columns:
+            ancho = max((len(str(c.value)) for c in columna if c.value is not None), default=10) + 2
+            hoja.column_dimensions[columna[0].column_letter].width = ancho
+
+    return buffer.getvalue()
+
+
+def _construir_con_plantilla(
+    filtrado: pd.DataFrame,
+    nombre_proveedor: str,
+    col_precio: str,
+    col_cantidad: str,
+    ruta_plantilla: str,
+) -> bytes:
+    """Rellena la plantilla corporativa con los datos del proveedor (openpyxl).
+
+    Columnas: B=2 DESCRIPCION, C=3 Rfcia.Proveedor, F=6 Unidades,
+    G=7 P.Costo, J=10 TOTAL, M=13 Cod.Ofipapel, N=14 Cod.Interno (solo Inforpor).
+    Datos desde Excel fila 11. Fila TOTAL al final con suma de importes.
+    """
+    import openpyxl as _opx
+    from openpyxl.styles import Alignment as _Alignment, Font as _Font
+
+    wb = _opx.load_workbook(ruta_plantilla)
+    ws = wb["fichero"]
+    ws.protection.sheet = False
+
+    ws["B6"] = nombre_proveedor
+
+    fila = 11
+    total_importe = 0.0
+
+    for _, row in filtrado.iterrows():
+        descrip_raw = row.get("descrip", "")
+        descrip = "" if pd.isna(descrip_raw) else str(descrip_raw).strip()
+        cod_compra = row.get("cod_compra", "") or ""
+        cantvend = row.get(col_cantidad, "") if col_cantidad else ""
+        precio = row.get(col_precio, "") if col_precio else ""
+        cod_venta_raw = row.get("cod_venta", "")
+
+        if pd.isna(cod_venta_raw) or str(cod_venta_raw).strip() in ("", "nan"):
+            cod_venta = ""
+        else:
+            cod_venta = str(cod_venta_raw).strip()
+
+        cantvend_val = cantvend if pd.notna(cantvend) else ""
+        precio_val = precio if pd.notna(precio) else ""
+
+        _cb = ws.cell(row=fila, column=2)
+        _cb.value = descrip
+        _cb.alignment = _Alignment(horizontal="left", wrap_text=False)
+        ws.cell(row=fila, column=3).value = str(cod_compra)
+
+        if cantvend_val != "":
+            try:
+                ws.cell(row=fila, column=6).value = float(cantvend_val)
+            except (ValueError, TypeError):
+                ws.cell(row=fila, column=6).value = cantvend_val
+
+        if precio_val != "":
+            try:
+                ws.cell(row=fila, column=7).value = float(precio_val)
+            except (ValueError, TypeError):
+                ws.cell(row=fila, column=7).value = precio_val
+
+        if cantvend_val != "" and precio_val != "":
+            try:
+                importe = float(cantvend_val) * float(precio_val)
+                ws.cell(row=fila, column=10).value = importe
+                total_importe += importe
+            except (ValueError, TypeError):
+                pass
+
+        if cod_venta_raw != "" and pd.notna(cod_venta_raw):
+            cod_venta_str = str(int(cod_venta_raw)) if isinstance(cod_venta_raw, float) else str(cod_venta_raw)
+        else:
+            cod_venta_str = ""
+        cell_m = ws.cell(row=fila, column=13)
+        cell_m.value = cod_venta_str
+        cell_m.number_format = '@'
+
+        # Código interno Inforpor en columna N (14)
+        if nombre_proveedor == "Inforpor":
+            cod_interno = row.get("r_codinforpor", row.get("R_CODINFORPOR", ""))
+            if pd.notna(cod_interno) and cod_interno != "":
+                try:
+                    ws.cell(row=fila, column=14).value = int(float(cod_interno))
+                except (ValueError, TypeError):
+                    ws.cell(row=fila, column=14).value = str(cod_interno)
+
+        fila += 1
+
+    # Fila TOTAL
+    celda_label = ws.cell(row=fila, column=9)
+    celda_label.value = "TOTAL"
+    celda_label.font = _Font(bold=True)
+    celda_total = ws.cell(row=fila, column=10)
+    celda_total.value = total_importe
+    celda_total.font = _Font(bold=True)
+
+    wb.template = False
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+def construir_excel_no_stock(
+    df_consolidado: pd.DataFrame,
+    columna_clave: str,
+    columna_precio: str,
+    columnas_salida: list[str],
+) -> bytes:
+    """Genera el .xlsx con los articulos sin precio valido en ningun proveedor."""
+    columnas_salida_lower = [c.lower() for c in columnas_salida]
+    columna_clave = columna_clave.lower()
+    columna_precio_lower = columna_precio.lower()
+    cols_mostrar = [c for c in columnas_salida_lower if c != columna_precio_lower]
+
+    sin_ganador = df_consolidado[df_consolidado["proveedor_ganador"].isna()]
+    filtrado = sin_ganador[cols_mostrar].drop_duplicates(subset=[columna_clave])
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        filtrado.to_excel(writer, index=False, sheet_name="NO STOCK")
+        hoja = writer.sheets["NO STOCK"]
+        for celda in hoja[1]:
+            celda.font = Font(bold=True)
+        for columna in hoja.columns:
+            ancho = max((len(str(c.value)) for c in columna if c.value is not None), default=10) + 2
+            hoja.column_dimensions[columna[0].column_letter].width = ancho
+
+    return buffer.getvalue()
+
+
+def construir_excel_comparativa(
+    df_consolidado: pd.DataFrame,
+    columna_clave: str,
+    columna_precio: str,
+    columnas_salida: list[str],
+) -> bytes:
+    """Genera el .xlsx con todos los articulos y los precios de cada proveedor en columnas separadas."""
+    columnas_salida_lower = [c.lower() for c in columnas_salida]
+    columna_clave = columna_clave.lower()
+    columna_precio_lower = columna_precio.lower()
+    cols_info = [c for c in columnas_salida_lower if c != columna_precio_lower]
+
+    info = df_consolidado[cols_info].drop_duplicates(subset=[columna_clave])
+
+    pivot = (
+        df_consolidado
+        .groupby([columna_clave, "proveedor"])[columna_precio_lower]
+        .first()
+        .unstack("proveedor")
+        .reset_index()
+    )
+    pivot.columns.name = None
+    pivot = pivot.rename(columns={
+        col: f"precio_{col}" for col in pivot.columns if col != columna_clave
+    })
+
+    ganador = (
+        df_consolidado[[columna_clave, "proveedor_ganador"]]
+        .drop_duplicates(subset=[columna_clave])
+    )
+
+    resultado = info.merge(pivot, on=columna_clave, how="left")
+    resultado = resultado.merge(ganador, on=columna_clave, how="left")
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        resultado.to_excel(writer, index=False, sheet_name="Comparativa")
+        hoja = writer.sheets["Comparativa"]
+        for celda in hoja[1]:
+            celda.font = Font(bold=True)
+        for columna in hoja.columns:
+            ancho = max((len(str(c.value)) for c in columna if c.value is not None), default=10) + 2
+            hoja.column_dimensions[columna[0].column_letter].width = ancho
+
+    return buffer.getvalue()

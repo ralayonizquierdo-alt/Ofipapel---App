@@ -1,0 +1,236 @@
+"""Orquesta el flujo completo: detectar los correos de pedido semanal,
+cruzar los Excel de los 3 proveedores, generar el Excel ganador de cada uno
+y dejar las respuestas como borrador en Outlook.
+
+Uso:
+    python main.py            # flujo completo (crea borradores reales en Outlook)
+    python main.py --dry-run  # solo cruza y genera los Excel localmente,
+                               # sin tocar Outlook (ni crear borradores ni marcar nada)
+"""
+
+import argparse
+import os
+import sys
+from collections import defaultdict
+from datetime import date, timedelta
+
+import yaml
+
+import auth
+import graph_client
+import excel_logic
+
+
+_MESES_ES = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
+
+
+def _nombre_semana(referencia: date = None) -> str:
+    """Devuelve el nombre de la semana ANTERIOR en formato 'DD--DD MES' (domingo a domingo).
+    Los pedidos se procesan esta semana pero corresponden a ventas de la semana pasada."""
+    hoy = referencia or date.today()
+    dias_desde_domingo = (hoy.weekday() + 1) % 7
+    domingo_fin = hoy - timedelta(days=dias_desde_domingo)
+    domingo_inicio = domingo_fin - timedelta(days=7)
+    mes = _MESES_ES[domingo_fin.month - 1]
+    return f"{domingo_inicio.day:02d}--{domingo_fin.day:02d} {mes}"
+
+
+def cargar_config(path: str) -> dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def imprimir_resumen(correos_por_proveedor: dict, reporte: excel_logic.ReporteCruce, drafts_creados: dict) -> None:
+    print("\n--- Resumen ---")
+    print(f"Proveedores detectados esta semana: {list(correos_por_proveedor.keys())}")
+
+    if reporte.incompletas:
+        print(f"\nAVISO: {len(reporte.incompletas)} referencia(s) con cobertura parcial (no cotizadas por todos):")
+        for item in reporte.incompletas:
+            print(f"  - {item['referencia']}: faltan {item['proveedores_sin_cotizacion']}")
+
+    if reporte.duplicadas:
+        print(f"\nAVISO: referencia(s) duplicada(s) dentro del Excel de un mismo proveedor:")
+        for item in reporte.duplicadas:
+            print(f"  - {item['proveedor']}: {item['referencia']} (se quedo con el precio mas bajo)")
+
+    if reporte.empates:
+        print(f"\nAVISO: empate(s) de precio resueltos:")
+        for item in reporte.empates:
+            print(
+                f"  - {item['referencia']} (precio {item['precio']}): "
+                f"empatados {item['proveedores_empatados']} -> asignado a {item['ganador_asignado']}"
+            )
+
+    if reporte.sin_stock:
+        print(f"\nAVISO: articulo(s) sin precio (en blanco o 0) en algun proveedor (se descarta ese proveedor para ese articulo):")
+        for item in reporte.sin_stock:
+            print(f"  - {item['referencia']}: sin stock en {item['proveedores_sin_stock']}")
+
+    if reporte.sin_oferta_valida:
+        print(f"\nAVISO IMPORTANTE: {len(reporte.sin_oferta_valida)} articulo(s) sin NINGUN proveedor con precio valido (no se asigna ganador, no apareceran en ningun Excel de salida):")
+        for item in reporte.sin_oferta_valida:
+            print(f"  - {item['referencia']}")
+
+    if reporte.excluidos_por_marca:
+        por_proveedor = defaultdict(list)
+        for item in reporte.excluidos_por_marca:
+            por_proveedor[item["proveedor"]].append(item["referencia"])
+        print(f"\nINFO: {len(reporte.excluidos_por_marca)} articulo(s) excluido(s) de su proveedor por regla de marca:")
+        for prov, refs in por_proveedor.items():
+            print(f"  - {prov}: {len(refs)} articulo(s) excluido(s) (marca no permitida para ese proveedor)")
+
+    if reporte.balance_aplicado:
+        print(f"\nINFO: regla de balanceo aplicada en {len(reporte.balance_aplicado)} empate(s) de precio entre proveedores configurados.")
+
+    if drafts_creados:
+        print("\nBorradores creados en Outlook (revisalos antes de enviar):")
+        for proveedor, draft_id in drafts_creados.items():
+            print(f"  - {proveedor}: draft_id={draft_id}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Cruce semanal de precios de proveedores")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Genera los Excel localmente sin crear borradores ni tocar Outlook",
+    )
+    args = parser.parse_args()
+
+    config = cargar_config("config.yaml")
+    os.makedirs(config["salida"]["carpeta"], exist_ok=True)
+
+    # El token hace falta incluso en --dry-run: para detectar los correos y
+    # descargar los adjuntos. En --dry-run simplemente no se crean borradores.
+    token = auth.get_access_token(config["auth"])
+
+    mensajes = graph_client.buscar_correos_candidatos(token, config["busqueda"]["dias_atras"])
+    correos_por_proveedor = graph_client.filtrar_correos_pedido(
+        mensajes, config["proveedores"], config["busqueda"]["asunto_contiene"]
+    )
+
+    nombres_esperados = [p["nombre"] for p in config["proveedores"]]
+    faltantes = [n for n in nombres_esperados if n not in correos_por_proveedor]
+    if faltantes:
+        print(f"AVISO: no se encontro correo de pedido semanal de: {faltantes}")
+        print("Abortando: hacen falta los 3 correos para poder cruzar precios correctamente.")
+        return
+
+    dfs = {}
+    for nombre, mensaje in correos_por_proveedor.items():
+        nombre_archivo, contenido = graph_client.descargar_adjunto_excel(token, mensaje["id"])
+        proveedor_cfg = next(p for p in config["proveedores"] if p["nombre"] == nombre)
+        columnas_extra = proveedor_cfg.get("columnas_extra", [])
+        columnas_mapa = proveedor_cfg.get("columnas_mapa", {})
+        dfs[nombre] = excel_logic.leer_excel_proveedor(contenido, nombre, config["excel"], columnas_extra, columnas_mapa)
+
+    # Extraer reglas opcionales de la config
+    excluir_marcas_por_proveedor = {
+        p["nombre"]: p["excluir_marcas"]
+        for p in config["proveedores"]
+        if p.get("excluir_marcas")
+    }
+    balance_entre = config.get("reglas", {}).get("balance_entre", [])
+    balance_tolerancia = float(config.get("reglas", {}).get("balance_tolerancia_euros", 0.0))
+    balance_tolerancia_porcentaje = float(config.get("reglas", {}).get("balance_tolerancia_porcentaje", 0.0))
+    columna_descripcion = config["excel"].get("columna_descripcion")
+    columna_cantidad = config["excel"].get("columna_cantidad")
+
+    df_consolidado, reporte = excel_logic.cruzar_y_determinar_ganador(
+        dfs,
+        config["excel"]["columna_clave"],
+        config["excel"]["columna_precio"],
+        columna_descripcion=columna_descripcion,
+        columna_cantidad=columna_cantidad,
+        excluir_marcas_por_proveedor=excluir_marcas_por_proveedor,
+        balance_entre=balance_entre,
+        balance_tolerancia=balance_tolerancia,
+        balance_tolerancia_porcentaje=balance_tolerancia_porcentaje,
+    )
+
+    semana = _nombre_semana()
+
+    drafts_creados = {}
+    for nombre, mensaje in correos_por_proveedor.items():
+        print(f"\n--- Procesando {nombre} ---")
+        try:
+            proveedor_cfg = next(p for p in config["proveedores"] if p["nombre"] == nombre)
+            columnas_extra = proveedor_cfg.get("columnas_extra", [])
+            ruta_plantilla = config["salida"].get("plantilla_pedido")
+            excel_bytes = excel_logic.construir_excel_por_proveedor(
+                df_consolidado, nombre, config["excel"]["columnas_esperadas"], columnas_extra,
+                columna_precio=config["excel"]["columna_precio"],
+                columna_cantidad=config["excel"].get("columna_cantidad"),
+                ruta_plantilla=ruta_plantilla,
+            )
+            nombre_archivo_salida = f"PEDIDO {semana} {nombre}.xlsx"
+            ruta_xlsx_tmp = os.path.join(config["salida"]["carpeta"], nombre_archivo_salida)
+            with open(ruta_xlsx_tmp, "wb") as f:
+                f.write(excel_bytes)
+
+            nombre_xls = f"PEDIDO {semana} {nombre}.xls"
+            ruta_xls = os.path.join(config["salida"]["carpeta"], nombre_xls)
+            script_com = (
+                "import win32com.client, pythoncom, os; "
+                "pythoncom.CoInitialize(); "
+                "xl = win32com.client.Dispatch('Excel.Application'); "
+                "xl.Visible = False; xl.DisplayAlerts = False; "
+                f"wb = xl.Workbooks.Open(r'{os.path.abspath(ruta_xlsx_tmp)}'); "
+                f"wb.SaveAs(r'{os.path.abspath(ruta_xls)}', FileFormat=39); "
+                "wb.Close(False); xl.Quit(); pythoncom.CoUninitialize(); "
+                f"os.remove(r'{os.path.abspath(ruta_xlsx_tmp)}')"
+            )
+            import subprocess
+            res = subprocess.run([sys.executable, "-c", script_com], capture_output=True, text=True, timeout=120)
+            if res.returncode == 0:
+                nombre_archivo_salida = nombre_xls
+                print(f"XLS generado: {ruta_xls}")
+            else:
+                print(f"AVISO: no se pudo convertir a XLS (se usara xlsx). Error: {res.stderr.strip()}")
+
+            if not args.dry_run:
+                draft_id = graph_client.crear_borrador_respuesta_con_adjunto(
+                    token,
+                    mensaje["id"],
+                    config["email"]["plantilla_respuesta"],
+                    nombre_archivo_salida,
+                    excel_bytes,
+                )
+                graph_client.marcar_correo_procesado(token, mensaje["id"], config["email"]["marcar_categoria"])
+                drafts_creados[nombre] = draft_id
+                print(f"Borrador creado en Outlook.")
+        except Exception as e:
+            import traceback
+            print(f"ERROR GRAVE procesando {nombre}:")
+            traceback.print_exc()
+
+    excel_bytes_no_stock = excel_logic.construir_excel_no_stock(
+        df_consolidado,
+        config["excel"]["columna_clave"],
+        config["excel"]["columna_precio"],
+        config["excel"]["columnas_esperadas"],
+    )
+    ruta_no_stock = os.path.join(config["salida"]["carpeta"], f"PEDIDO {semana} NO_STOCK.xlsx")
+    with open(ruta_no_stock, "wb") as f:
+        f.write(excel_bytes_no_stock)
+    print(f"Excel NO STOCK generado: {ruta_no_stock}")
+
+    excel_bytes_comparativa = excel_logic.construir_excel_comparativa(
+        df_consolidado,
+        config["excel"]["columna_clave"],
+        config["excel"]["columna_precio"],
+        config["excel"]["columnas_esperadas"],
+    )
+    carpeta_comparativa = config["salida"].get("carpeta_comparativa") or config["salida"]["carpeta"]
+    os.makedirs(carpeta_comparativa, exist_ok=True)
+    ruta_comparativa = os.path.join(carpeta_comparativa, f"PEDIDO {semana} Comparativa.xlsx")
+    with open(ruta_comparativa, "wb") as f:
+        f.write(excel_bytes_comparativa)
+    print(f"Excel comparativa generado: {ruta_comparativa}")
+
+    imprimir_resumen(correos_por_proveedor, reporte, drafts_creados)
+
+
+if __name__ == "__main__":
+    main()

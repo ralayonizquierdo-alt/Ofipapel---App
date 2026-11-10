@@ -1,0 +1,83 @@
+# Copia este archivo como config.yaml y rellena tus datos.
+# config.yaml NO se sube a git (ver .gitignore) porque contiene datos de tu organizacion.
+
+auth:
+  client_id: "PEGA-AQUI-EL-APPLICATION-CLIENT-ID"
+  tenant_id: "PEGA-AQUI-EL-DIRECTORY-TENANT-ID"
+  scopes:
+    - "Mail.ReadWrite"
+  token_cache_path: "./token_cache.bin"
+
+busqueda:
+  dias_atras: 10
+  asunto_contiene: "pedido semanal"
+
+# Para cada proveedor, "remitentes" es una LISTA (puedes poner 1, 2, 5, 6...
+# las que necesites). Cada elemento puede ser:
+#  - un correo exacto:           "pedidos@proveedora.com"
+#  - un dominio (con @ delante): "@proveedora.com"  (coincide con cualquier
+#    direccion de ese dominio, util si no sabes todas las personas que
+#    pueden escribir desde esa empresa)
+# Si el correo habitual cambia (vacaciones, baja, etc.) basta con anadir
+# la direccion alternativa a la lista, no hace falta tocar nada mas.
+proveedores:
+  - nombre: "Proveedor A"
+    remitentes:
+      - "pedidos@proveedora.com"
+      - "alternativo@proveedora.com"
+    # columnas_extra es opcional: columnas adicionales de ESTE proveedor que se
+    # incluiran al final de su Excel de salida (no afectan a los demas proveedores).
+    # Util si un proveedor incluye sus codigos internos u otra columna propia.
+    # columnas_extra:
+    #   - "cod_interno"
+    #
+    # excluir_marcas es opcional: este proveedor NO podra ganar articulos cuya
+    # descripcion contenga alguna de estas palabras (busqueda sin distinguir
+    # mayusculas/minusculas). Util para no comprar ciertas marcas a un proveedor.
+    # excluir_marcas:
+    #   - "Epson"
+    #   - "Brother"
+  - nombre: "Proveedor B"
+    remitentes:
+      - "ventas@proveedorb.com"
+  - nombre: "Proveedor C"
+    remitentes:
+      - "comercial@proveedorc.com"
+
+excel:
+  columnas_esperadas: ["cod_venta", "descrip", "cod_compra", "cantvend", "precio"]
+  columna_clave: "cod_compra"
+  columna_precio: "precio"
+  # columna_descripcion: nombre de la columna que contiene la descripcion del articulo.
+  # Necesaria para que funcione "excluir_marcas" en proveedores.
+  columna_descripcion: "descrip"
+  # columna_cantidad: nombre de la columna con la cantidad pedida.
+  # Necesaria para calcular importes en el balanceo entre proveedores.
+  columna_cantidad: "cantvend"
+  fila_cabecera: 0
+
+salida:
+  # En Windows usa la ruta UNC de red con barras invertidas dobles:
+  # carpeta: '\\server-ofipapel\Aplicaciones\ARCHIVOS OFIPAPEL\COMPRAS PROVEEDORES (GENERAL)\PEDIDOS INFORMATICA'
+  carpeta: "./output"
+
+email:
+  plantilla_respuesta: |
+    Hola,
+
+    Adjunto el listado de articulos en los que su oferta ha resultado
+    la mas competitiva en la comparativa de esta semana.
+
+    Quedamos a la espera de confirmacion.
+
+    Saludos.
+  marcar_categoria: "PedidoProcesado"
+
+# reglas es opcional. Permite configurar comportamientos especiales en el cruce.
+# reglas:
+#   # balance_entre: dos proveedores entre los que repartir los empates de precio
+#   # para igualar los importes totales de pedido (se asigna cada empate al que
+#   # lleve menos importe acumulado hasta ese momento).
+#   balance_entre:
+#     - "Proveedor B"
+#     - "Proveedor C"
