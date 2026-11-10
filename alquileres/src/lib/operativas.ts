@@ -17,6 +17,32 @@ import type { ReglaOperativa } from '../components/Operativa'
 
 // ─── Las que comparten varias pantallas ───────────────────────────────────────
 
+/**
+ * Va al final de la Operativa de todas las pantallas: el botón está en todas.
+ * components/BotonVolver.tsx, lib/volver.ts
+ */
+export const VOLVER: ReglaOperativa = {
+  que: '← Volver',
+  nota: 'Abajo en el centro, en cuanto se ha pasado de una pantalla a otra. **Deshace el camino paso a paso** y '
+    + 'cada pantalla vuelve **como se dejó**: los mismos filtros y, si había una ficha abierta, abierta otra vez.',
+}
+
+/** También en todas: las ventanas (fichas, formularios) se amplían. components/ui/Modal.tsx */
+export const VENTANAS: ReglaOperativa = {
+  que: 'Ventanas',
+  nota: 'Se mueven **arrastrando el título**. Se **redimensionan tirando de la esquina** de abajo a la derecha '
+    + '(las rayitas). El botón **⤢** de arriba la **amplía** a casi toda la pantalla; otra vez, y vuelve a su tamaño.',
+}
+
+// components/PegarWhatsApp.tsx — cargado, yaCargadas, cobroExistente
+const ENTRADA_RAPIDA: ReglaOperativa = {
+  que: 'Entrada rápida',
+  formula: 'OK. RESERVA (verde) · OK. COBRO (azul) · OK. ANULADA (rojo)',
+  nota: 'Al cargar algo bien, lo dice **dentro de la caja** hasta lo siguiente. Si lo pegado **ya estaba cargado** '
+    + '(misma reserva: piso, entrada y salida; mismo cobro: importe y fecha), sale **«¡¡¡YA EXISTE ESTE '
+    + 'REGISTRO!!!»** con el que ya hay, y **no se carga dos veces**.',
+}
+
 // lib/priceCalc.ts — precioPorNoches()
 const PRECIO: ReglaOperativa = {
   que: 'Precio de una estancia',
@@ -46,10 +72,11 @@ const LIMPIEZA: ReglaOperativa = {
     + 'Arenal la cobra Airbnb y se la queda la gestora.',
 }
 
-// lib/dateUtils.ts — getSeason()
+// lib/dateUtils.ts — getSeason(); lib/priceCalc.ts — buscaTarifa()
 const TEMPORADA: ReglaOperativa = {
-  que: 'Temporada',
-  formula: 'la de la fecha de ENTRADA, igual que el tramo y la oferta',
+  que: 'Temporada y año de la tarifa',
+  formula: 'los de la fecha de ENTRADA, igual que el tramo y la oferta',
+  nota: 'Se usa la tarifa **del año de entrada**; solo si ese año aún no tiene tarifa, la del año siguiente.',
 }
 
 // lib/cuentas.ts — comisionDe()
@@ -65,6 +92,17 @@ const OCUPACION_MES: ReglaOperativa = {
   que: 'Ocupación del mes',
   formula: 'noches alquiladas de ese inmueble ÷ días del mes',
   nota: 'Si el Excel declara la ocupación de ese mes, **manda el Excel**; si da más del 100 %, se calcula aquí.',
+}
+
+// lib/precioReserva.ts — estadoPrecio()
+const PRECIO_DE_LA_RESERVA: ReglaOperativa = {
+  que: '¿De dónde sale el importe?',
+  formula: '✅ de la tarifa · 🔵 precio pactado (con su motivo) · ⚠️ no cuadra con la tarifa',
+  nota: 'Se rehace la cuenta con la tarifa y se compara con el importe guardado. **⚠️ quiere decir que no '
+    + 'consta como pactado**: o se corrige la reserva o se anota el motivo. **Menos de 1 € de diferencia es '
+    + 'redondeo** y no avisa. El ⚠️ **se pincha** y abre la ficha con la tarifa. En la **ventana de Pagos** de cada '
+    + 'reserva están las dos cuentas y los botones para **ver la tarifa, anotar el pactado o corregir**. No se compara el Arenal (lo pone '
+    + 'SOC) ni las estancias que **acabaron antes de 2026**; las que entran en 2025 y siguen en 2026, sí.',
 }
 
 // ─── Una por pantalla ─────────────────────────────────────────────────────────
@@ -87,6 +125,30 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     que: 'Cobros vencidos',
     formula: 'estancia TERMINADA, sin cobrar del todo, desde 2026',
     nota: 'Lo que aún no ha terminado no es un aviso: es lo normal.',
+  },
+  ENTRADA_RAPIDA,
+  {
+    // lib/conformidades.ts
+    que: 'Conformidades por enviar',
+    formula: 'reserva pegada en la Entrada rápida + 2 horas',
+    nota: 'A las **2 horas** de entrar una reserva (salvo las de Airbnb) sale aquí y como **globo rojo en el icono '
+      + 'de Alquileres del hub**. «Preparar correo» abre su conformidad: «Enviar por correo» y **se quita sola**. '
+      + 'El globo del hub se pone al día al abrir Alquileres en ese ordenador.',
+  },
+  {
+    // components/CorregirTarifaAno.tsx, lib/tarifaAnoSiguiente.ts
+    que: 'Tarifa del año siguiente',
+    nota: 'Hasta el 06/11/2026 algunas reservas se calcularon con la tabla de Precios del **año siguiente**. El aviso '
+      + 'ámbar las enseña con su **importe correcto** y lo ya cobrado; se corrigen **solo las que dejes marcadas** '
+      + '(el pendiente se ajusta y queda en el Registro). Las de precio pactado no salen.',
+  },
+  PRECIO_DE_LA_RESERVA,
+  {
+    // pages/Dashboard.tsx — AvisoRojo
+    que: 'Avisos en rojo',
+    formula: 'reservas anuladas con cobros · cobros vencidos · importes que no cuadran con la tarifa',
+    nota: 'Van **por apartamento**, en el orden de la casa. **Se pinchan** y abren el cuadre de la estancia para '
+      + 'corregirlo. **Se van solos** en cuanto queda corregido.',
   },
   {
     // components/AvisoSolapes.tsx
@@ -163,6 +225,7 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
     nota: 'El importe lo pone la persona y **no se recalcula solo**. Al editar una reserva guardada se '
       + 'entra siempre así. Solo lo cambia una oferta si se marca en «Aplicar a las reservas».',
   },
+  PRECIO_DE_LA_RESERVA,
   {
     // lib/solapes.ts
     que: 'Reservas que se pisan',
@@ -172,13 +235,16 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
   {
     // components/PegarWhatsApp.tsx — anular
     que: 'Anulaciones',
-    nota: 'Anular **no borra nada**: la reserva se queda con sus cobros y su historial, y sale del planning.',
+    nota: 'Anular **no borra nada**: la reserva se queda con sus cobros y su historial, y sale del planning. '
+      + 'Si tenía dinero cobrado, **avisa en rojo en el Dashboard** hasta que se devuelve o se pasa a otra reserva '
+      + 'y se pulsa **«Ya está resuelto»** en su ficha (desde 2026).',
   },
   {
     // components/PegarWhatsApp.tsx
     que: 'Pegar desde WhatsApp',
     nota: '**Nada se guarda sin enseñarlo antes.** Entiende avisos de reserva, anulaciones y justificantes de cobro.',
   },
+  ENTRADA_RAPIDA,
   {
     // components/ImportarReservas.tsx
     que: 'Cargar calendario',
@@ -228,10 +294,11 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
 
 export const OPERATIVA_COBROS: ReglaOperativa[] = [
   {
-    // Payment.mes — ver CLAUDE.md
-    que: 'Mes contable',
-    formula: 'manda el mes contable del cobro, no la fecha en que se pagó',
-    nota: 'El alquiler de enero del 106 se pagó el 31 de diciembre y **cuenta en enero**. Sin mes contable, se usa la fecha.',
+    // lib/mesContable.ts
+    que: 'Mes del cobro',
+    formula: 'cada pago cuenta en el mes de la reserva que paga, no en el de la fecha del pago',
+    nota: 'La reserva de diciembre pagada el 5 de enero **cuenta en diciembre**, como lo declara la asesoría. '
+      + 'Los cobros del Excel, en su mes contable.',
   },
   {
     // pages/Collections.tsx — CobrosPorReserva
@@ -271,8 +338,22 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
   {
     // components/CeldaDesglose.tsx, components/FichaCuadre.tsx
     que: 'Ver el cuadre de una estancia',
-    nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** para abrir la ficha, imprimirla o enviarla.',
+    nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
+      + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. Por correo, **el cuadro va '
+      + 'copiado**: en el correo, clic **en el cuerpo** (no en «Para») y **Ctrl+V**. **La tarifa en azul '
+      + 'lleva a Precios**. Al imprimir sale **solo la ficha**, en una hoja. Si se abre la reserva desde la ficha, '
+      + '**al cerrarla se vuelve a la ficha**.',
   },
+  {
+    // components/FichaCuadre.tsx — modelo 'conformidad'
+    que: 'Conformidad de la reserva',
+    nota: 'Segunda pestaña de la ficha, para mandar a la agencia **cuando envía una reserva**: precio, noches y '
+      + 'desglose por mes, **sin cobros, resto ni diferencia** y sin la comparación con la tarifa. Si el precio es '
+      + 'pactado, dice **el importe, la fecha y con quién** se pactó. Lleva un **mensaje para la agencia que se '
+      + 'queda guardado** hasta que se cambie (en este ordenador) y, dos líneas más abajo, **NOTAS** de esa reserva, '
+      + 'que **no se guardan**.',
+  },
+  PRECIO_DE_LA_RESERVA,
 ]
 
 export const OPERATIVA_GASTOS: ReglaOperativa[] = [
@@ -357,6 +438,12 @@ export const OPERATIVA_ASESORIA: ReglaOperativa[] = [
     nota: 'Del **mismo cálculo** que Analítica. Con Excel de ingresos del año, manda el Excel.',
   },
   {
+    // lib/mesContable.ts
+    que: 'Mes de cada ingreso',
+    formula: 'el mes de la reserva que paga, no el de la fecha del pago',
+    nota: 'Así **el total del año cuadra con la asesoría**: la reserva de diciembre pagada en enero es de ese año.',
+  },
+  {
     // lib/compararGestor.ts
     que: 'Comparar con el gestor',
     formula: 'trimestre × inmueble: lo que dice su hoja contra lo cobrado aquí por mes contable',
@@ -374,6 +461,19 @@ export const OPERATIVA_REGISTRO: ReglaOperativa[] = [
     // pages/Registro.tsx
     que: 'Qué se apunta',
     nota: 'Todo lo que entra en la aplicación: **quién, cuándo, por dónde y qué**.',
+  },
+  {
+    // components/FichaCuadre.tsx, pages/Reservations.tsx — anotaVolcado
+    que: 'También',
+    formula: 'correo o WhatsApp a la agencia · precio pactado · anulación resuelta · reserva a mano',
+    nota: 'Las reservas dadas de alta, cambiadas (**qué cambió y de qué a qué**) o borradas a mano. Del correo y el '
+      + 'WhatsApp se apunta que **se preparó**: la aplicación no sabe si al final se le dio a Enviar.',
+  },
+  {
+    // components/PegarWhatsApp.tsx — texto
+    que: 'Lo pegado',
+    nota: 'De lo pegado en la Entrada rápida se guarda **la línea de cada reserva o anulación**, tal cual '
+      + '(«ALAYON 104: entra… y sale…»), **sin saludos**, debajo del resumen. Lo pegado antes del 08/11/2026 no la tiene.',
   },
   {
     que: 'No se toca',
@@ -415,6 +515,7 @@ export const OPERATIVA_SUBIR: ReglaOperativa[] = [
     que: 'Antes de guardar',
     nota: '**Nada se guarda hasta que lo confirmas**: primero se enseña lo que ha entendido.',
   },
+  ENTRADA_RAPIDA,
   {
     que: 'Queda apuntado',
     nota: 'Todo lo que subas queda en el Registro **con tu nombre y la fecha**.',

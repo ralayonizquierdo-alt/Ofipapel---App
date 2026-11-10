@@ -1545,6 +1545,7 @@ async function syncImportLogToCloud(){
 }
 
 const IMPORT_LOG_LABELS = {
+  impuestos:'Impuestos presentados (Excel diario)',
   volcado:'Volcado Diario (Excel)', cajaCierres:'Cierre de Cajas (PDF)',
   cajaBancoRecibos:'Banco / Comprobantes de ingreso (PDF)', ventasCaja:'Ventas Caja (Excel)',
   ventasWeb:'Ventas Web (Excel)', ventasAnual:'Ventas Anuales (Excel)',
@@ -1917,6 +1918,10 @@ function applyCloudDataset(key, payload){
     if(Array.isArray(payload)){ CONF_SANT_DATA=payload; try{ localStorage.setItem('op_confirming',JSON.stringify(CONF_SANT_DATA)); }catch(e){} renderPagares(); renderAlertas(); }
   } else if(key==='pagarestotales'){
     if(payload&&typeof payload.total==='number'){ PAG_TOTALES=payload; try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} renderPagares(); }
+  } else if(key==='impuestos'){
+    if(Array.isArray(payload)){ IMPUESTOS_PRES=payload; try{ localStorage.setItem('op_impuestos',JSON.stringify(IMPUESTOS_PRES)); }catch(e){} try{ renderAlertas(); }catch(e){} }
+  } else if(key==='avisoexcel'){
+    if(payload&&Array.isArray(payload.faltan)){ AVISO_EXCEL=payload; try{ localStorage.setItem('op_avisoexcel',JSON.stringify(AVISO_EXCEL)); }catch(e){} try{ renderAlertas(); }catch(e){} }
   } else if(key==='pagareshistorial'){
     _mergePCHist(payload); renderPagares();
   } else if(key==='deudahistorial'){
@@ -3209,6 +3214,12 @@ function renderAlertas(){
     }
   }catch(e){}
 
+  // El último Excel de Mónica venía incompleto (hojas de Pagarés, Confirming o Pool)
+  if((AVISO_EXCEL.faltan||[]).length){
+    const f=AVISO_EXCEL.ts?new Date(AVISO_EXCEL.ts).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    alerts.unshift({type:'err', ico:'⚠️', ttl:`El último Excel subido (${f}) no venía completo`, txt:`${AVISO_EXCEL.faltan.join(' ')} Hay que corregirlo en el Excel y volver a subirlo; este aviso se quita solo con una subida correcta.`});
+  }
+
   // Datos que dejaron de llegar
   alertasDatosViejos().forEach(a=>alerts.unshift(a));
 
@@ -3242,8 +3253,11 @@ function renderAlertas(){
   if(confProx.length>0) alerts.push({type:'warn', ico:'🏦', ttl:`Confirming Santander — ${confProx.length} pago(s) esta semana`, txt:`Total a pagar en los próximos 7 días: ${fmt(sumConf7)}. Proveedores: ${confProx.map(c=>c.proveedor).join(', ')}.`});
 
   // Carga financiera
-  const cargaMes = DEUDA_DATA.filter(d=>d.tipo!=='alerta'&&(d.estado||'normal')!=='alerta'&&d.estado!=='resuelto').reduce((t,d)=>t+d.cuota,0);
-  alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.`});
+  // «Estructural» = hipotecas, ICO y préstamos de siempre; los préstamos puntuales de IGIC (3 meses para pagar el trimestre) se cuentan aparte
+  const _vivos = DEUDA_DATA.filter(d=>d.tipo!=='alerta'&&(d.estado||'normal')!=='alerta'&&d.estado!=='resuelto');
+  const cargaMes = _vivos.filter(d=>!/igic/i.test(d.nombre)).reduce((t,d)=>t+d.cuota,0);
+  const cargaIgic = _vivos.filter(d=>/igic/i.test(d.nombre)).reduce((t,d)=>t+d.cuota,0);
+  alerts.push({type:'info', ico:'💸', ttl:'Carga financiera mensual estructural', txt:`Estimada en ~${fmt(cargaMes)}/mes entre hipotecas, ICO y préstamos.${cargaIgic>0?` Además, los préstamos puntuales de IGIC suman ${fmt(cargaIgic)}/mes hasta que se paguen.`:''}`});
 
   const fiscalAlerts = getFiscalAlertas();
 
@@ -3491,6 +3505,7 @@ function getFiscalAlertas(){
   }
 
   return events
+    .filter(e => !_impuestoPresentado(e.mod))
     .map(e => { const diff = Math.round((e.dt - today) / MS); return {...e, diff}; })
     .filter(e => e.diff >= -30 && e.diff <= 90)
     .sort((a,b) => a.diff - b.diff)
@@ -3945,6 +3960,7 @@ function _ejecutarArrastre(input){
       } catch(fcErr){ console.warn('Fondo Caja CAMBIOS parse error:', fcErr); }
 
       let pcMsg = ''; try{ pcMsg = _importarPagConf(wb, file.name); }catch(e){ console.warn('Pagarés/Confirming:',e); }
+      try{ _mostrarAvisoExcel(); }catch(e){}
       const ahoraLabel = new Date().toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
       statusEl.innerHTML = `<span class="ok">✅ ${fechaLabel} — Total: ${fmt(totalCalc)}${cajaMsg}${fondoMsg}${pcMsg} · Subido ${ahoraLabel}</span>`;
       stampImport('volcado', file.name);
@@ -4010,8 +4026,50 @@ function _parseConfirmingSheet(wb){
 }
 // Importa las dos hojas al subir el volcado diario: el Excel manda; solo se conservan lo apuntado a mano en la app (origen 'manual') y las notas.
 // Solo se guarda lo de los últimos 120 días y lo futuro: lo anterior sin marca de cobro (pagarés de 2011-2024 con el «ingresado» sin rellenar) es historia ya cuadrada en los totales del Excel y saldría como falsos pendientes.
+// ── Aviso para quien sube el Excel diario: qué hojas faltan o vienen vacías (Pagarés, Confirming, Pool) ──
+let AVISO_EXCEL = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_avisoexcel')||'null'); if(g&&Array.isArray(g.faltan)) return g; }catch(e){} return {faltan:[]}; })();
+// ── Impuestos presentados: hoja «Impuestos» del Excel diario (Modelo | Descripción | Fecha límite | Presentado el | Importe | Notas) ──
+let IMPUESTOS_PRES = (()=>{ try{ const g=JSON.parse(localStorage.getItem('op_impuestos')||'null'); if(Array.isArray(g)) return g; }catch(e){} return []; })();
+const _kImp=t=>String(t==null?'':t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+function _impuestoPresentado(mod){ const k=_kImp(mod); return IMPUESTOS_PRES.some(x=>_kImp(x.mod)===k); }
+function _parseImpuestosSheet(wb){
+  const nombre=(wb.SheetNames||[]).find(n=>/impuesto/i.test(n)); if(!nombre) return null;
+  const data=_datosHoja(wb,nombre,8), h=data.findIndex(r=>r.some(c=>/^\s*modelo\s*$/i.test(String(c==null?'':c))));
+  if(h<0) return {ok:false,filas:[]};
+  const col={}; data[h].forEach((c,j)=>{ const t=String(c==null?'':c).toLowerCase(); if(/^\s*modelo/.test(t)) col.mod=j; else if(/presentad/.test(t)) col.pres=j; else if(/importe/.test(t)) col.imp=j; else if(/nota|observ/.test(t)) col.nota=j; });
+  if(col.mod==null||col.pres==null) return {ok:false,filas:[]};
+  const filas=[];
+  data.slice(h+1).forEach(r=>{
+    const mod=String(r[col.mod]==null?'':r[col.mod]).trim(); let v=r[col.pres];
+    if(!mod||v===''||v==null) return;
+    let fecha=''; if(typeof v==='number') fecha=_serialAIso(v); else { const m=String(v).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/); if(m) fecha=`${m[3].length===2?'20'+m[3]:m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; else if(!/^\s*(si|sí|x|ok|presentado)\s*$/i.test(String(v))) return; }
+    filas.push({mod,presentado:fecha||'si',importe:typeof r[col.imp]==='number'?r[col.imp]:null,nota:String(r[col.nota]==null?'':r[col.nota]).trim()});
+  });
+  return {ok:true,filas};
+}
+function _guardarAvisoExcel(faltan,archivo){
+  AVISO_EXCEL={ts:new Date().toISOString(),user:currentUser||'—',archivo:archivo||'',faltan};
+  try{ localStorage.setItem('op_avisoexcel',JSON.stringify(AVISO_EXCEL)); }catch(e){}
+  syncDatasetToCloud('avisoexcel',AVISO_EXCEL);
+}
+function _mostrarAvisoExcel(){
+  const f=AVISO_EXCEL.faltan||[]; document.getElementById('avisoExcelModal')?.remove(); if(!f.length) return;
+  const m=document.createElement('div'); m.id='avisoExcelModal';
+  m.style.cssText='position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(10,22,40,.65);padding:16px;overflow-y:auto;';
+  m.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.35);border-top:6px solid #c0392b;">
+    <div style="font-size:19px;font-weight:700;color:#c0392b;">⚠️ El Excel no está completo</div>
+    <p style="margin:12px 0 6px;font-size:14px;">Se ha subido <b>${escapeHtml(AVISO_EXCEL.archivo||'el Excel')}</b>, pero le falta lo siguiente:</p>
+    <ul style="margin:0 0 12px 18px;padding:0;font-size:14px;line-height:1.55;">${f.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>
+    <p style="margin:0 0 14px;font-size:13px;color:#555;">Corrígelo en el Excel y vuelve a subirlo. Mientras tanto, esa parte de la aplicación sigue con los datos de la última vez y en <b>Alertas</b> queda un aviso en rojo.</p>
+    <button onclick="document.getElementById('avisoExcelModal').remove()" style="background:var(--azul);color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;">Entendido</button></div>`;
+  document.body.appendChild(m);
+}
 function _importarPagConf(wb,archivo){
-  const corte=new Date(Date.now()-120*86400000).toISOString().slice(0,10), msg=[];
+  const corte=new Date(Date.now()-120*86400000).toISOString().slice(0,10), msg=[], faltan=[];
+  const nombres=wb.SheetNames||[];
+  if(!nombres.some(n=>/pagar.*caja/i.test(n))) faltan.push('Falta la hoja «Pagares en Caja» (los pagarés).');
+  if(!nombres.some(n=>/confirming/i.test(n))) faltan.push('Falta la hoja «Confirming Santander».');
+  if(!nombres.some(n=>/pool/i.test(n))) faltan.push('Falta la hoja «Pool Bancario (TOTAL)» (los préstamos).');
   const fusiona=(nuevos,actual,clave)=>{
     const notas=new Map(actual.filter(x=>x.nota).map(x=>[clave(x),x.nota]));
     const conserva=actual.filter(x=>x.origen==='manual');
@@ -4025,37 +4083,73 @@ function _importarPagConf(wb,archivo){
       PAGARES_DATA=fusiona(nuevos,PAGARES_DATA,x=>x.pagare+'|'+x.vto); guardarPC('pag');
       if(!isNaN(pg.tot.total)&&!isNaN(pg.tot.ingresado)&&!isNaN(pg.tot.en_caja)){ PAG_TOTALES=pg.tot; try{ localStorage.setItem('op_pagarestotales',JSON.stringify(PAG_TOTALES)); }catch(e){} syncDatasetToCloud('pagarestotales',PAG_TOTALES); }
       logImport('pagares',archivo,PAGARES_DATA.length); msg.push(`Pagarés: ${nuevos.filter(x=>x.marca==='pendiente').length} pendientes`);
-    }
-  }catch(e){ console.warn('Hoja Pagares en Caja:',e); }
+    } else if(nombres.some(n=>/pagar.*caja/i.test(n))) faltan.push('La hoja «Pagares en Caja» está vacía o no tiene el formato de siempre (fecha de vencimiento, nº de pagaré e importe).');
+  }catch(e){ console.warn('Hoja Pagares en Caja:',e); faltan.push('No se ha podido leer la hoja «Pagares en Caja».'); }
   try{
     const cf=_parseConfirmingSheet(wb);
     if(cf&&cf.items.length){
       const nuevos=cf.items.filter(x=>x.vto>=corte);
       CONF_SANT_DATA=fusiona(nuevos,CONF_SANT_DATA,x=>x.proveedor+'|'+x.vto+'|'+x.importe); guardarPC('conf');
       logImport('confirming',archivo,CONF_SANT_DATA.length); msg.push(`Confirming: ${nuevos.filter(x=>x.marca==='pendiente').length} pendientes`);
+    } else if(nombres.some(n=>/confirming/i.test(n))) faltan.push('La hoja «Confirming Santander» está vacía o no tiene el formato de siempre.');
+  }catch(e){ console.warn('Hoja Confirming Santander:',e); faltan.push('No se ha podido leer la hoja «Confirming Santander».'); }
+  try{
+    const po=_parsePoolSheet(wb);
+    if(po&&po.items.length<3&&nombres.some(n=>/pool/i.test(n))) faltan.push('La hoja del Pool Bancario no trae los préstamos (se esperan al menos 3 filas con título y nominal).');
+    if(po&&po.items.length>=3){
+      if(!po.actualizado) faltan.push('La hoja del Pool Bancario no lleva la fecha «ACTUALIZADO dd/mm/aaaa» al pie.');
+      else { const d=Math.round((Date.now()-new Date(po.actualizado+'T12:00:00'))/86400000); if(d>45) faltan.push(`La hoja del Pool Bancario está sin actualizar desde el ${po.actualizado.split('-').reverse().join('/')} (${d} días): hay que actualizar saldos y vencimientos.`); }
     }
-  }catch(e){ console.warn('Hoja Confirming Santander:',e); }
-  try{ const pm=_importarPool(wb,archivo); if(pm) msg.push(pm.replace(/^ · /,'')); }catch(e){ console.warn('Hoja Pool Bancario:',e); }
+    const pm=_importarPool(wb,archivo); if(pm) msg.push(pm.replace(/^ · /,''));
+  }catch(e){ console.warn('Hoja Pool Bancario:',e); faltan.push('No se ha podido leer la hoja del Pool Bancario.'); }
+  try{
+    const im=_parseImpuestosSheet(wb);
+    if(im&&!im.ok) faltan.push('La hoja «Impuestos» no tiene la columna «Modelo» o «Presentado el» en su cabecera.');
+    else if(im){ IMPUESTOS_PRES=im.filas; try{ localStorage.setItem('op_impuestos',JSON.stringify(IMPUESTOS_PRES)); }catch(e){} syncDatasetToCloud('impuestos',IMPUESTOS_PRES); logImport('impuestos',archivo,IMPUESTOS_PRES.length); msg.push(`Impuestos: ${IMPUESTOS_PRES.length} presentado(s)`); }
+  }catch(e){ console.warn('Hoja Impuestos:',e); faltan.push('No se ha podido leer la hoja «Impuestos».'); }
+  _guardarAvisoExcel(faltan,archivo);
+  if(faltan.length) msg.push('⚠️ '+faltan.length+' aviso(s): ver la ventana roja');
   return msg.length?' · '+msg.join(' · '):'';
 }
 // ── Hoja «Pool Bancario (TOTAL)» (o «POOL (BANCOS)»): los préstamos reales, con saldo, cuota y vencimiento ──
 function _parsePoolSheet(wb){
-  const nombre=(wb.SheetNames||[]).find(n=>/pool.*total/i.test(n))||(wb.SheetNames||[]).find(n=>/pool/i.test(n)); if(!nombre) return null;
-  const data=_datosHoja(wb,nombre,15), items=[]; let actualizado='';
+  // Hojas del pool: «Pool Bancario (TOTAL)» primero (lleva además los préstamos de Luis) y «POOL (BANCOS)» de respaldo.
+  // Las columnas se buscan por los títulos de la cabecera (en la TOTAL están corridas una columna respecto a la otra y pueden traer restos a la izquierda).
+  const hojas=(wb.SheetNames||[]).filter(n=>/pool/i.test(n)).sort((x,y)=>(/total/i.test(y)?1:0)-(/total/i.test(x)?1:0)); if(!hojas.length) return null;
   const fEs=iso=>iso?iso.split('-').reverse().join('/'):'';
   const bancoDe=k=>{ const t=String(k||'').trim(), n=t.replace(/\D/g,''); const b=/CX|CAIXA/i.test(t)?'CaixaBank':/BS|SANT/i.test(t)?'Santander':/BBVA/i.test(t)?'BBVA':t.replace(/\d/g,''); return b+(n?` (${n})`:''); };
-  data.forEach(r=>{
-    const act=String(r[2]||'').match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(act) actualizado=`${act[3]}-${act[2].padStart(2,'0')}-${act[1].padStart(2,'0')}`;
-    const titulo=String(r[2]||'').replace(/\s+/g,' ').trim(), nominal=r[3];
-    if(!titulo||typeof nominal!=='number') return;
-    let vto=''; if(typeof r[6]==='number') vto=fEs(_serialAIso(r[6])); else { const m=String(r[6]||'').match(/^(\d{2})(\d{2})\/(\d{4})$/); if(m) vto=`${m[1]}/${m[2]}/${m[3]}`; }
-    const pend=typeof r[5]==='number'?Math.abs(r[5]):nominal, poliza=/poliza|póliza/i.test(titulo);
-    const hip=/hipoteca/i.test(String(r[12]||'')), ico=/\bICO\b/i.test(titulo);
-    const e0=v=>Math.round(v).toLocaleString('es-ES');
-    const detalle=[(typeof r[8]==='number'&&typeof r[9]==='number')?`Capital ${e0(r[8])}€ + Interés ${e0(r[9])}€`:'',String(r[13]||'').trim()?String(r[13]).trim():'',String(r[11]||'').trim()?`Cargo a ${String(r[11]).trim()}`:''].filter(Boolean).join(' · ');
-    items.push({nombre:titulo,banco:bancoDe(r[10]),tipo:hip?'hip':ico?'ico2':'',nominal,pendiente:pend,cuota:typeof r[7]==='number'?r[7]:0,vto,
-      pct:nominal>0?Math.max(0,Math.min(100,Math.round((poliza?pend/nominal:1-pend/nominal)*100))):0,detalle,estado:'normal',origen:'excel'});
-  });
+  const e0=v=>Math.round(v).toLocaleString('es-ES');
+  let actualizado='';
+  const leer=nombre=>{
+    const data=_datosHoja(wb,nombre,20), items=[];
+    data.forEach(r=>r.forEach(c=>{ const m=String(c==null?'':c).match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(m){ const f=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; if(f>actualizado) actualizado=f; } }));
+    let h=data.findIndex(r=>r.some(c=>/^\s*t[ií]tulo\s*$/i.test(String(c==null?'':c))));
+    let col={titulo:2,nominal:3,saldo:5,vto:6,cuota:7,cap:8,int:9,banco:10,cargo:11,tipo:12,obs:13};   // disposición antigua, si no hay cabecera
+    if(h>=0){
+      col={};
+      data[h].forEach((c,j)=>{ const t=String(c==null?'':c).toLowerCase().replace(/[\s.º]+/g,' ').trim();
+        if(/^t[ií]tulo$/.test(t)) col.titulo=j; else if(t==='nominal') col.nominal=j; else if(/^saldo/.test(t)) col.saldo=j; else if(/fecha vto|^vto/.test(t)) col.vto=j;
+        else if(/pago mes/.test(t)) col.cuota=j; else if(/^capital/.test(t)) col.cap=j; else if(/^intereses/.test(t)) col.int=j; else if(/^banco/.test(t)) col.banco=j;
+        else if(/^cargo/.test(t)) col.cargo=j; else if(/^hipoteca/.test(t)) col.tipo=j; else if(/^observ/.test(t)) col.obs=j; });
+      if(col.titulo==null||col.nominal==null) return items;
+    }
+    data.slice(h>=0?h+1:0).forEach(r=>{
+      const titulo=String(r[col.titulo]==null?'':r[col.titulo]).replace(/\s+/g,' ').trim(), nominal=r[col.nominal];
+      if(!titulo||typeof nominal!=='number'||/actualizado/i.test(titulo)) return;
+      const v=r[col.vto]; let vto=''; if(typeof v==='number') vto=fEs(_serialAIso(v)); else { const m=String(v||'').match(/^(\d{2})(\d{2})\/(\d{4})$/); if(m) vto=`${m[1]}/${m[2]}/${m[3]}`; }
+      const sal=r[col.saldo], pend=typeof sal==='number'?Math.abs(sal):nominal, poliza=/poliza|póliza/i.test(titulo);
+      const tipoTxt=String(r[col.tipo]==null?'':r[col.tipo]), hip=/hipoteca/i.test(tipoTxt), ico=/\bICO\b/i.test(titulo)||/\bICO\b/i.test(tipoTxt);
+      const cap=r[col.cap], inte=r[col.int], obs=String(r[col.obs]==null?'':r[col.obs]).trim(), cargo=String(r[col.cargo]==null?'':r[col.cargo]).trim();
+      const detalle=[(typeof cap==='number'&&typeof inte==='number')?`Capital ${e0(cap)}€ + Interés ${e0(inte)}€`:'',obs,cargo?`Cargo a ${cargo}`:''].filter(Boolean).join(' · ');
+      items.push({nombre:titulo,banco:bancoDe(r[col.banco]),tipo:hip?'hip':ico?'ico2':'',nominal,pendiente:pend,cuota:typeof r[col.cuota]==='number'?r[col.cuota]:0,vto,
+        pct:nominal>0?Math.max(0,Math.min(100,Math.round((poliza?pend/nominal:1-pend/nominal)*100))):0,detalle,estado:'normal',origen:'excel'});
+    });
+    return items;
+  };
+  let items=[];
+  for(const n of hojas){ const it=leer(n); if(it.length>=3){ items=it; break; } if(it.length>items.length) items=it; }
+  // la fecha «ACTUALIZADO …» puede estar solo en la otra hoja del pool: se mira en todas
+  hojas.forEach(n=>_datosHoja(wb,n,20).forEach(r=>r.forEach(c=>{ const m=String(c==null?'':c).match(/actualizado\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if(m){ const f=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; if(f>actualizado) actualizado=f; } })));
   items.forEach(i=>i.actualizado=actualizado);
   return {items,actualizado};
 }

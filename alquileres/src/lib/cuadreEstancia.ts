@@ -1,8 +1,10 @@
 import { useMemo } from 'react'
+import { mesContable } from './mesContable'
 import { useData } from '../contexts/DataContext'
 import { buscaTarifa } from './priceCalc'
 import { partesDeAlojamiento, nochesEnMes } from './devengo'
 import { MONTH_NAMES_ES } from './dateUtils'
+import { estadoPrecio } from './precioReserva'
 import type { Payment, Reservation } from '../types'
 
 /**
@@ -48,14 +50,16 @@ export function useCuadreEstancia(r: Reservation) {
    * El cuadro mes a mes: las noches y el alojamiento que devenga cada mes, y
    * lo cobrado en él por su mes contable.
    *
-   * Los meses son los de la estancia y además cualquiera en el que haya un
-   * cobro: un prepago de noviembre de una estancia de enero tiene que verse.
+   * Los meses son los de la estancia y además cualquiera en el que caiga un
+   * cobro (solo pasa con el mes contable de un cobro del Excel): un cobro
+   * pagado después de la salida cuenta en el último mes de la estancia
+   * (lib/mesContable.ts).
    */
   const lineas = useMemo((): LineaMes[] => {
     const partes = partesDeAlojamiento(r)
     const meses = new Set<string>([...partes.keys()])
     for (const p of cobros) {
-      const mes = p.mes ?? p.paymentDate?.slice(0, 7)
+      const mes = mesContable(p, r)
       if (mes) meses.add(mes)
     }
     const directo = r.channel === 'directo'
@@ -63,7 +67,7 @@ export function useCuadreEstancia(r: Reservation) {
     const salida: LineaMes[] = []
     let cobradoAcum = 0
     for (const mes of [...meses].sort()) {
-      const delMes = cobros.filter(p => (p.mes ?? p.paymentDate?.slice(0, 7)) === mes)
+      const delMes = cobros.filter(p => mesContable(p, r) === mes)
       const transferencia = delMes.filter(p => !esEfectivo(p, directo)).reduce((s, p) => s + p.amount, 0)
       const efectivo = delMes.filter(p => esEfectivo(p, directo)).reduce((s, p) => s + p.amount, 0)
       cobradoAcum = Math.round((cobradoAcum + transferencia + efectivo) * 100) / 100
@@ -101,7 +105,20 @@ export function useCuadreEstancia(r: Reservation) {
     return `${m}${mm.slice(0, 4) !== r.checkIn.slice(0, 4) ? ` ${mm.slice(2, 4)}` : ''}`
   }
 
-  return { reserva: r, nombre, tarifa, visibles, suma, cobrado, diferencia, mesCorto }
+  /** Si el importe sale de la tarifa, es un precio pactado o no cuadra. */
+  const precio = useMemo(() => estadoPrecio(r, prices, offerPrices), [r, prices, offerPrices])
+
+  return { reserva: r, nombre, tarifa, visibles, suma, cobrado, diferencia, mesCorto, precio }
 }
 
 export type CuadreEstancia = ReturnType<typeof useCuadreEstancia>
+
+/**
+ * Dónde se ve en Precios la tarifa que se aplicó: el año de esa tarifa con su
+ * fila y su tramo marcados, o la oferta si fue una oferta (Luis, 06/11/2026).
+ */
+export function rutaDeTarifa(tarifa: NonNullable<CuadreEstancia['tarifa']>): string {
+  return tarifa.oferta
+    ? `/precios?oferta=${encodeURIComponent(tarifa.oferta.id)}`
+    : `/precios?anio=${tarifa.entry.year}&tarifa=${encodeURIComponent(tarifa.entry.id)}&tramo=${tarifa.tramo}`
+}

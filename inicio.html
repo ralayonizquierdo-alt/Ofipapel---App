@@ -136,6 +136,18 @@ body{
 }
 .satellite:focus-visible{outline:none;}
 
+/* Globo de avisos sobre un satélite, como los de WhatsApp (Luis, 09/11/2026):
+   hoy solo Alquileres, con sus conformidades por enviar. */
+.sat-globo{
+  position:absolute;top:2%;right:6%;z-index:3;
+  min-width:28px;height:28px;padding:0 7px;border-radius:14px;
+  background:#FF3B30;color:#fff;border:2px solid #05070d;
+  font:700 15px/24px system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center;
+  box-shadow:0 0 12px rgba(255,59,48,.7);pointer-events:none;
+  transform:scale(0);animation:globoIn .45s cubic-bezier(.34,1.56,.64,1) 1.8s forwards;
+}
+@keyframes globoIn{to{transform:scale(1);}}
+
 @media (max-width:480px){
   .orbit-shell{width:96vmin;}
   .hub-center{width:clamp(84px,28vw,120px);height:clamp(84px,28vw,120px);}
@@ -614,6 +626,33 @@ body{
       }
     }, { passive: true });
   });
+})();
+</script>
+<script>
+// Globo de Alquileres: conformidades por enviar. La app de Alquileres (mismo
+// sitio) deja en localStorage las horas a las que avisa cada una; aquí se
+// cuentan las que ya han llegado. Ver alquileres/src/lib/conformidades.ts.
+(function(){
+  var sat = document.querySelector('.satellite[href="alquileres/"]');
+  if (!sat) return;
+  function pinta(){
+    var n = 0;
+    try {
+      var d = JSON.parse(localStorage.getItem('ofipapel:alquileres:conformidades') || 'null');
+      var ya = new Date().toISOString();
+      if (d && d.avisos) n = d.avisos.filter(function(a){ return a <= ya; }).length;
+    } catch (e) { n = 0; }
+    var g = sat.querySelector('.sat-globo');
+    if (!n) { if (g) g.remove(); sat.setAttribute('aria-label', 'Alquileres'); return; }
+    if (!g) { g = document.createElement('span'); g.className = 'sat-globo'; sat.appendChild(g); }
+    g.textContent = n > 99 ? '99+' : String(n);
+    sat.setAttribute('aria-label', 'Alquileres: ' + n + (n === 1 ? ' conformidad' : ' conformidades') + ' por enviar');
+    sat.title = n + (n === 1 ? ' conformidad de reserva por enviar' : ' conformidades de reserva por enviar');
+  }
+  pinta();
+  setInterval(pinta, 60000);
+  window.addEventListener('storage', pinta);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) pinta(); });
 })();
 </script>
 <script>

@@ -1,5 +1,6 @@
 // El paquete no expone entrada raíz, solo subrutas: en el navegador va /browser.
 import readXlsxFile from 'read-excel-file/browser'
+import { mesContableCon } from './mesContable'
 import type { Apartment, Payment, Reservation } from '../types'
 
 /**
@@ -171,10 +172,11 @@ export function cuadraConGestor(
   payments: Payment[],
 ): CuadreGestor {
   const aptDeReserva = new Map(reservations.map(r => [r.id, r.apartmentId]))
+  const mesDe = mesContableCon(reservations)
   const nuestro = new Map<string, number>()
   for (const p of payments) {
     if (!p.received) continue
-    const cuando = p.mes ?? p.paymentDate
+    const cuando = mesDe(p)
     if (!cuando?.startsWith(String(hoja.year))) continue
     const apt = p.apartmentId ?? aptDeReserva.get(p.reservationId)
     if (!apt) continue

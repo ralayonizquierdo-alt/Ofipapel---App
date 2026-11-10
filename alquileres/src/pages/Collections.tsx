@@ -1,4 +1,5 @@
 import { Fragment, useState, useMemo, useCallback, type ReactNode } from 'react'
+import { mesContable, mesContableCon } from '../lib/mesContable'
 import { FileSpreadsheet, Printer, AlertTriangle, Plus, Banknote, Check } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import Modal from '../components/ui/Modal'
@@ -10,6 +11,8 @@ import { ordenaApartamentos } from '../lib/apartamentos'
 import { partesDeAlojamiento, devengoAcumulado, devengoDelMes, nochesEnMes, mesSiguiente } from '../lib/devengo'
 import { ofertaDeReserva } from '../lib/oferta'
 import { useRecordado } from '../lib/recordado'
+import { useEnHistorial } from '../lib/volver'
+import { useNavigate } from 'react-router-dom'
 import FichaCuadre from '../components/FichaCuadre'
 import CeldaDesglose from '../components/CeldaDesglose'
 import type { Apartment, Payment, PaymentMethod, Reservation } from '../types'
@@ -65,7 +68,7 @@ export default function Collections() {
     for (const p of payments) {
       const r = reservations.find(x => x.id === p.reservationId)
       const apt = p.apartmentId ?? r?.apartmentId
-      const cuando = p.mes ?? p.paymentDate
+      const cuando = mesContable(p, r)
       if (apt && cuando?.startsWith(String(year))) conMovimiento.add(apt)
     }
     return allApartments.filter(a => a.active || conMovimiento.has(a.id))
@@ -77,15 +80,22 @@ export default function Collections() {
   const [sortBy, setSortBy] = useState<SortBy>('nombre')
   /** '' = todos. Un solo apartamento es como se cuadra contra el Excel. */
   const [filterApt, setFilterApt] = useRecordado('cobros.apartamento', '')
+  const navigate = useNavigate()
+  // Al volver atrás, la pantalla sale como se dejó: los mismos filtros y, si
+  // había una ficha abierta, otra vez abierta. Ver lib/volver.ts.
+  useEnHistorial('cobros', { year, filterQ, filterMes, filterApt }, f => {
+    setYear(f.year); setFilterQ(f.filterQ); setFilterMes(f.filterMes); setFilterApt(f.filterApt)
+  })
+  useEnHistorial('ficha', cuadre?.id ?? null, id => setCuadre(id ? reservations.find(r => r.id === id) ?? null : null))
 
   /**
    * Mes al que pertenece un cobro, «AAAA-MM».
    *
-   * Manda el mes contable del Excel cuando lo trae: el alquiler de enero del
-   * 106 se pagó el 31 de diciembre y cuenta en enero. Si no, la fecha del
-   * movimiento, que es lo único que tienen los cobros metidos por la app.
+   * Manda el mes contable del Excel cuando lo trae. Si no, el mes de la
+   * reserva que paga (Luis, 09/11/2026: la de diciembre pagada el 5 de enero
+   * es de diciembre). Ver lib/mesContable.ts.
    */
-  const mesDe = useCallback((p: Payment) => p.mes || p.paymentDate?.slice(0, 7), [])
+  const mesDe = useMemo(() => mesContableCon(reservations), [reservations])
 
   /**
    * Apartamento de un cobro: el suyo propio si lo lleva —los del Excel van por
@@ -437,12 +447,15 @@ export default function Collections() {
 
   return (
     <div className="p-6">
+      {/* Con la ficha de cuadre abierta se imprime la ficha, no el listado: esta
+          regla oculta toda la aplicación y dejaba la ficha en blanco (Luis,
+          06/11/2026). La ficha se imprime sola con `solo-esto-al-imprimir`. */}
       <style>{`
-        @media print {
+        ${cuadre ? '' : `@media print {
           body > * { display: none !important; }
           #collections-print { display: block !important; }
           #collections-print { position: fixed; inset: 0; background: white; padding: 20px; }
-        }
+        }`}
         #collections-print { display: none; }
       `}</style>
 
@@ -538,7 +551,9 @@ export default function Collections() {
           onVerCobros={(apt, anio) => {
             // Deja la pantalla puesta en ese apartamento y ese año, con el
             // listado por reserva: la relación de cobros que pidió ver cuando
-            // hay un descuadre.
+            // hay un descuadre. Es un paso nuevo: «← Volver» devuelve a como
+            // estaba, con la ficha abierta (Luis, 06/11/2026).
+            navigate('/cobros')
             setFilterApt(apt)
             setYear(anio)
             setFilterMes(0)
@@ -612,7 +627,7 @@ export default function Collections() {
           const qTransf = Math.round((qTotal - qEfectivo) * 100) / 100
           const qIGIC = calcIGIC(qTotal)
           return (
-            <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
                 <h3 className="font-semibold text-white">{label}</h3>
                 <div className="text-right">
@@ -620,7 +635,7 @@ export default function Collections() {
                   <span className="text-slate-300 text-xs ml-3">IGIC: {numSuelto(qIGIC)} €</span>
                 </div>
               </div>
-              <div className="overflow-auto">
+              <div>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
@@ -734,11 +749,11 @@ export default function Collections() {
         })}
 
         {/* Annual summary by apartment */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
           <div className="px-5 py-3 bg-slate-600">
             <h3 className="font-semibold text-white">Cobros Anuales {year} — Transferencia vs Efectivo</h3>
           </div>
-          <div className="overflow-auto">
+          <div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
@@ -1240,7 +1255,11 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
   )
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    // `overflow-clip` y no `overflow-hidden`: recorta igual las esquinas, pero no
+    // hace de caja con desplazamiento propio, así que la cabecera se pega a la
+    // pantalla. La caja crece a lo ancho de la tabla (`w-max`) y lo que no cabe
+    // se ve con la barra horizontal de la pantalla, siempre abajo a la vista.
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
       <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
         <h3 className="font-semibold text-white">Reservas y cobros · {year}</h3>
         <span className="text-white font-bold">{eur(suma(lineas))}</span>
@@ -1257,11 +1276,11 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
       </div>
       {/* El listado es largo —doce meses por ocho inmuebles— y sin la cabecera
           a la vista no hay quien sepa qué columna está mirando a mitad de
-          agosto. La caja tiene altura propia y desplaza por dentro: así el
-          `sticky` tiene contra qué pegarse (con `overflow` en el padre, el
-          navegador lo pega a la caja, no a la página). Al imprimir se quita el
-          tope de altura y sale el listado entero. */}
-      <div className="overflow-auto max-h-[70vh] print:max-h-none print:overflow-visible">
+          agosto. Antes la caja desplazaba por dentro para que la cabecera se
+          pegara, y eso daba dos barras verticales y la horizontal escondida al
+          pie de la caja (Luis, 08/11/2026). Ahora desplaza solo la pantalla y
+          la cabecera se pega a ella: ninguna caja de por medio con `overflow`. */}
+      <div>
         <table className="w-full text-sm" translate="no">
           <thead className="sticky top-0 z-20 shadow-sm">
             <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">
@@ -1521,7 +1540,7 @@ function PagosPorReserva({ year, filterApt, apartments, reservations, payments, 
   const celda = 'py-1.5 px-3 text-xs whitespace-nowrap'
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
       <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
         <h3 className="font-semibold text-white">Pagos por reserva · {year}</h3>
         <span className="text-white font-bold">{eur(totalCobrado)}</span>
@@ -1530,7 +1549,7 @@ function PagosPorReserva({ year, filterApt, apartments, reservations, payments, 
         {fichas.length} reservas · <b className="text-slate-700">{varios}</b> con más de un pago ·{' '}
         <b className="text-slate-700">{aPlazos}</b> repartidas en varios meses
       </div>
-      <div className="overflow-auto max-h-[70vh] print:max-h-none print:overflow-visible">
+      <div>
         <table className="w-full text-sm" translate="no">
           <thead className="sticky top-0 z-20 shadow-sm">
             <tr className="border-b border-slate-200 bg-slate-100 text-xs text-slate-600">

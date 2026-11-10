@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { mesContableCon } from '../lib/mesContable'
 import { MessageCircleQuestion, X, Send, Loader2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { auth } from '../lib/firebase'
@@ -58,8 +59,9 @@ export default function PreguntarApp() {
   const years = useMemo(() => {
     const s = new Set<number>()
     for (const r of reservations) if (r.checkIn) s.add(Number(r.checkIn.slice(0, 4)))
+    const mesDe = mesContableCon(reservations)
     for (const p of payments) {
-      const m = p.mes ?? p.paymentDate
+      const m = mesDe(p)
       if (m) s.add(Number(m.slice(0, 4)))
     }
     s.add(new Date().getFullYear())

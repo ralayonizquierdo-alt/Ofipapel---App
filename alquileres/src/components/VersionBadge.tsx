@@ -1,56 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-
-type Estado = 'comprobando' | 'actual' | 'nueva' | 'error'
+import { actualizar, consultarServidor, type EstadoVersion as Estado } from '../lib/version'
 
 /**
- * Compara el fichero JS que está ejecutando el navegador con el que anuncia el
- * index.html del servidor. Como Vite pone un hash en el nombre de cada compilación,
- * si no coinciden es que el móvil está sirviendo una versión cacheada.
+ * El estado de la versión en la pantalla de entrada (ver `lib/version.ts`).
  *
  * Nace de una noche perdida depurando un fallo ya corregido que no llegaba al
  * móvil porque el navegador seguía dando una versión vieja, sin forma de saberlo.
  */
-
-const BUNDLE_EN_USO = (() => {
-  try {
-    return new URL(import.meta.url).pathname.split('/').pop() || ''
-  } catch {
-    return ''
-  }
-})()
-
-async function consultarServidor(): Promise<Estado> {
-  try {
-    const base = import.meta.env.BASE_URL || '/'
-    const res = await fetch(`${base}index.html?_=${Date.now()}`, { cache: 'no-store' })
-    if (!res.ok) return 'error'
-    const html = await res.text()
-    const encontrados = html.match(/assets\/[A-Za-z0-9._-]+\.js/g)
-    if (!encontrados || !BUNDLE_EN_USO) return 'error'
-    const enServidor = encontrados.map(s => s.split('/').pop())
-    return enServidor.includes(BUNDLE_EN_USO) ? 'actual' : 'nueva'
-  } catch {
-    return 'error'
-  }
-}
-
-/** Tira la caché y recarga saltándosela, que es lo que no se podía hacer a mano. */
-async function actualizar() {
-  try {
-    if ('caches' in window) {
-      const claves = await caches.keys()
-      await Promise.all(claves.map(k => caches.delete(k)))
-    }
-    const regs = (await navigator.serviceWorker?.getRegistrations?.()) ?? []
-    await Promise.all(regs.map(r => r.unregister()))
-  } catch {
-    // Si no se puede limpiar, la recarga con parámetro nuevo suele bastar.
-  }
-  const url = new URL(location.href)
-  url.searchParams.set('v', String(Date.now()))
-  location.replace(url.toString())
-}
 
 const ESTILOS: Record<Estado, { fondo: string; texto: string; punto: string; etiqueta: string }> = {
   comprobando: { fondo: 'bg-slate-100 border-slate-200', texto: 'text-slate-500', punto: 'bg-slate-400', etiqueta: 'Comprobando versión…' },

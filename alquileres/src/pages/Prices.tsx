@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { PriceEntry, ApartmentType, Season, OfferPrice, OfferTarifa } from '../types'
 import { calcPrices, getApartmentType, tarifaDeOferta } from '../lib/priceCalc'
@@ -91,7 +92,18 @@ function tarifasDeOferta(op: OfferPrice, apartments: { id: string; name: string 
 
 export default function Prices() {
   const { prices, offerPrices, apartments, addPrice, deleteOfferPrice } = useData()
-  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR)
+  /**
+   * Se llega aquí también desde la tarifa de la ficha de cuadre de Cobros, con
+   * `?anio=…&tarifa=…&tramo=…` o `?oferta=…`: la pantalla abre en ese año y deja
+   * marcada la tarifa que se aplicó, para no tener que buscarla.
+   */
+  const [params] = useSearchParams()
+  const tarifaMarcada = params.get('tarifa')
+  const tramoMarcado = params.get('tramo')
+  const ofertaMarcada = params.get('oferta')
+  // Para volver a Cobros está el «← Volver» de todas las pantallas
+  // (components/BotonVolver.tsx), que además reabre la ficha de la que se vino.
+  const [selectedYear, setSelectedYear] = useState(() => Number(params.get('anio')) || CURRENT_YEAR)
   const [editing, setEditing] = useState<PriceEntry | null>(null)
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [editingOffer, setEditingOffer] = useState<OfferPrice | null>(null)
@@ -105,6 +117,15 @@ export default function Prices() {
   const [soloOferta, setSoloOferta] = useState<string | null>(null)
   /** La oferta que se está llevando a las reservas ya hechas. */
   const [aplicando, setAplicando] = useState<OfferPrice | null>(null)
+
+  // La tarifa marcada se pone a la vista en cuanto está pintada (los precios
+  // llegan de la nube después del primer pintado).
+  const marcada = tarifaMarcada ? `tarifa-${tarifaMarcada}` : ofertaMarcada ? `oferta-${ofertaMarcada}` : ''
+  const hayMarcada = !!marcada && (prices.length > 0 || offerPrices.length > 0)
+  useEffect(() => {
+    if (!hayMarcada) return
+    document.getElementById(marcada)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [marcada, hayMarcada])
 
   /**
    * Imprime una oferta sola, que es como se le presenta a la agencia: se
@@ -199,7 +220,14 @@ export default function Prices() {
                       </div>
                     )
                   }
-                  return <PriceTable key={aptType} entry={entry} onEdit={() => setEditing(entry)} />
+                  const esLaMarcada = entry.id === tarifaMarcada
+                  return (
+                    <div key={aptType} id={`tarifa-${entry.id}`}
+                      className={esLaMarcada ? 'rounded-xl ring-4 ring-blue-400 ring-offset-2' : ''}>
+                      <PriceTable entry={entry} onEdit={() => setEditing(entry)}
+                        marcarTramo={esLaMarcada ? tramoMarcado ?? undefined : undefined} />
+                    </div>
+                  )
                 })}
               </div>
             </div>
@@ -227,8 +255,9 @@ export default function Prices() {
             {offerPrices.map(op => {
               const plegada = plegadas.includes(op.id)
               return (
-              <div key={op.id}
+              <div key={op.id} id={`oferta-${op.id}`}
                 className={`bg-white rounded-xl border-2 border-amber-300 ${
+                  op.id === ofertaMarcada ? 'ring-4 ring-blue-400 ring-offset-2' : ''} ${
                   soloOferta && soloOferta !== op.id ? 'hidden' : ''}`}>
                <div className="p-4 flex items-start justify-between gap-3 bg-amber-50 rounded-t-lg">
                 <div>
@@ -315,17 +344,19 @@ export default function Prices() {
   )
 }
 
-function PriceTable({ entry, onEdit, titulo }: {
+function PriceTable({ entry, onEdit, titulo, marcarTramo }: {
   entry: PriceEntry
   /** Sin esto no sale el botón: las tarifas de oferta se editan en su ficha. */
   onEdit?: () => void
   titulo?: string
+  /** El tramo que se aplicó a la estancia de la que se viene, para resaltarlo. */
+  marcarTramo?: string
 }) {
   const rows = [
-    { label: '1 Semana (7d)', days: 7, base: entry.price1week },
-    { label: '2 Semanas (14d)', days: 14, base: entry.price2weeks },
-    { label: '3 Semanas (21d)', days: 21, base: entry.price3weeks },
-    { label: '1 Mes (30d)', days: 30, base: entry.price1month },
+    { label: '1 Semana (7d)', days: 7, base: entry.price1week, tramo: '1semana' },
+    { label: '2 Semanas (14d)', days: 14, base: entry.price2weeks, tramo: '2semanas' },
+    { label: '3 Semanas (21d)', days: 21, base: entry.price3weeks, tramo: '3semanas' },
+    { label: '1 Mes (30d)', days: 30, base: entry.price1month, tramo: '1mes' },
     { label: 'Directo/VIP-B (-10%)', days: 30, base: entry.price1month * 0.9, isDirect: true },
   ]
 
@@ -359,7 +390,8 @@ function PriceTable({ entry, onEdit, titulo }: {
               const calc = calcPrices(row.base, entry.cleaningFee)
               const perNight = (row.base / row.days).toFixed(2)
               return (
-                <tr key={row.label} className={`border-b border-slate-50 hover:bg-slate-50 ${(row as { isDirect?: boolean }).isDirect ? 'bg-green-50/30' : ''}`}>
+                <tr key={row.label} className={`border-b border-slate-50 hover:bg-slate-50 ${(row as { isDirect?: boolean }).isDirect ? 'bg-green-50/30' : ''} ${
+                  marcarTramo && (row as { tramo?: string }).tramo === marcarTramo ? '!bg-blue-100 outline outline-2 outline-blue-500' : ''}`}>
                   <td className={`py-3 px-4 font-medium ${(row as { isDirect?: boolean }).isDirect ? 'text-green-700' : 'text-slate-700'}`}>
                     {row.label}
                     {(row as { isDirect?: boolean }).isDirect && <span className="ml-1 text-xs font-normal text-green-600">(contado/efectivo)</span>}

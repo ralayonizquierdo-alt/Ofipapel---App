@@ -11,7 +11,7 @@
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
 const consumibles = require('./whatsapp-consumibles');
-const { pareceConsultaDeProducto } = require('./whatsapp-agent-config');
+const { pareceConsultaDeProducto, nombraUnArticulo } = require('./whatsapp-agent-config');
 
 // Las formas con las que se pregunta por un ARTÍCULO, para no ir al catálogo
 // cuando la pregunta va de horarios, plazos o facturas.
@@ -28,7 +28,7 @@ const { pareceConsultaDeProducto } = require('./whatsapp-agent-config');
 // igual (ver `forzar` abajo y la red de seguridad de whatsapp-webhook.js). Esta
 // lista es el atajo rápido, no la única puerta.
 const PREGUNTA_POR_ARTICULO =
-  /\b(ten[eé]is|tienen|tiene|tenes|ten[eé]s|hay|vend[eé]is|venden|vende|dispon(?:ible|éis|eis)|stock|precio|precios|cuesta|cuestan|vale|valen|busco|buscando|necesito|necesitaba|quiero|quisiera|quer[ií]a|me interesa|interesa|regalar|regalo|recomend[aá]is|recomiendas|recomiendan|me hace falta|modelo|marca|referencia|cart?ucho|t[oó]ner|tinta|papel|folios)\b/i;
+  /\b(ten[eé]is|tienen|tiene|tenes|ten[eé]s|hay|vend[eé]is|venden|vende|dispon(?:ible|éis|eis)|stock|precio|precios|cuesta|cuestan|vale|valen|busco|buscando|necesito|necesitaba|quiero|quisiera|quer[ií]a|me interesa|me interesan|interesa|interesan|necesitamos|buscamos|queremos|quisieramos|nos hace falta|me gustaria|ando buscando|estoy buscando|regalar|regalo|recomend[aá]is|recomiendas|recomiendan|me hace falta|modelo|marca|referencia|cart?ucho|t[oó]ner|tinta|papel|folios)\b/i;
 
 function preguntaPorUnArticulo(texto) {
   return PREGUNTA_POR_ARTICULO.test(String(texto || ''));
@@ -130,7 +130,16 @@ async function construirContextoCatalogo({ from, text, history, forzar = false }
   // `forzar` se salta este descarte. Lo usa el webhook cuando la IA ya ha
   // intentado confirmar un producto: si lo ha intentado, era una consulta de
   // producto, por mucho que las palabras no lo parecieran. Ver whatsapp-webhook.js.
-  if (!forzar && !impresoras.length && !pareceConsultaDeProducto(text) && !preguntaPorUnArticulo(text)) {
+  // Se mira el catálogo si el mensaje pregunta por un artículo, trae una
+  // referencia, nombra la impresora del cliente o **nombra una cosa de las que
+  // vendemos** (`nombraUnArticulo`, 8/11/2026): media clientela no pregunta,
+  // enumera («post it amarillos»), y eso no abría la puerta. Ver el comentario
+  // largo en `whatsapp-agent-config.js`.
+  if (!forzar
+      && !impresoras.length
+      && !pareceConsultaDeProducto(text)
+      && !preguntaPorUnArticulo(text)
+      && !nombraUnArticulo(text)) {
     return { productContext: null, contextoConsumibles, impresoras, fallo: false, consultado: false };
   }
 
@@ -235,6 +244,10 @@ async function construirContextoCatalogo({ from, text, history, forzar = false }
 
   return {
     productContext: bloques.length > 0 ? bloques.join('\n\n') : null,
+    // Los productos TAL CUAL los devolvió la web, además del texto que se le
+    // da a la IA. Desde el 8/11/2026 la respuesta de producto se escribe con
+    // estos datos y no la redacta la IA (ver whatsapp-respuesta-catalogo.js).
+    productos,
     contextoConsumibles,
     impresoras,
     fallo,

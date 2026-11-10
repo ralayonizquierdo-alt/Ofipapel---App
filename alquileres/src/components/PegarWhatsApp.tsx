@@ -11,12 +11,24 @@ import { subeJustificante, ErrorJustificante, tamanoLegible } from '../lib/justi
 import { buscaTarifa, calcTotal, tramoPorNoches } from '../lib/priceCalc'
 import { limpiezaDe, vaSinLimpieza } from '../lib/limpieza'
 import { formatDate } from '../lib/dateUtils'
-import type { Reservation } from '../types'
+import type { Payment, Reservation } from '../types'
 import Modal from './ui/Modal'
+import FichaCuadre from './FichaCuadre'
 import { num } from '../lib/formato'
 
 const eur = (n: number) =>
   `${num(n, 2)} €`
+
+/**
+ * Lo que se acaba de cargar y su color dentro de la caja (Luis, 08/11/2026):
+ * «OK. RESERVA» en verde, «OK. COBRO» en azul y «OK. ANULADA» en rojo.
+ */
+type TipoCargado = 'reserva' | 'cobro' | 'anulada'
+const COLOR_CARGADO: Record<TipoCargado, { texto: string; caja: string; titulo: string; detalle: string }> = {
+  reserva: { texto: 'RESERVA', caja: 'border-green-400 bg-green-50', titulo: 'text-green-700', detalle: 'text-green-900' },
+  cobro: { texto: 'COBRO', caja: 'border-blue-400 bg-blue-50', titulo: 'text-blue-700', detalle: 'text-blue-900' },
+  anulada: { texto: 'ANULADA', caja: 'border-red-400 bg-red-50', titulo: 'text-red-700', detalle: 'text-red-900' },
+}
 
 const EJEMPLO = `Pega aquí el mensaje, tal cual llega:
 
@@ -63,10 +75,20 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   const [arrastrando, setArrastrando] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [hecho, setHecho] = useState('')
+  /**
+   * Qué se acaba de cargar, para decirlo dentro de la caja: «RESERVA · Apto. 104».
+   * Antes, al guardar, la caja se vaciaba y volvía el ejemplo «ALAYON 104…»,
+   * y parecía que no había pasado nada (Luis, 08/11/2026).
+   */
+  const [cargado, setCargado] = useState<{ tipo: TipoCargado; aptos: string } | null>(null)
   const [error, setError] = useState('')
   const areaRef = useRef<HTMLTextAreaElement>(null)
 
   const nombreApt = (id: string | null) => apartments.find(a => a.id === id)?.name || id || '¿?'
+  /** «Apartamento 104» → «Apto. 104»; los demás nombres («Ático 402», «Piso 3») tal cual. */
+  const apto = (id: string | null) => nombreApt(id).replace(/^Apartamento\s+/i, 'Apto. ')
+  /** «Apto. 104, Apto. 105», sin repetir. */
+  const aptos = (ids: (string | null)[]) => [...new Set(ids.map(apto))].join(', ')
 
   // Cuatro formatos distintos, y se distinguen solos. La anulación se mira
   // antes que nada: trae fechas y vivienda igual que un alta, y leerla como un
@@ -103,14 +125,20 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     const choca = reservations.find(r =>
       r.apartmentId === l.apartmentId && r.status !== 'cancelada' &&
       r.checkIn < l.checkOut! && l.checkIn! < r.checkOut)
+    // La misma reserva otra vez (mismo piso, misma entrada y salida): no se crea
+    // y se enseña la que ya hay (Luis, 08/11/2026: «¡¡¡YA EXISTE ESTE REGISTRO!!!»).
+    const existe = reservations.find(r =>
+      r.apartmentId === l.apartmentId && r.status !== 'cancelada' &&
+      r.checkIn === l.checkIn && r.checkOut === l.checkOut)
     return {
       linea: l,
+      existe,
       total: tarifa ? calcTotal(tarifa.base, limpieza, 0) : 0,
       limpieza,
       base: tarifa?.base ?? 0,
       aviso: [
         !tarifa ? 'No hay precios cargados para esas fechas: se creará sin importe' : '',
-        choca ? `Ya hay una reserva del ${formatDate(choca.checkIn)} al ${formatDate(choca.checkOut)}` : '',
+        choca && !existe ? `Ya hay una reserva del ${formatDate(choca.checkIn)} al ${formatDate(choca.checkOut)}` : '',
         l.nota ?? '',
         vaSinLimpieza(l.apartmentId) ? 'El Arenal va sin limpieza: no se le suman los 40 €' : '',
         // Airbnb nunca manda el precio, así que conviene decir de dónde sale.
@@ -134,7 +162,26 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     return null
   }, [cobro, reservations])
 
-  const validas = propuestas.filter(p => !p.linea.problema)
+  const validas = propuestas.filter(p => !p.linea.problema && !('existe' in p && p.existe))
+  /** Las reservas pegadas que ya estaban cargadas: no se vuelven a crear. */
+  const yaCargadas = propuestas.flatMap(p => ('existe' in p && p.existe ? [p.existe] : []))
+
+  /**
+   * El cobro que ya está anotado: mismo importe y misma fecha de pago en esa
+   * reserva (o en ese piso, si vino del Excel sin reserva). Sin fecha no se
+   * puede saber: dos mensualidades iguales son dos cobros distintos.
+   */
+  const cobroExistente = useMemo((): Payment | null => {
+    if (!cobro?.paymentDate || !cobro.apartmentId) return null
+    return payments.find(p => p.received && p.paymentDate === cobro.paymentDate
+      && Math.abs(p.amount - cobro.amount) < 0.01
+      && ((reservaDelCobro && p.reservationId === reservaDelCobro.id)
+        || (!p.reservationId && p.apartmentId === cobro.apartmentId))) ?? null
+  }, [cobro, payments, reservaDelCobro])
+
+  /** La ficha del registro que ya existe, para verlo entero. */
+  const [fichaDe, setFichaDe] = useState<Reservation | null>(null)
+  const cobradoDe = (id: string) => payments.filter(p => p.reservationId === id && p.received).reduce((s, p) => s + p.amount, 0)
 
   /**
    * Trae de un toque lo que haya copiado.
@@ -202,6 +249,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         channel: l.origen === 'airbnb' ? 'airbnb' : 'inmobiliaria',
         basePrice: p.base ?? 0, cleaningFee: p.limpieza ?? 0, discountPct: 0,
         total: p.total, status: 'confirmada',
+        // La de la inmobiliaria pide su conformidad a la asesoría; la de Airbnb
+        // (el Arenal) la gestiona SOC. Ver lib/conformidades.ts.
+        ...(l.origen === 'airbnb' ? {} : { pideConformidad: true }),
         notes: `Alta desde ${l.origen === 'airbnb' ? 'el aviso de Airbnb' : 'el mensaje'}: ${l.texto}`,
       })
       addPayment({ reservationId: res.id, amount: p.total, received: false })
@@ -215,9 +265,12 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           .join(' · '),
         year: Number(validas[0].linea.checkIn!.slice(0, 4)),
         reservas: n, cobros: n,
+        // Solo la línea de cada reserva, sin saludos: lo mismo que va a la reserva.
+        texto: validas.map(p => p.linea.texto).join('\n'),
       })
     }
     setHecho(`${n} ${n === 1 ? 'reserva creada' : 'reservas creadas'}`)
+    setCargado({ tipo: 'reserva', aptos: aptos(validas.map(p => p.linea.apartmentId)) })
     setTexto(''); setFichero(null); setGuardando(false)
   }
 
@@ -253,7 +306,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       resumen: `${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`,
       year: Number(aAnular[0].elegida!.checkIn.slice(0, 4)),
       reservas: aAnular.length,
+      texto: aAnular.map(x => x.a.texto).join('\n'),
     })
+    setCargado({ tipo: 'anulada', aptos: aptos(aAnular.map(x => x.elegida!.apartmentId)) })
     setHecho(`${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`
       + (cobrado > 0 ? `. Ojo: hay ${eur(cobrado)} ya cobrados, míralo` : ''))
     setTexto(''); setFichero(null); setElegidas({}); setGuardando(false)
@@ -303,6 +358,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       cobros: 1,
       ...conPapel,
     })
+    setCargado({ tipo: 'cobro', aptos: apto(cobro.apartmentId) })
     setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}`
       + (papel ? ` · justificante guardado (${papel.nombre})` : ''))
     setTexto(''); setFichero(null); setGuardando(false)
@@ -310,13 +366,6 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
 
   return (
     <div className="space-y-4">
-        {hecho && (
-          <div className="bg-green-50 border border-green-300 rounded-lg p-3 flex gap-2.5">
-            <CheckCircle2 className="text-green-600 shrink-0 mt-0.5" size={18} />
-            <p className="text-sm font-medium text-green-900">{hecho}</p>
-          </div>
-        )}
-
         {/* Se puede escribir, pegar o soltar el PDF encima: las tres cosas
             acaban en el mismo sitio. Los manejadores van en el envoltorio para
             que valga soltar en cualquier punto, no solo sobre el recuadro. */}
@@ -333,19 +382,43 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           <textarea
             ref={areaRef}
             value={texto}
-            onChange={e => { setTexto(e.target.value); setHecho(''); setError('') }}
+            onChange={e => { setTexto(e.target.value); setHecho(''); setCargado(null); setError('') }}
             onPaste={e => {
               // Algunos gestores de correo y el propio móvil pegan el PDF como
               // fichero en vez de como texto.
               const f = [...e.clipboardData.files][0]
               if (f) { e.preventDefault(); leeFichero(f) }
             }}
-            rows={compacta ? 3 : 6}
-            placeholder={EJEMPLO}
+            rows={compacta ? 4 : 6}
+            aria-label="Pega aquí el texto"
+            // El ejemplo de lo que vale pegar, ahora al pasar el ratón: dentro de
+            // la caja confundía, porque volvía a salir después de cargar algo.
+            title={EJEMPLO}
             className={`w-full border rounded-lg px-3 py-2.5 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              arrastrando ? 'border-blue-500 bg-blue-50/60' : 'border-slate-200'
+              arrastrando ? 'border-blue-500 bg-blue-50/60'
+                : !texto && hecho ? COLOR_CARGADO[cargado?.tipo ?? 'reserva'].caja : 'border-slate-200'
             }`}
           />
+          {/* Con la caja vacía, en el centro: qué hacer, o lo que se acaba de
+              cargar. No deja pinchar: el clic llega a la caja de debajo. */}
+          {!texto && !arrastrando && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3 pointer-events-none">
+              {hecho ? (() => {
+                const c = COLOR_CARGADO[cargado?.tipo ?? 'reserva']
+                return (
+                  <>
+                    <p className={`flex items-center gap-1.5 text-lg font-bold ${c.titulo}`}>
+                      <CheckCircle2 size={20} /> OK. {c.texto}
+                    </p>
+                    {cargado?.aptos && <p className={`text-sm font-semibold ${c.detalle}`}>{cargado.aptos}</p>}
+                    <p className={`text-xs line-clamp-2 ${c.detalle}`}>{hecho}</p>
+                  </>
+                )
+              })() : (
+                <p className="text-sm font-semibold tracking-wide text-slate-400">PEGA AQUÍ EL TEXTO</p>
+              )}
+            </div>
+          )}
           {arrastrando && (
             <div className="absolute inset-0 rounded-lg bg-blue-50/90 border-2 border-dashed border-blue-400 flex items-center justify-center pointer-events-none">
               <p className="text-sm font-medium text-blue-700">Suelta aquí el PDF o la foto</p>
@@ -374,7 +447,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
           </label>
           <span className="text-xs text-slate-400">o arrástralo sobre el recuadro</span>
           {texto && (
-            <button onClick={() => { setTexto(''); setHecho(''); areaRef.current?.focus() }}
+            <button onClick={() => { setTexto(''); setHecho(''); setCargado(null); areaRef.current?.focus() }}
               className="text-xs text-slate-400 hover:text-slate-600 ml-auto">Limpiar</button>
           )}
         </div>
@@ -405,6 +478,45 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
             </div>
           </div>
         )}
+
+        {/* ── Lo pegado ya estaba cargado ── */}
+        {(yaCargadas.length > 0 || cobroExistente) && (
+          <div className="border-2 border-red-400 bg-red-50 rounded-lg p-3 space-y-2" translate="no">
+            <p className="text-center text-base font-bold text-red-700">¡¡¡YA EXISTE ESTE REGISTRO!!!</p>
+            {cobroExistente && (() => {
+              const r = reservations.find(x => x.id === cobroExistente.reservationId)
+              return (
+                <div className="bg-white border border-red-200 rounded-lg p-3 text-sm flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-slate-700">
+                    <b>Cobro de {eur(cobroExistente.amount)}</b> del {formatDate(cobroExistente.paymentDate!)}
+                    {' · '}{nombreApt(cobroExistente.apartmentId ?? r?.apartmentId ?? null)}
+                    {r && <> · reserva del {formatDate(r.checkIn)} al {formatDate(r.checkOut)}</>}
+                    {cobroExistente.entryNumber && <> · asiento {cobroExistente.entryNumber}</>}
+                  </p>
+                  {r && (
+                    <button type="button" onClick={() => setFichaDe(r)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-800 hover:bg-red-100">
+                      Ver su ficha
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
+            {yaCargadas.map(r => (
+              <div key={r.id} className="bg-white border border-red-200 rounded-lg p-3 text-sm flex flex-wrap items-center justify-between gap-2">
+                <p className="text-slate-700">
+                  <b>{nombreApt(r.apartmentId)}</b> · del {formatDate(r.checkIn)} al {formatDate(r.checkOut)} · {r.nights} noches
+                  {' · '}importe {eur(r.total)} · cobrado {eur(cobradoDe(r.id))}
+                </p>
+                <button type="button" onClick={() => setFichaDe(r)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-300 text-red-800 hover:bg-red-100">
+                  Ver su ficha
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {fichaDe && <FichaCuadre reserva={fichaDe} onClose={() => setFichaDe(null)} />}
 
         {/* ── Un justificante de transferencia ── */}
         {cobro && (
@@ -444,7 +556,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                 )}
               </p>
               <div className="pt-2 mt-1 border-t border-slate-100">
-                {reservaDelCobro ? (
+                {cobroExistente ? (
+                  <p className="text-sm font-medium text-red-700">No se anota: este cobro ya está cargado.</p>
+                ) : reservaDelCobro ? (
                   <p className="text-sm text-slate-700">
                     Se anotará en la reserva del{' '}
                     <b>{formatDate(reservaDelCobro.checkIn)}</b> al{' '}
@@ -501,7 +615,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                 : 'Marcar como anulada'}
             </button>
           ) : cobro ? (
-            <button onClick={guardarCobro} disabled={guardando || !reservaDelCobro}
+            <button onClick={guardarCobro} disabled={guardando || !reservaDelCobro || !!cobroExistente}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
               Anotar el cobro
             </button>

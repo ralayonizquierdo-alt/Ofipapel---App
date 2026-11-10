@@ -22,18 +22,31 @@
    *
    * La ficha de cuadre de una estancia se manda a la agencia como recibo
    * (propietario, 02/11/2026), y detrás de ella está la pantalla entera de
-   * Cobros. Marcada con esta clase, al imprimir se oculta todo lo demás y la
-   * ficha sube al origen de la hoja. Se oculta con `visibility` y no con
-   * `display` para no deshacer la maquetación de lo que la contiene.
+   * Cobros. Marcada con esta clase, al imprimir se quita todo lo demás.
+   *
+   * Antes se ocultaba con `visibility`, que deja lo oculto ocupando su sitio:
+   * la pantalla de Cobros, larga, seguía ahí debajo y la ventana de la ficha,
+   * que va fija en pantalla, salía repetida en cada hoja (cuatro veces la
+   * misma; Luis, 06/11/2026). Ahora lo que no es la ficha ni la contiene no se
+   * pinta, y lo que la contiene se queda sin márgenes ni posición fija: en
+   * papel solo queda la ficha, en una hoja.
    */
-  body:has(.solo-esto-al-imprimir) * { visibility: hidden; }
-  body:has(.solo-esto-al-imprimir) .solo-esto-al-imprimir,
-  body:has(.solo-esto-al-imprimir) .solo-esto-al-imprimir * { visibility: visible; }
-  .solo-esto-al-imprimir {
-    position: absolute !important;
-    top: 0 !important; left: 0 !important;
-    width: 100% !important;
+  body:has(.solo-esto-al-imprimir) *:not(:has(.solo-esto-al-imprimir)):not(.solo-esto-al-imprimir):not(.solo-esto-al-imprimir *) {
+    display: none !important;
+  }
+  body:has(.solo-esto-al-imprimir) *:has(.solo-esto-al-imprimir) {
+    display: block !important;
+    position: static !important;
     transform: none !important;
-    box-shadow: none !important;
+    inset: auto !important;
+    width: auto !important; max-width: none !important;
+    height: auto !important; min-height: 0 !important;
+    margin: 0 !important; padding: 0 !important;
+    border: 0 !important; box-shadow: none !important;
+    background: none !important;
+  }
+  .solo-esto-al-imprimir {
+    position: static !important;
+    width: 100% !important;
   }
 }

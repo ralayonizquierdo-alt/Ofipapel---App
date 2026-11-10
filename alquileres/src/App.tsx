@@ -10,7 +10,10 @@ import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import PreguntarApp from './components/PreguntarApp'
 import AvisoSolapes from './components/AvisoSolapes'
+import AvisoVersion from './components/AvisoVersion'
+import BotonVolver from './components/BotonVolver'
 import { solapes } from './lib/solapes'
+import { conformidadesPorEnviar, publicaParaElHub } from './lib/conformidades'
 import { useData } from './contexts/DataContext'
 import { observarSesion, rolDe, salir, usuarioDe, type Rol, type UsuarioApp } from './lib/auth'
 import Dashboard from './pages/Dashboard'
@@ -319,7 +322,8 @@ export default function App() {
     // haber, y así se ven desde cualquier pantalla sin entrar en el panel.
     // `solapes()` ya solo devuelve los de hoy en adelante.
     const pisadas = solapes(reservations).length
-    return pisadas + reservations.filter(r => {
+    // Y las conformidades que ya toca preparar (lib/conformidades.ts).
+    return pisadas + conformidadesPorEnviar(reservations).length + reservations.filter(r => {
       if (r.status === 'cancelada') return false
       if (new Date(r.checkOut) < today) return false
       const paid = payments
@@ -328,6 +332,13 @@ export default function App() {
       return paid < r.total
     }).length
   }, [reservations, payments])
+
+  // El globo del icono de Alquileres en el hub (inicio.html) sale de aquí:
+  // cada vez que cambian las reservas se le deja la lista de conformidades
+  // pendientes. Sin datos cargados no se toca, para no borrarle el globo.
+  useEffect(() => {
+    if (!loading && currentUser) publicaParaElHub(reservations)
+  }, [reservations, loading, currentUser])
 
   // Primero la sesión y luego los datos: sin sesión no se pide nada, así que
   // esperar a «loading» antes del login dejaría la pantalla colgada.
@@ -354,10 +365,16 @@ export default function App() {
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
-      <div className="flex min-h-screen bg-slate-100">
+      {/* La pantalla mide lo que la ventana y lo que desplaza es solo el
+          contenido (<main>): así hay UNA barra vertical y una horizontal, las
+          dos siempre a la vista, y lo que va pegado arriba —la cabecera de las
+          tablas de Cobros— se pega de verdad (Luis, 08/11/2026: «las barras de
+          desplazamiento me tienen loco»). En papel, todo seguido. */}
+      <div className="flex h-dvh bg-slate-100 print:block print:h-auto">
         {/* Desktop sidebar. En papel no se imprime: la hoja de la asesoría
-            salía con el menú lateral pegado al margen. */}
-        <div className="hidden md:flex print:hidden!">
+            salía con el menú lateral pegado al margen. Si no cabe de alto,
+            desplaza ella sola. */}
+        <div className="hidden md:flex md:overflow-y-auto print:hidden!">
           <Sidebar
             rol={rol}
             alerts={alertCount}
@@ -368,7 +385,9 @@ export default function App() {
           />
         </div>
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Arriba del todo: avisa cuando se ha publicado una versión nueva. */}
+          <AvisoVersion />
           {/* Mobile header */}
           <div className="md:hidden print:hidden!">
             <MobileHeader alerts={alertCount} onMenuOpen={() => setDrawerOpen(true)} />
@@ -392,7 +411,9 @@ export default function App() {
           {/* Salta al entrar y vuelve cada vez hasta que no quede ninguno. */}
           <RecuerdaPantalla rol={rol} />
           {rol === 'gestion' && <AvisoSolapes />}
-          <main className="flex-1 overflow-auto">
+          {/* «← Volver a …» en todas las pantallas, en cuanto hay a dónde volver. */}
+          <BotonVolver />
+          <main className="flex-1 min-h-0 overflow-auto print:overflow-visible">
             {/* Las rutas se montan según el rol: lo que alguien no puede ver
                 no existe para su sesión, así que escribir «/cobros» a mano
                 tampoco lleva a ninguna parte. */}
@@ -422,6 +443,11 @@ export default function App() {
               )}
               <Route path="*" element={<Navigate to={INICIO[rol]} replace />} />
             </Routes>
+            {/* Hueco al final de cada pantalla: al bajar del todo, «← Volver» y
+                «Preguntar», que flotan abajo, quedan sobre él y no tapan la
+                última fila (Luis, 08/11/2026: el TOTAL ANUAL de Cobros quedaba
+                debajo de los dos botones). */}
+            <div className="h-24 print:hidden" aria-hidden="true" />
           </main>
         </div>
       </div>

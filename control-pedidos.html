@@ -490,6 +490,7 @@ function equivalenciasDe(p) {
   return Object.assign(CP.emparejarReferencias(p.lineas, conMan), manuales);
 }
 function comparar(p) {
+  if (!p.decisiones) p.decisiones = {}; // pedidos que nunca tuvieron propuesta (5/11/2026: bloqueó la app)
   repararAltas(p);
   if (!p.propuesta) return null;
   // La referencia del proveedor que es la nuestra con otro código se compara como la nuestra.
@@ -533,7 +534,7 @@ function filaMovil(p, e) {
   const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
   return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</div>
     <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.hayRepetida ? ` <span class="chip mal">foto repetida</span>` : ''}</div>
-    <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
+    <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${chipVisto(p)}</div>`;
 }
 function celdaFotos(p) {
   const r = hojasDe(p);
@@ -672,7 +673,7 @@ function tablaEntregas(g, por) {
     const excel = d.pedidos.every((p) => hecho(p, 'excel', f));
     const guia = d.pedidos.every((p) => hecho(p, 'guia', f));
     return `<tr><td><b>${h(f)}</b></td><td>${d.pedidos.map((p) => `<a href="#" onclick="event.preventDefault(); abrirPedido('${p.id}')">${h(nPed(p.numero))}</a>`).join(', ')}</td>
-      <td class="num">${d.lineas}</td><td class="num">${fmt(d.importe)} €</td>
+      <td class="num">${d.lineas}</td><td class="num">${fmt(d.importe)} €${fueraDeCampana(d)}</td>
       <td>${liqHecha ? ok : `<span class="chip mal">${sinCod} sin código</span> <button class="btn peque" onclick="subirLiquidacion(${js(g.clave)})">🏷️ Subir</button>`}</td>
       <td>${excel ? `<a href="#" class="chip ok" title="Hecho. Pulsa para volver a sacarlo" onclick="event.preventDefault(); excelDeFactura(${js(g.clave)}, ${i})">✓</a>` : `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})">📥 Excel</button>`}</td>
       <td>${guia ? `<a href="#" class="chip ok" title="Hecha. Pulsa para volver a imprimirla" onclick="event.preventDefault(); guiaDeFactura(${js(g.clave)}, ${i})">✓</a>` : `<button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})">🧾 Guía</button>`}</td></tr>`;
@@ -885,7 +886,7 @@ function vistaGrupo(g, i) {
         <td class="num c-d">${p.lineas.length}</td>
         <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
+        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${chipVisto(p)}</td>
         <td class="c-movil">${filaMovil(p, e)}</td>
         <td class="no-imprimir c-borrar">${esRepo(p) ? `<button class="btn peque" title="Archivar este pedido (queda abajo, en Archivados)" onclick="event.stopPropagation(); archivarPedido('${p.id}', true)">📦</button> ` : ''}<button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
@@ -1479,8 +1480,29 @@ function quitarFoto(nombre) {
 const CLAVE_AVISOS = 'ofipapel-control-pedidos-avisos';
 let avisos = (() => { try { return JSON.parse(localStorage.getItem(CLAVE_AVISOS)) || []; } catch { return []; } })();
 function guardarAvisos() { try { localStorage.setItem(CLAVE_AVISOS, JSON.stringify(avisos)); } catch { /* solo en memoria */ } }
+// Visto se apunta también en el propio pedido (p.vistos {usuario: fecha}):
+// así se quita en los demás aparatos de esa persona y quien lo subió ve
+// «👁️ Visto por …».
+function yaVisto(p) { return !!(p && nube.usuario && p.vistos && p.vistos[nube.usuario]); }
+function marcarVisto(ids) {
+  if (!nube.usuario) return;
+  let cambio = false;
+  for (const id of ids) {
+    const p = pedidoPorId(id);
+    if (!p || yaVisto(p)) continue;
+    p.vistos = Object.assign({}, p.vistos, { [nube.usuario]: new Date().toISOString() });
+    cambio = true;
+  }
+  if (cambio) guardar();
+}
+function chipVisto(p) {
+  const otros = Object.entries(p.vistos || {}).filter(([u]) => u !== nube.usuario);
+  if (!otros.length) return '';
+  const nombre = (u) => u.charAt(0).toUpperCase() + u.slice(1);
+  return ` <span class="chip ok" title="${h(otros.map(([u, f]) => nombre(u) + ' · ' + fmtFecha(String(f).slice(0, 10))).join('\n'))}">👁️ Visto por ${h(otros.map(([u]) => nombre(u)).join(', '))}</span>`;
+}
 function avisosVivos() {
-  const vivos = avisos.filter((a) => pedidoPorId(a.id));
+  const vivos = avisos.filter((a) => { const p = pedidoPorId(a.id); return p && !yaVisto(p); });
   if (vivos.length !== avisos.length) { avisos = vivos; guardarAvisos(); }
   return avisos;
 }
@@ -1497,7 +1519,7 @@ function pintarCampana() {
 function quitarAviso(id) {
   const antes = avisos.length;
   avisos = avisos.filter((a) => a.id !== id);
-  if (avisos.length !== antes) { guardarAvisos(); pintarCampana(); }
+  if (avisos.length !== antes) { marcarVisto([id]); guardarAvisos(); pintarCampana(); }
 }
 function abrirAvisos() {
   const lista = avisosVivos();
@@ -1522,7 +1544,7 @@ function abrirAvisos() {
       </div>`).join('')}`).join('')
     : '<div class="vacio">No hay pedidos nuevos.</div>'}
     <div class="fila" style="margin-top:14px">
-      ${lista.length ? `<button class="btn" onclick="avisos = []; guardarAvisos(); pintarCampana(); document.getElementById('dlgAvisos').close()">✓ Marcar todo como visto</button>` : ''}
+      ${lista.length ? `<button class="btn" onclick="marcarVisto(avisos.map((a) => a.id)); avisos = []; guardarAvisos(); pintarCampana(); document.getElementById('dlgAvisos').close()">✓ Marcar todo como visto</button>` : ''}
       <button class="btn peque" onclick="document.getElementById('dlgAvisos').close()">Cerrar</button>
     </div>`;
   dlg.showModal();
@@ -2112,10 +2134,12 @@ function aplicarExpositor(expositor, piezas, parcial) {
 /** Si la propuesta trae algo que otro cliente tiene pendiente en restos, se avisa. */
 function avisoRestosEnPropuesta(p) {
   if (!p.propuesta) return '';
-  const refs = new Set(p.propuesta.lineas.map((l) => CP.claveRef(l.ref)));
+  // Solo lo que este pedido NO pidió: si lo pidió, es suyo (6/11/2026: el aviso confundía).
+  const pedidas = new Set((p.lineas || []).map((l) => CP.claveRef(l.ref)));
+  const refs = new Set(p.propuesta.lineas.map((l) => CP.claveRef(l.ref)).filter((k) => !pedidas.has(k)));
   const r = E.restos.filter((x) => x.pendiente > 0 && !x.anulado && x.pedidoId !== p.id && x.proveedor === p.proveedor && refs.has(CP.claveRef(x.ref)));
   if (!r.length) return '';
-  return `<div class="aviso-caja info"><b>Esta propuesta trae artículos que están en restos de otros clientes:</b><br>${r.map((x) =>
+  return `<div class="aviso-caja info"><b>Viene algo que este cliente no pidió y que esperan otros clientes en Restos:</b><br>${r.map((x) =>
     `${h(x.ref)} ${h(x.desc)} — ${x.pendiente} ud. de <b>${h(x.cliente)}</b> (pedido ${h(x.numero)}, ${h(fmtFecha(x.fecha))})`).join('<br>')}
     <br></div>`;
 }
@@ -2320,10 +2344,30 @@ function documentosCampana(ps) {
   }
   return docs;
 }
+/** Lo que de una factura del proveedor va en OTRAS campañas (Miquelrius factura
+ *  juntas Agendas y B2F): para que la fila enseñe el total real de la factura. */
+function fueraDeCampana(d) {
+  if (d.campo !== 'factura') return '';
+  const fra = d.nombre.replace(/^Factura /, '');
+  const prov0 = (d.pedidos[0] || {}).proveedor;
+  const otros = E.pedidos.filter((p) => p.proveedor === prov0 && !d.pedidos.includes(p) && p.factura);
+  const porCamp = new Map();
+  for (const p of otros) {
+    const ls = (p.factura.lineas || []).filter((l) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo) === fra);
+    if (!ls.length) continue;
+    const k = p.campana || p.proveedor;
+    const x = porCamp.get(k) || { n: 0, imp: 0 };
+    x.n += ls.length; x.imp = CP.red2(x.imp + ls.reduce((t, l) => t + (CP.parseNum(l.importe) || 0), 0));
+    porCamp.set(k, x);
+  }
+  if (!porCamp.size) return '';
+  const extra = [...porCamp.values()].reduce((t, x) => CP.red2(t + x.imp), 0);
+  return ` <span class="chip">+ ${[...porCamp].map(([k, x]) => `${fmt(x.imp)} € en ${h(k)}`).join(' + ')} = <b>${fmt(CP.red2(d.importe + extra))} € factura</b></span>`;
+}
 function bloqueDocumentos(g) {
   const docs = documentosCampana(g.pedidos);
   const nFotos = g.pedidos.reduce((s, p) => s + fotosDe(p).length, 0);
-  const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €
+  const fila = (d, i) => `<li><b>${h(d.nombre)}</b> · ${d.pedidos.length} pedido(s) (${d.pedidos.map((p) => nPed(p.numero)).join(', ')}) · ${d.lineas} líneas · ${fmt(d.importe)} €${fueraDeCampana(d)}
     ${d.campo === 'factura' ? `<button class="btn peque" onclick="excelDeFactura(${js(g.clave)}, ${i})" title="Excel de Géminis solo de esta factura">📥 Excel Géminis</button>
       <button class="btn peque" onclick="guiaDeFactura(${js(g.clave)}, ${i})" title="Guía de facturación solo de esta factura">🧾 Guía</button>` : ''}
     <button class="btn peque peligro" onclick="quitarDocumentoCampana(${js(g.clave)}, ${i})" title="Quitarlo de todos los pedidos de la campaña">🗑️ Quitar</button></li>`;
@@ -2347,7 +2391,13 @@ function bloqueDocumentos(g) {
 function excelDeFactura(clave, indice) {
   const d = documentosCampana(E.pedidos.filter((p) => claveGrupo(p) === clave))[indice];
   if (!d || d.campo !== 'factura') return;
-  exportarPedidos(d.pedidos.map((p) => p.id), { soloFactura: d.nombre.replace(/^Factura /, '') });
+  // Una compra en Géminis por factura: entran todos los pedidos de ese proveedor
+  // que traen líneas de esta factura, aunque sean de otra campaña (Miquelrius
+  // factura juntas «Agendas» y «B2F», 6/11/2026).
+  const fra = d.nombre.replace(/^Factura /, '');
+  const prov0 = (d.pedidos[0] || {}).proveedor;
+  const ids = E.pedidos.filter((p) => p.proveedor === prov0 && p.validado && p.factura && (p.factura.lineas || []).some((l) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo) === fra)).map((p) => p.id);
+  exportarPedidos(ids.length ? ids : d.pedidos.map((p) => p.id), { soloFactura: fra });
 }
 function guiaDeFactura(clave, indice) {
   const d = documentosCampana(E.pedidos.filter((p) => claveGrupo(p) === clave))[indice];
@@ -2813,13 +2863,16 @@ async function leerFicheroProveedor(file, idProgreso, numero, partes) {
     const res = apli || await leerConIA(file, 'documento');
     const trozos = CP.separarPorPedido(res);
     if (trozos.length > 1) {
-      const docs = trozos.map(CP.lineasDeDocumento);
+      const marcaApli = (d) => (apli ? Object.assign(d, { control: Object.assign({}, d.control, { apli: true }) }) : d);
+      const docs = trozos.map(CP.lineasDeDocumento).map(marcaApli);
       if (partes) return docs;
       const n = String(numero || '').replace(/\D/g, '');
       const suyo = n && docs.find((d) => d.cabecera.numeroPedido === Number(n));
       if (suyo) return suyo;
     }
-    return CP.lineasDeDocumento(res);
+    const doc = CP.lineasDeDocumento(res);
+    if (apli) doc.control = Object.assign({}, doc.control, { apli: true });
+    return doc;
   } finally {
     const c = idProgreso && document.getElementById(idProgreso);
     if (c) c.textContent = '';
@@ -2830,6 +2883,8 @@ async function leerFicheroProveedor(file, idProgreso, numero, partes) {
 function avisoControl(doc) {
   if (!doc || !doc.control) return '';
   const c = doc.control;
+  // Factura de Apli leída del PDF sin IA: ya se comprobó que cuadra con su Subtotal (las partes no traen base propia).
+  if (c.apli) return '';
   if (c.exacto) return `<div class="aviso-caja ok">Pedido de Géminis leído directamente del PDF, sin IA: ${(doc.lineas || []).length} líneas, con la columna «Unidades» como cantidad y «Rfc.Compra» como referencia.</div>`;
   const dudas = (doc.lineas || []).filter((l) => l.duda).length;
   const base = c.base == null
@@ -2862,6 +2917,7 @@ function guardarCatalogo(proveedor, archivo, catalogo) {
  *  demás (hay que volver a decidirlas). Devuelve un texto para avisar, o ''. */
 function asignarPropuesta(p, archivo, prop) {
   let aviso = '';
+  if (!p.decisiones) p.decisiones = {};
   if (p.propuesta) {
     const r = CP.decisionesQueSiguen(p.propuesta.lineas, prop.lineas, p.decisiones);
     p.decisiones = r.decisiones;
@@ -4248,7 +4304,7 @@ async function sincronizar() {
         for (const f of filas) {
           if (f.coleccion !== 'pedidos' || f.borrado || teniamos.has(f.id) || !f.autor || f.autor === nube.usuario) continue;
           const p = E.pedidos.find((x) => String(x.id) === f.id);
-          if (!p || avisos.some((a) => a.id === p.id) || (esComercial() && esRepo(p))) continue;
+          if (!p || yaVisto(p) || avisos.some((a) => a.id === p.id) || (esComercial() && esRepo(p))) continue;
           avisos.push({ id: p.id, autor: f.autor, cuando: f.actualizado });
         }
         guardarAvisos();

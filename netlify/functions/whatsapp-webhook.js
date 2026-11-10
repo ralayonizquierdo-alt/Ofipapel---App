@@ -65,9 +65,11 @@ const {
   isSellosQuestion,
   isWithinBusinessHours,
   esProblemaDeCuenta,
+  pidioHablarConAlguien,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
   preguntaSiEsNuestroCorreo,
+  avisaQueEscribioA,
   mensajeSobreElCorreo,
   mensajeProblemaDeCuenta,
   STORES,
@@ -95,6 +97,7 @@ const {
   confirmaLoQueNoHay,
   noConstaInfo,
   respuestaConEnlace,
+  quitarEnlacesInventados,
   buildAiSystemPrompt,
   preciosSinRespaldo,
   pideLaFotoOtraVez,
@@ -106,6 +109,8 @@ const {
 const woocommerce = require('./woocommerce-client');
 const gestion = require('./gestion-pedidos');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
+const { paraWhatsapp } = require('./whatsapp-formato');
+const { respuestaDeCatalogo, pareceUnaIncidencia } = require('./whatsapp-respuesta-catalogo');
 const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
 
 // EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
@@ -380,7 +385,7 @@ async function sendSellosButtons(to, greetingPrefix = '') {
       type: 'interactive',
       interactive: {
         type: 'button',
-        body: { text: greetingPrefix + SELLOS_QUESTION },
+        body: { text: paraWhatsapp(greetingPrefix + SELLOS_QUESTION) },
         action: {
           buttons: [
             { type: 'reply', reply: { id: 'sellos_web', title: '🌐 Por la web' } },
@@ -566,12 +571,31 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
     if (!match) return false; // no parece un número de pedido: se abandona el flujo, turno normal
 
     const orderId = match[0];
-    const order = await woocommerce.getOrder(orderId);
+    const { order, motivo } = await woocommerce.getOrderConMotivo(orderId);
 
+    // «NO EXISTE» Y «NO HE PODIDO MIRARLO» NO SON LO MISMO.
+    //
+    // Visto en real el 6/11/2026: un cliente con su pedido delante escribió
+    // «Pedido #674885» y se llevó «I can't find any order with the number
+    // 674885». Esa frase salía SIEMPRE que la consulta volvía vacía — y volvía
+    // vacía también cuando la web no contestaba, cuando las claves fallaban y
+    // cuando la protección anti-bots del hosting nos cortaba. O sea que el bot
+    // le decía que su pedido no consta cuando lo único cierto es que no pudo
+    // comprobarlo.
+    //
+    // Es de las mentiras más caras que puede decir: el cliente se queda
+    // pensando que su pedido se ha perdido. Ahora solo se afirma cuando la web
+    // ha dicho que no existe (404); en cualquier otro caso se dice la verdad,
+    // que no se ha podido comprobar, y se le ofrece una persona igual.
     if (!order || woocommerce.isSpamOrder(order)) {
-      const prefix = idioma === 'en'
-        ? `${greeting}I can't find any order with the number ${orderId}. `
-        : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
+      const noSePudo = !order && motivo === woocommerce.MOTIVO.NO_SE_PUDO;
+      const prefix = noSePudo
+        ? idioma === 'en'
+          ? `${greeting}I can't check your order right now — our website isn't responding. That doesn't mean your order isn't there. `
+          : `${greeting}Ahora mismo no puedo comprobar tu pedido: nuestra web no me contesta. Eso no quiere decir que tu pedido no esté. `
+        : idioma === 'en'
+          ? `${greeting}I can't find any order with the number ${orderId}. `
+          : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
       await sendEscalateButtons(from, prefix, idioma);
       await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
       return true;
@@ -1340,9 +1364,52 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     return;
   }
 
+  // YA ESCRIBIÓ A UN BUZÓN QUE NO EXISTE, Y ESTÁ ESPERANDO (8/11/2026).
+  //
+  // «Os mandé el pedido a pedidos@ofipapel.net y no me habéis contestado». No
+  // ha llegado y no va a llegar: ahí no hay correo. Antes esto caía en la IA,
+  // que como mucho le invitaba a esperar un poco más. Lo único útil es
+  // decírselo y darle la dirección buena, y de paso pasarle con una persona:
+  // si ya ha escrito, lo que mandó hay que recuperarlo.
+  const avisoDeCorreo = text ? avisaQueEscribioA(text) : null;
+  if (avisoDeCorreo) {
+    const prefijo = greeting + mensajeSobreElCorreo({ ...avisoDeCorreo, esNuestro: false }, idioma);
+    console.error(`whatsapp: el cliente escribió a un buzón que no existe (${avisoDeCorreo.correo}).`);
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
+  }
+
   if (isExplicitRequest) {
-    // El cliente pidió expresamente hablar con alguien (o es una queja/
-    // presupuesto) — no hace falta explicar el motivo, se escala directo.
+    // «PÁSAME A UN AGENTE» NO SE CONTESTA PREGUNTANDO SI QUIERE UN AGENTE.
+    //
+    // Visto en real el 6/11/2026. El bot le dijo «puedo pasarte con un agente»,
+    // el cliente contestó «Pásame a un agente», y se le respondió «¿Quieres
+    // que igualmente te pongamos en contacto?». Un aro más para algo que
+    // acababa de pedir con todas las letras. El comentario que había aquí
+    // decía «se escala directo» y lo que hacía era volver a preguntar.
+    //
+    // Cuando lo pide él, se hace: lo mismo que al pulsar «Sí» —se para el bot
+    // 24 h y se avisa al equipo— sin el paso intermedio. Los botones se quedan
+    // para cuando el escalado lo propone el bot (una queja, un presupuesto, una
+    // respuesta que no se ha podido dar): ahí sí hay que preguntar.
+    if (pidioHablarConAlguien(text)) {
+      const reply = greeting + agenteInfoEn(idioma);
+      await sendWhatsappMessage(message.from, reply);
+      await appendToHistory(message.from, text, `[Lo pidió él: pasado a una persona] ${reply}`);
+      await pauseBot(message.from, 24);
+      await notifyOwner({
+        channel: 'Meta',
+        from: message.from,
+        customerMessage: text,
+        botReply: reply,
+      });
+      await notifyOwnerByWhatsapp(message.from, text);
+      return;
+    }
+
+    // El resto (una queja, un presupuesto) lo propone el bot, así que se
+    // pregunta antes de molestar a nadie.
     await sendEscalateButtons(message.from, greeting, idioma);
     await appendToHistory(message.from, text, `[Se ofreció escalar a una persona] ${greeting}${escalateQuestion(idioma)}`);
     return;
@@ -1437,6 +1504,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // coincidencias, sigue el comportamiento anterior (nunca confirma productos).
   const {
     productContext,
+    productos: productosDelCatalogo,
     contextoConsumibles,
     impresoras,
     fallo: falloCatalogo,
@@ -1463,6 +1531,40 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     }
     // Si no se pudo delegar, se sigue adelante y se contesta sin catálogo: más
     // vale una respuesta imperfecta que dejar al cliente sin nada.
+  }
+
+  // LA RESPUESTA DE PRODUCTO LA ESCRIBE EL CATÁLOGO, NO LA IA (8/11/2026).
+  //
+  // «La IA no debe contestar sobre productos del catálogo» (propietario). Cada
+  // fallo de estas semanas ha sido la IA redactando sobre productos: medidas
+  // de cartón pluma inventadas, «sí, tenemos tornillos de rosca chapa» con el
+  // enlace vacío, «no tengo acceso al catálogo en tiempo real», el spray que
+  // nunca se buscó. Se taparon con siete redes que revisan lo que la IA ya ha
+  // escrito, y seguían saliendo formas nuevas — porque el agujero no era
+  // ninguna red, era dejar que la conclusión la escribiera quien no tiene los
+  // datos.
+  //
+  // Si la web ha contestado con productos, la respuesta se arma con ellos:
+  // nombre, precio y enlace, tal cual. No hay nada que revisar después porque
+  // no hay nada inventado.
+  //
+  // SE DEJA FUERA, a propósito, lo que no es una consulta de producto a secas:
+  //   - Cuando hay contexto de consumibles («¿qué cartucho lleva mi Epson?»),
+  //     la respuesta tiene que unir la referencia de la impresora con el
+  //     precio, y eso sigue siendo de la IA.
+  //   - Cuando el mensaje pide además otra cosa (hablar con alguien, el estado
+  //     de un pedido): esas puertas están antes y ya han pasado.
+//   - Cuando el mensaje es una incidencia con mercancía que ya tiene
+//     («el papel que me mandasteis viene roto»): ahí no se contesta con
+//     precios, se contesta a la persona.
+  if (productosDelCatalogo?.length > 0 && !contextoConsumibles && !pareceUnaIncidencia(text)) {
+    const delCatalogo = respuestaDeCatalogo(productosDelCatalogo, { idioma, enlaceBusqueda, consulta: text });
+    if (delCatalogo) {
+      const reply = greeting + delCatalogo;
+      await appendToHistory(message.from, text, reply);
+      await sendWhatsappMessage(message.from, reply);
+      return;
+    }
   }
 
   const aiReply = await askClaude(
@@ -1500,6 +1602,10 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   let respuesta = aiReply;
   let datosDeCatalogo = productContext;
   let impresorasVistas = impresoras;
+  // Los únicos enlaces de producto válidos de este turno (ver
+  // quitarEnlacesInventados). Si la búsqueda no trajo nada, la lista va vacía
+  // a propósito: entonces cualquier enlace de producto es inventado.
+  let productosBuenos = productosDelCatalogo || [];
 
   // UN PRECIO QUE NO SALE DE NINGÚN SITIO es la tercera señal, y la más clara
   // de todas: si la IA se arranca con una cifra que no está en lo que le hemos
@@ -1528,6 +1634,7 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     if (segunda.productContext) {
       datosDeCatalogo = segunda.productContext;
       impresorasVistas = segunda.impresoras;
+      productosBuenos = segunda.productos || productosBuenos;
       respuesta = await askClaude(
         text,
         history,
@@ -1614,6 +1721,20 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     await sendEscalateButtons(message.from, greeting + noConsta, idioma);
     await appendToHistory(message.from, text, `${greeting}${noConsta}${escalateQuestion(idioma)}`);
     return;
+  }
+
+  // Un enlace de producto que no salió de la búsqueda se quita antes de nada:
+  // el cliente pulsaría y le saldría un 404 (ver quitarEnlacesInventados).
+  const enlaces = quitarEnlacesInventados(respuesta, productosBuenos.map((p) => p.url));
+  if (enlaces.quitados.length > 0) {
+    console.error(`whatsapp: enlaces inventados quitados (${enlaces.quitados.join(', ')}).`);
+    // Si al quitarlos no queda nada que decir, se contesta con la búsqueda de
+    // verdad, que es lo que el cliente quería: ver lo que hay. Y si tampoco
+    // hay búsqueda, con lo honesto — NUNCA se vuelve a la respuesta original,
+    // que es la que llevaba el enlace falso dentro.
+    respuesta = enlaces.texto.trim()
+      || respuestaConEnlace(enlaceBusqueda, idioma)
+      || PRODUCTO_NO_VERIFICADO_INFO;
   }
 
   const medidasInventadas = medidasSinRespaldo(respuesta, respaldoDeMedidas);

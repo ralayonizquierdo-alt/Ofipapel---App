@@ -1,6 +1,7 @@
 import type {
   IngresoMensual, OcupacionMensual, Payment, Repair, Reservation, ReparacionMensual,
 } from '../types'
+import { mesContableCon } from './mesContable'
 import { num } from './formato'
 import { EJERCICIO_APP } from './cuentas'
 
@@ -74,6 +75,8 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
   // A qué inmueble pertenece cada cobro: el cobro cuelga de la reserva.
   const aptDeReserva = new Map(d.reservations.map(r => [r.id, r.apartmentId]))
   const cobrados = d.payments.filter(p => p.received)
+  /** El mes de la reserva que paga cada cobro, como en Asesoría: lib/mesContable.ts. */
+  const mesDe = mesContableCon(d.reservations)
 
   // Años sobre los que hay algo declarado en el Excel. Sin Excel no hay con qué
   // comparar, así que no se inventa ningún aviso.
@@ -90,7 +93,7 @@ export function calculaDescuadres(d: DatosDescuadre): Descuadre[] {
     // ── Ingresos: lo declarado en el Excel contra lo cobrado en la app ────────
     const declarados = d.incomes.filter(i => i.year === year)
     if (declarados.length > 0) {
-      const cobradosAno = cobrados.filter(p => p.paymentDate?.startsWith(String(year)))
+      const cobradosAno = cobrados.filter(p => mesDe(p)?.startsWith(String(year)))
       const totalDecl = suma(declarados, i => i.amount)
       const totalCobr = suma(cobradosAno, p => p.amount)
       const dif = Math.round((totalDecl - totalCobr) * 100) / 100

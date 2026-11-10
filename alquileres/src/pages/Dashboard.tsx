@@ -1,4 +1,5 @@
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight, Ban, Mail } from 'lucide-react'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
@@ -8,15 +9,46 @@ import { Link } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
 import { TarjetaSolapes } from '../components/AvisoSolapes'
 import CorreccionesLuis from '../components/CorreccionesLuis'
+import CorregirTarifaAno from '../components/CorregirTarifaAno'
 import { CajaPegar } from '../components/PegarWhatsApp'
 import SoltarGastos from '../components/SoltarGastos'
 import { tocaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
-import { numSuelto } from '../lib/formato'
+import { num, numSuelto } from '../lib/formato'
+import { estadoPrecio, textoDiferencia } from '../lib/precioReserva'
+import FichaCuadre, { type ModeloFicha } from '../components/FichaCuadre'
+import { conformidadesPorEnviar, HORAS_ESPERA } from '../lib/conformidades'
+import { useEnHistorial } from '../lib/volver'
+import { anuladasConCobros } from '../lib/anuladas'
+import { porApartamento } from '../lib/apartamentos'
+import { useRecordado } from '../lib/recordado'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_DASHBOARD } from '../lib/operativas'
 
 export default function Dashboard() {
-  const { reservations, payments, apartments, repairs } = useData()
+  const { reservations, payments, apartments, repairs, prices, offerPrices } = useData()
+  /**
+   * Cada aviso rojo se pincha y abre el cuadre de esa estancia, para corregirlo
+   * desde ahí; una vez corregido, el aviso desaparece solo porque se vuelve a
+   * calcular (Luis, 06/11/2026: «pinchando te lleve a donde está el error… y
+   * una vez corregido se elimine»).
+   */
+  const [ficha, setFicha] = useState<Reservation | null>(null)
+  /** Con qué pestaña se abre la ficha: la conformidad, si se viene de su aviso. */
+  const [modeloFicha, setModeloFicha] = useState<ModeloFicha>('cuadre')
+  const abreFicha = (r: Reservation, modelo: ModeloFicha = 'cuadre') => { setModeloFicha(modelo); setFicha(r) }
+  /**
+   * Conformidades por enviar (Luis, 09/11/2026): avisan a las HORAS_ESPERA de
+   * entrar la reserva. Se mira cada minuto para que salgan a su hora sin
+   * recargar. Ver lib/conformidades.ts.
+   */
+  const [ahora, setAhora] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setAhora(new Date()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const conformidades = useMemo(() => conformidadesPorEnviar(reservations, ahora), [reservations, ahora])
+  // Si desde la ficha se va a otra pantalla, al volver sale otra vez abierta.
+  useEnHistorial('ficha', ficha?.id ?? null, id => setFicha(id ? reservations.find(r => r.id === id) ?? null : null))
 
   const todayStr = today()
   const now = new Date()
@@ -56,8 +88,40 @@ export default function Dashboard() {
    * alerta, es lo normal — y mezclarlas tapaba las que sí importan. Las que
    * están por venir se siguen viendo en Reservas, con su columna «falta».
    */
-  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now)
+  /**
+   * Cómo van los avisos rojos: por apartamento, en el orden de la casa, o por
+   * fecha de entrada (Luis, 08/11/2026: «incluir la opción de ordenar por
+   * apartamento y por fechas»). Se recuerda en este ordenador.
+   */
+  const [orden, setOrden] = useRecordado<'apartamento' | 'fecha'>('dashboard.orden', 'apartamento')
+  const ordenAvisos = (a: Reservation, b: Reservation) => orden === 'fecha'
+    ? a.checkIn.localeCompare(b.checkIn) || porApartamento(a, b)
+    : porApartamento(a, b)
+  const vencidas = pendingPayment.filter(r => new Date(r.checkOut) < now).sort(ordenAvisos)
   const porVenir = pendingPayment.length - vencidas.length
+
+  /**
+   * Importes que no salen de la tarifa y no constan como precio pactado. Desde
+   * el cuadre se corrige la reserva o se anota el motivo, y el aviso se va.
+   * Ver lib/precioReserva.ts.
+   */
+  const sinCuadrarConTarifa = useMemo(() => reservations
+    .flatMap(r => {
+      const p = estadoPrecio(r, prices, offerPrices)
+      return p.tipo === 'descuadre' ? [{ r, esperado: p.esperado, diferencia: p.diferencia }] : []
+    })
+    .sort((a, b) => orden === 'fecha'
+      ? a.r.checkIn.localeCompare(b.r.checkIn) || porApartamento(a.r, b.r)
+      : porApartamento(a.r, b.r)),
+  [reservations, prices, offerPrices, orden])
+  const eur = (n: number) => `${num(n, 2)} €`
+  /** Anuladas que se quedaron con dinero cobrado: ver lib/anuladas.ts. */
+  const anuladasCobradas = useMemo(
+    () => [...anuladasConCobros(reservations, payments)].sort((a, b) => orden === 'fecha'
+      ? a.r.checkIn.localeCompare(b.r.checkIn) || porApartamento(a.r, b.r)
+      : porApartamento(a.r, b.r)),
+    [reservations, payments, orden])
+  const hayAvisosRojos = vencidas.length + sinCuadrarConTarifa.length + anuladasCobradas.length > 1
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -121,9 +185,44 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {conformidades.length > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border-2 border-blue-300 overflow-hidden">
+          <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-200 flex items-center gap-2">
+            <Mail size={16} className="text-blue-700" />
+            <p className="text-sm font-bold text-blue-900">Conformidades por enviar</p>
+            <span className="bg-red-600 text-white text-xs rounded-full min-w-5 h-5 px-1.5 flex items-center justify-center font-bold">
+              {conformidades.length}
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {conformidades.map(({ r }) => (
+              <div key={r.id} className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {r.nights} noches · {eur(r.total)} · entró el {new Date(r.createdAt).toLocaleString('es-ES', {
+                      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+                <button type="button" onClick={() => abreFicha(r, 'conformidad')}
+                  title={`Abre la conformidad; desde ahí, «Enviar por correo». Avisa a las ${HORAS_ESPERA} horas de entrar la reserva.`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
+                  <Mail size={14} /> Preparar correo
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Arreglo de una vez de las estancias que se pisaban. Desaparece solo
           cuando no queda nada pendiente. */}
       <CorreccionesLuis />
+      {/* Reservas calculadas con la tarifa del año siguiente (fallo corregido el 06/11/2026). */}
+      <CorregirTarifaAno />
 
       {/* Descuadres Excel ↔ app. Van antes que el resto de avisos: son los que
           pidió el propietario para poder cerrar el ejercicio. */}
@@ -133,7 +232,7 @@ export default function Dashboard() {
       <AlertasDescuadre />
 
       {/* Alerts */}
-      {(vencidas.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
+      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || anuladasCobradas.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
           {copiaPendiente && (
             <Link to="/config"
@@ -157,28 +256,54 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+          {hayAvisosRojos && (
+            <div className="flex items-center justify-end gap-2 text-xs text-slate-500" role="group" aria-label="Ordenar los avisos">
+              <span>Ordenar por</span>
+              {(['apartamento', 'fecha'] as const).map(o => (
+                <button key={o} type="button" onClick={() => setOrden(o)} aria-pressed={orden === o}
+                  className={`px-2.5 py-1 rounded-full border ${orden === o
+                    ? 'bg-slate-700 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+                  {o === 'apartamento' ? 'Apartamento' : 'Fecha'}
+                </button>
+              ))}
+            </div>
+          )}
+          {anuladasCobradas.map(({ r, cobrado }) => (
+            <AvisoRojo key={`anulada-${r.id}`} icono={<Ban size={16} className="shrink-0 text-red-600" />}
+              titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
+              que="reserva anulada con cobros"
+              onClick={() => abreFicha(r)}>
+              Tiene <strong>{eur(cobrado)}</strong> cobrados: hay que devolverlos o pasarlos a otra reserva.
+            </AvisoRojo>
+          ))}
           {vencidas.slice(0, 5).map(r => {
             const paid = getPaidAmount(r)
             const pending = r.total - paid
-            const vencida = true
             return (
-              <div key={r.id} className={`rounded-lg p-3 flex items-center gap-3 border ${
-                vencida ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                <Clock size={16} className={`shrink-0 ${vencida ? 'text-red-600' : 'text-amber-600'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${vencida ? 'text-red-800' : 'text-amber-800'}`}>
-                    {getApartmentName(r.apartmentId)} — {formatDateShort(r.checkIn)} al {formatDateShort(r.checkOut)}
-                    {vencida && <span className="ml-2 text-xs font-bold">ya terminó y no está cobrada del todo</span>}
-                  </p>
-                  <p className={`text-xs ${vencida ? 'text-red-700' : 'text-amber-700'}`}>
-                    Falta por cobrar: <strong>{pending.toFixed(2)} €</strong> · cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €
-                  </p>
-                </div>
-              </div>
+              <AvisoRojo key={r.id} icono={<Clock size={16} className="shrink-0 text-red-600" />}
+                titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
+                que="ya terminó y no está cobrada del todo"
+                onClick={() => abreFicha(r)}>
+                Falta por cobrar: <strong>{pending.toFixed(2)} €</strong> · cobrado {paid.toFixed(2)} de {r.total.toFixed(2)} €
+              </AvisoRojo>
             )
           })}
           {vencidas.length > 5 && (
             <p className="text-xs text-slate-500 pl-1">+{vencidas.length - 5} cobros vencidos más</p>
+          )}
+          {sinCuadrarConTarifa.slice(0, 5).map(({ r, esperado, diferencia }) => (
+            <AvisoRojo key={`tarifa-${r.id}`} icono={<AlertTriangle size={16} className="shrink-0 text-red-600" />}
+              titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}
+              que="el importe no sale de la tarifa"
+              onClick={() => abreFicha(r)}>
+              Importe <strong>{eur(r.total)}</strong> · por tarifa serían {eur(esperado)}, {textoDiferencia(diferencia, eur)}.
+              No consta como precio pactado.
+            </AvisoRojo>
+          ))}
+          {sinCuadrarConTarifa.length > 5 && (
+            <Link to="/reservas?precio=descuadre" className="block text-xs text-blue-700 hover:underline pl-1">
+              +{sinCuadrarConTarifa.length - 5} importes más que no cuadran con la tarifa: verlos todos en Reservas
+            </Link>
           )}
         </div>
       )}
@@ -233,7 +358,36 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {ficha && <FichaCuadre key={`${ficha.id}-${modeloFicha}`} reserva={ficha} modeloInicial={modeloFicha}
+        onClose={() => setFicha(null)} />}
     </div>
+  )
+}
+
+/** Un aviso rojo que se pincha y abre el cuadre de la estancia. */
+function AvisoRojo({ icono, titulo, que, onClick, children }: {
+  icono: React.ReactNode
+  titulo: string
+  que: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button type="button" onClick={onClick} title="Abrir el cuadre de esta estancia para corregirlo"
+      className="w-full text-left rounded-lg p-3 flex items-center gap-3 border bg-red-50 border-red-200 hover:bg-red-100 hover:border-red-300 transition-colors">
+      {icono}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-red-800">
+          {titulo}
+          <span className="ml-2 text-xs font-bold">{que}</span>
+        </p>
+        <p className="text-xs text-red-700">{children}</p>
+      </div>
+      <span className="shrink-0 flex items-center gap-0.5 text-xs font-medium text-red-700">
+        ver el cuadre <ChevronRight size={14} />
+      </span>
+    </button>
   )
 }
 

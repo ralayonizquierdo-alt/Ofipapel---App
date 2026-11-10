@@ -50,6 +50,35 @@ export interface Reservation {
   status: ReservationStatus
   notes?: string
   createdAt: string
+  /**
+   * Que el importe es un precio pactado, y por qué (Luis, 06/11/2026: «si es un
+   * precio pactado debe decirlo en algún lado»). Sin esto, un importe que no sale
+   * de la tarifa no se distingue de uno mal metido. `null` = se quitó la marca.
+   */
+  precioPactado?: PrecioPactado | null
+  /**
+   * La reserva entró por la Entrada rápida del Dashboard y hay que mandar a la
+   * asesoría su conformidad (Luis, 09/11/2026). Ver lib/conformidades.ts.
+   */
+  pideConformidad?: boolean
+  /** Cuándo y quién preparó el correo o el WhatsApp de la conformidad. */
+  conformidadPreparada?: { fecha: string; por?: string; via: 'correo' | 'whatsapp' } | null
+  /**
+   * Una reserva anulada que tenía cobros avisa en el Dashboard hasta que alguien
+   * dice que ese dinero ya está resuelto: devuelto o pasado a otra reserva
+   * (Luis, 08/11/2026). Quién lo dijo y cuándo.
+   */
+  anulacionResuelta?: { por?: string; fecha: string } | null
+}
+
+export interface PrecioPactado {
+  motivo: string
+  /** Quién lo anotó. */
+  por?: string
+  /** Con quién se pactó: la agencia, el cliente… (Luis, 07/11/2026). */
+  con?: string
+  /** Cuándo se pactó, AAAA-MM-DD; si no se dice, el día en que se anotó. */
+  fecha: string
 }
 
 export type PaymentMethod = 'efectivo' | 'transferencia' | 'otro'
@@ -264,6 +293,12 @@ export type OrigenSubida =
   | 'justificante'      // transferencia, pegada o leída de su PDF
   | 'anulacion'         // aviso de reserva cancelada, pegado como texto
   | 'correcciones'      // arreglo puntual de datos ya cargados
+  // Lo que no es una subida pero conviene que quede (Luis, 08/11/2026: «creo que
+  // hay un registro de todo esto?»):
+  | 'envio'             // correo o WhatsApp preparado desde la ficha de una estancia
+  | 'precio-pactado'    // se anota que un importe es un precio pactado
+  | 'anulacion-resuelta' // el dinero de una reserva anulada se da por resuelto
+  | 'edicion'           // reserva dada de alta, cambiada o borrada a mano
 
 export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
   'excel-gastos': 'Resumen anual de ingresos y gastos',
@@ -275,6 +310,10 @@ export const ORIGEN_LABEL: Record<OrigenSubida, string> = {
   'justificante': 'Justificante de transferencia',
   'anulacion': 'Aviso de anulación',
   'correcciones': 'Corrección de datos',
+  'envio': 'Correo o WhatsApp a la agencia',
+  'precio-pactado': 'Precio pactado',
+  'anulacion-resuelta': 'Anulación resuelta',
+  'edicion': 'Reserva a mano',
 }
 
 /**
@@ -302,6 +341,13 @@ export interface ImportLog {
   year?: number
   /** Qué pasó, en una línea y en cristiano. */
   resumen?: string
+  /**
+   * Lo pegado, tal cual llegó (el mensaje de WhatsApp, el aviso de Airbnb o
+   * de la anulación, el justificante). Luis, 08/11/2026: en el registro tiene
+   * que salir todo tal cual se pegó, no solo el resumen. Los apuntes de antes
+   * de esa fecha no lo traen.
+   */
+  texto?: string
 
   // Cuántos apuntes entraron de cada cosa.
   reservas?: number

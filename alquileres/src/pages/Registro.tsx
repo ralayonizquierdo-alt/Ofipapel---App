@@ -48,6 +48,10 @@ const COLOR_ORIGEN: Record<OrigenSubida, string> = {
   'justificante': 'bg-violet-50 text-violet-700 border-violet-200',
   'anulacion': 'bg-orange-50 text-orange-800 border-orange-200',
   'correcciones': 'bg-amber-50 text-amber-800 border-amber-200',
+  'envio': 'bg-cyan-50 text-cyan-800 border-cyan-200',
+  'precio-pactado': 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  'anulacion-resuelta': 'bg-teal-50 text-teal-800 border-teal-200',
+  'edicion': 'bg-slate-50 text-slate-700 border-slate-300',
 }
 
 function cuando(iso: string): string {
@@ -91,11 +95,11 @@ export default function Registro() {
 
   /** El registro entero en CSV, por si hay que enseñárselo a alguien de fuera. */
   function descargar() {
-    const cab = ['Fecha', 'Quién', 'Por dónde', 'Fichero', 'Ejercicio', 'Qué entró',
+    const cab = ['Fecha', 'Quién', 'Por dónde', 'Fichero', 'Ejercicio', 'Qué entró', 'Texto pegado',
       'Reservas', 'Cobros', 'Gastos', 'Ingresos', 'Ocupaciones', 'Reparaciones', 'Retirados',
       'Justificante']
     const fila = (l: ImportLog) => [
-      cuando(l.at), l.by, ORIGEN_LABEL[origenDe(l)], l.fileName ?? '', l.year ?? '', resumenDe(l) ?? '',
+      cuando(l.at), l.by, ORIGEN_LABEL[origenDe(l)], l.fileName ?? '', l.year ?? '', resumenDe(l) ?? '', resumenDe(l) !== undefined ? l.texto ?? '' : '',
       l.reservas ?? '', l.cobros ?? '', l.gastos ?? '', l.ingresos ?? '',
       l.ocupaciones ?? '', l.reparaciones ?? '', l.borrados ?? '', l.justificanteUrl ?? '',
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')
@@ -154,14 +158,16 @@ export default function Registro() {
         </div>
       ) : (
         <div className="space-y-2">
-          {visibles.map(l => <Entrada key={l.id} log={l} resumen={resumenDe(l)} />)}
+          {/* El texto pegado lleva importes: se enseña a quien ve el resumen. */}
+          {visibles.map(l => <Entrada key={l.id} log={l} resumen={resumenDe(l)}
+            texto={resumenDe(l) !== undefined ? l.texto : undefined} />)}
         </div>
       )}
     </div>
   )
 }
 
-function Entrada({ log, resumen }: { log: ImportLog; resumen?: string }) {
+function Entrada({ log, resumen, texto }: { log: ImportLog; resumen?: string; texto?: string }) {
   const o = origenDe(log)
   const cosas = CONCEPTOS.map(c => ({ ...c, n: Number(log[c.clave]) || 0 })).filter(c => c.n)
 
@@ -199,6 +205,14 @@ function Entrada({ log, resumen }: { log: ImportLog; resumen?: string }) {
       </div>
 
       {resumen && <p className="text-sm text-slate-700 mb-2">{resumen}</p>}
+
+      {/* Lo pegado, tal cual llegó: con sus saltos de línea y sin tocar. */}
+      {texto && (
+        <div className="mb-2">
+          <div className="text-xs text-slate-500 mb-1">Texto pegado:</div>
+          <p className="text-sm text-slate-800 whitespace-pre-wrap break-words bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{texto}</p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {cosas.map(c => (

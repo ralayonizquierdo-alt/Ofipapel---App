@@ -3,6 +3,7 @@ import type {
 } from '../types'
 import { getDaysInMonth } from './dateUtils'
 import { calcIGIC } from './priceCalc'
+import { mesContableCon } from './mesContable'
 import {
   deducibleGasto, deducibleReparacion, mapaOcupaciones, nochesOcupadas, redondea,
 } from './deducible'
@@ -134,6 +135,8 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
   const soloReservas = !hayDeclarados && year < EJERCICIO_APP
 
   const aptDeReserva = new Map(d.reservations.map(r => [r.id, r.apartmentId]))
+  // El cobro cuenta en el mes de la reserva que paga, no en el del pago: ver lib/mesContable.ts.
+  const mesDe = mesContableCon(d.reservations)
   const enPeriodo = (fecha?: string) => {
     if (!fecha) return false
     const [y, m] = fecha.split('-')
@@ -151,7 +154,7 @@ export function cuentasDe(d: DatosCuentas, year: number, meses: number[]) {
     }, 0))
 
     const cobrado = d.payments
-      .filter(p => p.received && enPeriodo(p.paymentDate) && aptDeReserva.get(p.reservationId) === apt.id)
+      .filter(p => p.received && enPeriodo(mesDe(p)) && aptDeReserva.get(p.reservationId) === apt.id)
       .reduce((s, p) => s + p.amount, 0)
     const declarado = meses.reduce((s, m) => s + (declarados.get(`${apt.id}|${m}`) || 0), 0)
     // Con Excel manda el Excel. Sin Excel, solo los ejercicios que se llevan en

@@ -1,4 +1,5 @@
 import type { Apartment, Expense, Payment, Reservation } from '../types'
+import { mesContableCon } from './mesContable'
 import { MONTH_NAMES_ES, today } from './dateUtils'
 import { partesDeAlojamiento } from './devengo'
 import { num } from './formato'
@@ -40,7 +41,7 @@ export function resumenParaAsistente(d: DatosResumen, year: number, hoy = today(
   const { apartments, reservations, payments, expenses } = d
   const nombre = (id: string) => apartments.find(a => a.id === id)?.name ?? id
   const esDelAnio = (iso?: string) => (iso ?? '').startsWith(String(year))
-  const mesDe = (p: Payment) => p.mes ?? p.paymentDate?.slice(0, 7)
+  const mesDe = mesContableCon(reservations)
   const aptDe = (p: Payment) =>
     p.apartmentId ?? reservations.find(r => r.id === p.reservationId)?.apartmentId ?? '?'
 
