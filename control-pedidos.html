@@ -347,12 +347,49 @@ let soloDiscordancias = true;
 /** Discordancias marcadas para decidir en bloque (solo en memoria, como `seleccionados`). */
 const marcadasDec = new Set();
 
+function estadoVacio() { return { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} }; }
 function cargar() {
-  const base = { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} };
   try {
     const raw = localStorage.getItem(CLAVE);
-    return raw ? Object.assign(base, JSON.parse(raw)) : base;
-  } catch { return base; }
+    return raw ? Object.assign(estadoVacio(), JSON.parse(raw)) : estadoVacio();
+  } catch { return estadoVacio(); }
+}
+// ── Copia local en IndexedDB (11/11/2026) ───────────────────────────────────
+// localStorage tiene ~5 MB por sitio y lo comparten Finanzas (~3 MB) y esta
+// app (~1,5 MB): se llenaba y salía «exceeded the quota» en cada guardado.
+// IndexedDB tiene mucho más sitio. Se carga al arrancar ANTES de sincronizar
+// (con E vacío, la sincronización creería que se ha borrado todo) y, una vez
+// copiada, se quita la de localStorage para dejarle sitio a Finanzas.
+const IDB = { db: null, avisado: false };
+function idbAbrir() {
+  return new Promise((ok, ko) => {
+    if (!window.indexedDB) return ko(new Error('sin IndexedDB'));
+    const r = indexedDB.open('ofipapel-control-pedidos', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => ko(r.error);
+  });
+}
+function idbPedir(modo, fn) {
+  return new Promise((ok, ko) => {
+    const tx = IDB.db.transaction('kv', modo);
+    const req = fn(tx.objectStore('kv'));
+    tx.oncomplete = () => ok(req.result);
+    tx.onerror = tx.onabort = () => ko(tx.error || new Error('IndexedDB'));
+  });
+}
+async function cargarCopiaLocal() {
+  try {
+    IDB.db = await idbAbrir();
+    const raw = await idbPedir('readonly', (st) => st.get(CLAVE));
+    let viejo = null;
+    try { viejo = localStorage.getItem(CLAVE); } catch { /* sin localStorage */ }
+    if (raw) E = Object.assign(estadoVacio(), JSON.parse(raw));
+    else if (viejo) await idbPedir('readwrite', (st) => st.put(viejo, CLAVE));
+    if (viejo) try { localStorage.removeItem(CLAVE); } catch { /* da igual */ }
+  } catch (e) {
+    IDB.db = null; // se sigue con localStorage, como antes
+  }
 }
 function guardar() {
   guardarLocal();
@@ -360,8 +397,16 @@ function guardar() {
   programarSubida();
 }
 function guardarLocal() {
-  try { localStorage.setItem(CLAVE, JSON.stringify(E)); }
-  catch (e) { alert('No se han podido guardar los cambios en este navegador (' + e.message + '). Descarga una copia en «Datos».'); }
+  const txt = JSON.stringify(E);
+  if (IDB.db) { idbPedir('readwrite', (st) => st.put(txt, CLAVE)).catch(avisarSinCopiaLocal); return; }
+  try { localStorage.setItem(CLAVE, txt); } catch (e) { avisarSinCopiaLocal(e); }
+}
+/** Sin sitio para la copia local: se avisa UNA vez (no en cada guardado). Con
+ *  sesión abierta lo hecho sigue subiendo a la nube. */
+function avisarSinCopiaLocal(e) {
+  if (IDB.avisado) return;
+  IDB.avisado = true;
+  alert('Este navegador no deja guardar la copia local (' + ((e && e.message) || e) + ').' + (nube.usuario ? ' Lo que hagas se sigue subiendo a la nube: no cierres la página sin conexión.' : ' Descarga una copia en «Datos».'));
 }
 
 const h = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -4411,6 +4456,7 @@ function irAWebBuenaSiSePuede() {
   location.replace(WEB_BUENA);
 }
 async function arrancar() {
+  await cargarCopiaLocal();
   if (!EN_NETLIFY) {
     document.getElementById('avisoWeb').innerHTML = `<div class="aviso-caja aviso" style="margin:0"><b>Esta es una copia de la app que no puede leer fotos ni PDF.</b> Usa la de siempre: tus datos ya están en la nube y salen igual.
       <div class="fila" style="margin-top:8px"><a class="btn primario" href="${WEB_BUENA}">Abrir en ofipapel.netlify.app</a></div></div>`;
