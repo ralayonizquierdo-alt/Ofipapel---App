@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { toBlob } from 'html-to-image'
 import { Printer, Mail, Pencil, ListFilter, MessageCircle, Copy, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
@@ -187,14 +188,63 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
     ].join('\n')
   }
 
-  /** Abre WhatsApp (en el PC, WhatsApp Web o el programa) con la ficha escrita; se elige a quién mandarla. */
-  function porWhatsApp() {
+  /** Abre WhatsApp con la ficha escrita en texto: lo de antes, si no hay imagen. */
+  function porWhatsAppTexto() {
     const a = document.createElement('a')
     a.href = `https://wa.me/?text=${encodeURIComponent(conformidad ? conformidadComoWhatsApp() : comoWhatsApp())}`
     a.target = '_blank'
     a.rel = 'noopener'
     a.click()
+  }
+
+  /**
+   * Manda el cuadro **como imagen**, tal como se ve en pantalla (Luis,
+   * 11/11/2026: por WhatsApp llegaba como texto, «no me sale el formulario
+   * original»). Un enlace de WhatsApp solo puede llevar texto, así que la
+   * imagen va por el «Compartir» del sistema (Windows o el móvil): se elige
+   * WhatsApp y el contacto. Donde no hay «Compartir», la imagen se descarga y
+   * se adjunta con el clip; si ni la imagen sale, va el texto de siempre.
+   */
+  const [haciendoImagen, setHaciendoImagen] = useState(false)
+  async function porWhatsApp() {
+    const el = fichaRef.current
+    if (!el) { porWhatsAppTexto(); apuntaEnvio('WhatsApp'); return }
+    setHaciendoImagen(true)
+    let png: Blob | null
+    // `como-imagen` saca lo que sale al imprimir (el título, el mensaje) y
+    // el filtro quita lo que solo es de pantalla (pestañas, botones, casillas).
+    el.classList.add('como-imagen')
+    try {
+      png = await toBlob(el, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        filter: n => !(n instanceof HTMLElement && n.classList.contains('print:hidden')),
+      })
+    } catch { png = null } finally {
+      el.classList.remove('como-imagen')
+      setHaciendoImagen(false)
+    }
     apuntaEnvio('WhatsApp')
+    if (!png) { porWhatsAppTexto(); return }
+    const fichero = new File([png],
+      `${conformidad ? 'Conformidad' : 'Cuadre'} ${nombre} ${formatDate(r.checkIn).replace(/\//g, '-')}.png`,
+      { type: 'image/png' })
+    if (navigator.canShare?.({ files: [fichero] })) {
+      try {
+        await navigator.share({ files: [fichero], title: asunto })
+        return
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+      }
+    }
+    const url = URL.createObjectURL(fichero)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fichero.name
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+    window.alert(`La imagen del cuadro se ha guardado en Descargas («${fichero.name}»).\n\n`
+      + 'En WhatsApp, abre el chat y adjúntala con el clip 📎.')
   }
 
   /**
@@ -437,10 +487,10 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
             <Copy size={15} /> Copiar el cuadro
           </button>
-          <button onClick={porWhatsApp}
-            title="Abre WhatsApp con la ficha escrita; ahí eliges a quién mandarla"
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-green-300 text-green-800 rounded-lg hover:bg-green-50">
-            <MessageCircle size={15} /> WhatsApp
+          <button onClick={porWhatsApp} disabled={haciendoImagen}
+            title="Hace una imagen del cuadro y abre «Compartir»: eliges WhatsApp y a quién mandarla"
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-green-300 text-green-800 rounded-lg hover:bg-green-50 disabled:opacity-60">
+            <MessageCircle size={15} /> {haciendoImagen ? 'Preparando la imagen…' : 'WhatsApp'}
           </button>
           <button onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">

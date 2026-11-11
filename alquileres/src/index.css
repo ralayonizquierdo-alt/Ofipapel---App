@@ -50,3 +50,11 @@
     width: 100% !important;
   }
 }
+
+/*
+ * La ficha de cuadre convertida en imagen para WhatsApp (FichaCuadre.tsx,
+ * porWhatsApp): sale como en papel, con el título y el mensaje que solo se
+ * ven al imprimir.
+ */
+.como-imagen { padding: 16px; width: 760px; }
+.como-imagen .print\:\!block { display: block !important; }

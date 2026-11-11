@@ -360,7 +360,9 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
     que: 'Ver el cuadre de una estancia',
     nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
       + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. Por correo, **el cuadro va '
-      + 'copiado**: en el correo, clic **en el cuerpo** (no en «Para») y **Ctrl+V**. **La tarifa en azul '
+      + 'copiado**: en el correo, clic **en el cuerpo** (no en «Para») y **Ctrl+V**. Por WhatsApp va **como imagen**: '
+      + 'sale «Compartir», se elige **WhatsApp** y el contacto (si no sale, la imagen queda en **Descargas** y se '
+      + 'adjunta con el clip). **La tarifa en azul '
       + 'lleva a Precios**. Al imprimir sale **solo la ficha**, en una hoja. Si se abre la reserva desde la ficha, '
       + '**al cerrarla se vuelve a la ficha**.',
   },
