@@ -143,6 +143,8 @@ export interface Payment {
    * Ver lib/cobrosSinReserva.ts.
    */
   sinRevisar?: boolean
+  /** Se dijo que no es un cobro repetido: deja de avisar (lib/cobrosRepetidos.ts). */
+  noRepetido?: boolean
 }
 
 export interface Expense {

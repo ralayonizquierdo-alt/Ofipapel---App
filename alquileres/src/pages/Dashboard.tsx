@@ -20,6 +20,8 @@ import { conformidadesPorEnviar, HORAS_ESPERA } from '../lib/conformidades'
 import { useEnHistorial } from '../lib/volver'
 import { anuladasConCobros } from '../lib/anuladas'
 import { cobrosSinReserva } from '../lib/cobrosSinReserva'
+import { cobrosRepetidos } from '../lib/cobrosRepetidos'
+import AvisoCobroRepetido from '../components/AvisoCobroRepetido'
 import AvisoCobroSinReserva from '../components/AvisoCobrosSinReserva'
 import { porApartamento } from '../lib/apartamentos'
 import { useRecordado } from '../lib/recordado'
@@ -125,7 +127,9 @@ export default function Dashboard() {
     [reservations, payments, orden])
   /** Cobros sin reserva por revisar (los de Airbnb): ver lib/cobrosSinReserva.ts. */
   const sueltos = useMemo(() => cobrosSinReserva(payments), [payments])
-  const hayAvisosRojos = vencidas.length + sinCuadrarConTarifa.length + anuladasCobradas.length + sueltos.length > 1
+  /** Cobros que parecen apuntados dos veces: ver lib/cobrosRepetidos.ts. */
+  const repetidos = useMemo(() => cobrosRepetidos(reservations, payments), [reservations, payments])
+  const hayAvisosRojos = vencidas.length + sinCuadrarConTarifa.length + anuladasCobradas.length + sueltos.length + repetidos.length > 1
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -236,7 +240,7 @@ export default function Dashboard() {
       <AlertasDescuadre />
 
       {/* Alerts */}
-      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || anuladasCobradas.length > 0 || sueltos.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
+      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || anuladasCobradas.length > 0 || sueltos.length > 0 || repetidos.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
           {copiaPendiente && (
             <Link to="/config"
@@ -272,6 +276,9 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+          {repetidos.map(({ r, cobros }) => (
+            <AvisoCobroRepetido key={`repetido-${cobros[0].id}`} r={r} cobros={cobros} nombreApt={getApartmentName} />
+          ))}
           {sueltos.map(p => (
             <AvisoCobroSinReserva key={`suelto-${p.id}`} p={p} nombreApt={getApartmentName} />
           ))}

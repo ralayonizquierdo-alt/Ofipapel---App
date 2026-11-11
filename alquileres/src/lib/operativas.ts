@@ -146,7 +146,7 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
   {
     // pages/Dashboard.tsx — AvisoRojo
     que: 'Avisos en rojo',
-    formula: 'cobros sin reserva · reservas anuladas con cobros · cobros vencidos · importes que no cuadran con la tarifa',
+    formula: 'cobros repetidos · cobros sin reserva · reservas anuladas con cobros · cobros vencidos · importes que no cuadran con la tarifa',
     nota: 'Van **por apartamento**, en el orden de la casa. **Se pinchan** y abren el cuadre de la estancia para '
       + 'corregirlo. **Se van solos** en cuanto queda corregido.',
   },
@@ -155,6 +155,13 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     que: 'Cobro sin reserva',
     nota: 'Los de **Airbnb (Arenal 2B)** entran así. Se elige la estancia y **«Unir a esa estancia»**, o '
       + '**«Dejarlo sin reserva»**. **Nunca se une solo.**',
+  },
+  {
+    // components/AvisoCobroRepetido.tsx, lib/cobrosRepetidos.ts
+    que: 'Cobro repetido',
+    formula: 'misma reserva · mismo importe · misma fecha (o alguno sin fecha)',
+    nota: '**«Quitar este»** borra el que sobra; **«No están repetidos»** deja los dos. Con **fechas, asientos o meses distintos no avisa** '
+      + '(una mensualidad igual cada mes no es un repetido).',
   },
   {
     // components/AvisoSolapes.tsx
