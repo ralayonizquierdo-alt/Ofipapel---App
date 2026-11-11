@@ -1748,6 +1748,8 @@ function renderOpcionesProveedor(filtro){
   const f = normalizarBusqueda(filtro);
   PERFILES_PROVEEDOR
     .filter(p => !f || normalizarBusqueda(p.nombre).includes(f))
+    // Solo se ordena lo que se ve: PERFILES_PROVEEDOR no se toca (su orden lo usa la detección).
+    .slice().sort((a,b)=>a.nombre.localeCompare(b.nombre,'es',{sensitivity:'base'}))
     .forEach(p=>{
       const o = document.createElement('option');
       o.value = p.id; o.textContent = p.nombre;
