@@ -76,7 +76,8 @@ export default function CompararGestor() {
           <p className="text-sm text-slate-600 mb-2">
             Suelta aquí la hoja trimestral del gestor (Excel, «ALQUILER MAURIZ…») o el
             informe anual de SOC del Arenal (HTML). Se compara con lo que tiene la
-            aplicación y se señalan las diferencias. <b>No se guarda nada</b>.
+            aplicación y se señalan las diferencias. <b>No se guarda nada</b>. El Arenal 2B
+            no entra en la hoja del gestor: lo lleva SOC y va con su informe.
           </p>
           <label className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 w-fit">
             <Upload size={16} className="text-blue-600" />
@@ -106,6 +107,18 @@ export default function CompararGestor() {
               </span>
             </div>
 
+            {cuadre.totalDeclaradoMal && (
+              <p className="text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <b>Su TOTAL está mal:</b> pone {eur(cuadre.totalDeclaradoMal.declarado)} y sus casillas suman{' '}
+                <b>{eur(cuadre.totalDeclaradoMal.suma)}</b>
+                {' '}({eur(Math.round((cuadre.totalDeclaradoMal.suma - cuadre.totalDeclaradoMal.declarado) * 100) / 100)} de diferencia).
+              </p>
+            )}
+            {cuadre.sinHacer.length > 0 && cuadre.sinHacer.length < 4 && (
+              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                {cuadre.sinHacer.map(t => `${t}T`).join(', ')}: el gestor aún no {cuadre.sinHacer.length === 1 ? 'lo ha hecho' : 'los ha hecho'}. No se compara{cuadre.sinHacer.length === 1 ? '' : 'n'}.
+              </p>
+            )}
             {cuadre.sinCasar.length > 0 && (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 No sé con qué apartamento nuestro casar esto del gestor: {cuadre.sinCasar.join(' · ')}

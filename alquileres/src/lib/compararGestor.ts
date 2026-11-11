@@ -38,12 +38,28 @@ export interface HojaGestor {
   /** Rótulos que no hemos sabido emparejar con ningún apartamento nuestro. */
   sinCasar: string[]
   total: number
+  /**
+   * Lo que pone el propio gestor en su fila «TOTAL». En la hoja de 2026 dice
+   * 40.227,09 € y sus casillas suman 43.627,09 €: le falta el 1T del 104
+   * (3.400 €). Se compara para avisarlo.
+   */
+  totalDeclarado?: number
+  /** Trimestres en los que su hoja no trae ninguna cifra: aún no los ha hecho. */
+  sinHacer: number[]
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 /**
- * «APART/104» → 104, «JUAN XXIII» → JXXIII.
+ * Pisos que no lleva el gestor: el Arenal 2B lo explota SOC y su cuadre va
+ * contra el informe anual de SOC, no contra «ALQUILER MAURIZ» (Luis,
+ * 11/11/2026: «en el listado de Mauriz no hay nada del 2B»). Sin esto, todo
+ * lo cobrado del Arenal salía como diferencia con el gestor.
+ */
+export const FUERA_DEL_GESTOR = ['AP2B']
+
+/**
+ * «APART/104» → 104, «JUAN XXIII» → P3 (el Piso 3).
  *
  * Se compara sin espacios ni barras y sin acentos, porque el mismo inmueble
  * aparece escrito de varias maneras entre un año y otro.
@@ -53,12 +69,15 @@ export function apartamentoDeRotulo(rotulo: string, apartments: Apartment[]): st
     .toUpperCase().replace(/[^A-Z0-9]/g, '')
   const r = limpio(rotulo)
   if (!r) return null
+  // «JUAN XXIII» es el Piso 3 (Luis, 11/11/2026): no se parece ni a su id
+  // (P3) ni a su nombre, así que se dice aquí.
+  if (/JUANXXI{1,3}/.test(r) && apartments.some(a => a.id === 'P3')) return 'P3'
   // Primero por el número o el código: APART104 contiene 104.
   for (const a of apartments) {
     const id = limpio(a.id)
     if (id && (r === id || r.endsWith(id) || r.startsWith(id))) return a.id
   }
-  // Y si no, por el nombre: «JUAN XXIII» es el nombre, no el id (JXXIII).
+  // Y si no, por el nombre.
   for (const a of apartments) {
     const nombre = limpio(a.name)
     if (nombre && (r === nombre || r.includes(nombre) || nombre.includes(r))) return a.id
@@ -103,12 +122,21 @@ export function analizaHojaGestor(bruto: unknown, apartments: Apartment[]): Hoja
   const resultado: FilaGestor[] = []
   const sinCasar: string[] = []
   let year = 0
+  let totalDeclarado: number | undefined
+  /** Trimestres con alguna cifra distinta de cero en la hoja. */
+  const conCifras = new Set<number>()
 
   for (const fila of filas) {
     for (const celda of fila) {
       const n = numero(celda)
       // El año va suelto en una celda, a la izquierda del todo.
       if (!year && n && Number.isInteger(n) && n >= 2000 && n <= 2100) year = n
+    }
+    const iTotal = fila.findIndex(c => String(c ?? '').trim().toUpperCase() === 'TOTAL')
+    if (iTotal >= 0) {
+      const n = fila.slice(iTotal + 1).map(numero).find((x): x is number => x !== null)
+      if (n !== undefined) totalDeclarado = round2(n)
+      continue
     }
     const iT = fila.findIndex(c => esTrimestre(c) !== null)
     if (iT < 0) continue
@@ -121,6 +149,7 @@ export function analizaHojaGestor(bruto: unknown, apartments: Apartment[]): Hoja
     if (numeros.length === 0) continue
     const base = numeros[0]
     const igic = numeros.length > 1 ? numeros[numeros.length - 1] : 0
+    if (base) conCifras.add(trimestre)
     const apartmentId = apartamentoDeRotulo(rotulo, apartments)
     if (!apartmentId) { if (!sinCasar.includes(rotulo)) sinCasar.push(rotulo); continue }
     resultado.push({ trimestre, apartmentId, rotulo, base: round2(base), igic: round2(igic) })
@@ -131,6 +160,8 @@ export function analizaHojaGestor(bruto: unknown, apartments: Apartment[]): Hoja
     filas: resultado,
     sinCasar,
     total: round2(resultado.reduce((s, f) => s + f.base, 0)),
+    totalDeclarado,
+    sinHacer: [1, 2, 3, 4].filter(t => !conCifras.has(t)),
   }
 }
 
@@ -152,6 +183,10 @@ export interface CuadreGestor {
   totalGestor: number
   totalNuestro: number
   sinCasar: string[]
+  /** Trimestres que el gestor aún no ha hecho: no se comparan. */
+  sinHacer: number[]
+  /** Su fila «TOTAL», si no coincide con lo que suman sus casillas. */
+  totalDeclaradoMal?: { declarado: number; suma: number }
 }
 
 /** Un céntimo arriba o abajo no es una diferencia: es el redondeo. */
@@ -179,9 +214,11 @@ export function cuadraConGestor(
     const cuando = mesDe(p)
     if (!cuando?.startsWith(String(hoja.year))) continue
     const apt = p.apartmentId ?? aptDeReserva.get(p.reservationId)
-    if (!apt) continue
+    if (!apt || FUERA_DEL_GESTOR.includes(apt)) continue
     const mes = Number(cuando.slice(5, 7))
     const t = Math.floor((mes - 1) / 3) + 1
+    // Un trimestre que el gestor no ha hecho todavía no es una diferencia.
+    if (hoja.sinHacer.includes(t)) continue
     const clave = `${t}|${apt}`
     nuestro.set(clave, round2((nuestro.get(clave) ?? 0) + p.amount))
   }
@@ -207,5 +244,9 @@ export function cuadraConGestor(
     totalGestor: round2(lineas.reduce((s, l) => s + l.gestor, 0)),
     totalNuestro: round2(lineas.reduce((s, l) => s + l.nuestro, 0)),
     sinCasar: hoja.sinCasar,
+    sinHacer: hoja.sinHacer,
+    totalDeclaradoMal: hoja.totalDeclarado !== undefined && Math.abs(hoja.totalDeclarado - hoja.total) >= UMBRAL
+      ? { declarado: hoja.totalDeclarado, suma: hoja.total }
+      : undefined,
   }
 }
