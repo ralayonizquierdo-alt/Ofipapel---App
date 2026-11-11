@@ -39,6 +39,7 @@ export default function CompararGestor() {
 
   const eur = (n: number) => `${num(n, 2)} €`
   const nombreApt = (id: string) => apartments.find(a => a.id === id)?.name ?? id
+  const suma = (xs: number[]) => Math.round(xs.reduce((a, b) => a + b, 0) * 100) / 100
 
   const documentos = useDocumentosAsesoria()
   const [aviso, setAviso] = useState('')
@@ -232,6 +233,17 @@ export default function CompararGestor() {
                         </tr>
                       ))}
                     </tbody>
+                    {/* El sumatorio de cada columna (Luis, 11/11/2026). */}
+                    <tfoot className="tabular-nums">
+                      <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold text-slate-800">
+                        <td className="py-2 px-3" colSpan={2}>Total</td>
+                        <td className="py-2 px-3 text-right whitespace-nowrap">{eur(suma(cuadre.diferencias.map(l => l.gestor)))}</td>
+                        <td className="py-2 px-3 text-right whitespace-nowrap">{eur(suma(cuadre.diferencias.map(l => l.nuestro)))}</td>
+                        <td className="py-2 px-3 text-right whitespace-nowrap text-purple-700">
+                          {(() => { const d = suma(cuadre.diferencias.map(l => l.diferencia)); return `${d > 0 ? '+' : ''}${eur(d)}` })()}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
                 <p className="text-xs text-slate-400">
@@ -319,6 +331,18 @@ export default function CompararGestor() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="tabular-nums">
+                  <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold text-slate-800">
+                    <td className="py-2 px-3">Total</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{eur(suma(airbnb.cuadre.casos.map(c => c.estancia.neto)))}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{eur(suma(airbnb.cuadre.casos.map(c => c.reserva?.total ?? 0)))}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{eur(suma(airbnb.cuadre.casos.map(c => c.cobrado)))}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap text-purple-700">
+                      {eur(suma(airbnb.cuadre.casos.map(c => (c.pendiente > 0.005 ? c.pendiente : 0))))}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
               </table>
             </div>
             <p className="text-xs text-slate-400">
