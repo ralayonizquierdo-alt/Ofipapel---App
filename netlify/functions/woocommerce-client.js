@@ -422,56 +422,136 @@ function guionAlfaNum(word) {
   return null;
 }
 
-// LA REFERENCIA QUE YA VENÍA BIEN ESCRITA.
+// TODA REFERENCIA SE PRUEBA CON GUION Y SIN GUION. SIEMPRE.
 //
-// `guionAlfaNum` arregla la referencia PEGADA ("tn248" -> "tn-248"). Pero el
-// caso contrario no lo cubría nadie, y es peor porque pasa desapercibido: una
-// referencia que llega BIEN, con su guion, la destroza `sanitizeWords` al
-// quitar los signos ("TN-247" -> "tn" + "247") y ya no hay forma de volver a
-// juntarla — "tn" no tiene dígitos y "247" no tiene letras, así que
-// `guionAlfaNum` no la reconstruye.
+// Regla del propietario, 11/11/2026, después de tres años de parches:
 //
-// O sea que el bot buscaba MEJOR cuando el cliente escribía mal la referencia:
+//   «no le vas a tener que poner todos los modelos de tóner que nosotros
+//    trabajamos con guiones y guión; entiendo yo que la regla es que
+//    cualquier modelo que lo pruebe con guión y sin guión. No vamos a tener
+//    que meterle los miles de modelos que trabajamos, porque si no hoy
+//    fallará uno, mañana fallará otro, pasado mañana fallará otro.»
 //
-//   "tn247 toner brother"  -> busca "tn-247 toner brother"  OK, encuentra
-//   "TN-247 toner brother" -> busca "tn 247 toner brother"  no encuentra
+// Y es exactamente eso. Aquí NO hay lista de modelos y no la va a haber: hay
+// una regla que vale para cualquier referencia, la trabajemos hoy o la
+// empecemos a trabajar mañana.
 //
-// Visto en real el 10/11/2026 (propietario: «ni con foto ni dándole el código
-// ni el modelo»): un cliente mandó la foto de la etiqueta de su tóner —leída
-// perfecta: «TONER LASER Compatible Brother TN-243/247 (Negro)»— y después una
-// captura de NUESTRA PROPIA FICHA WEB con el producto y su precio. Las dos
-// veces se le contestó que no se le podía confirmar si lo teníamos, con la
-// referencia exacta delante.
+// DE DÓNDE VIENE. El catálogo escribe las referencias con guion. El bot sabía
+// ponérselo cuando el cliente la escribía pegada ("tn248" -> "tn-248"), pero no
+// al revés: una referencia que llegaba BIEN la partía `sanitizeWords` al quitar
+// los signos ("TN-247" -> "tn" + "247") y nadie la volvía a juntar. O sea que
+// escribirla mal buscaba mejor que escribirla bien. Y cada forma nueva de
+// escribirla era un parche nuevo: con guion, sin guion, con barra, con la cola
+// del color...
 //
-// Por eso la referencia se busca TAL CUAL venía, además de todo lo demás. Se
-// añade un término, no se toca `sanitizeWords`: esas palabras gobiernan también
-// la puntuación de los resultados, y ahí "tn 243 247" casa bien con el nombre
-// del producto. El problema era solo ENCONTRARLO.
-const REF_CON_SEPARADOR = /\b[a-z]{1,5}[-/]\d{1,5}(?:[-/]\d{1,5})*[a-z]{0,3}\b/g;
+// LO QUE HACE AHORA. Se mire como se mire, una referencia es letras + números.
+// De cada una se prueban sus TRES formas, sin preguntarse cuál usa el catálogo:
+//
+//   TN-247  ->  tn-247   tn247   tn 247
+//   TN247   ->  tn247    tn-247  tn 247
+//   TN 247  ->  tn 247   tn-247  tn247
+//
+// Y dos casos más que son la misma idea: una referencia doble («TN-243/247»,
+// que vale para dos impresoras) se prueba entera y por partes, y una con cola
+// de color («TN-247BK») también sin la cola. Todo con sus tres formas.
+//
+// Así, el día que entre un modelo que no hemos visto nunca, está cubierto.
+//
+// No se toca `sanitizeWords`: esas palabras gobiernan también la puntuación de
+// los resultados, y ahí "tn 243 247" ya casa bien con el nombre del producto.
+// El problema era solo ENCONTRARLO.
+
+// UN SOLO PATRÓN, SIN CASOS ESPECIALES. Una referencia es un trozo de texto
+// con letras Y números, con o sin separadores dentro: TN247, TN-247, 305XL,
+// CF283A, MLT-D111S, TK-3190, TN-243/247, TN-247BK.
+const TOKEN_REFERENCIA = /\b[a-z0-9]+(?:[-/.][a-z0-9]+)*\b/g;
+
+// Lo único que hay que apartar son las UNIDADES: «80gr», «500h», «210mm»,
+// «162x229» tienen la misma forma que una referencia y no lo son. Es una lista
+// de unidades de medida, corta y que no crece — NO una lista de modelos, que es
+// justo lo que no queremos tener que mantener.
+const UNIDADES = new Set([
+  'g', 'gr', 'grs', 'kg', 'mg', 'x',
+  'h', 'hj', 'hjs', 'ud', 'uds', 'u', 'pz', 'pzs', 'pag', 'pags',
+  'mm', 'cm', 'm', 'km', 'ml', 'cl', 'l', 'lt',
+  'w', 'v', 'a', 'mah', 'gb', 'mb', 'tb', 'pp', 'px', 'pts',
+]);
+
+// LAS DOS FORMAS: con guion y sin guion. Son las de la regla, y son las dos
+// que faltaban. La tercera que uno pensaría —separadas por un espacio, «tn
+// 247»— NO hace falta y por eso no se pide: `sanitizeWords` ya convierte la
+// consulta en «tn 247 toner brother», así que esa forma se busca siempre, en
+// la frase de toda la vida. Pedirla aparte era gastar una consulta en algo que
+// ya estaba hecho — y la web no va sobrada (ver probar-peticiones-web.js).
+const dosFormas = (a, b) => [`${a}-${b}`, `${a}${b}`];
+
+const esReferencia = (token) => {
+  if (!/[a-z]/.test(token) || !/\d{2}/.test(token)) return false;
+  // Siete cifras seguidas o más NO es la referencia de un modelo: es un EAN,
+  // nuestro código interno («Cod.101012010», que sale en la etiqueta del tóner
+  // y no existe en la web) o un número de albarán. Ninguno de los tres se
+  // encuentra buscándolo, y colarse aquí les quitaba el sitio a las formas de
+  // la referencia de verdad. Es una regla de forma, no una lista.
+  if (/\d{7,}/.test(token)) return false;
+  // Una unidad pegada a un número («80gr») no es una referencia; una unidad
+  // dentro de algo más largo («TK-3190») da igual, porque no es el token entero.
+  const trozos = token.split(/[-/.]/);
+  return !trozos.every((t) => /^\d+$/.test(t) || UNIDADES.has(t.replace(/\d/g, '')));
+};
 
 function referenciasLiterales(consulta) {
   const texto = String(consulta || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
-  // TAL CUAL VIENEN primero, y las troceadas después. Importa porque solo se
-  // buscan las dos primeras: la etiqueta de la foto traía «TN-243/247» y
-  // «TN-247BK», que son las dos formas exactas que el fabricante imprime, y
-  // mezclarlas con los trozos dejaba fuera la segunda por un «tn-243» inventado
-  // por nosotros.
-  const literales = [];
-  const troceadas = [];
-  for (const bruto of texto.match(REF_CON_SEPARADOR) || []) {
-    literales.push(bruto);
-    // «TN-243/247» son DOS referencias en una (el mismo tóner vale para las dos
-    // impresoras) y el catálogo puede tener solo una. «TN-247BK» es la misma
-    // con la cola del color. En los dos casos se prueba también cada una suelta.
-    const m = /^([a-z]{1,5})[-/]([\d/-]*\d)([a-z]{0,3})$/.exec(bruto);
-    if (!m) continue;
-    const partes = m[2].split(/[-/]/).filter(Boolean);
-    if (partes.length > 1 || m[3]) for (const n of partes) troceadas.push(`${m[1]}-${n}`);
+
+  // Se agrupan POR FORMA, no por referencia: primero las tal cual, luego todas
+  // las de guion, luego todas las pegadas, luego las de espacio. Importa porque
+  // solo se buscan las primeras: con «TN-243/247» —que son dos referencias en
+  // una— agrupando por referencia se gastaban las plazas en «tn-243» y sus
+  // variantes, y «tn-247», que era la del cliente, se quedaba fuera.
+  const talCual = [];
+  const conGuion = [];
+  const pegadas = [];
+
+  for (const token of texto.match(TOKEN_REFERENCIA) || []) {
+    if (!esReferencia(token)) continue;
+
+    talCual.push(token);
+
+    // Los pares (marca, modelo) que hay dentro del token. Una referencia normal
+    // da uno; una doble («TN-243/247») da dos; una con cola de color
+    // («TN-247BK») da la de siempre y la de la cola.
+    const pares = [];
+    const limpio = token.replace(/[-/.]/g, '');
+    const trozosNum = token.split(/[-/.]/).filter((t) => /^\d/.test(t));
+    // Con DOS bloques de números («TN-243/247») pegarlos en uno da «tn243247»,
+    // que no es ninguna referencia y gastaría una de las pocas consultas.
+    const simple = trozosNum.length > 1 ? null : /^([a-z]+)(\d+)([a-z]*)$/.exec(limpio);
+    if (simple) {
+      pares.push([simple[1], simple[2]]);
+      if (simple[3]) pares.push([simple[1], `${simple[2]}${simple[3]}`]);
+    }
+    const alReves = trozosNum.length > 1 ? null : /^(\d+)([a-z]+)$/.exec(limpio);
+    if (alReves) pares.push([alReves[1], alReves[2]]);
+
+    const trozos = token.split(/[-/.]/);
+    const marca = /^[a-z]/.test(trozos[0] || '') ? trozos[0] : '';
+    if (marca) for (const t of trozos.slice(1)) if (/^\d/.test(t)) pares.push([marca, t]);
+
+    for (const [a, b] of pares) {
+      const [g, p] = dosFormas(a, b);
+      conGuion.push(g);
+      pegadas.push(p);
+    }
+    if (trozosNum.length <= 1) pegadas.push(limpio);
   }
-  return [...new Set([...literales, ...troceadas])];
+
+  const fuera = [];
+  for (const v of [...talCual, ...conGuion, ...pegadas]) {
+    if (v && /\d/.test(v) && !fuera.includes(v)) fuera.push(v);
+  }
+  return fuera;
 }
 
 // En consumibles, la referencia útil es la MARCA + EL NÚMERO, sin la letra
@@ -623,6 +703,13 @@ function ordenarPorRelevancia(scored, idsConOferta) {
 const MAX_TERMINOS_BUSQUEDA = 4;
 const TERMINOS_PRIMERA_OLEADA = 2;
 
+// CUÁNTAS FORMAS DE LA REFERENCIA SE PRUEBAN. No sube el tope de consultas: se
+// gastan las primeras plazas de las que ya había. Cuando hay una referencia,
+// ella manda — el singular y el género son para «papeleras de rejilla», no
+// para un TN-247 —, y así la web no recibe ni una petición más que antes
+// (lo vigila probar-peticiones-web.js).
+const TERMINOS_DE_REFERENCIA = 3;
+
 // Un producto que solo coincide con PARTE de lo que pidió el cliente no es un
 // resultado: es ruido. Comprobado en real con "mochila negra", que devolvía una
 // cafetera, un cargador inalámbrico y una carpa de 3x3 metros — los tres por la
@@ -751,13 +838,14 @@ function construirTerminos(words, consulta = '') {
     if (t && !terminos.includes(t)) terminos.push(t);
   };
 
-  // LA REFERENCIA, TAL COMO VENÍA, LA PRIMERA DE TODAS (ver referenciasLiterales).
+  // LAS FORMAS DE LA REFERENCIA, LAS PRIMERAS DE TODAS (ver referenciasLiterales).
   //
-  // Va delante incluso de la frase entera: cuando hay una referencia es LO que
+  // Van delante incluso de la frase entera: cuando hay una referencia es LO que
   // identifica el producto, y con una foto la frase entera trae además lo que
   // se ve en la imagen («captura de pantalla de página web»), que no busca
-  // nada. Solo las dos primeras, para no gastar en esto las cuatro consultas.
-  const literales = referenciasLiterales(consulta).slice(0, 2);
+  // nada. Las tres primeras: «tal cual», «con guion» y «pegada» — ahí está la
+  // regla entera y es lo que no puede quedarse fuera por el tope.
+  const literales = referenciasLiterales(consulta).slice(0, TERMINOS_DE_REFERENCIA);
   if (literales.length) terminos.unshift(...literales.filter((r) => !terminos.includes(r)));
 
   // Referencias tipo "TN248" -> "TN-248" (ver guionAlfaNum). Va la PRIMERA de
