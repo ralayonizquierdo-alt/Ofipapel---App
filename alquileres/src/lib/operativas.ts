@@ -146,9 +146,15 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
   {
     // pages/Dashboard.tsx — AvisoRojo
     que: 'Avisos en rojo',
-    formula: 'reservas anuladas con cobros · cobros vencidos · importes que no cuadran con la tarifa',
+    formula: 'cobros sin reserva · reservas anuladas con cobros · cobros vencidos · importes que no cuadran con la tarifa',
     nota: 'Van **por apartamento**, en el orden de la casa. **Se pinchan** y abren el cuadre de la estancia para '
       + 'corregirlo. **Se van solos** en cuanto queda corregido.',
+  },
+  {
+    // components/AvisoCobrosSinReserva.tsx, lib/cobrosSinReserva.ts
+    que: 'Cobro sin reserva',
+    nota: 'Los de **Airbnb (Arenal 2B)** entran así. Se elige la estancia y **«Unir a esa estancia»**, o '
+      + '**«Dejarlo sin reserva»**. **Nunca se une solo.**',
   },
   {
     // components/AvisoSolapes.tsx
@@ -248,9 +254,9 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
     // lib/pegarReservas.ts — analizaCobro (deAirbnb); components/PegarWhatsApp.tsx — reservaDelCobro
     que: 'Cobro de Airbnb (Arenal 2B)',
     formula: 'AIRBNB PAYMENTS LUXEMBOURG S.A. → transferencia del Arenal 2B',
-    nota: 'Se pega o se suelta el **detalle del movimiento del BBVA**. Va a la estancia que **empezó como mucho 3 días '
-      + 'antes del pago** (Airbnb paga al día siguiente de la entrada). Si el importe **no es el neto** de esa '
-      + 'estancia, **se avisa**.',
+    nota: 'Se pega o se suelta el **detalle del movimiento del BBVA**. Se anota **sin reserva** y sale en rojo en el '
+      + '**Dashboard** hasta que se **une a su estancia** (se propone la más probable, nunca se une sola) o se deja '
+      + 'sin reserva.',
   },
   ENTRADA_RAPIDA,
   {
@@ -301,6 +307,11 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
 ]
 
 export const OPERATIVA_COBROS: ReglaOperativa[] = [
+  {
+    // lib/recordado.ts — useVuelveALaAltura
+    que: 'Al volver',
+    nota: 'Cobros se abre **con la misma vista, el mismo mes y a la misma altura** en que se dejó.',
+  },
   {
     // lib/mesContable.ts
     que: 'Mes del cobro',

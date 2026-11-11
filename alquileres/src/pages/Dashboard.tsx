@@ -19,6 +19,8 @@ import FichaCuadre, { type ModeloFicha } from '../components/FichaCuadre'
 import { conformidadesPorEnviar, HORAS_ESPERA } from '../lib/conformidades'
 import { useEnHistorial } from '../lib/volver'
 import { anuladasConCobros } from '../lib/anuladas'
+import { cobrosSinReserva } from '../lib/cobrosSinReserva'
+import AvisoCobroSinReserva from '../components/AvisoCobrosSinReserva'
 import { porApartamento } from '../lib/apartamentos'
 import { useRecordado } from '../lib/recordado'
 import Operativa from '../components/Operativa'
@@ -121,7 +123,9 @@ export default function Dashboard() {
       ? a.r.checkIn.localeCompare(b.r.checkIn) || porApartamento(a.r, b.r)
       : porApartamento(a.r, b.r)),
     [reservations, payments, orden])
-  const hayAvisosRojos = vencidas.length + sinCuadrarConTarifa.length + anuladasCobradas.length > 1
+  /** Cobros sin reserva por revisar (los de Airbnb): ver lib/cobrosSinReserva.ts. */
+  const sueltos = useMemo(() => cobrosSinReserva(payments), [payments])
+  const hayAvisosRojos = vencidas.length + sinCuadrarConTarifa.length + anuladasCobradas.length + sueltos.length > 1
 
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
@@ -232,7 +236,7 @@ export default function Dashboard() {
       <AlertasDescuadre />
 
       {/* Alerts */}
-      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || anuladasCobradas.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
+      {(vencidas.length > 0 || sinCuadrarConTarifa.length > 0 || anuladasCobradas.length > 0 || sueltos.length > 0 || isPriceRenewalMonth || copiaPendiente) && (
         <div className="mb-6 space-y-2">
           {copiaPendiente && (
             <Link to="/config"
@@ -268,6 +272,9 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+          {sueltos.map(p => (
+            <AvisoCobroSinReserva key={`suelto-${p.id}`} p={p} nombreApt={getApartmentName} />
+          ))}
           {anuladasCobradas.map(({ r, cobrado }) => (
             <AvisoRojo key={`anulada-${r.id}`} icono={<Ban size={16} className="shrink-0 text-red-600" />}
               titulo={`${getApartmentName(r.apartmentId)} — ${formatDateShort(r.checkIn)} al ${formatDateShort(r.checkOut)}`}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * Un `useState` que se acuerda de lo último que se eligió.
@@ -26,4 +26,44 @@ export function useRecordado<T>(clave: string, inicial: T): [T, (v: T) => void] 
     try { localStorage.setItem(k, JSON.stringify(valor)) } catch { /* sin sitio o sin permiso: da igual */ }
   }, [k, valor])
   return [valor, setValor]
+}
+
+/**
+ * Vuelve a la misma altura de la pantalla al regresar a ella.
+ *
+ * Se miraba noviembre en Cobros, se iba al Dashboard y al volver la pantalla
+ * estaba arriba del todo, en enero y febrero (Luis, 11/11/2026: «creo que esto
+ * lo habíamos arreglado» — se arregló la vista elegida, no la altura). Se
+ * guarda mientras se desplaza y se recupera al volver, esperando a que la
+ * tabla tenga ya altura para llegar. Es de esta sesión del navegador
+ * (`sessionStorage`): al abrir la app otro día, empieza arriba.
+ *
+ * Devuelve una `ref` para cualquier elemento de la pantalla; lo que se
+ * desplaza es el `<main>` que lo contiene.
+ */
+export function useVuelveALaAltura<T extends HTMLElement>(clave: string) {
+  const ref = useRef<T>(null)
+  useEffect(() => {
+    const main = ref.current?.closest('main')
+    if (!main) return
+    const k = `alquileres:altura:${clave}`
+    let guardada = 0
+    try { guardada = Number(sessionStorage.getItem(k)) || 0 } catch { /* sin permiso: empieza arriba */ }
+    let intentos = 0
+    let marco = 0
+    const intenta = () => {
+      if (main.scrollHeight - main.clientHeight >= guardada || intentos++ > 120) {
+        main.scrollTop = guardada
+        return
+      }
+      marco = requestAnimationFrame(intenta)
+    }
+    if (guardada > 0) intenta()
+    const alDesplazar = () => {
+      try { sessionStorage.setItem(k, String(Math.round(main.scrollTop))) } catch { /* da igual */ }
+    }
+    main.addEventListener('scroll', alDesplazar, { passive: true })
+    return () => { cancelAnimationFrame(marco); main.removeEventListener('scroll', alDesplazar) }
+  }, [clave])
+  return ref
 }

@@ -137,6 +137,12 @@ export interface Payment {
    */
   justificanteUrl?: string
   justificanteNombre?: string
+  /**
+   * Entró sin reserva y hay que revisarlo: avisa en el Dashboard hasta que se
+   * une a una estancia o se dice revisado (los de Airbnb, Luis, 11/11/2026).
+   * Ver lib/cobrosSinReserva.ts.
+   */
+  sinRevisar?: boolean
 }
 
 export interface Expense {

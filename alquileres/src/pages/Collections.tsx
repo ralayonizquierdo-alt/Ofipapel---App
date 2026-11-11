@@ -10,7 +10,7 @@ import { EJERCICIO_APP } from '../lib/cuentas'
 import { ordenaApartamentos } from '../lib/apartamentos'
 import { partesDeAlojamiento, devengoAcumulado, devengoDelMes, nochesEnMes, mesSiguiente } from '../lib/devengo'
 import { ofertaDeReserva } from '../lib/oferta'
-import { useRecordado } from '../lib/recordado'
+import { useRecordado, useVuelveALaAltura } from '../lib/recordado'
 import { useEnHistorial } from '../lib/volver'
 import { useNavigate } from 'react-router-dom'
 import FichaCuadre from '../components/FichaCuadre'
@@ -51,6 +51,8 @@ function esEfectivo(p: Payment, canalDirecto: boolean): boolean {
 export default function Collections() {
   const { reservations, payments, apartments: allApartments } = useData()
   const [nuevoCobro, setNuevoCobro] = useState(false)
+  /** Al volver a Cobros, a la misma altura en que se dejó (Luis, 11/11/2026). */
+  const altura = useVuelveALaAltura<HTMLDivElement>('cobros')
   /** La estancia cuya ficha de cuadre se está mirando (propietario, 02/11/2026). */
   const [cuadre, setCuadre] = useState<Reservation | null>(null)
   /** Cómo se agrupa el listado por reserva: por mes o por apartamento. */
@@ -446,7 +448,7 @@ export default function Collections() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6" ref={altura}>
       {/* Con la ficha de cuadre abierta se imprime la ficha, no el listado: esta
           regla oculta toda la aplicación y dejaba la ficha en blanco (Luis,
           06/11/2026). La ficha se imprime sola con `solo-esto-al-imprimir`. */}

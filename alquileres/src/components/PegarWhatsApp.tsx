@@ -151,19 +151,9 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   const reservaDelCobro = useMemo((): Reservation | null => {
     if (!cobro?.apartmentId) return null
     const candidatas = reservations.filter(r => r.apartmentId === cobro.apartmentId && r.status !== 'cancelada')
-    // Airbnb paga al día siguiente de la entrada (o cada mes en una estancia
-    // larga): la estancia que ya ha empezado, o empezó hace 3 días como mucho.
-    // Si una tiene justo ese neto, esa; si no, la que entró más tarde.
-    if (cobro.deAirbnb && cobro.paymentDate) {
-      const pago = cobro.paymentDate
-      const tresAntes = new Date(`${pago}T12:00:00`)
-      tresAntes.setDate(tresAntes.getDate() - 3)
-      const limite = tresAntes.toISOString().slice(0, 10)
-      const posibles = candidatas
-        .filter(r => r.checkIn <= pago && (r.checkOut >= pago || r.checkIn >= limite))
-        .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
-      return posibles.find(r => Math.abs(r.total - cobro.amount) < 0.02) ?? posibles[0] ?? null
-    }
+    // Airbnb no se une a ninguna: se anota sin reserva y avisa en el
+    // Dashboard hasta que se revise (lib/cobrosSinReserva.ts).
+    if (cobro.deAirbnb) return null
     if (cobro.periodoIni && cobro.periodoFin) {
       const dentro = candidatas.filter(r => r.checkIn < cobro.periodoFin! && cobro.periodoIni! < r.checkOut)
       if (dentro.length) return dentro.sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0]
@@ -328,7 +318,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   }
 
   async function guardarCobro() {
-    if (!cobro || !reservaDelCobro) return
+    if (!cobro || (!reservaDelCobro && !cobro.deAirbnb)) return
     setGuardando(true)
 
     // El papel primero: si falla la subida, se dice y el cobro se anota igual.
@@ -346,6 +336,27 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
     const conPapel = papel
       ? { justificanteUrl: papel.url, justificanteNombre: papel.nombre }
       : {}
+    // De Airbnb: al Arenal 2B, sin reserva y por revisar (Luis, 11/11/2026).
+    if (cobro.deAirbnb || !reservaDelCobro) {
+      addPayment({
+        reservationId: '', apartmentId: cobro.apartmentId ?? undefined,
+        mes: cobro.paymentDate?.slice(0, 7), amount: cobro.amount, received: true,
+        paymentDate: cobro.paymentDate || undefined, paymentMethod: 'transferencia',
+        sinRevisar: true, ...conPapel,
+      })
+      anotaVolcado({
+        origen: 'justificante',
+        resumen: `${eur(cobro.amount)} en ${nombreApt(cobro.apartmentId)}, sin reserva (por revisar)`,
+        year: Number((cobro.paymentDate ?? new Date().toISOString()).slice(0, 4)),
+        cobros: 1,
+        ...conPapel,
+      })
+      setCargado({ tipo: 'cobro', aptos: apto(cobro.apartmentId) })
+      setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}, sin reserva: sale en el Dashboard para revisarlo`
+        + (papel ? ` · justificante guardado (${papel.nombre})` : ''))
+      setTexto(''); setFichero(null); setGuardando(false)
+      return
+    }
     // Si la reserva tiene un cobro pendiente, se aprovecha ese en vez de
     // añadir uno nuevo: si no, quedaría el pendiente por un lado y el cobrado
     // por otro, y la reserva parecería pagada de más.
@@ -582,25 +593,19 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
               <div className="pt-2 mt-1 border-t border-slate-100">
                 {cobroExistente ? (
                   <p className="text-sm font-medium text-red-700">No se anota: este cobro ya está cargado.</p>
+                ) : cobro.deAirbnb ? (
+                  <p className="text-sm text-slate-700">
+                    Se anotará en el <b>Arenal 2B sin reserva</b>. Saldrá en el Dashboard hasta que lo revises.
+                  </p>
                 ) : reservaDelCobro ? (
                   <p className="text-sm text-slate-700">
                     Se anotará en la reserva del{' '}
                     <b>{formatDate(reservaDelCobro.checkIn)}</b> al{' '}
                     <b>{formatDate(reservaDelCobro.checkOut)}</b>.
-                    {/* El neto de SOC es lo que tiene que llegar: si no
-                        coincide, se dice, pero el cobro se anota igual. */}
-                    {cobro.deAirbnb && reservaDelCobro.total > 0
-                      && Math.abs(reservaDelCobro.total - cobro.amount) >= 0.02 && (
-                      <span className="block mt-1 text-amber-800">
-                        Ojo: el neto de esa estancia es {eur(reservaDelCobro.total)}, no {eur(cobro.amount)}.
-                      </span>
-                    )}
                   </p>
                 ) : (
                   <p className="text-sm text-amber-800">
-                    {cobro.problema || (cobro.deAirbnb
-                      ? 'No hay ninguna estancia del Arenal que haya empezado en los 3 días antes del pago: créala primero y vuelve a pegar el justificante.'
-                      : 'No hay ninguna reserva de esas fechas: créala primero y vuelve a pegar el justificante.')}
+                    {cobro.problema || 'No hay ninguna reserva de esas fechas: créala primero y vuelve a pegar el justificante.'}
                   </p>
                 )}
               </div>
@@ -649,7 +654,7 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                 : 'Marcar como anulada'}
             </button>
           ) : cobro ? (
-            <button onClick={guardarCobro} disabled={guardando || !reservaDelCobro || !!cobroExistente}
+            <button onClick={guardarCobro} disabled={guardando || (!reservaDelCobro && !cobro.deAirbnb) || !!cobroExistente}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">
               Anotar el cobro
             </button>
