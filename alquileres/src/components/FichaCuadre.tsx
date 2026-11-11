@@ -250,35 +250,23 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   }
 
   /**
-   * Abre Outlook en la web, en una pestaña nueva, **con el cuadro ya escrito**:
-   * solo falta poner a quién y darle a Enviar (Rober, 11/11/2026: «cuando doy a
-   * enviar por correo debe de ir en dicho mail todo el cuadro, no debería de
-   * copiarlo yo manualmente»).
-   *
-   * El enlace de Outlook solo admite **texto llano** en el cuerpo, así que lo
-   * que va escrito es el cuadro por líneas —el mismo que por WhatsApp—. El
-   * cuadro **con sus tablas** no cabe en un enlace por ninguna vía: se copia
-   * además al portapapeles, y quien lo quiera así borra el texto y pulsa Ctrl+V
-   * (es lo que pidió Luis el 08/11/2026, «que se copiara el cuadro tal cual»).
-   *
-   * Si el enlace sale demasiado largo —una estancia de muchos meses— el cuerpo
-   * no se manda, porque Outlook lo cortaría por la mitad: entonces queda el
-   * portapapeles, que es lo que había antes.
-   *
-   * La dirección es la de su Outlook y no la general (outlook.office.com): con
-   * la general pasaba por el inicio de sesión y se perdía el correo nuevo por
-   * el camino. Comprobado con Luis el 08/11/2026. Antes de eso era un «mailto:»,
-   * que abría el Outlook de escritorio sin cuenta configurada.
+   * Copia el cuadro y abre Outlook en la web, en una pestaña nueva, con el
+   * asunto puesto: falta el destinatario y pegar el cuadro con Ctrl+V. El enlace
+   * solo puede llevar texto llano, por eso el cuadro va por el portapapeles; si
+   * no se pudo copiar, el correo lleva el texto llano. Antes era un «mailto:»,
+   * que abría el Outlook de escritorio sin cuenta configurada (08/11/2026).
    */
   async function porCorreo() {
     // Primero copiar: con el correo ya abierto, la pestaña de la app pierde el
     // foco y el navegador no deja escribir en el portapapeles.
-    await copiarCuadro(true)
-    const base = 'https://outlook.cloud.microsoft/mail/deeplink/compose'
-      + `?subject=${encodeURIComponent(asunto)}`
-    const conCuerpo = `${base}&body=${encodeURIComponent(textoLlano())}`
+    const conCuadro = await copiarCuadro(true)
     const a = document.createElement('a')
-    a.href = conCuerpo.length <= 7000 ? conCuerpo : base
+    // La dirección de su Outlook, no la general (outlook.office.com): con la
+    // general pasaba por el inicio de sesión y se perdía el correo nuevo por el
+    // camino. Comprobado con Luis el 08/11/2026.
+    a.href = 'https://outlook.cloud.microsoft/mail/deeplink/compose'
+      + `?subject=${encodeURIComponent(asunto)}`
+      + (conCuadro ? '' : `&body=${encodeURIComponent(textoLlano())}`)
     a.target = '_blank'
     a.rel = 'noopener'
     a.click()
@@ -423,10 +411,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
         {copiado && (
           <p className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900 print:hidden">
             <Check size={16} className="text-green-600 shrink-0" />
-            <span>
-              <b>Cuadro copiado.</b> El correo ya va con el cuadro escrito: solo falta poner a quién.
-              Si lo quieres <b>con sus tablas</b>, borra ese texto y pulsa <b>Ctrl+V</b> en el cuerpo del correo.
-            </span>
+            <span><b>Cuadro copiado.</b> En el correo, haz clic <b>en el cuerpo, debajo del asunto</b> (no en «Para») y pulsa <b>Ctrl+V</b>.</span>
           </p>
         )}
 
@@ -443,7 +428,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             </button>
           )}
           <button onClick={porCorreo}
-            title="Abre Outlook con el asunto y el cuadro ya escritos: solo falta poner a quién"
+            title="Copia el cuadro y abre Outlook con el asunto puesto: pega el cuadro con Ctrl+V y pon a quién"
             className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-200 rounded-lg hover:border-blue-300">
             <Mail size={15} /> Enviar por correo
           </button>
