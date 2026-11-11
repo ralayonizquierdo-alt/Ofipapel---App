@@ -110,7 +110,7 @@ const woocommerce = require('./woocommerce-client');
 const gestion = require('./gestion-pedidos');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
 const { paraWhatsapp } = require('./whatsapp-formato');
-const { respuestaDeCatalogo, pareceUnaIncidencia } = require('./whatsapp-respuesta-catalogo');
+const { respuestaDeCatalogo, pareceUnaIncidencia, referenciaSinRespaldo } = require('./whatsapp-respuesta-catalogo');
 const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
 
 // EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
@@ -1824,8 +1824,13 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // seguridad lo descartaba igualmente por no mirar si había datos de respaldo.
   // Sin datos de catálogo tampoco vale afirmar que algo está en stock: saber
   // qué cartucho lleva una impresora no es saber si nos queda.
+  //
+  // Y DESDE EL 11/11/2026, TAMPOCO CON UN CATÁLOGO QUE NO HABLA DE LO QUE PIDE.
+  // «Había resultados» era el único requisito, y con unos tóneres cualesquiera
+  // delante el bot afirmó tener el TN-247 que le pedían (ver
+  // referenciaSinRespaldo): tener resultados no es tener el resultado.
   if (
-    !datosDeCatalogo &&
+    (!datosDeCatalogo || referenciaSinRespaldo(text, datosDeCatalogo)) &&
     (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta) || seInventaUnPrecio(respuesta, datosDeCatalogo))
   ) {
     // Si sabemos de qué impresora habla, la respuesta segura conserva la

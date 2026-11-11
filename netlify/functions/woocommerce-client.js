@@ -422,6 +422,58 @@ function guionAlfaNum(word) {
   return null;
 }
 
+// LA REFERENCIA QUE YA VENÍA BIEN ESCRITA.
+//
+// `guionAlfaNum` arregla la referencia PEGADA ("tn248" -> "tn-248"). Pero el
+// caso contrario no lo cubría nadie, y es peor porque pasa desapercibido: una
+// referencia que llega BIEN, con su guion, la destroza `sanitizeWords` al
+// quitar los signos ("TN-247" -> "tn" + "247") y ya no hay forma de volver a
+// juntarla — "tn" no tiene dígitos y "247" no tiene letras, así que
+// `guionAlfaNum` no la reconstruye.
+//
+// O sea que el bot buscaba MEJOR cuando el cliente escribía mal la referencia:
+//
+//   "tn247 toner brother"  -> busca "tn-247 toner brother"  OK, encuentra
+//   "TN-247 toner brother" -> busca "tn 247 toner brother"  no encuentra
+//
+// Visto en real el 10/11/2026 (propietario: «ni con foto ni dándole el código
+// ni el modelo»): un cliente mandó la foto de la etiqueta de su tóner —leída
+// perfecta: «TONER LASER Compatible Brother TN-243/247 (Negro)»— y después una
+// captura de NUESTRA PROPIA FICHA WEB con el producto y su precio. Las dos
+// veces se le contestó que no se le podía confirmar si lo teníamos, con la
+// referencia exacta delante.
+//
+// Por eso la referencia se busca TAL CUAL venía, además de todo lo demás. Se
+// añade un término, no se toca `sanitizeWords`: esas palabras gobiernan también
+// la puntuación de los resultados, y ahí "tn 243 247" casa bien con el nombre
+// del producto. El problema era solo ENCONTRARLO.
+const REF_CON_SEPARADOR = /\b[a-z]{1,5}[-/]\d{1,5}(?:[-/]\d{1,5})*[a-z]{0,3}\b/g;
+
+function referenciasLiterales(consulta) {
+  const texto = String(consulta || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  // TAL CUAL VIENEN primero, y las troceadas después. Importa porque solo se
+  // buscan las dos primeras: la etiqueta de la foto traía «TN-243/247» y
+  // «TN-247BK», que son las dos formas exactas que el fabricante imprime, y
+  // mezclarlas con los trozos dejaba fuera la segunda por un «tn-243» inventado
+  // por nosotros.
+  const literales = [];
+  const troceadas = [];
+  for (const bruto of texto.match(REF_CON_SEPARADOR) || []) {
+    literales.push(bruto);
+    // «TN-243/247» son DOS referencias en una (el mismo tóner vale para las dos
+    // impresoras) y el catálogo puede tener solo una. «TN-247BK» es la misma
+    // con la cola del color. En los dos casos se prueba también cada una suelta.
+    const m = /^([a-z]{1,5})[-/]([\d/-]*\d)([a-z]{0,3})$/.exec(bruto);
+    if (!m) continue;
+    const partes = m[2].split(/[-/]/).filter(Boolean);
+    if (partes.length > 1 || m[3]) for (const n of partes) troceadas.push(`${m[1]}-${n}`);
+  }
+  return [...new Set([...literales, ...troceadas])];
+}
+
 // En consumibles, la referencia útil es la MARCA + EL NÚMERO, sin la letra
 // final: el mismo consumible existe como "HP (83-A)" original y "Compatible HP
 // (83-A) CF283A", y buscando "83A" se pierden variantes por el guion o por la
@@ -688,7 +740,7 @@ function paresDePalabras(words) {
   return elegidas;
 }
 
-function construirTerminos(words) {
+function construirTerminos(words, consulta = '') {
   const frase = words.join(' ');
   // Con pocas palabras la frase entera ES el término bueno («cartucho hp 305»)
   // y esto no cambia nada. El problema solo aparece cuando el cliente cuenta lo
@@ -698,6 +750,15 @@ function construirTerminos(words) {
   const añadir = (t) => {
     if (t && !terminos.includes(t)) terminos.push(t);
   };
+
+  // LA REFERENCIA, TAL COMO VENÍA, LA PRIMERA DE TODAS (ver referenciasLiterales).
+  //
+  // Va delante incluso de la frase entera: cuando hay una referencia es LO que
+  // identifica el producto, y con una foto la frase entera trae además lo que
+  // se ve en la imagen («captura de pantalla de página web»), que no busca
+  // nada. Solo las dos primeras, para no gastar en esto las cuatro consultas.
+  const literales = referenciasLiterales(consulta).slice(0, 2);
+  if (literales.length) terminos.unshift(...literales.filter((r) => !terminos.includes(r)));
 
   // Referencias tipo "TN248" -> "TN-248" (ver guionAlfaNum). Va la PRIMERA de
   // las alternativas, y por tanto en la primera oleada: cuando la referencia
@@ -803,7 +864,7 @@ async function buscarEnCatalogo(query, limit = 3) {
   if (cacheado) return { productos: cacheado, fallo: false };
 
   const fetchLimit = Math.max(limit, FETCH_LIMIT_INTERNO);
-  const terminos = construirTerminos(words).slice(0, MAX_TERMINOS_BUSQUEDA);
+  const terminos = construirTerminos(words, query).slice(0, MAX_TERMINOS_BUSQUEDA);
 
   // Las variantes de cada oleada se lanzan EN PARALELO: hechas una tras otra
   // sumaban sus tiempos (~3,4 s cada una contra el servidor real, hasta 10 s en
@@ -1178,6 +1239,7 @@ module.exports = {
   // usa whatsapp-respuesta-catalogo.js para comprobar que un resultado tiene
   // algo que ver con lo que se pidió.
   sanitizeWords,
+  referenciasLiterales,
   isConfigured,
   searchProducts,
   buscarEnCatalogo,

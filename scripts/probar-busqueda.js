@@ -56,6 +56,8 @@ const CATALOGO = [
   'BOLIGRAFO BIC Cristal Azul',
   'CALCULADORA CASIO MS-20UC Azul',
   'TONER BROTHER TN-248 Negro Original',
+  // El tóner del caso real del 10/11/2026 (ver más abajo).
+  'TONER LASER Compatible Brother TN-243/247 (Negro)',
 ];
 
 const norm = (s) =>
@@ -144,6 +146,60 @@ const CASOS = [
     console.log(
       `       salió: ${productos.length ? productos.map((p) => p.nombre).join(' · ').slice(0, 150) : '*** NADA ***'}`
     );
+  }
+
+  // LA REFERENCIA QUE YA VENÍA BIEN ESCRITA (11/11/2026).
+  //
+  // Aquí no se mira qué sale, sino QUÉ SE LE PIDE A LA WEB, que es lo que de
+  // verdad estaba roto y no se ve en los resultados de una simulación.
+  //
+  // El catálogo escribe las referencias con guion, y el bot se esmeraba en
+  // ponérselo cuando el cliente la escribía pegada ("tn248" -> "tn-248"). Pero
+  // al revés no: una referencia que llega BIEN la parte `sanitizeWords` al
+  // quitar los signos ("TN-247" -> "tn" + "247") y ya no se vuelve a juntar. O
+  // sea que escribirla mal buscaba mejor que escribirla bien.
+  //
+  // El caso real: un cliente mandó la foto de la etiqueta de su tóner y
+  // después una captura de NUESTRA PROPIA FICHA WEB con el producto y el
+  // precio. Las dos veces se le dijo que no se le podía confirmar si lo
+  // teníamos. Con un texto largo (una foto lo es) la búsqueda se hace con
+  // PARES de palabras —"toner laser", "compatible brother"—, que devuelven
+  // tóneres cualesquiera: por eso además el bot llegó a decir "tenemos ese
+  // modelo en stock" (eso lo vigila probar-confirmaciones.js).
+  console.log('\n=== La referencia se le pide a la web tal como vino\n');
+
+  const ETIQUETA_DE_LA_FOTO =
+    'Cod.101012010, TONER LASER Compatible, Brother TN-243/247 (Negro), ' +
+    'TN-247BK Compatible, 04090-91439-27102025';
+
+  const PIDE_LA_REFERENCIA = [
+    ['TN-247 brother negro', ['tn-247']],
+    ['toner brother TN-243/247', ['tn-243/247']],
+    [ETIQUETA_DE_LA_FOTO, ['tn-243/247', 'tn-247bk']],
+    // Y lo de siempre sigue igual: pegada se le pone el guion (ahí el guion se
+    // le pone a la frase entera, que es como se venía haciendo).
+    ['toner TN248', ['toner tn-248']],
+  ];
+
+  for (const [consulta, esperados] of PIDE_LA_REFERENCIA) {
+    pedidas = [];
+    await wc.buscarEnCatalogo(consulta, 6);
+    const faltan = esperados.filter((e) => !pedidas.includes(e));
+    if (faltan.length) fallos++;
+    console.log(`${faltan.length ? 'MAL ' : 'OK  '} ${consulta.slice(0, 54)}`);
+    console.log(`       pidió: ${pedidas.map((t) => `"${t}"`).join(' ') || '(nada)'}`);
+    if (faltan.length) console.log(`       NO pidió: ${faltan.join(' ')}`);
+  }
+
+  // Y una consulta normal de papelería no gasta ninguna consulta en esto.
+  pedidas = [];
+  await wc.buscarEnCatalogo('papeleras de rejilla', 6);
+  const inventadas = pedidas.filter((t) => /^[a-z]{1,5}-\d/.test(t));
+  if (inventadas.length) {
+    fallos++;
+    console.log(`MAL  papeleras de rejilla -> se inventó referencias: ${inventadas.join(' ')}`);
+  } else {
+    console.log('OK   una consulta sin referencia no cambia');
   }
 
   console.log(
