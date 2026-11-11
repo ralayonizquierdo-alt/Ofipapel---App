@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-11-05-1"></script>
+<script src="control-pedidos-logica.js?v=2026-11-10-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -283,6 +283,7 @@ table.lista-pedidos .c-movil{display:none}
 <dialog id="dlgEnvio" class="dlg"></dialog>
 <dialog id="dlgAvisos" class="dlg"></dialog>
 <dialog id="dlgPlantilla" class="dlg"></dialog>
+<dialog id="dlgDeMas" class="dlg"></dialog>
 <div id="login" class="oculto">
   <form onsubmit="event.preventDefault(); entrarConUsuario()">
     <h2>Control de Pedidos</h2>
@@ -347,12 +348,49 @@ let soloDiscordancias = true;
 /** Discordancias marcadas para decidir en bloque (solo en memoria, como `seleccionados`). */
 const marcadasDec = new Set();
 
+function estadoVacio() { return { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} }; }
 function cargar() {
-  const base = { pedidos: [], restos: [], notas: [], catalogos: {}, historial: {} };
   try {
     const raw = localStorage.getItem(CLAVE);
-    return raw ? Object.assign(base, JSON.parse(raw)) : base;
-  } catch { return base; }
+    return raw ? Object.assign(estadoVacio(), JSON.parse(raw)) : estadoVacio();
+  } catch { return estadoVacio(); }
+}
+// ── Copia local en IndexedDB (11/11/2026) ───────────────────────────────────
+// localStorage tiene ~5 MB por sitio y lo comparten Finanzas (~3 MB) y esta
+// app (~1,5 MB): se llenaba y salía «exceeded the quota» en cada guardado.
+// IndexedDB tiene mucho más sitio. Se carga al arrancar ANTES de sincronizar
+// (con E vacío, la sincronización creería que se ha borrado todo) y, una vez
+// copiada, se quita la de localStorage para dejarle sitio a Finanzas.
+const IDB = { db: null, avisado: false };
+function idbAbrir() {
+  return new Promise((ok, ko) => {
+    if (!window.indexedDB) return ko(new Error('sin IndexedDB'));
+    const r = indexedDB.open('ofipapel-control-pedidos', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => ko(r.error);
+  });
+}
+function idbPedir(modo, fn) {
+  return new Promise((ok, ko) => {
+    const tx = IDB.db.transaction('kv', modo);
+    const req = fn(tx.objectStore('kv'));
+    tx.oncomplete = () => ok(req.result);
+    tx.onerror = tx.onabort = () => ko(tx.error || new Error('IndexedDB'));
+  });
+}
+async function cargarCopiaLocal() {
+  try {
+    IDB.db = await idbAbrir();
+    const raw = await idbPedir('readonly', (st) => st.get(CLAVE));
+    let viejo = null;
+    try { viejo = localStorage.getItem(CLAVE); } catch { /* sin localStorage */ }
+    if (raw) E = Object.assign(estadoVacio(), JSON.parse(raw));
+    else if (viejo) await idbPedir('readwrite', (st) => st.put(viejo, CLAVE));
+    if (viejo) try { localStorage.removeItem(CLAVE); } catch { /* da igual */ }
+  } catch (e) {
+    IDB.db = null; // se sigue con localStorage, como antes
+  }
 }
 function guardar() {
   guardarLocal();
@@ -360,8 +398,16 @@ function guardar() {
   programarSubida();
 }
 function guardarLocal() {
-  try { localStorage.setItem(CLAVE, JSON.stringify(E)); }
-  catch (e) { alert('No se han podido guardar los cambios en este navegador (' + e.message + '). Descarga una copia en «Datos».'); }
+  const txt = JSON.stringify(E);
+  if (IDB.db) { idbPedir('readwrite', (st) => st.put(txt, CLAVE)).catch(avisarSinCopiaLocal); return; }
+  try { localStorage.setItem(CLAVE, txt); } catch (e) { avisarSinCopiaLocal(e); }
+}
+/** Sin sitio para la copia local: se avisa UNA vez (no en cada guardado). Con
+ *  sesión abierta lo hecho sigue subiendo a la nube. */
+function avisarSinCopiaLocal(e) {
+  if (IDB.avisado) return;
+  IDB.avisado = true;
+  alert('Este navegador no deja guardar la copia local (' + ((e && e.message) || e) + ').' + (nube.usuario ? ' Lo que hagas se sigue subiendo a la nube: no cierres la página sin conexión.' : ' Descarga una copia en «Datos».'));
 }
 
 const h = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -534,7 +580,7 @@ function filaMovil(p, e) {
   const datos = [fmtFecha(p.fecha).slice(0, 5), p.lineas.length + ' lín.', esRepo(p) ? '' : r.fotos ? '📷 ' + r.fotos + (r.total ? '/' + r.total : '') : ''].filter(Boolean).join(' · ');
   return `<div class="m-tit">${esRepo(p) ? h(p.proveedor) + (p.numero ? ' · nº ' + h(p.numero) : '') : `nº ${h(nPed(p.numero))} · ${h(p.cliente)}`}</div>
     <div class="m-dat">${h(datos)}${r.faltan.length ? ` <span class="chip mal">falta hoja ${r.faltan.join(', ')}</span>` : ''}${r.hayRepetida ? ` <span class="chip mal">foto repetida</span>` : ''}</div>
-    <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</div>`;
+    <div class="m-est"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${chipVisto(p)}</div>`;
 }
 function celdaFotos(p) {
   const r = hojasDe(p);
@@ -886,7 +932,7 @@ function vistaGrupo(g, i) {
         <td class="num c-d">${p.lineas.length}</td>
         <td class="c-d">${esRepo(p) ? '—' : celdaFotos(p)}</td>
         <td class="c-d">${p.propuesta ? `<span class="chip ok">Sí</span>` : `<span class="chip gris">No</span>`}</td>
-        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}</td>
+        <td class="c-d"><span class="chip ${e.chip}">${h(e.texto)}</span>${chipsFaltasSobras(p)}${chipFactura(p)}${chipVisto(p)}</td>
         <td class="c-movil">${filaMovil(p, e)}</td>
         <td class="no-imprimir c-borrar">${esRepo(p) ? `<button class="btn peque" title="Archivar este pedido (queda abajo, en Archivados)" onclick="event.stopPropagation(); archivarPedido('${p.id}', true)">📦</button> ` : ''}<button class="btn peque peligro" title="Borrar este pedido" onclick="event.stopPropagation(); borrarPedido('${p.id}')">🗑️</button></td>
       </tr>`; }).join('')}
@@ -1012,7 +1058,62 @@ function facturaCodificada(p, f) {
 // El relleno del body se repite en cada hoja (box-decoration-break: clone): si
 // el @page se ignora, sin él las filas del final de cada hoja salían cortadas.
 const CSS_HOJA = '@page{size:A4;margin:12mm 10mm 16mm 10mm}html{margin:0}body{margin:0;padding:8mm 12mm 12mm 8mm;box-sizing:border-box;box-decoration-break:clone;-webkit-box-decoration-break:clone}';
+/**
+ * Antes de imprimir una guía (11/11/2026, propietario): lo que el proveedor ha
+ * facturado DE MÁS de una referencia que el cliente sí pidió se pregunta línea a
+ * línea —nunca se añade solo—. Lo marcado se suma a lo validado del cliente (a
+ * su precio de cliente) y sale en su guía; lo no marcado queda apuntado
+ * (`p.deMas`) para no volver a preguntarlo mientras la factura no cambie.
+ * Lo que el cliente no pidió no se ofrece: eso se decide dentro del pedido.
+ */
+function preguntarDeMas(clave, soloFactura) {
+  const fraDe = (l, p) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo);
+  let ps = E.pedidos.filter((p) => claveGrupo(p) === clave && p.validado && p.final && p.factura);
+  if (soloFactura) ps = ps.filter((p) => (p.factura.lineas || []).some((l) => fraDe(l, p) === soloFactura));
+  const cuadre = cuadreCampana(ps);
+  const casos = [];
+  for (const d of cuadre.difs) {
+    if (!(d.aCliente > 0)) continue;
+    const p = ps.find((x) => x.numero === d.numero && x.cliente === d.cliente);
+    if (!p) continue;
+    const k = CP.claveRef(d.ref);
+    const ya = (p.deMas || {})[k];
+    if (ya && ya.facturado === d.facturado) continue;
+    const l = p.final.lineas.find((x) => CP.claveRef(x.ref) === k);
+    if (!l) continue;
+    casos.push({ p, k, d, l, extra: CP.red2(d.facturado - d.aCliente) });
+  }
+  if (!casos.length) return Promise.resolve(true);
+  const dlg = document.getElementById('dlgDeMas');
+  const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0;
+  dlg.innerHTML = `<form method="dialog"><h2>Facturado de más</h2>
+    <p class="pequeno">El proveedor factura más de lo que se le valida al cliente. Marca lo que quieres sumarle al cliente.</p>
+    <div class="tabla-scroll"><table><tr><th></th><th>Pedido</th><th>Referencia</th><th class="num">Facturadas</th><th class="num">Al cliente</th><th class="num">Sumarle</th><th class="num">Precio cliente</th></tr>
+    ${casos.map((c, i) => `<tr><td><input type="checkbox" class="deMasSel" value="${i}" checked></td><td>nº ${h(nPed(c.p.numero))} ${h(c.p.cliente)}</td><td>${h(c.d.ref)} <span class="pequeno">${h(c.l.desc || '')}</span></td><td class="num">${c.d.facturado}</td><td class="num">${c.d.aCliente}</td><td class="num"><b>+${c.extra}</b></td><td class="num">${fmt(pc(c.l))}</td></tr>`).join('')}
+    </table></div>
+    <div class="fila" style="margin-top:12px"><button class="btn primario" value="ok">Seguir e imprimir</button><button class="btn" value="">Cancelar</button></div></form>`;
+  return new Promise((ok) => {
+    dlg.onclose = () => {
+      if (dlg.returnValue !== 'ok') { ok(false); return; }
+      const marcados = new Set([...dlg.querySelectorAll('.deMasSel:checked')].map((c) => Number(c.value)));
+      const ahora = new Date().toISOString();
+      casos.forEach((c, i) => {
+        const si = marcados.has(i);
+        if (si) c.l.cant = CP.red2(c.l.cant + c.extra);
+        c.p.deMas = Object.assign({}, c.p.deMas, { [c.k]: { facturado: c.d.facturado, sumado: si ? c.extra : 0, fecha: ahora, por: nube.usuario || '' } });
+      });
+      guardar();
+      ok(true);
+    };
+    dlg.returnValue = '';
+    dlg.showModal();
+  });
+}
 function imprimirGuiaFacturacion(clave, opciones) {
+  if (!(opciones && opciones.deMasRevisado)) {
+    preguntarDeMas(clave, opciones && opciones.soloFactura).then((seguir) => { if (seguir) imprimirGuiaFacturacion(clave, Object.assign({}, opciones, { deMasRevisado: true })); });
+    return;
+  }
   // Con `soloFactura`, la guía de esa factura del proveedor: a cada cliente solo
   // lo que le llega en ella (lo validado, a su precio, hasta lo que trae la factura).
   const soloFactura = opciones && opciones.soloFactura;
@@ -1480,8 +1581,29 @@ function quitarFoto(nombre) {
 const CLAVE_AVISOS = 'ofipapel-control-pedidos-avisos';
 let avisos = (() => { try { return JSON.parse(localStorage.getItem(CLAVE_AVISOS)) || []; } catch { return []; } })();
 function guardarAvisos() { try { localStorage.setItem(CLAVE_AVISOS, JSON.stringify(avisos)); } catch { /* solo en memoria */ } }
+// Visto se apunta también en el propio pedido (p.vistos {usuario: fecha}):
+// así se quita en los demás aparatos de esa persona y quien lo subió ve
+// «👁️ Visto por …».
+function yaVisto(p) { return !!(p && nube.usuario && p.vistos && p.vistos[nube.usuario]); }
+function marcarVisto(ids) {
+  if (!nube.usuario) return;
+  let cambio = false;
+  for (const id of ids) {
+    const p = pedidoPorId(id);
+    if (!p || yaVisto(p)) continue;
+    p.vistos = Object.assign({}, p.vistos, { [nube.usuario]: new Date().toISOString() });
+    cambio = true;
+  }
+  if (cambio) guardar();
+}
+function chipVisto(p) {
+  const otros = Object.entries(p.vistos || {}).filter(([u]) => u !== nube.usuario);
+  if (!otros.length) return '';
+  const nombre = (u) => u.charAt(0).toUpperCase() + u.slice(1);
+  return ` <span class="chip ok" title="${h(otros.map(([u, f]) => nombre(u) + ' · ' + fmtFecha(String(f).slice(0, 10))).join('\n'))}">👁️ Visto por ${h(otros.map(([u]) => nombre(u)).join(', '))}</span>`;
+}
 function avisosVivos() {
-  const vivos = avisos.filter((a) => pedidoPorId(a.id));
+  const vivos = avisos.filter((a) => { const p = pedidoPorId(a.id); return p && !yaVisto(p); });
   if (vivos.length !== avisos.length) { avisos = vivos; guardarAvisos(); }
   return avisos;
 }
@@ -1498,7 +1620,7 @@ function pintarCampana() {
 function quitarAviso(id) {
   const antes = avisos.length;
   avisos = avisos.filter((a) => a.id !== id);
-  if (avisos.length !== antes) { guardarAvisos(); pintarCampana(); }
+  if (avisos.length !== antes) { marcarVisto([id]); guardarAvisos(); pintarCampana(); }
 }
 function abrirAvisos() {
   const lista = avisosVivos();
@@ -1523,7 +1645,7 @@ function abrirAvisos() {
       </div>`).join('')}`).join('')
     : '<div class="vacio">No hay pedidos nuevos.</div>'}
     <div class="fila" style="margin-top:14px">
-      ${lista.length ? `<button class="btn" onclick="avisos = []; guardarAvisos(); pintarCampana(); document.getElementById('dlgAvisos').close()">✓ Marcar todo como visto</button>` : ''}
+      ${lista.length ? `<button class="btn" onclick="marcarVisto(avisos.map((a) => a.id)); avisos = []; guardarAvisos(); pintarCampana(); document.getElementById('dlgAvisos').close()">✓ Marcar todo como visto</button>` : ''}
       <button class="btn peque" onclick="document.getElementById('dlgAvisos').close()">Cerrar</button>
     </div>`;
   dlg.showModal();
@@ -4283,7 +4405,7 @@ async function sincronizar() {
         for (const f of filas) {
           if (f.coleccion !== 'pedidos' || f.borrado || teniamos.has(f.id) || !f.autor || f.autor === nube.usuario) continue;
           const p = E.pedidos.find((x) => String(x.id) === f.id);
-          if (!p || avisos.some((a) => a.id === p.id) || (esComercial() && esRepo(p))) continue;
+          if (!p || yaVisto(p) || avisos.some((a) => a.id === p.id) || (esComercial() && esRepo(p))) continue;
           avisos.push({ id: p.id, autor: f.autor, cuando: f.actualizado });
         }
         guardarAvisos();
@@ -4390,6 +4512,7 @@ function irAWebBuenaSiSePuede() {
   location.replace(WEB_BUENA);
 }
 async function arrancar() {
+  await cargarCopiaLocal();
   if (!EN_NETLIFY) {
     document.getElementById('avisoWeb').innerHTML = `<div class="aviso-caja aviso" style="margin:0"><b>Esta es una copia de la app que no puede leer fotos ni PDF.</b> Usa la de siempre: tus datos ya están en la nube y salen igual.
       <div class="fila" style="margin-top:8px"><a class="btn primario" href="${WEB_BUENA}">Abrir en ofipapel.netlify.app</a></div></div>`;

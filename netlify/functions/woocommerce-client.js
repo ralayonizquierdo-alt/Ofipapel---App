@@ -135,7 +135,7 @@ const STOPWORDS_BUSQUEDA = new Set([
   'teneis', 'teneís', 'tenéis', 'hay', 'hola', 'buenas', 'gracias', 'favor',
   'sobre', 'quiero', 'necesito', 'puedo', 'podeis', 'podéis', 'vosotros',
   'ustedes', 'sido', 'el', 'la', 'lo', 'un', 'y', 'o', 'de', 'en', 'al', 'se',
-  'me', 'mi', 'tu', 'su', 'vendeis', 'vendéis', 'venden',
+  'me', 'mi', 'tu', 'su', 'vendeis', 'vendéis', 'venden', 'tenes', 'tenés',
   // Lo que se cuela cuando el cliente EXPLICA lo que va a hacer (6/11/2026,
   // el del cartón pluma y el spray de pegamento): sin esto, «vuestro carton»
   // o «sea bueno» competían como términos de búsqueda con «carton pluma».
@@ -148,6 +148,21 @@ const STOPWORDS_BUSQUEDA = new Set([
   // "cartucho hp NÚMERO 305" — aquí "número" solo introduce la referencia, no
   // describe el producto, y de paso ensucia la búsqueda.
   'numero', 'número',
+  // «Estoy buscando papel o cartulina de lino. Ustedes disponen de este
+  // ARTÍCULO» (9/11/2026): «estoy» y «articulo» entraban en la búsqueda y, lo
+  // que se ve, en el ENLACE que se le manda al cliente —
+  // «?s=estoy+papel+cartulina+lino+articulo»—, que al pulsarlo no devuelve
+  // nada. Ninguna de las dos describe un producto.
+  'estoy', 'estamos', 'estaba', 'estabamos', 'estábamos',
+  'articulo', 'artículo', 'articulos', 'artículos',
+  'cosa', 'cosas', 'algo', 'esos', 'esas', 'mismo', 'misma',
+  'dias', 'días', 'tardes', 'noches', 'buenos',
+  // Preguntar el precio no describe el artículo. «¿Cuánto vale el papel A4?»
+  // acababa en «?s=cuanto+vale+papel+a4», que es un enlace peor que el de
+  // «?s=papel+a4». Se deja fuera «vales» (el talonario sí es un producto).
+  'cuanto', 'cuánto', 'cuanta', 'cuantos', 'cuantas', 'vale', 'valen',
+  'cuesta', 'cuestan', 'precio', 'precios', 'saber', 'casualidad',
+  'existe', 'existen',
   // "¿Sabes la REFERENCIA para PEDIR folios de Dina 4?" — ninguna de las dos
   // describe el artículo, y WordPress exige que estén TODAS las palabras, así
   // que entre las dos dejaban la búsqueda a cero (visto en real el 16/10/2026).
@@ -1159,6 +1174,10 @@ function isSpamOrder(order) {
 }
 
 module.exports = {
+  // Las palabras con contenido de un mensaje (sin muletillas ni acentos). La
+  // usa whatsapp-respuesta-catalogo.js para comprobar que un resultado tiene
+  // algo que ver con lo que se pidió.
+  sanitizeWords,
   isConfigured,
   searchProducts,
   buscarEnCatalogo,
