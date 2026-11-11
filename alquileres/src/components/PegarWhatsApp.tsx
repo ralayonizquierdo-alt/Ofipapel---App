@@ -151,6 +151,19 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
   const reservaDelCobro = useMemo((): Reservation | null => {
     if (!cobro?.apartmentId) return null
     const candidatas = reservations.filter(r => r.apartmentId === cobro.apartmentId && r.status !== 'cancelada')
+    // Airbnb paga al día siguiente de la entrada (o cada mes en una estancia
+    // larga): la estancia que ya ha empezado, o empezó hace 3 días como mucho.
+    // Si una tiene justo ese neto, esa; si no, la que entró más tarde.
+    if (cobro.deAirbnb && cobro.paymentDate) {
+      const pago = cobro.paymentDate
+      const tresAntes = new Date(`${pago}T12:00:00`)
+      tresAntes.setDate(tresAntes.getDate() - 3)
+      const limite = tresAntes.toISOString().slice(0, 10)
+      const posibles = candidatas
+        .filter(r => r.checkIn <= pago && (r.checkOut >= pago || r.checkIn >= limite))
+        .sort((a, b) => b.checkIn.localeCompare(a.checkIn))
+      return posibles.find(r => Math.abs(r.total - cobro.amount) < 0.02) ?? posibles[0] ?? null
+    }
     if (cobro.periodoIni && cobro.periodoFin) {
       const dentro = candidatas.filter(r => r.checkIn < cobro.periodoFin! && cobro.periodoIni! < r.checkOut)
       if (dentro.length) return dentro.sort((a, b) => a.checkIn.localeCompare(b.checkIn))[0]
@@ -574,10 +587,20 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                     Se anotará en la reserva del{' '}
                     <b>{formatDate(reservaDelCobro.checkIn)}</b> al{' '}
                     <b>{formatDate(reservaDelCobro.checkOut)}</b>.
+                    {/* El neto de SOC es lo que tiene que llegar: si no
+                        coincide, se dice, pero el cobro se anota igual. */}
+                    {cobro.deAirbnb && reservaDelCobro.total > 0
+                      && Math.abs(reservaDelCobro.total - cobro.amount) >= 0.02 && (
+                      <span className="block mt-1 text-amber-800">
+                        Ojo: el neto de esa estancia es {eur(reservaDelCobro.total)}, no {eur(cobro.amount)}.
+                      </span>
+                    )}
                   </p>
                 ) : (
                   <p className="text-sm text-amber-800">
-                    {cobro.problema || 'No hay ninguna reserva de esas fechas: créala primero y vuelve a pegar el justificante.'}
+                    {cobro.problema || (cobro.deAirbnb
+                      ? 'No hay ninguna estancia del Arenal que haya empezado en los 3 días antes del pago: créala primero y vuelve a pegar el justificante.'
+                      : 'No hay ninguna reserva de esas fechas: créala primero y vuelve a pegar el justificante.')}
                   </p>
                 )}
               </div>

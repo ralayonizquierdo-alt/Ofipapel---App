@@ -570,12 +570,19 @@ export interface CobroPegado {
   /** El concepto tal cual, para poder enseñarlo. */
   concepto: string
   problema: string
+  /**
+   * Lo paga Airbnb (AIRBNB PAYMENTS LUXEMBOURG S.A.): es del Arenal (AP-2-B)
+   * y el concepto no dice el inmueble ni el periodo. Airbnb paga al día
+   * siguiente de la entrada, así que la estancia se busca por esa fecha.
+   */
+  deAirbnb?: boolean
 }
 
 /** «Importe 1.435,00 €» → 1435. En castellano el punto son miles y la coma decimales. */
 function importeDe(texto: string): number | null {
-  const m = texto.match(/importe(?:\s+a\s+adeudar)?\s*:?\s*([\d.,]+)/i)
-             || texto.match(/([\d]{1,3}(?:\.\d{3})*,\d{2})\s*€/)
+  // «Importe total 553,38 EUR»: el detalle de movimiento del BBVA.
+  const m = texto.match(/importe(?:\s+a\s+adeudar|\s+total|\s+neto)?\s*:?\s*([\d.,]+)/i)
+             || texto.match(/([\d]{1,3}(?:\.\d{3})*,\d{2})\s*(?:€|EUR\b)/)
              || texto.match(/([\d.,]+)\s*€/)
   if (!m) return null
   const n = Number(m[1].replace(/\./g, '').replace(',', '.'))
@@ -584,6 +591,15 @@ function importeDe(texto: string): number | null {
 
 /** «Fecha 18 ago 2026» o «18/08/2026». */
 function fechaPagoDe(texto: string): string | null {
+  // El detalle de movimiento del BBVA: «Fecha valor 09/11/2026» (o «Fecha
+  // contable»). Va primero porque trae también la fecha de consulta, que no es
+  // la del cobro.
+  const v = texto.match(/fecha\s+(?:valor|contable)\s*:?\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/i)
+  if (v) {
+    const a = Number(v[3]) < 100 ? 2000 + Number(v[3]) : Number(v[3])
+    const d = construye(Number(v[1]), Number(v[2]), a)
+    if (d) return iso(d)
+  }
   const m = texto.match(/(\d{1,2})\s+([a-záéíóú]{3,10})\.?\s+(\d{4})/i)
   if (m) {
     const mes = MESES_CORTOS.indexOf(m[2].slice(0, 3).toLowerCase())
@@ -612,6 +628,21 @@ export function analizaCobro(texto: string): CobroPegado | null {
 
   const amount = importeDe(plano)
   if (!amount) return null
+
+  // Transferencia de Airbnb: siempre del Arenal (Luis, 11/11/2026).
+  if (/airbnb\s+payments/i.test(plano)) {
+    const liq = plano.match(/observaciones\s*:?\s*(liq\.?\s*op\.?\s*n\.?\s*\d+)/i)
+    return {
+      apartmentId: 'AP2B',
+      amount,
+      paymentDate: fechaPagoDe(plano),
+      periodoIni: null,
+      periodoFin: null,
+      concepto: `Airbnb Payments Luxembourg${liq ? ` · ${liq[1]}` : ''}`,
+      problema: '',
+      deAirbnb: true,
+    }
+  }
 
   const conceptoM = plano.match(/concepto\s*:?\s*(.{0,80}?)(?:\s+periodicidad|\s+fecha\b|$)/i)
   const concepto = (conceptoM ? conceptoM[1] : plano).trim()

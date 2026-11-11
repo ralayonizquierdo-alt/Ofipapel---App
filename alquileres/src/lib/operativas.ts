@@ -244,6 +244,14 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
     que: 'Pegar desde WhatsApp',
     nota: '**Nada se guarda sin enseñarlo antes.** Entiende avisos de reserva, anulaciones y justificantes de cobro.',
   },
+  {
+    // lib/pegarReservas.ts — analizaCobro (deAirbnb); components/PegarWhatsApp.tsx — reservaDelCobro
+    que: 'Cobro de Airbnb (Arenal 2B)',
+    formula: 'AIRBNB PAYMENTS LUXEMBOURG S.A. → transferencia del Arenal 2B',
+    nota: 'Se pega o se suelta el **detalle del movimiento del BBVA**. Va a la estancia que **empezó como mucho 3 días '
+      + 'antes del pago** (Airbnb paga al día siguiente de la entrada). Si el importe **no es el neto** de esa '
+      + 'estancia, **se avisa**.',
+  },
   ENTRADA_RAPIDA,
   {
     // components/ImportarReservas.tsx
