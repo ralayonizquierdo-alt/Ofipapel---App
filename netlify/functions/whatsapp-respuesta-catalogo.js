@@ -119,6 +119,73 @@ function palabrasDeLaConsulta(consulta) {
   }
 }
 
+// TENER RESULTADOS NO ES TENER EL RESULTADO.
+//
+// Visto en real el 10/11/2026, y es el fallo que más caro sale de todos los de
+// esta semana porque el bot se contradice a sí mismo delante del cliente:
+//
+//   cliente: [foto de la etiqueta de su tóner, leída perfecta: TN-243/247]
+//   bot:     «veo que buscas tóner láser compatible Brother TN-247.
+//             TENEMOS ESE MODELO EN STOCK.»
+//   cliente: «Láser»
+//   bot:     «No me aparece en nuestro catálogo, así que no te lo puedo
+//             confirmar yo.»
+//
+// Las redes que vigilan esto (`isUnverifiedStockClaim`, `isUnverifiedConfirmation`)
+// solo miran si el catálogo devolvió ALGO —«!productContext»—. Y devolvió algo:
+// otros tóneres, porque la referencia buena no se llegaba a buscar (ver
+// `referenciasLiterales` en woocommerce-client.js). Con esos delante, la IA
+// afirmó tener «ese modelo», que no estaba en la lista.
+//
+// Es el mismo razonamiento que ya se aplicó aquí arriba con `cuantoCuadra`,
+// visto desde la referencia: si el cliente nombra una referencia concreta y
+// NINGUNA de las que nombra aparece en lo que devolvió la web, no hay nada que
+// respalde un «sí, lo tenemos».
+//
+// Solo opina cuando hay una referencia de verdad —tres dígitos seguidos, con
+// letras pegadas o con separador: TN-247, 305XL, TN248—. Un «a4», un «80gr» o
+// un «c5» no bastan: son medidas, salen en media papelería y harían saltar la
+// red con respuestas correctas. Y basta con que coincida UNA: la etiqueta de la
+// foto traía también «Cod.101012010», que es nuestro código interno y no sale
+// en ningún nombre de la web.
+const REF_FUERTE = /\b(?:[a-z]{1,5}[-/]?\d{3,6}(?:[-/]\d{1,5})*[a-z]{0,3}|\d{3,6}[a-z]{1,3})\b/g;
+
+const aplanar = (t) => String(t || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9]/g, '');
+
+function referenciasFuertes(consulta) {
+  const texto = String(consulta || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+  const fuera = [];
+  for (const bruto of texto.match(REF_FUERTE) || []) {
+    fuera.push(bruto);
+    // «TN-243/247» y «TN-247BK» son la misma referencia escrita de dos formas:
+    // vale que el catálogo tenga cualquiera de las dos.
+    const m = /^([a-z]{1,5})[-/]?([\d/-]*\d)([a-z]{0,3})$/.exec(bruto);
+    if (!m) continue;
+    const partes = m[2].split(/[-/]/).filter(Boolean);
+    if (partes.length > 1 || m[3]) for (const n of partes) fuera.push(`${m[1]}${n}`);
+  }
+  return [...new Set(fuera.map(aplanar))].filter(Boolean);
+}
+
+// true = el cliente pide una referencia concreta y no hay ni rastro de ella en
+// lo que devolvió la web. Quien llama NO manda entonces una confirmación ni un
+// «en stock» de la IA. false = o no nombra ninguna referencia (esta red no
+// opina), o alguna está respaldada.
+function referenciaSinRespaldo(consulta, datos) {
+  const refs = referenciasFuertes(consulta);
+  if (refs.length === 0) return false;
+  const texto = aplanar(datos);
+  if (!texto) return true;
+  return !refs.some((r) => texto.includes(r));
+}
+
 // Construye la respuesta a partir de lo que devolvió la web, o null si no hay
 // nada que decir (y entonces el webhook sigue por donde iba).
 //
@@ -269,6 +336,8 @@ function nadaEnElCatalogo(idioma = 'es', enlaceBusqueda = null) {
 
 module.exports = {
   respuestaDeCatalogo,
+  referenciaSinRespaldo,
+  referenciasFuertes,
   nadaEnElCatalogo,
   pareceUnaIncidencia,
   MAXIMO_EN_LISTA,

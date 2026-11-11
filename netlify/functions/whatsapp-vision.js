@@ -239,6 +239,54 @@ function juntarLecturas(lecturas) {
   };
 }
 
+// EL NÚMERO DE PEDIDO QUE VIENE DENTRO DE LA FOTO.
+//
+// Visto en real el 10/11/2026 (propietario): un cliente mandó la captura de su
+// pedido —«[Pedido #677260] (06/11/2026)»— preguntando por él, y se llevó
+// «he visto la foto, pero no te puedo confirmar desde aquí» y los botones de
+// hablar con una persona. La foto SÍ se había leído y el número estaba ahí
+// dentro, pero el estado del pedido solo se consultaba cuando el número venía
+// escrito en el mensaje.
+//
+// Es el mismo razonamiento que con las notas de voz: lo que sale de la foto son
+// PALABRAS, y a partir de ahí tiene que entrar por el camino de siempre. Si esas
+// palabras traen un número de pedido, se consulta el pedido igual que si lo
+// hubiera teclado.
+//
+// Conservador a propósito, porque equivocarse aquí es contarle a alguien el
+// estado de un pedido que no es el suyo (la verificación por teléfono está
+// después, en continuarBusquedaPedido, pero no se quiere llegar ahí con un
+// número al azar). Hacen falta DOS cosas: la palabra «pedido» y un número de 5 a
+// 8 cifras. Un código postal de un albarán, una fecha, un importe o un EAN de 13
+// cifras no cumplen las dos.
+const DICE_PEDIDO = /\bp[ea]?d[ie]dos?\b|\border\b/i;
+// «Pedido #677260», «pedido nº 677260», «order 677260»: el número pegado a la
+// palabra es el bueno, y es como lo escriben todas las confirmaciones.
+const PEDIDO_CON_NUMERO = /(?:p[ea]?d[ie]dos?|order)\s*(?:n[ºo°]\.?|num\.?|#)?\s*(\d{5,8})(?!\d)/i;
+// Y si no van pegados, el que lleve # o nº delante: en una captura de un pedido
+// no hay otra cosa marcada así.
+const NUMERO_MARCADO = /(?:#|n[ºo°]\.?\s?)\s?(\d{5,8})(?!\d)/;
+const CUALQUIER_NUMERO = /(?<![\d/\-.])\d{5,8}(?![\d/\-.])/g;
+
+function pedidoEnLaLectura(lectura) {
+  const texto = [lectura?.textoLeido, lectura?.seVe]
+    .map((t) => String(t || '').trim())
+    .filter(Boolean)
+    .join(' ');
+  if (!texto || !DICE_PEDIDO.test(texto)) return null;
+
+  const pegado = PEDIDO_CON_NUMERO.exec(texto);
+  if (pegado) return pegado[1];
+
+  const marcado = NUMERO_MARCADO.exec(texto);
+  if (marcado) return marcado[1];
+
+  // Último recurso: dice «pedido» y hay UN solo número que pueda serlo. Con dos
+  // o más no se adivina — se sigue por el camino de siempre.
+  const sueltos = texto.match(CUALQUIER_NUMERO) || [];
+  return sueltos.length === 1 ? sueltos[0] : null;
+}
+
 function ultimaFotoDelHistorial(history = []) {
   const recientes = history
     .filter((m) => m.role === 'user')
@@ -321,6 +369,7 @@ module.exports = {
   ultimaFotoDelHistorial,
   preguntaJustoAntesDeLaFoto,
   juntarLecturas,
+  pedidoEnLaLectura,
   VENTANA_PREGUNTA_ANTERIOR_MS,
   MARCA_FOTO,
   TIPOS_QUE_SE_LEEN,

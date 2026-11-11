@@ -20,6 +20,7 @@ const {
   preciosSinRespaldo,
 } = require('./whatsapp-agent-config');
 const { construirContextoCatalogo, unirContexto } = require('./whatsapp-catalogo');
+const { referenciaSinRespaldo } = require('./whatsapp-respuesta-catalogo');
 const { respuestaSinCatalogo } = require('./whatsapp-consumibles');
 const { textoParaBuscar, comoSeLeDiceALaIA, juntarLecturas } = require('./whatsapp-vision');
 const { sendEscalateButtons, escalateQuestion } = require('./whatsapp-escalado');
@@ -70,8 +71,16 @@ async function contestarAUnaFoto({ from, lecturas, pregunta = '', history = [], 
   // lo ve una persona (ver prometeUnCompromiso).
   if (prometeUnCompromiso(respuesta)) return null;
 
+  // SIN CATÁLOGO, O CON UN CATÁLOGO QUE NO HABLA DE LO QUE PIDE.
+  //
+  // Hasta el 11/11/2026 esto solo miraba si había productos («!productContext»),
+  // y por ahí se coló la peor respuesta de la semana: con la etiqueta de su
+  // tóner leída perfecta, el bot le dijo «TENEMOS ESE MODELO EN STOCK» con unos
+  // tóneres cualesquiera delante, y dos mensajes después «no me aparece en
+  // nuestro catálogo». Tener resultados no es tener el resultado — ver
+  // referenciaSinRespaldo.
   if (
-    !productContext &&
+    (!productContext || referenciaSinRespaldo(busqueda, datos)) &&
     (isUnverifiedConfirmation(respuesta) ||
       isUnverifiedStockClaim(respuesta) ||
       preciosSinRespaldo(respuesta, datos, fichaCliente, notas, busqueda).length > 0)

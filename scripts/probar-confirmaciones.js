@@ -25,6 +25,7 @@
 // sí está en los resultados, y las frases de todos los días.
 const path = require('path');
 const c = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-agent-config.js'));
+const { referenciaSinRespaldo } = require(path.join(__dirname, '..', 'netlify/functions/whatsapp-respuesta-catalogo.js'));
 
 let fallos = 0;
 const ok = (cond, etiqueta) => {
@@ -156,5 +157,59 @@ console.log('\n=== El mismo fallo de la tilde, en la foto («llegó»)');
 ok(c.pideLaFotoOtraVez('No me ha llegado la foto, ¿me la reenvías?'), 'no me ha llegado la foto');
 ok(c.pideLaFotoOtraVez('No me llegó la foto'), 'no me llegó la foto   ← con tilde, antes no saltaba');
 
+// ———————————————————————————————————————————————————————————————
+// «TENER CATÁLOGO NO ES TENER ESO», LA SEGUNDA PARTE (11/11/2026).
+//
+// Arriba está escrito desde el 2/11: la red de confirmaciones solo se mira
+// cuando la búsqueda vuelve VACÍA, y con resultados cualesquiera en la mano
+// cualquier confirmación se daba por buena. Eso siguió abierto, y el 10/11
+// salió de la peor manera — el bot contradiciéndose solo, en dos mensajes:
+//
+//   cliente: [foto de la etiqueta de su tóner, leída perfecta: TN-243/247]
+//   bot:     «veo que buscas tóner láser compatible Brother TN-247.
+//             TENEMOS ESE MODELO EN STOCK.»
+//   cliente: «Láser»
+//   bot:     «No me aparece en nuestro catálogo, así que no te lo puedo
+//             confirmar yo.»
+//
+// Con una foto la búsqueda se hace con PARES de palabras ("toner laser",
+// "compatible brother"), que devuelven tóneres cualesquiera. Había catálogo,
+// así que la red no miró nada, y la IA afirmó tener «ese modelo».
+//
+// La regla nueva es la de la referencia: si el cliente nombra una concreta y
+// ninguna aparece en lo que devolvió la web, no hay nada que respalde un «sí».
+console.log('\n=== Confirmar una referencia que no está en los resultados');
+
+const ETIQUETA = 'Cod.101012010, TONER LASER Compatible, Brother TN-243/247 (Negro), TN-247BK Compatible';
+const OTROS_TONERES = 'TONER HP 305XL Negro 24,95 EUR | TONER BROTHER TN-248 Negro | TONER CANON 737';
+const EL_SUYO = 'TONER LASER Compatible Brother TN-243/247 (Negro) 11,08 EUR';
+
+ok(
+  referenciaSinRespaldo(ETIQUETA, OTROS_TONERES),
+  'la etiqueta de la foto contra otros tóneres   ← el caso real del 10/11'
+);
+ok(
+  !referenciaSinRespaldo(ETIQUETA, EL_SUYO),
+  'NO salta: el tóner que pide SÍ está en los resultados'
+);
+ok(referenciaSinRespaldo('TN-247', ''), 'sin resultados, nada respalda una referencia');
+ok(
+  referenciaSinRespaldo('me mandas el cartucho 305XL?', 'CARTUCHO HP 304 NEGRO'),
+  'pide el 305XL y le enseñan el 304'
+);
+ok(
+  !referenciaSinRespaldo('me mandas el cartucho 305XL?', 'CARTUCHO HP 305XL NEGRO'),
+  'NO salta: el 305XL está'
+);
+
+// LO QUE NO PUEDE SALTAR. Esta red solo opina de referencias de verdad: si se
+// metiera con las medidas se llevaría por delante media papelería, porque un
+// «A-4» o un «80gr» no siempre salen escritos igual en el nombre.
+ok(!referenciaSinRespaldo('tenéis bolígrafos azules?', 'BOLIGRAFO BIC AZUL'), 'NO salta: sin referencia no opina');
+ok(!referenciaSinRespaldo('papel a4 80gr', 'PAPEL MULTIFUNCION BLANCO 500h'), 'NO salta: «a4» es una medida');
+ok(!referenciaSinRespaldo('sobres c5', 'SOBRE 162x229 BLANCO'), 'NO salta: «c5» es una medida');
+ok(!referenciaSinRespaldo('cuánto cuesta?', 'LO QUE SEA'), 'NO salta: una pregunta normal');
+
 console.log(fallos === 0 ? '\n✔ Sin fallos\n' : `\n✗ ${fallos} fallo(s)\n`);
+
 process.exit(fallos === 0 ? 0 : 1);
