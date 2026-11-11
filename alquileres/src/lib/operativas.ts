@@ -476,7 +476,9 @@ export const OPERATIVA_ASESORIA: ReglaOperativa[] = [
     // lib/compararGestor.ts
     que: 'Comparar con el gestor',
     formula: 'trimestre × inmueble: lo que dice su hoja contra lo cobrado aquí por mes contable',
-    nota: '**Solo enseña las diferencias y no guarda nada.** Se marcan las que pasan de un céntimo. '
+    nota: '**Solo enseña las diferencias: las cifras de la app no se tocan.** El fichero soltado **queda guardado** en '
+      + '«Ficheros guardados» (uno por clase y año: el nuevo sustituye al anterior), con **Comparar**, **Abrir** y '
+      + '**Quitar**. Se marcan las que pasan de un céntimo. '
       + '**El Arenal 2B no entra**: lo lleva SOC y va con su informe. **«JUAN XXIII» es el Piso 3.** Un trimestre '
       + 'que el gestor **aún no ha hecho** no se compara, y se avisa si **su TOTAL no suma** sus casillas.',
   },

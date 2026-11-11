@@ -1,10 +1,15 @@
 import { useState } from 'react'
-import { Upload, AlertTriangle, CheckCircle2, Printer } from 'lucide-react'
+import { Upload, AlertTriangle, CheckCircle2, Printer, FolderOpen, FileDown, Trash2, Scale } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import { leeHojaGestor, cuadraConGestor, type CuadreGestor } from '../lib/compararGestor'
 import { leeInformeAirbnb, cuadraInformeAirbnb, type CuadreAirbnb } from '../lib/importarAirbnb'
 import { num } from '../lib/formato'
 import { formatDate } from '../lib/dateUtils'
+import {
+  useDocumentosAsesoria, guardaDocumento, recuperaDocumento, quitaDocumento, NOMBRE_CLASE,
+  type DocumentoAsesoria,
+} from '../lib/documentosAsesoria'
+import { abreJustificante, tamanoLegible } from '../lib/justificantes'
 
 /**
  * Comparar lo que dicen fuera con lo que tenemos nosotros.
@@ -17,8 +22,10 @@ import { formatDate } from '../lib/dateUtils'
  *   · la hoja trimestral del gestor (ALQUILER MAURIZ AAAA…, en Excel), y
  *   · el informe anual de SOC del Arenal 2B (el HTML de Airbnb).
  *
- * **No guarda nada.** Ni crea reservas, ni apunta cobros, ni corrige importes:
- * enseña la diferencia y ya. Para meter los importes del Arenal sigue estando
+ * **No toca ninguna cifra.** Ni crea reservas, ni apunta cobros, ni corrige
+ * importes: enseña la diferencia y ya. Lo que sí guarda (desde el 11/11/2026)
+ * es el propio fichero, para volver a abrirlo o compararlo sin buscarlo: ver
+ * lib/documentosAsesoria.ts. Para meter los importes del Arenal sigue estando
  * el botón «Informe de Airbnb» de la pantalla de Reservas, que sí escribe y
  * pide confirmación. Aquí se viene a mirar, no a tocar.
  */
@@ -33,9 +40,16 @@ export default function CompararGestor() {
   const eur = (n: number) => `${num(n, 2)} €`
   const nombreApt = (id: string) => apartments.find(a => a.id === id)?.name ?? id
 
-  async function recibe(f?: File) {
+  const documentos = useDocumentosAsesoria()
+  const [aviso, setAviso] = useState('')
+
+  /**
+   * Lee el fichero y lo compara. Si viene de soltarlo (`guardar`), además se
+   * guarda para la próxima vez; si viene de la lista, ya estaba guardado.
+   */
+  async function recibe(f?: File, guardar = true) {
     if (!f) return
-    setError(''); setCuadre(null); setAirbnb(null); setFichero(f.name); setLeyendo(true)
+    setError(''); setAviso(''); setCuadre(null); setAirbnb(null); setFichero(f.name); setLeyendo(true)
     try {
       if (/\.html?$/i.test(f.name)) {
         const leido = leeInformeAirbnb(await f.text())
@@ -43,6 +57,8 @@ export default function CompararGestor() {
           setError('Ese HTML no trae ninguna estancia que se pueda leer.')
         } else {
           setAirbnb({ cuadre: cuadraInformeAirbnb(leido.estancias, 'AP2B', reservations, payments), anio: leido.anio })
+          const anio = leido.anio ?? Number(leido.estancias[0].checkOut.slice(0, 4))
+          if (guardar) await guarda(f, 'soc', anio)
         }
       } else {
         const hoja = await leeHojaGestor(f, apartments)
@@ -50,6 +66,7 @@ export default function CompararGestor() {
           setError('No he encontrado los trimestres («1T», «2T»…) en ese Excel. ¿Es la hoja del gestor?')
         } else {
           setCuadre(cuadraConGestor(hoja, reservations, payments))
+          if (guardar) await guarda(f, 'gestor', hoja.year)
         }
       }
     } catch (e) {
@@ -57,6 +74,25 @@ export default function CompararGestor() {
     } finally {
       setLeyendo(false)
     }
+  }
+
+  /** Guardar no puede estropear la comparación: si falla, se dice y ya. */
+  async function guarda(f: File, clase: 'gestor' | 'soc', anio: number) {
+    try {
+      const anterior = documentos.find(d => d.id === `${clase}-${anio}`)
+      await guardaDocumento(f, clase, anio, anterior)
+      setAviso(`Guardado en «Ficheros guardados»${anterior ? ` (sustituye a ${anterior.nombre})` : ''}.`)
+    } catch (e) {
+      setError(`Comparado, pero no se ha podido guardar el fichero: ${e instanceof Error ? e.message : 'error'}`)
+    }
+  }
+
+  async function comparaGuardado(d: DocumentoAsesoria) {
+    setLeyendo(true)
+    const f = await recuperaDocumento(d).catch(() => null)
+    setLeyendo(false)
+    if (!f) { setError(`«${d.nombre}» ya no está guardado.`); return }
+    await recibe(f, false)
   }
 
   return (
@@ -76,8 +112,9 @@ export default function CompararGestor() {
           <p className="text-sm text-slate-600 mb-2">
             Suelta aquí la hoja trimestral del gestor (Excel, «ALQUILER MAURIZ…») o el
             informe anual de SOC del Arenal (HTML). Se compara con lo que tiene la
-            aplicación y se señalan las diferencias. <b>No se guarda nada</b>. El Arenal 2B
-            no entra en la hoja del gestor: lo lleva SOC y va con su informe.
+            aplicación y se señalan las diferencias. <b>Las cifras de la app no se tocan</b>; el
+            fichero queda guardado abajo para volver a consultarlo. El Arenal 2B no entra en la
+            hoja del gestor: lo lleva SOC y va con su informe.
           </p>
           <label className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 w-fit">
             <Upload size={16} className="text-blue-600" />
@@ -86,7 +123,44 @@ export default function CompararGestor() {
               onChange={e => recibe(e.target.files?.[0])} />
           </label>
           {fichero && <p className="text-xs text-slate-400 mt-1.5">{fichero}</p>}
+          {aviso && <p className="text-xs text-green-700 mt-1">{aviso}</p>}
         </div>
+
+        {/* ── Los ficheros guardados: uno por clase y año ─────────────────── */}
+        {documentos.length > 0 && (
+          <div className="print:hidden border border-slate-200 rounded-lg overflow-hidden">
+            <p className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 text-sm font-semibold text-slate-700">
+              <FolderOpen size={15} className="text-slate-500" /> Ficheros guardados
+            </p>
+            <ul className="divide-y divide-slate-100">
+              {documentos.map(d => (
+                <li key={d.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-sm">
+                  <div className="flex-1 min-w-[12rem]">
+                    <p className="text-slate-800"><b>{NOMBRE_CLASE[d.clase]}</b> · {d.anio}</p>
+                    <p className="text-xs text-slate-500 break-all">
+                      {d.nombre} · {tamanoLegible(d.tamano)} · subido el {formatDate(d.subido.slice(0, 10))}{d.por ? ` por ${d.por}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button type="button" onClick={() => comparaGuardado(d)} disabled={leyendo}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                      <Scale size={13} /> Comparar
+                    </button>
+                    <button type="button" onClick={() => abreJustificante(d.fichero).catch(e => setError(e.message))}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
+                      <FileDown size={13} /> Abrir
+                    </button>
+                    <button type="button"
+                      onClick={() => { if (confirm(`¿Quitar «${d.nombre}» de los ficheros guardados?`)) quitaDocumento(d).catch(() => setError('No se ha podido quitar.')) }}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border border-red-200 text-red-700 hover:bg-red-50">
+                      <Trash2 size={13} /> Quitar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {error && (
           <p className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
