@@ -283,6 +283,7 @@ table.lista-pedidos .c-movil{display:none}
 <dialog id="dlgEnvio" class="dlg"></dialog>
 <dialog id="dlgAvisos" class="dlg"></dialog>
 <dialog id="dlgPlantilla" class="dlg"></dialog>
+<dialog id="dlgDeMas" class="dlg"></dialog>
 <div id="login" class="oculto">
   <form onsubmit="event.preventDefault(); entrarConUsuario()">
     <h2>Control de Pedidos</h2>
@@ -1057,7 +1058,62 @@ function facturaCodificada(p, f) {
 // El relleno del body se repite en cada hoja (box-decoration-break: clone): si
 // el @page se ignora, sin él las filas del final de cada hoja salían cortadas.
 const CSS_HOJA = '@page{size:A4;margin:12mm 10mm 16mm 10mm}html{margin:0}body{margin:0;padding:8mm 12mm 12mm 8mm;box-sizing:border-box;box-decoration-break:clone;-webkit-box-decoration-break:clone}';
+/**
+ * Antes de imprimir una guía (11/11/2026, propietario): lo que el proveedor ha
+ * facturado DE MÁS de una referencia que el cliente sí pidió se pregunta línea a
+ * línea —nunca se añade solo—. Lo marcado se suma a lo validado del cliente (a
+ * su precio de cliente) y sale en su guía; lo no marcado queda apuntado
+ * (`p.deMas`) para no volver a preguntarlo mientras la factura no cambie.
+ * Lo que el cliente no pidió no se ofrece: eso se decide dentro del pedido.
+ */
+function preguntarDeMas(clave, soloFactura) {
+  const fraDe = (l, p) => CP.facturaDeLinea(l, l.origen || (p.factura.cabecera || {}).numero || p.factura.archivo);
+  let ps = E.pedidos.filter((p) => claveGrupo(p) === clave && p.validado && p.final && p.factura);
+  if (soloFactura) ps = ps.filter((p) => (p.factura.lineas || []).some((l) => fraDe(l, p) === soloFactura));
+  const cuadre = cuadreCampana(ps);
+  const casos = [];
+  for (const d of cuadre.difs) {
+    if (!(d.aCliente > 0)) continue;
+    const p = ps.find((x) => x.numero === d.numero && x.cliente === d.cliente);
+    if (!p) continue;
+    const k = CP.claveRef(d.ref);
+    const ya = (p.deMas || {})[k];
+    if (ya && ya.facturado === d.facturado) continue;
+    const l = p.final.lineas.find((x) => CP.claveRef(x.ref) === k);
+    if (!l) continue;
+    casos.push({ p, k, d, l, extra: CP.red2(d.facturado - d.aCliente) });
+  }
+  if (!casos.length) return Promise.resolve(true);
+  const dlg = document.getElementById('dlgDeMas');
+  const pc = (l) => (l.precioCliente != null ? l.precioCliente : l.precio) || 0;
+  dlg.innerHTML = `<form method="dialog"><h2>Facturado de más</h2>
+    <p class="pequeno">El proveedor factura más de lo que se le valida al cliente. Marca lo que quieres sumarle al cliente.</p>
+    <div class="tabla-scroll"><table><tr><th></th><th>Pedido</th><th>Referencia</th><th class="num">Facturadas</th><th class="num">Al cliente</th><th class="num">Sumarle</th><th class="num">Precio cliente</th></tr>
+    ${casos.map((c, i) => `<tr><td><input type="checkbox" class="deMasSel" value="${i}" checked></td><td>nº ${h(nPed(c.p.numero))} ${h(c.p.cliente)}</td><td>${h(c.d.ref)} <span class="pequeno">${h(c.l.desc || '')}</span></td><td class="num">${c.d.facturado}</td><td class="num">${c.d.aCliente}</td><td class="num"><b>+${c.extra}</b></td><td class="num">${fmt(pc(c.l))}</td></tr>`).join('')}
+    </table></div>
+    <div class="fila" style="margin-top:12px"><button class="btn primario" value="ok">Seguir e imprimir</button><button class="btn" value="">Cancelar</button></div></form>`;
+  return new Promise((ok) => {
+    dlg.onclose = () => {
+      if (dlg.returnValue !== 'ok') { ok(false); return; }
+      const marcados = new Set([...dlg.querySelectorAll('.deMasSel:checked')].map((c) => Number(c.value)));
+      const ahora = new Date().toISOString();
+      casos.forEach((c, i) => {
+        const si = marcados.has(i);
+        if (si) c.l.cant = CP.red2(c.l.cant + c.extra);
+        c.p.deMas = Object.assign({}, c.p.deMas, { [c.k]: { facturado: c.d.facturado, sumado: si ? c.extra : 0, fecha: ahora, por: nube.usuario || '' } });
+      });
+      guardar();
+      ok(true);
+    };
+    dlg.returnValue = '';
+    dlg.showModal();
+  });
+}
 function imprimirGuiaFacturacion(clave, opciones) {
+  if (!(opciones && opciones.deMasRevisado)) {
+    preguntarDeMas(clave, opciones && opciones.soloFactura).then((seguir) => { if (seguir) imprimirGuiaFacturacion(clave, Object.assign({}, opciones, { deMasRevisado: true })); });
+    return;
+  }
   // Con `soloFactura`, la guía de esa factura del proveedor: a cada cliente solo
   // lo que le llega en ella (lo validado, a su precio, hasta lo que trae la factura).
   const soloFactura = opciones && opciones.soloFactura;
