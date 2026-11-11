@@ -188,6 +188,9 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
                 <td className={`${celda} text-right font-medium`}>{dec(l.alojamiento + (l.limpieza || 0))}</td>
               </tr>
             ))}
+            {/* Un renglón en blanco: sin él, los meses y el total se
+                confundían a la vista (Luis, 11/11/2026). */}
+            <tr aria-hidden="true"><td colSpan={5} className="h-3 p-0 bg-white" /></tr>
             <tr className="bg-slate-50 font-bold text-slate-800">
               <td className={celda}>Totales</td>
               <td className={`${celda} text-right`}>{suma.noches}</td>
@@ -234,6 +237,9 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
               </td>
             </tr>
           ))}
+          {/* Un renglón en blanco: sin él, los meses y el total se
+              confundían a la vista (Luis, 11/11/2026). */}
+          <tr aria-hidden="true"><td colSpan={7} className="h-3 p-0 bg-white" /></tr>
           <tr className="bg-slate-50 font-bold text-slate-800">
             <td className={celda}>Totales</td>
             <td className={`${celda} text-right`}>{suma.noches}</td>

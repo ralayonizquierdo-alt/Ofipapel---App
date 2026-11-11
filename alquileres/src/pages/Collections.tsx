@@ -1105,8 +1105,10 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
    *   — raya    — la estancia sigue en marcha (o no ha entrado): nada que reclamar
    *   cifra     — el mes cerró y, contando todo lo cobrado, sigue faltando
    *
-   * Lo cobrado de más de una estancia ya terminada sale en su último mes, en
-   * morado y con un «+» delante, porque entonces ya no es un adelanto.
+   * Lo cobrado por encima del importe de la estancia sale en su último mes,
+   * en morado y con un «+» delante, también con la estancia en curso: pasar
+   * del total ya no es un adelanto. Lo que falta lleva un «−» (Luis,
+   * 11/11/2026: «deberia de estar con signo menos»).
    */
   const Estado = ({ r, mes }: { r: Reservation; mes: number }) => {
     const hasta = mm(mes)
@@ -1118,7 +1120,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
     const sobra = Math.round((cobradoTodo - r.total) * 100) / 100
     const esUltimoMes = nochesEnMes(r, hasta) > 0 && !partes.has(mesSiguiente(hasta))
 
-    if (sobra > 0.005 && esUltimoMes && r.checkOut < hoy) {
+    if (sobra > 0.005 && esUltimoMes) {
       return (
         <td className={`${celda} text-right font-semibold text-purple-700`}
           title={`Cobrado de más: ${imp(sobra)} € por encima de los ${imp(r.total)} € de la estancia`}>
@@ -1136,7 +1138,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
       return (
         <td className={`${celda} text-right font-semibold text-purple-700`}
           title={`La estancia terminó y de lo devengado hasta ${MONTH_NAMES_ES[mes - 1].toLowerCase()} faltan ${imp(falta)} €`}>
-          {imp(falta)}
+          −{imp(falta)}
         </td>
       )
     }

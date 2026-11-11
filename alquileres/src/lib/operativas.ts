@@ -324,8 +324,9 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
   {
     // pages/Collections.tsx — Estado
     que: 'Las señales del estado',
-    formula: '✓ cubierto · ◆ prepago · — en curso o sin entrar · cifra: lo que falta',
-    nota: 'Se compara lo cobrado con lo que toca **acumulado hasta ese mes**, no mes contra mes. Pagada entera siempre es ✓.',
+    formula: '✓ cubierto · ◆ prepago · — en curso o sin entrar · −cifra: lo que falta · +cifra: cobrado de más',
+    nota: 'Se compara lo cobrado con lo que toca **acumulado hasta ese mes**, no mes contra mes. Pagada justa es ✓. '
+      + 'Si se cobra **más que el importe de la estancia**, sale **+diferencia** en su último mes, aunque siga en curso.',
   },
   {
     // pages/Collections.tsx — vencidas / porVenir
