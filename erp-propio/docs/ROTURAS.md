@@ -5,8 +5,11 @@ sus expedientes y después se apaga. Código de referencia: repo `RAX-OS`, `src/
 
 ## Dónde va en el ERP
 - **Compras → Gestor de Roturas** (`/gestor-roturas`): decidir, reclamar, cuadrar, anular.
-- **Almacén → Petición de Abono** (`/roturas-peticion`): registrar la rotura (móvil, sin cobertura).
-- **Almacén → Confirmar Destrucción** (`/roturas-destruccion`).
+- **Almacén → Roturas** (`/roturas-peticion`): una sola entrada de menú. Registrar la rotura (móvil, sin
+  cobertura) lo ve todo el mundo; las pestañas «Para destruir» y «Separados» solo quien tiene el permiso
+  `/roturas-destruccion`.
+- **Permisos (Rober, 12/11):** Gerencia, Administrador y Compras, todo; Almacén, registrar y destruir;
+  el resto, solo registrar (`20261112_roturas_permisos_grupos.sql`).
 
 ## Decisiones de Rober (11-12/11/2026)
 - 10 estados (RAX-OS tenía 16). Recambio = compensación con género: un solo camino.
@@ -35,7 +38,7 @@ El estado original se guarda en `estado_origen` y el id de Firestore en `origen_
 | 2 | Adjuntos (fotos y documentos, almacenamiento privado) | **Hecha 12/11** (`20261112_roturas_adjuntos.sql`, `src/lib/roturas.ts`) |
 | 3 | Almacén: Petición de Abono (sin cobertura) y Confirmar Destrucción (baja de stock) | **Hecha 12/11** (`20261112_roturas_stock.sql`, `pages/almacen/roturas/`) |
 | 4 | Compras: Gestor de Roturas y reclamación en PDF por correo (compras@) | **Hecha** (12/11/2026) |
-| 5 | Cuadre línea a línea: abono (factura de abono) / género (traspaso 06→04) | Pendiente |
+| 5 | Cuadre con IA: abono (factura de abono) / género (traspaso 06→04) | **Hecha** (12/11/2026) |
 | 6 | Migración desde Firebase, prueba en paralelo y apagado de RAX-OS | Pendiente (necesita copias, tarea 24) |
 
 ## Fase 1: qué hay y cómo se probó
@@ -104,4 +107,24 @@ documentos, historial, «Pasar a», anular).
 desde el buzón de Compras a una dirección propia; y la pantalla en el navegador con datos simulados
 (marcar, aviso de dos proveedores, PDF generado y subido, reclamar, reintentar, ficha, cambio de
 situación, filtro). **Sin probar:** una reclamación real de principio a fin a un proveedor.
+
+## Fase 5: cuadre del abono con IA
+Pestaña **Cuadrar abono** del Gestor (`CuadreRoturas.tsx`). Rober (12/11): el cuadre no se hace a ojo.
+
+1. Se elige el proveedor y se arrastra (o se examina) el PDF que manda.
+2. La función del servidor `rotura-cuadre-ia` lo lee con la IA (clave en el secreto `ANTHROPIC_API_KEY`;
+   modelo en `ROTURAS_MODEL`, por defecto `claude-opus-5-5`) y **propone** a qué expediente abierto del
+   proveedor corresponde cada línea, con su confianza y avisos. No guarda nada. Exige sesión y permiso
+   `/gestor-roturas`, lee los expedientes con la sesión de la persona (RLS) y descarta cualquier id que
+   no esté en la lista o venga repetido. El PDF se trata como dato, no como instrucciones.
+3. La persona revisa con el PDF al lado (importes, cantidades en rojo si no coinciden, «✔ Cuadra» o la
+   diferencia con la base) y confirma. También hay «Cuadrar a mano».
+4. `fn_rotura_cuadrar` (`20261112_roturas_cuadre.sql`) lo aplica todo o nada:
+   - **Abono:** baja del 06 (devolución a proveedor), factura de abono del proveedor en negativo y sin
+     contabilizar, `pendiente_contabilizar`, `importe_abonado`; estado ABONADO (se lo llevó) o
+     ABONADO_DESTRUIR.
+   - **Compensación con género:** traspaso 06→04; estado COMPENSADO_DESTRUIR.
+   - Queda el lote en `rotura_cuadre` (documento, totales, PDF y lo que leyó la IA).
+
+No se programa ningún asiento ni se manda correo. Un cuadre confirmado no se deshace desde la pantalla.
 

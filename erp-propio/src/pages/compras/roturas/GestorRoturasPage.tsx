@@ -25,9 +25,10 @@ import {
   type ExpedienteRotura,
   type TipoDocumentoRotura,
 } from '../../../lib/roturas'
+import { CuadreRoturas } from './CuadreRoturas'
 import { asuntoReclamacion, cuerpoReclamacion, generarPdfReclamacion, type ItemReclamacion } from './reclamacionPdf'
 
-type Pestana = 'pendientes' | 'reclamadas' | 'todos' | 'operativa'
+type Pestana = 'pendientes' | 'reclamadas' | 'cuadrar' | 'todos' | 'operativa'
 const EN_CURSO: EstadoRotura[] = ['ABONO_PROVEEDOR', 'SEPARADO_PROVEEDOR', 'PENDIENTE', 'RECHAZADO']
 const COLS =
   'id, numero, fecha, estado, articulo_codigo, articulo_referencia, articulo_descripcion, proveedor_codigo, almacen_codigo, cantidad, motivo, descripcion, origen_rotura, procedencia, empleado_solicitante_codigo, empleado_entrega, fecha_compra, importe_estimado, observaciones, reclamacion_enviada_en, reclamacion_correo_id, tipo_cuadre, pendiente_contabilizar, creado_offline, anulado_en, anulado_motivo, creado_por, creado_en, actualizado_en'
@@ -254,6 +255,7 @@ export function GestorRoturasPage() {
   const PESTANAS: [Pestana, string][] = [
     ['pendientes', `Pendientes de Compras (${pendientes.length})`],
     ['reclamadas', `Reclamadas (${reclamadas.length})`],
+    ['cuadrar', 'Cuadrar abono'],
     ['todos', 'Todos'],
     ['operativa', 'Operativa'],
   ]
@@ -313,6 +315,19 @@ export function GestorRoturasPage() {
         </Caja>
       )}
 
+      {pestana === 'cuadrar' && (
+        <Caja titulo="Cuadrar el abono o la reposición que manda el proveedor">
+          <CuadreRoturas
+            filas={filas}
+            nombreProveedor={nombreProv}
+            onHecho={(texto) => {
+              setAviso({ ok: true, texto })
+              void cargar()
+            }}
+          />
+        </Caja>
+      )}
+
       {pestana === 'todos' && (
         <Caja titulo={`Todos los expedientes (${todos.length})`}>
           <div className="mb-1 flex flex-wrap items-end gap-2">
@@ -337,7 +352,7 @@ export function GestorRoturasPage() {
 
       {pestana === 'operativa' && <Operativa />}
 
-      {abiertoFila && pestana !== 'operativa' && (
+      {abiertoFila && pestana !== 'operativa' && pestana !== 'cuadrar' && (
         <Detalle
           key={abiertoFila.id}
           f={abiertoFila}
@@ -676,7 +691,7 @@ function Operativa() {
           {
             titulo: 'Qué es',
             notas: [
-              'Aquí llegan las roturas que registra Almacén (Almacén → Petición de Abono). Las unidades ya están en el Almacén 06: el programa las pasa solo.',
+              'Aquí llegan las roturas que registra Almacén (Almacén → Roturas). Las unidades ya están en el Almacén 06: el programa las pasa solo.',
               'Compras decide qué se hace con cada una y sigue la respuesta del proveedor hasta que se abona, se compensa o se destruye.',
             ],
           },
@@ -699,7 +714,23 @@ function Operativa() {
               'La columna «Reclamación» dice si el correo ha salido. Si pone «NO enviado», lee el motivo, corrígelo y pulsa «Reintentar».',
               'Pulsa un expediente para abrir su ficha. Con «Pasar a» apuntas lo que conteste el proveedor: pendiente de respuesta, separado (vendrá a recogerlo) o rechazado.',
               'Un rechazado se puede pasar a «Obsoleto: destruir».',
-              'El abono y la compensación con género se apuntarán desde el cuadre del documento del proveedor (pantalla en preparación).',
+              'El abono y la compensación con género se apuntan en la pestaña «Cuadrar abono».',
+            ],
+          },
+          {
+            titulo: 'Cuadrar abono',
+            pasos: [
+              'Elige el proveedor.',
+              'Arrastra el PDF del abono (o pulsa para examinar) y pulsa «Leer y cuadrar con IA».',
+              'Revisa la propuesta con el PDF al lado: qué expediente es cada línea, los importes y si cuadra con la base.',
+              'Marca «Se lo llevó» en lo que el proveedor haya retirado y pulsa «Confirmar el cuadre».',
+            ],
+            notas: [
+              'La IA solo propone: no se guarda nada hasta que confirmas. Mira sobre todo las líneas con confianza media o baja y las cantidades en rojo.',
+              'Si es un abono: se da de baja del Almacén 06, se crea la factura de abono del proveedor (en negativo, pendiente de contabilizar) y el expediente pasa a «Abonado» o a «Abonado: destruir».',
+              'Si repone género: las unidades pasan del 06 al 04 y lo roto pasa a Almacén para destruir.',
+              'Sin PDF o si la IA no lo lee bien, usa «Cuadrar a mano».',
+              'Un cuadre confirmado no se deshace desde aquí.',
             ],
           },
           {

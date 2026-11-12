@@ -1,4 +1,5 @@
-// Almacén → Petición de Abono (/roturas-peticion) y Confirmar Destrucción (/roturas-destruccion).
+// Almacén → Roturas (/roturas-peticion; /roturas-destruccion abre la misma pantalla en «Para destruir»).
+// Una sola entrada de menú: registrar lo ve todo el mundo; destruir y separados, quien tiene ese permiso.
 // Parte de Almacén del Gestor de Roturas (tarea 32, docs/ROTURAS.md), que sustituye a la app RAX-OS:
 //   · Registrar rotura: el artículo roto, cuántos, por qué y fotos. Vale sin cobertura (se guarda en
 //     el móvil y se envía solo). Al registrar, el ERP pasa las unidades al Almacén 06.
@@ -10,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { supabase } from '../../../lib/supabase'
 import { GwField, GwInput, GwSelect } from '../../../components/gw'
 import { GwOperativa } from '../../../components/gw/GwOperativa'
+import { usePermisos } from '../../../lib/PermisosContext'
 import { ORIGENES_ROTURA, type EstadoRotura, type EstadoRoturaInfo, type ExpedienteRotura, type OrigenRotura, estadosRotura } from '../../../lib/roturas'
 import { enviarRotura, esFalloDeRed, guardarPendienteRotura, pendientesRotura, quitarPendienteRotura, sincronizarRoturas, type RoturaPendiente } from '../../../lib/roturasPendientes'
 
@@ -17,7 +19,7 @@ type Pestana = 'registrar' | 'destruir' | 'separados' | 'operativa'
 const PESTANAS: [Pestana, string][] = [
   ['registrar', 'Registrar rotura'],
   ['destruir', 'Para destruir'],
-  ['separados', 'Separados para el proveedor'],
+  ['separados', 'Separados'],
   ['operativa', 'Operativa'],
 ]
 
@@ -68,22 +70,26 @@ async function nombresProveedor(codigos: string[]): Promise<Record<string, strin
 export function RoturasAlmacenPage({ inicial = 'registrar' }: { inicial?: Pestana }) {
   const [pestana, setPestana] = useState<Pestana>(inicial)
   const [estados, setEstados] = useState<EstadoRoturaInfo[]>([])
-  useEffect(() => setPestana(inicial), [inicial])
+  // Registrar lo ve todo el mundo; destruir y separados, solo Almacén, Compras y Gerencia.
+  const { tiene } = usePermisos()
+  const destruye = tiene('/roturas-destruccion')
+  const visibles = PESTANAS.filter(([p]) => destruye || p === 'registrar' || p === 'operativa')
+  useEffect(() => setPestana(inicial !== 'registrar' && !destruye ? 'registrar' : inicial), [inicial, destruye])
   useEffect(() => {
     estadosRotura().then(setEstados).catch(() => setEstados([]))
   }, [])
   return (
     <div className="flex min-w-0 flex-col gap-1.5 text-[13px]">
       <div className="flex flex-wrap items-center gap-1 border border-[var(--gw-border-light)] bg-[var(--gw-face)] p-1.5">
-        {PESTANAS.map(([p, t]) => (
+        {visibles.map(([p, t]) => (
           <button key={p} type="button" className={`gw-btn h-[28px] ${pestana === p ? 'bg-[#91c9f7] font-bold' : ''}`} onClick={() => setPestana(p)}>
             {t}
           </button>
         ))}
       </div>
       {pestana === 'registrar' && <Registrar />}
-      {pestana === 'destruir' && <ParaDestruir estados={estados} />}
-      {pestana === 'separados' && <Separados />}
+      {pestana === 'destruir' && destruye && <ParaDestruir estados={estados} />}
+      {pestana === 'separados' && destruye && <Separados />}
       {pestana === 'operativa' && <Operativa />}
     </div>
   )
