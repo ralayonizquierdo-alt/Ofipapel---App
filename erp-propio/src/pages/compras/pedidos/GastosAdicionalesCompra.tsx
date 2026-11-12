@@ -143,8 +143,8 @@ export function GastosAdicionalesCompra({
                     </span>
                   </Derecha>
                   <Derecha primera={i === 0}>
-                    <span title={avisoBloqueo ?? 'Importe de IGIC del documento'}>
-                      <GwNumber decimals={2} disabled={importeBloqueado} value={g.igic || null} onChange={(v) => onChange(bloque, { igic: v ?? 0 })} />
+                    <span title={avisoBloqueo ?? '% de IGIC del documento (el total es importe + ese %)'}>
+                      <GwNumber decimals={2} disabled={importeBloqueado} value={g.igic_pct || null} onChange={(v) => onChange(bloque, { igic_pct: v ?? 0 })} />
                     </span>
                   </Derecha>
                   <Derecha primera={i === 0}>
@@ -199,7 +199,7 @@ export function GastosAdicionalesCompra({
           table="concepto_gasto_compra"
           columns={LOOKUP_CONCEPTO}
           searchColumns={['codigo', 'descripcion']}
-          orderBy="descripcion"
+          orderBy="orden"
           keyColumn="descripcion"
           onClose={() => setBuscar(null)}
           onPick={(r) => {

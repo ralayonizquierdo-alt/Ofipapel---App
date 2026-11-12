@@ -75,15 +75,15 @@ const TABS: GwTabDef[][] = [
   ],
 ]
 
-// SUPUESTO: la captura no deja ver las opciones de «Para» (el desplegable sale en blanco). Se
-// ponen los periodos que cuadran con el rótulo; el código es el TOPEPERIOD que trae GeminisWin
-// (en los datos cargados hay almacenes con 1 y con 3). Pendiente de confirmar con Luis.
+// Opciones de «Para», confirmadas con captura de GeminisWin (12/11/2026). El código es el
+// TOPEPERIOD de GeminisWin; se supone que va en el orden del desplegable (1 a 6).
 const PERIODOS = [
-  { valor: 1, label: 'Día' },
-  { valor: 2, label: 'Semana' },
-  { valor: 3, label: 'Mes' },
-  { valor: 4, label: 'Trimestre' },
-  { valor: 5, label: 'Año' },
+  { valor: 1, label: 'El Día de Hoy' },
+  { valor: 2, label: 'La Semana Actual' },
+  { valor: 3, label: 'El Mes Actual' },
+  { valor: 4, label: 'El Trimestre Actual' },
+  { valor: 5, label: 'El Semestre Actual' },
+  { valor: 6, label: 'El Año Actual' },
 ]
 
 const MODOS_IMAGEN = [

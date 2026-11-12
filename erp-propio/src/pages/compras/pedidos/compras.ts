@@ -135,7 +135,9 @@ export interface GastoCompra {
   forma_pago_codigo: string | null
   numero_factura: string | null
   importe: number
-  /** Importe de IGIC del documento (euros). */
+  /** % de IGIC del documento: en GeminisWin el campo «IGIC» es un porcentaje (2.000 al 7 → 2.140). */
+  igic_pct: number
+  /** IGIC en euros: importe × % (lo calcula el programa). */
   igic: number
   /** Cuentas contables: se guardan como dato, no generan asientos. */
   cuenta_partida: string | null
@@ -150,15 +152,15 @@ export interface ConceptoGasto {
   cuenta_contrapartida: string | null
 }
 
-export const GASTO_COMPRA_COLS = 'bloque, concepto_id, descripcion, pagado, forma_pago_codigo, numero_factura, importe, igic, cuenta_partida, cuenta_contrapartida'
+export const GASTO_COMPRA_COLS = 'bloque, concepto_id, descripcion, pagado, forma_pago_codigo, numero_factura, importe, igic_pct, igic, cuenta_partida, cuenta_contrapartida'
 
 export function gastoVacio(formaPago: string | null = null): GastoCompra {
-  return { concepto_id: null, descripcion: null, pagado: false, forma_pago_codigo: formaPago, numero_factura: null, importe: 0, igic: 0, cuenta_partida: null, cuenta_contrapartida: null }
+  return { concepto_id: null, descripcion: null, pagado: false, forma_pago_codigo: formaPago, numero_factura: null, importe: 0, igic_pct: 0, igic: 0, cuenta_partida: null, cuenta_contrapartida: null }
 }
 
 /** Bloque sin nada escrito (la forma de pago por defecto no cuenta). */
 export function gastoSinDatos(g: GastoCompra) {
-  return !g.concepto_id && !g.descripcion && !g.pagado && !g.numero_factura && !g.importe && !g.igic && !g.cuenta_partida && !g.cuenta_contrapartida
+  return !g.concepto_id && !g.descripcion && !g.pagado && !g.numero_factura && !g.importe && !g.igic_pct && !g.igic && !g.cuenta_partida && !g.cuenta_contrapartida
 }
 
 /** Totales de la ventana de gastos: importe, IGIC y total. */

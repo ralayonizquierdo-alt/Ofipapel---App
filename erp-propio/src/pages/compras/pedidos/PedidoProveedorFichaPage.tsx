@@ -61,6 +61,7 @@ const OPERATIVA: BloqueOperativa[] = [
       'Cierra con F4 o «Cerrar» y guarda la compra con F1.',
     ],
     notas: [
+      'El campo «IGIC» de cada concepto es un porcentaje: importe 2.000 con IGIC 7 da un total de 2.140. El IGIC en euros sale en la línea de totales.',
       'Los totales pasan a la fila «Otros gastos adicionales» del pie (importe, IGIC y total) y entran en el total de la compra.',
       'Al pulsar «Actualizado», el importe (sin IGIC) se reparte en el coste de los artículos, en proporción al importe de cada línea, junto con el transporte.',
       'Las cuentas contables (Partida y Contra Part.) solo se guardan: no generan asientos.',
@@ -301,6 +302,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     supabase
       .from('concepto_gasto_compra')
       .select('id, codigo, descripcion, cuenta_partida, cuenta_contrapartida')
+      .order('orden', { nullsFirst: false })
       .order('descripcion')
       .then(({ data }) => setConceptos((data ?? []) as ConceptoGasto[]))
     const uid = session?.user.id
@@ -423,13 +425,14 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           forma_pago_codigo: g.forma_pago_codigo as string | null,
           numero_factura: g.numero_factura as string | null,
           importe: Number(g.importe ?? 0),
+          igic_pct: Number(g.igic_pct ?? 0),
           igic: Number(g.igic ?? 0),
           cuenta_partida: g.cuenta_partida as string | null,
           cuenta_contrapartida: g.cuenta_contrapartida as string | null,
         }
       }
       // Compras anteriores a la ventana de gastos: su importe suelto va al primer bloque para no perderlo.
-      if (!(gs ?? []).length && (c.otros_gastos || c.otros_gastos_igic)) gts[0] = { ...gts[0], importe: c.otros_gastos, igic: c.otros_gastos_igic }
+      if (!(gs ?? []).length && (c.otros_gastos || c.otros_gastos_igic)) gts[0] = { ...gts[0], importe: c.otros_gastos, igic: c.otros_gastos_igic, igic_pct: c.otros_gastos ? Math.round((c.otros_gastos_igic / c.otros_gastos) * 10000) / 100 : 0 }
       setGastos(gts)
       setGastosOrig(gts)
       // Una compra con todas sus cantidades en negativo ya contestó «Sí» en su día.
@@ -510,7 +513,12 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
 
   /** Cambia un bloque de gastos y lleva los totales a la fila «Otros gastos adicionales» del pie. */
   function cambiarGasto(bloque: number, cambios: Partial<GastoCompra>) {
-    const nuevos = gastos.map((g, i) => (i === bloque - 1 ? { ...g, ...cambios } : g))
+    // El IGIC en euros sale siempre de importe × %.
+    const nuevos = gastos.map((g, i) => {
+      if (i !== bloque - 1) return g
+      const n = { ...g, ...cambios }
+      return { ...n, igic: Math.round((n.importe || 0) * (n.igic_pct || 0)) / 100 }
+    })
     setGastos(nuevos)
     const t = totalesGastos(nuevos)
     patch({ otros_gastos: t.importe, otros_gastos_igic: t.igic })
