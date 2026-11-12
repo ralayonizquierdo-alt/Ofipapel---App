@@ -64,6 +64,7 @@ import {
   LogOut,
   Map,
   MapPin,
+  MapPinned,
   MessageCircle,
   MessageSquarePlus,
   NotebookTabs,
@@ -193,6 +194,7 @@ const ICONOS: Record<string, Icono> = {
   Repartidores: Truck,
   'Zonas Territoriales': Map,
   'Rutas de Reparto': Route,
+  'Control de Repartos': MapPinned, // mapa con la chincheta de GPS: es el seguimiento en vivo
   Repartos: PackageCheck,
   Técnicos: HardHat,
   'Nº Serie': ScanBarcode,
