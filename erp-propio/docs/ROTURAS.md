@@ -33,7 +33,7 @@ El estado original se guarda en `estado_origen` y el id de Firestore en `origen_
 |---|---|---|
 | 1 | Tablas, historial inmutable, máquina de estados, permisos | **Hecha 12/11** (`20261112_roturas_base.sql`) |
 | 2 | Adjuntos (fotos y documentos, almacenamiento privado) | **Hecha 12/11** (`20261112_roturas_adjuntos.sql`, `src/lib/roturas.ts`) |
-| 3 | Almacén: Petición de Abono (sin cobertura) y Confirmar Destrucción (baja de stock) | Pendiente |
+| 3 | Almacén: Petición de Abono (sin cobertura) y Confirmar Destrucción (baja de stock) | **Hecha 12/11** (`20261112_roturas_stock.sql`, `pages/almacen/roturas/`) |
 | 4 | Compras: Gestor de Roturas y reclamación en PDF por correo (compras@) | Pendiente |
 | 5 | Cuadre línea a línea: abono (factura de abono) / género (traspaso 06→04) | Pendiente |
 | 6 | Migración desde Firebase, prueba en paralelo y apagado de RAX-OS | Pendiente (necesita copias, tarea 24) |
@@ -60,3 +60,25 @@ ni se sube nada. **Falta probar una subida real desde el navegador** (llega con 
 - **Almacén**: todo el menú Almacén (incluye Petición de Abono y Confirmar Destrucción).
 - **Compras**: todo el menú Compras (incluye el Gestor de Roturas) y registrar roturas.
 Se ajustan en Archivo → Grupos de Acceso. Aún no hay ningún empleado asignado a ellos.
+
+## Fase 3: stock y pantallas de Almacén
+**Stock (lo mueve el ERP, con origen «rotura» en `movimiento_stock`):** al registrar, traspaso del
+almacén de origen al 06; al destruir un obsoleto o rechazado, baja del 06; al anular, vuelve a su
+almacén. Los abonados y compensados se darán de baja al cuadrar (fase 5), por eso su destrucción no
+mueve stock. Almacenes fijos en `roturas_privado.almacen_roturas()` = 06 y `almacen_venta()` = 04.
+
+**Pantallas** (`RoturasAlmacenPage`): Registrar rotura (búsqueda por código, barras o descripción;
+fotos; cola sin cobertura en IndexedDB, `src/lib/roturasPendientes.ts`), Para destruir, Separados para
+el proveedor (etiqueta por proveedor, una por hoja) y Operativa.
+
+**Probado:** funciones con usuarios simulados y todo deshecho (stock 01 y 06 cuadran tras registrar,
+anular y destruir). Pantallas en navegador real con el alta SIMULADA: alta con foto, registro sin
+cobertura, envío automático al volver la conexión, y las tres pestañas. **No probado todavía:** un alta
+real de principio a fin desde el navegador, ni la impresión de etiquetas con datos.
+
+**Numeración hasta la migración:** el contador de 2026 empieza en 900000, así que lo que se cree en el
+ERP sale como `EXP-2026-9xxxxx` y no choca con los números de RAX-OS. Al migrar hay que poner
+`rotura_contador.ultimo` en el último número real.
+
+**Límite del modo sin cobertura:** funciona con la pantalla ya abierta; el ERP no se abre desde cero sin
+conexión (tarea 33).
