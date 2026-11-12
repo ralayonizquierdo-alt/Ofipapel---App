@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { RoturasAlmacenPage } from './pages/almacen/roturas/RoturasAlmacenPage'
+import { GestorRoturasPage } from './pages/compras/roturas/GestorRoturasPage'
 import { PanelControlPage } from './pages/panel/PanelControlPage'
 import { GeneradorListadosPage } from './pages/listados/GeneradorListadosPage'
 import { ArticulosListPage } from './pages/articulos/ArticulosListPage'
@@ -178,6 +179,7 @@ function App() {
             <Route path="/tipos-cliente/*" element={<TipoClienteFichaPage />} />
             {/* Archivo → Parámetros, Zonas de servicio, Carga Cotización e Importar (sin captura) */}
             <Route path="/fichaje-gestion" element={<FichajeGestionPage />} />
+            <Route path="/gestor-roturas" element={<GestorRoturasPage />} />
             <Route path="/roturas-peticion" element={<RoturasAlmacenPage inicial="registrar" />} />
             <Route path="/roturas-destruccion" element={<RoturasAlmacenPage inicial="destruir" />} />
             <Route path="/archivo/*" element={<ArchivoRoutes />} />

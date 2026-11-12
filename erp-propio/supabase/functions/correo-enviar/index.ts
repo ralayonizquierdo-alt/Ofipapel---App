@@ -10,10 +10,26 @@
 // · La llama pg_cron cada 10 minutos (migración 20261101_avisos_correo_y_cuentas_remesa). Se despliega
 //   con verify_jwt = false: lo único que hace es enviar lo que ya está en la cola, una sola vez, así que
 //   llamarla de más no hace daño. Como mucho 20 correos por llamada y 5 intentos por correo.
+// · Adjuntos (12/11/2026, Gestor de Roturas): correo_pendiente.adjuntos = [{ bucket, ruta, nombre }]. Se leen del
+//   almacenamiento PRIVADO con la clave de servicio. Como mucho 3 MB en total por correo (límite de Microsoft
+//   para un envío directo); si se pasa, el correo queda con error y no sale a medias.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
 import { enviarGraph, graphConfigurado } from './graph.ts'
+
+interface AdjuntoCola {
+  bucket: string
+  ruta: string
+  nombre?: string
+}
+const MAX_ADJUNTOS = 3 * 1024 * 1024
+
+function aBase64(bytes: Uint8Array) {
+  let binario = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) binario += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(binario)
+}
 
 Deno.serve(async () => {
   const sb = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', {
@@ -22,9 +38,26 @@ Deno.serve(async () => {
   const responder = (cuerpo: Record<string, unknown>, estado = 200) =>
     new Response(JSON.stringify(cuerpo), { status: estado, headers: { 'Content-Type': 'application/json' } })
 
+  /** Lee los adjuntos de un correo del almacenamiento privado. Lanza un error legible si falta alguno o pesan demasiado. */
+  const cargarAdjuntos = async (lista: unknown): Promise<{ nombre: string; base64: string; tipo: string; bytes: Uint8Array }[]> => {
+    if (!Array.isArray(lista) || !lista.length) return []
+    const salida: { nombre: string; base64: string; tipo: string; bytes: Uint8Array }[] = []
+    let total = 0
+    for (const a of lista as AdjuntoCola[]) {
+      if (!a?.bucket || !a?.ruta) throw new Error('Adjunto mal definido en la cola de correo.')
+      const { data, error: errDesc } = await sb.storage.from(a.bucket).download(a.ruta)
+      if (errDesc || !data) throw new Error(`No se ha podido leer el adjunto «${a.nombre ?? a.ruta}».`)
+      const bytes = new Uint8Array(await data.arrayBuffer())
+      total += bytes.length
+      if (total > MAX_ADJUNTOS) throw new Error('Los adjuntos pesan más de 3 MB: quita fotos de la reclamación y vuelve a enviarla.')
+      salida.push({ nombre: a.nombre ?? a.ruta.split('/').pop() ?? 'adjunto', base64: aBase64(bytes), tipo: data.type || 'application/octet-stream', bytes })
+    }
+    return salida
+  }
+
   const { data: cola, error } = await sb
     .from('correo_pendiente')
-    .select('id, para, asunto, cuerpo_html, intentos, buzon')
+    .select('id, para, asunto, cuerpo_html, intentos, buzon, adjuntos')
     .is('enviado_en', null)
     .lt('intentos', 5)
     .order('id')
@@ -58,12 +91,14 @@ Deno.serve(async () => {
         const esAdmin = c.buzon === 'administracion'
         const desde = esCompras ? compras : esAdmin ? administracion : general
         if (!desde) throw new Error(`Falta el buzón ${esCompras ? 'de Compras' : esAdmin ? 'de Administración' : 'del ERP'} en Archivo → Datos de Empresa.`)
+        const adjuntos = await cargarAdjuntos(c.adjuntos)
         await enviarGraph({
           desde,
           para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean),
           responderA: esCompras || esAdmin ? desde : emp?.correo_responder_a || null,
           asunto: c.asunto,
           html: c.cuerpo_html,
+          adjuntos: adjuntos.map((a) => ({ nombre: a.nombre, base64: a.base64, tipo: a.tipo })),
         })
         await sb.from('correo_pendiente').update({ enviado_en: new Date().toISOString(), intentos: c.intentos + 1, error: null }).eq('id', c.id)
         enviados++
@@ -91,7 +126,14 @@ Deno.serve(async () => {
   let enviados = 0
   for (const c of cola) {
     try {
-      await transporte.sendMail({ from: remitente, to: c.para, subject: c.asunto, html: c.cuerpo_html })
+      const adjuntos = await cargarAdjuntos(c.adjuntos)
+      await transporte.sendMail({
+        from: remitente,
+        to: c.para,
+        subject: c.asunto,
+        html: c.cuerpo_html,
+        attachments: adjuntos.map((a) => ({ filename: a.nombre, content: a.base64, encoding: 'base64', contentType: a.tipo })),
+      })
       await sb.from('correo_pendiente').update({ enviado_en: new Date().toISOString(), intentos: c.intentos + 1, error: null }).eq('id', c.id)
       enviados++
     } catch (e) {

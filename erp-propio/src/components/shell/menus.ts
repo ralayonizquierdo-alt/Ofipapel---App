@@ -288,6 +288,7 @@ export const MENUS: TopMenu[] = [
       item('Transportistas', { to: '/transportistas', description: 'Ficha de Transportistas' }),
       'sep',
       item('Gestor Pedidos a Proveedores', { to: '/gestor-pedidos-proveedor', description: 'Gestor de Pedidos a Proveedores' }),
+      item('Gestor de Roturas', { to: '/gestor-roturas', description: 'Roturas registradas por Almacén: reclamar al proveedor por correo, seguir la respuesta y ver los expedientes' }),
       // SIN CAPTURA de GeminisWin: ficha y alta rápida hechas sobre PETICION/PETIDETA.
       item('Peticiones de Artículos', { to: '/peticiones', description: 'Peticiones de Artículos: encargos internos que se tramitan como pedido a proveedor' }),
       // El atajo CTRL+P lo recoge GenerarPeticionHost (abre el alta rápida encima de la ventana actual).
@@ -519,6 +520,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/transportistas', title: 'Transportistas' },
   { prefix: '/peticiones', title: 'Peticiones de Artículos' },
   { prefix: '/regularizacion-stock', title: 'Regularización de Stock' },
+  { prefix: '/gestor-roturas', title: 'Gestor de Roturas' },
   { prefix: '/roturas-peticion', title: 'Petición de Abono (Roturas)' },
   { prefix: '/roturas-destruccion', title: 'Confirmar Destrucción (Roturas)' },
   { prefix: '/tarifas-oferta', title: 'Tarifas de Oferta' },

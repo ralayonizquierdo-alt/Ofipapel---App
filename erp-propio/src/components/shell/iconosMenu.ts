@@ -274,6 +274,7 @@ const ICONOS: Record<string, Icono> = {
   'Control de Lotes': Layers,
   Almacenes: Warehouse,
   'Regularización de Stock': SlidersHorizontal,
+  'Gestor de Roturas': PackageX,
   'Petición de Abono (Roturas)': PackageX,
   'Confirmar Destrucción (Roturas)': Trash2,
   Inventarios: ClipboardCheck,

@@ -34,7 +34,7 @@ El estado original se guarda en `estado_origen` y el id de Firestore en `origen_
 | 1 | Tablas, historial inmutable, máquina de estados, permisos | **Hecha 12/11** (`20261112_roturas_base.sql`) |
 | 2 | Adjuntos (fotos y documentos, almacenamiento privado) | **Hecha 12/11** (`20261112_roturas_adjuntos.sql`, `src/lib/roturas.ts`) |
 | 3 | Almacén: Petición de Abono (sin cobertura) y Confirmar Destrucción (baja de stock) | **Hecha 12/11** (`20261112_roturas_stock.sql`, `pages/almacen/roturas/`) |
-| 4 | Compras: Gestor de Roturas y reclamación en PDF por correo (compras@) | Pendiente |
+| 4 | Compras: Gestor de Roturas y reclamación en PDF por correo (compras@) | **Hecha** (12/11/2026) |
 | 5 | Cuadre línea a línea: abono (factura de abono) / género (traspaso 06→04) | Pendiente |
 | 6 | Migración desde Firebase, prueba en paralelo y apagado de RAX-OS | Pendiente (necesita copias, tarea 24) |
 
@@ -82,3 +82,26 @@ ERP sale como `EXP-2026-9xxxxx` y no choca con los números de RAX-OS. Al migrar
 
 **Límite del modo sin cobertura:** funciona con la pantalla ya abierta; el ERP no se abre desde cero sin
 conexión (tarea 33).
+
+## Fase 4: Gestor de Roturas (Compras) y reclamación por correo
+Pantalla **Compras → Gestor de Roturas** (`/gestor-roturas`, `src/pages/compras/roturas/`): pestañas
+Pendientes de Compras, Reclamadas, Todos y Operativa, y la ficha del expediente (datos, fotos,
+documentos, historial, «Pasar a», anular).
+
+- **Reclamar:** se marcan expedientes de un solo proveedor. El navegador hace el PDF
+  (`reclamacionPdf.ts`: lista + anexo de fotos, máx. 12 fotos y 2,7 MB; si no cabe, va sin fotos y avisa),
+  lo sube al bucket privado `roturas` en la carpeta del expediente de menor id y llama a
+  `fn_rotura_reclamar`, que comprueba todo, encola el correo (buzón `compras`, origen
+  `rotura_reclamacion`, PDF en `correo_pendiente.adjuntos`) y pasa los expedientes a ABONO_PROVEEDOR.
+- **Adjuntos en el correo:** `correo-enviar` baja los adjuntos del almacenamiento privado (tope 3 MB en
+  total) y los manda tanto por Microsoft Graph como por SMTP.
+- **Si el correo no sale**, el expediente queda reclamado igualmente y la lista enseña el motivo con un
+  botón «Reintentar» (`fn_rotura_correos`, `fn_rotura_correo_reintentar`).
+- Separar para el proveedor y destruir como obsoleto: sin correo, desde Pendientes.
+- Migración: `20261112_roturas_reclamacion.sql`.
+
+**Probado:** `fn_rotura_reclamar` con usuarios simulados (todo deshecho); un correo real con PDF adjunto
+desde el buzón de Compras a una dirección propia; y la pantalla en el navegador con datos simulados
+(marcar, aviso de dos proveedores, PDF generado y subido, reclamar, reintentar, ficha, cambio de
+situación, filtro). **Sin probar:** una reclamación real de principio a fin a un proveedor.
+
