@@ -262,6 +262,15 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   const [refresco, setRefresco] = useState(0)
   // «Otros gastos adicionales»: los tres bloques de la ventana «Gastos adicionales - Compras».
   const [conceptos, setConceptos] = useState<ConceptoGasto[]>([])
+  /** Tabla «Documentos» (la misma de Caja); se relee cuando se cambia desde su ventana. */
+  const cargarConceptos = useCallback(() => {
+    supabase
+      .from('concepto_gasto_compra')
+      .select('id, codigo, descripcion, cuenta_partida, cuenta_contrapartida')
+      .order('orden', { nullsFirst: false })
+      .order('descripcion')
+      .then(({ data }) => setConceptos((data ?? []) as ConceptoGasto[]))
+  }, [])
   const [gastos, setGastos] = useState<GastoCompra[]>(() => [gastoVacio(), gastoVacio(), gastoVacio()])
   const [gastosOrig, setGastosOrig] = useState<GastoCompra[] | null>(null)
   // Bloques que ya están guardados (se vuelven a escribir aunque se hayan vaciado).
@@ -299,12 +308,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       .eq('no_ver_en_compras', false)
       .order('descripcion')
       .then(({ data }) => setFormasPago((data ?? []).map((f) => ({ codigo: f.codigo as string, nombre: (f.descripcion as string) ?? '' }))))
-    supabase
-      .from('concepto_gasto_compra')
-      .select('id, codigo, descripcion, cuenta_partida, cuenta_contrapartida')
-      .order('orden', { nullsFirst: false })
-      .order('descripcion')
-      .then(({ data }) => setConceptos((data ?? []) as ConceptoGasto[]))
+    cargarConceptos()
     const uid = session?.user.id
     if (uid)
       supabase
@@ -1432,6 +1436,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         <GastosAdicionalesCompra
           gastos={gastos}
           conceptos={conceptos}
+          onDocumentosCambiados={cargarConceptos}
           formasPago={formasPago}
           importeBloqueado={lineasBloqueadas}
           onChange={cambiarGasto}

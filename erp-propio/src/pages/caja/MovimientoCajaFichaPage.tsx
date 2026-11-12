@@ -8,6 +8,7 @@ import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { useListaOrdenada, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
 import { Campo, Grupo, I, L, RadioFijo } from './piezasCaja'
+import { DocumentosDialog } from './DocumentosDialog'
 import {
   MOV_COLS,
   TIPOS_MOV,
@@ -579,23 +580,13 @@ export function MovimientoCajaFichaPage() {
       />
 
       {buscar === 'documento' && (
-        <GwLookupDialog<Record<string, unknown>>
-          title="Documentos"
-          table="concepto_gasto_compra"
-          columns={[
-            { key: 'codigo', label: 'Documento', width: 110 },
-            { key: 'descripcion', label: 'Descrip' },
-            { key: 'cuenta_contable', label: 'Ctacont', width: 110 },
-          ]}
-          searchColumns={['codigo', 'descripcion']}
-          orderBy="orden"
-          keyColumn="descripcion"
-          onPick={(r) => {
+        <DocumentosDialog
+          onClose={() => setBuscar(null)}
+          onPick={(d) => {
             setBuscar(null)
             // Los que no tienen código (AIEM, Canon Digital…) se apuntan por su descripción.
-            patch({ documento: String(r.codigo ?? '').trim() || String(r.descripcion ?? '') })
+            patch({ documento: (d.codigo ?? '').trim() || d.descripcion })
           }}
-          onClose={() => setBuscar(null)}
         />
       )}
       {buscar === 'empleado' && (

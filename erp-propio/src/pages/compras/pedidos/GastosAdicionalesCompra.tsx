@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwSalir } from '../../../components/gw/GwIconos'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
+import { DocumentosDialog } from '../../caja/DocumentosDialog'
 import { r2, totalesGastos, type ConceptoGasto, type GastoCompra } from './compras'
 
 // Ventana «Gastos adicionales - Compras» de GeminisWin (botón «Otros gastos adicionales» del pie de
@@ -9,12 +10,6 @@ import { r2, totalesGastos, type ConceptoGasto, type GastoCompra } from './compr
 // cuentas contables. Los totales pasan a la fila «Otros gastos adicionales» del pie. Las cuentas
 // contables se guardan como dato: NO generan asientos.
 
-// Tabla «Documentos» de GeminisWin (DOCUMENT.DBF): la misma que usa el campo Documento de Caja.
-const LOOKUP_CONCEPTO: GwLookupColumn[] = [
-  { key: 'codigo', label: 'Documento', width: 110 },
-  { key: 'descripcion', label: 'Descrip' },
-  { key: 'cuenta_contable', label: 'Ctacont', width: 110 },
-]
 const LOOKUP_FORMA_PAGO: GwLookupColumn[] = [
   { key: 'codigo', label: 'Código', width: 90 },
   { key: 'descripcion', label: 'Descripción' },
@@ -26,6 +21,7 @@ const COLUMNAS = 'grid grid-cols-[minmax(0,4.3fr)_minmax(0,1fr)_minmax(0,1.35fr)
 export function GastosAdicionalesCompra({
   gastos,
   conceptos,
+  onDocumentosCambiados,
   formasPago,
   importeBloqueado,
   onChange,
@@ -33,6 +29,8 @@ export function GastosAdicionalesCompra({
 }: {
   gastos: GastoCompra[]
   conceptos: ConceptoGasto[]
+  /** La ventana Documentos ha podido cambiar la tabla: hay que volver a leerla. */
+  onDocumentosCambiados: () => void
   formasPago: { codigo: string; nombre: string }[]
   /** Compra ya Actualizada: el gasto ya se repartió en los costes, los importes no se cambian. */
   importeBloqueado: boolean
@@ -196,18 +194,22 @@ export function GastosAdicionalesCompra({
       </GwWindow>
 
       {buscar?.que === 'concepto' && (
-        <GwLookupDialog
-          title="Documentos"
-          table="concepto_gasto_compra"
-          columns={LOOKUP_CONCEPTO}
-          searchColumns={['codigo', 'descripcion']}
-          orderBy="orden"
-          keyColumn="descripcion"
-          onClose={() => setBuscar(null)}
-          onPick={(r) => {
+        <DocumentosDialog
+          onClose={() => {
+            setBuscar(null)
+            onDocumentosCambiados() // por si se dio de alta, se modificó o se dio de baja alguno
+          }}
+          onPick={(d) => {
             const b = buscar.bloque
             setBuscar(null)
-            elegirConcepto(b, conceptos.find((c) => c.descripcion === String(r.descripcion))?.id ?? null)
+            onDocumentosCambiados()
+            // Se elige con los datos de la propia ventana: puede ser uno recién dado de alta.
+            onChange(b, {
+              concepto_id: d.id,
+              descripcion: d.descripcion,
+              ...(d.cuenta_partida ? { cuenta_partida: d.cuenta_partida } : {}),
+              ...(d.cuenta_contrapartida ? { cuenta_contrapartida: d.cuenta_contrapartida } : {}),
+            })
           }}
         />
       )}
