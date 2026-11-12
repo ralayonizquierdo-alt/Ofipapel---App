@@ -32,7 +32,7 @@ El estado original se guarda en `estado_origen` y el id de Firestore en `origen_
 | Fase | Qué | Estado |
 |---|---|---|
 | 1 | Tablas, historial inmutable, máquina de estados, permisos | **Hecha 12/11** (`20261112_roturas_base.sql`) |
-| 2 | Adjuntos (fotos y documentos, almacenamiento privado) | Pendiente |
+| 2 | Adjuntos (fotos y documentos, almacenamiento privado) | **Hecha 12/11** (`20261112_roturas_adjuntos.sql`, `src/lib/roturas.ts`) |
 | 3 | Almacén: Petición de Abono (sin cobertura) y Confirmar Destrucción (baja de stock) | Pendiente |
 | 4 | Compras: Gestor de Roturas y reclamación en PDF por correo (compras@) | Pendiente |
 | 5 | Cuadre línea a línea: abono (factura de abono) / género (traspaso 06→04) | Pendiente |
@@ -48,5 +48,15 @@ permitidos rechazados; los pasos con stock rechazados por el cambio genérico; h
 por cambio, que no se puede modificar ni borrar; el expediente no se borra, se anula con motivo; todo
 queda en la auditoría.
 
-## Pendiente de decidir
-- Grupos de acceso «Almacén» y «Compras»: hoy los tres permisos los tiene solo Gerencia (y Administrador).
+## Fase 2: adjuntos
+Almacenamiento privado `roturas` (15 MB por fichero; fotos, PDF, Excel, correos). Ruta
+`<id expediente>/<uuid>-<nombre>`. Se sube y se lee solo con permiso de Roturas; no se puede cambiar
+ni borrar un fichero desde el navegador. `fn_rotura_documento_registrar` lo apunta en el expediente.
+Las fotos se reducen en el navegador (1600 px) antes de subir. Probado simulando usuarios: no se sube
+a expedientes inexistentes ni fuera de carpeta, no se registra lo no subido, y sin permiso no se ve
+ni se sube nada. **Falta probar una subida real desde el navegador** (llega con las pantallas).
+
+## Grupos de acceso (creados el 12/11, `20261112_roturas_grupos.sql`)
+- **Almacén**: todo el menú Almacén (incluye Petición de Abono y Confirmar Destrucción).
+- **Compras**: todo el menú Compras (incluye el Gestor de Roturas) y registrar roturas.
+Se ajustan en Archivo → Grupos de Acceso. Aún no hay ningún empleado asignado a ellos.
