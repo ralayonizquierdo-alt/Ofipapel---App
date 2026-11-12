@@ -9,9 +9,11 @@ import { r2, totalesGastos, type ConceptoGasto, type GastoCompra } from './compr
 // cuentas contables. Los totales pasan a la fila «Otros gastos adicionales» del pie. Las cuentas
 // contables se guardan como dato: NO generan asientos.
 
+// Tabla «Documentos» de GeminisWin (DOCUMENT.DBF): la misma que usa el campo Documento de Caja.
 const LOOKUP_CONCEPTO: GwLookupColumn[] = [
-  { key: 'codigo', label: 'Código', width: 90 },
-  { key: 'descripcion', label: 'Descripción' },
+  { key: 'codigo', label: 'Documento', width: 110 },
+  { key: 'descripcion', label: 'Descrip' },
+  { key: 'cuenta_contable', label: 'Ctacont', width: 110 },
 ]
 const LOOKUP_FORMA_PAGO: GwLookupColumn[] = [
   { key: 'codigo', label: 'Código', width: 90 },
@@ -195,7 +197,7 @@ export function GastosAdicionalesCompra({
 
       {buscar?.que === 'concepto' && (
         <GwLookupDialog
-          title="Conceptos de gastos adicionales"
+          title="Documentos"
           table="concepto_gasto_compra"
           columns={LOOKUP_CONCEPTO}
           searchColumns={['codigo', 'descripcion']}

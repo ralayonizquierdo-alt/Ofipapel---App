@@ -111,7 +111,7 @@ export function MovimientoCajaFichaPage() {
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [hay, setHay] = useState({ antes: false, despues: false })
-  const [buscar, setBuscar] = useState<'empleado' | null>(null)
+  const [buscar, setBuscar] = useState<'empleado' | 'documento' | null>(null)
   const lista = useListaOrdenada()
 
   const editable = modo !== 'consulta'
@@ -399,10 +399,12 @@ export function MovimientoCajaFichaPage() {
                     title="DOCUMENTO"
                     onChange={(e) => patch({ documento: e.target.value || null })}
                   />
+                  {/* «…»: si el movimiento viene de un documento, lo abre; si es manual, elige de la tabla
+                      Documentos (la misma de los gastos adicionales de compras), como en GeminisWin. */}
                   <GwLookupButton
-                    disabled={!rutaDoc}
-                    onClick={() => rutaDoc && navigate(rutaDoc)}
-                    title={rutaDoc ? 'Abrir el documento que generó el movimiento' : 'Sin documento relacionado'}
+                    disabled={!rutaDoc && (roImporte || docInterno)}
+                    onClick={() => (rutaDoc ? navigate(rutaDoc) : setBuscar('documento'))}
+                    title={rutaDoc ? 'Abrir el documento que generó el movimiento' : 'Elegir de la tabla Documentos'}
                   />
                 </span>
               </Campo>
@@ -576,6 +578,26 @@ export function MovimientoCajaFichaPage() {
         onExit={() => navigate('/')}
       />
 
+      {buscar === 'documento' && (
+        <GwLookupDialog<Record<string, unknown>>
+          title="Documentos"
+          table="concepto_gasto_compra"
+          columns={[
+            { key: 'codigo', label: 'Documento', width: 110 },
+            { key: 'descripcion', label: 'Descrip' },
+            { key: 'cuenta_contable', label: 'Ctacont', width: 110 },
+          ]}
+          searchColumns={['codigo', 'descripcion']}
+          orderBy="orden"
+          keyColumn="descripcion"
+          onPick={(r) => {
+            setBuscar(null)
+            // Los que no tienen código (AIEM, Canon Digital…) se apuntan por su descripción.
+            patch({ documento: String(r.codigo ?? '').trim() || String(r.descripcion ?? '') })
+          }}
+          onClose={() => setBuscar(null)}
+        />
+      )}
       {buscar === 'empleado' && (
         <GwLookupDialog<Record<string, unknown>>
           title="Empleados"
