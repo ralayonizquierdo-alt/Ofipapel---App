@@ -51,9 +51,32 @@ function formatoIban(v: string | null) {
   return normalizarIban(v).replace(/(.{4})/g, '$1 ').trim()
 }
 
-/** También la usa la ficha de Transportistas (tipoEntidad='transportista'). */
-export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'proveedor' }: ProveedorTabProps & { tipoEntidad?: 'proveedor' | 'transportista' }) {
+/** Las partes de un IBAN español: ES + 2 de control + banco (4) + sucursal (4) + D.C. (2) + cuenta (10). */
+function partesIbanEs(v: string) {
+  const m = /^ES\d{2}(\d{4})(\d{4})(\d{2})(\d{10})$/.exec(normalizarIban(v))
+  return m ? { banco: m[1], sucursal: m[2], dc: m[3], cuenta: m[4] } : null
+}
+
+/**
+ * Pestaña «Bancos» de Proveedores, calcada de GeminisWin (captura 06 del 12/11/2026): rejilla
+ * Iban · Banco · Banco Nombre · Sucursal · Sucursal Descripción · D.C. · Nº de Cuenta, debajo la
+ * barra de línea (nueva, modificar, borrar, buscar) y la casilla «Cuenta Principal».
+ * Solo una cuenta puede ser la principal: lo garantiza la base de datos (al marcar una se
+ * desmarcan las demás, migración 20261113_cuenta_bancaria_principal_unica).
+ * También la usa la ficha de Transportistas (tipoEntidad='transportista').
+ */
+export function TabBancos({
+  proveedor,
+  editing,
+  tipoEntidad: TIPO_ENTIDAD = 'proveedor',
+  lineasEnConsulta = false,
+}: ProveedorTabProps & {
+  tipoEntidad?: 'proveedor' | 'transportista'
+  /** Como en GeminisWin: la barra de línea funciona también consultando, sin pulsar Modificar en la ficha. */
+  lineasEnConsulta?: boolean
+}) {
   const proveedorCodigo = proveedor.codigo
+  const puede = editing || lineasEnConsulta
   const [rows, setRows] = useState<Cuenta[]>([])
   const [bancos, setBancos] = useState<{ codigo: string; nombre: string }[]>([])
   const [sel, setSel] = useState<number | null>(null)
@@ -105,21 +128,11 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
 
   const nombreSucursal = (b: string | null, c: string | null) => (b && c ? (sucursales[`${b}|${c}`] ?? '') : '')
 
-  async function quitarOtrasPrincipales(excepto: number) {
-    await supabase
-      .from('cuenta_bancaria')
-      .update({ es_principal: false })
-      .eq('tipo_entidad', TIPO_ENTIDAD)
-      .eq('entidad_codigo', proveedorCodigo)
-      .eq('es_principal', true)
-      .neq('id', excepto)
-  }
-
   async function guardar() {
     if (!draft) return
     setError(null)
     const iban = draft.iban ? normalizarIban(draft.iban) : ''
-    if (!iban && !draft.numero_cuenta) return setError('Indica el IBAN o el número de cuenta.')
+    if (!iban && !draft.numero_cuenta) return setError('Falta la cuenta: escribe el IBAN o el Nº de Cuenta y pulsa Aceptar.')
     if (iban) {
       const err = validarIban(iban)
       if (err) return setError(err)
@@ -145,7 +158,7 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
       const { error: err } = await supabase.from('cuenta_bancaria').update(valores).eq('id', id)
       if (err) return setError(err.message)
     }
-    if (valores.es_principal) await quitarOtrasPrincipales(id)
+    // Si es la principal, la base de datos desmarca sola las demás cuentas de esta ficha.
     setDraft(null)
     setSel(id)
     load()
@@ -156,7 +169,6 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
     setError(null)
     const { error: err } = await supabase.from('cuenta_bancaria').update({ es_principal: true }).eq('id', sel)
     if (err) return setError(err.message)
-    await quitarOtrasPrincipales(sel)
     load()
   }
 
@@ -169,6 +181,34 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
     load()
   }
 
+  /** Busca entre las cuentas de la rejilla por IBAN, banco, sucursal o número de cuenta. */
+  function buscar() {
+    setError(null)
+    const t = prompt('Buscar cuenta: escribe parte del IBAN, del banco, de la sucursal o del Nº de Cuenta')
+    const q = t?.replace(/\s+/g, '').toUpperCase()
+    if (!q) return
+    const r = rows.find((x) =>
+      [x.iban, x.banco_codigo, nombreBanco(x.banco_codigo), x.sucursal_codigo, nombreSucursal(x.banco_codigo, x.sucursal_codigo), x.digito_control, x.numero_cuenta]
+        .some((v) => (v ?? '').replace(/\s+/g, '').toUpperCase().includes(q)),
+    )
+    if (r) setSel(r.id)
+    else setError(`Ninguna cuenta de esta ficha contiene «${t}». Prueba con menos letras o cifras.`)
+  }
+
+  /** Al salir del IBAN, si es español, rellena banco, sucursal, D.C. y cuenta que estén en blanco. */
+  function completarDesdeIban() {
+    if (!draft?.iban) return
+    const p = partesIbanEs(draft.iban)
+    if (!p) return
+    setDraft({
+      ...draft,
+      banco_codigo: draft.banco_codigo || (bancos.some((b) => b.codigo === p.banco) ? p.banco : null),
+      sucursal_codigo: draft.sucursal_codigo || p.sucursal,
+      digito_control: draft.digito_control || p.dc,
+      numero_cuenta: draft.numero_cuenta || p.cuenta,
+    })
+  }
+
   const enEdicion = draft != null
 
   const filaEdicion = draft && (
@@ -179,6 +219,7 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
           placeholder="ES00 0000 0000 0000 0000 0000"
           value={draft.iban ?? ''}
           onChange={(e) => setDraft({ ...draft, iban: e.target.value })}
+          onBlur={completarDesdeIban}
         />
       </td>
       <td colSpan={2}>
@@ -215,13 +256,13 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
   const seleccionada = rows.find((x) => x.id === sel)
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 border border-[var(--gw-border-light)] p-2">
       {error && <div className="border border-[#c42b1c] bg-[#fde7e9] px-2 py-1 text-[#a4262c]">{error}</div>}
-      <div className="max-h-[300px] overflow-y-auto border border-[var(--gw-border)] bg-white">
+      <div className="max-h-[300px] overflow-auto border border-[var(--gw-border)] bg-white">
         <table className="gw-grid" title="CTABKPRO">
           <thead className="sticky top-0">
             <tr>
-              <th style={{ width: 230 }}>Iban</th>
+              <th style={{ width: 250 }}>Iban</th>
               <th style={{ width: 70 }}>Banco</th>
               <th>Banco Nombre</th>
               <th style={{ width: 80 }}>Sucursal</th>
@@ -236,7 +277,7 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
                 filaEdicion
               ) : (
                 <tr key={r.id} className={sel === r.id ? 'gw-selected' : ''} onClick={() => !enEdicion && setSel(r.id)}>
-                  <td className="font-mono">{formatoIban(r.iban)}</td>
+                  <td className="whitespace-nowrap font-mono">{formatoIban(r.iban)}</td>
                   <td>{r.banco_codigo ?? ''}</td>
                   <td>{nombreBanco(r.banco_codigo)}</td>
                   <td>{r.sucursal_codigo ?? ''}</td>
@@ -252,10 +293,11 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
         </table>
       </div>
       <GridMiniBar
-        nuevo={editing && !enEdicion && !!proveedorCodigo}
-        modificar={editing && !enEdicion && seleccionada != null}
-        borrar={editing && !enEdicion && seleccionada != null}
-        buscar={false}
+        nuevo={puede && !enEdicion && !!proveedorCodigo}
+        modificar={puede && !enEdicion && seleccionada != null}
+        borrar={puede && !enEdicion && seleccionada != null}
+        buscar={!enEdicion && rows.length > 0}
+        onBuscar={buscar}
         onNuevo={() => {
           setError(null)
           setDraft({ ...vacio })
@@ -268,11 +310,11 @@ export function TabBancos({ proveedor, editing, tipoEntidad: TIPO_ENTIDAD = 'pro
         }}
         onBorrar={borrar}
       >
-        <span title="Cuenta principal del proveedor">
+        <span title="Cuenta principal: la que se usa por defecto en los pagos. Solo puede haber una; al marcar otra, esta deja de serlo.">
           <GwCheck
             label="Cuenta Principal"
             checked={draft ? draft.es_principal : !!seleccionada?.es_principal}
-            disabled={draft ? false : !editing || seleccionada == null || seleccionada.es_principal}
+            disabled={draft ? false : !puede || seleccionada == null || seleccionada.es_principal}
             onChange={(v) => (draft ? setDraft({ ...draft, es_principal: v }) : v && marcarPrincipal())}
           />
         </span>

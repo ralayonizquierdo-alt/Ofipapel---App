@@ -30,6 +30,8 @@ export interface CabeceraCompra {
   gastos_proveedor: number
   gastos_proveedor_igic_pct: number
   otros_gastos: number
+  /** IGIC de los otros gastos adicionales (suma de la ventana «Gastos adicionales - Compras»). */
+  otros_gastos_igic: number
   recibido: boolean
   stock_movido: boolean
   pagado: boolean
@@ -39,7 +41,7 @@ export interface CabeceraCompra {
 }
 
 export const CAB_COMPRA_COLS =
-  'tienda_terminal_codigo, numero, fecha_hora, proveedor_codigo, almacen_codigo, estado, es_abono, numero_factura_proveedor_externo, fecha_solicitud, fecha_prevista, fecha_factura, fecha_pago, fecha_vencimiento_1, fecha_recepcion, transportista_codigo, transporte_numero_factura, transporte_factura_pagada, transporte_forma_pago_codigo, transporte_fecha_pago, transporte_coste, transporte_igic_pct, forma_pago_codigo, descuento_pie_pct, igic_pie_pct, gastos_proveedor, gastos_proveedor_igic_pct, otros_gastos, recibido, stock_movido, pagado, proveedor_pagado, no_pasar_contabilidad, observaciones'
+  'tienda_terminal_codigo, numero, fecha_hora, proveedor_codigo, almacen_codigo, estado, es_abono, numero_factura_proveedor_externo, fecha_solicitud, fecha_prevista, fecha_factura, fecha_pago, fecha_vencimiento_1, fecha_recepcion, transportista_codigo, transporte_numero_factura, transporte_factura_pagada, transporte_forma_pago_codigo, transporte_fecha_pago, transporte_coste, transporte_igic_pct, forma_pago_codigo, descuento_pie_pct, igic_pie_pct, gastos_proveedor, gastos_proveedor_igic_pct, otros_gastos, otros_gastos_igic, recibido, stock_movido, pagado, proveedor_pagado, no_pasar_contabilidad, observaciones'
 
 export interface LineaCompra {
   articulo_codigo: string
@@ -88,7 +90,10 @@ export function netoLinea(l: LineaCompra) {
 }
 
 /** Importes del pie, en el mismo orden que la ficha de GeminisWin. */
-export function calcularCompra(lineas: LineaCompra[], c: Pick<CabeceraCompra, 'descuento_pie_pct' | 'igic_pie_pct' | 'gastos_proveedor' | 'gastos_proveedor_igic_pct' | 'transporte_coste' | 'transporte_igic_pct' | 'otros_gastos'>) {
+export function calcularCompra(
+  lineas: LineaCompra[],
+  c: Pick<CabeceraCompra, 'descuento_pie_pct' | 'igic_pie_pct' | 'gastos_proveedor' | 'gastos_proveedor_igic_pct' | 'transporte_coste' | 'transporte_igic_pct' | 'otros_gastos'> & { otros_gastos_igic?: number },
+) {
   const dtoPie = Number(c.descuento_pie_pct || 0)
   const igicPie = Number(c.igic_pie_pct || 0)
   let subtotal = 0
@@ -115,8 +120,52 @@ export function calcularCompra(lineas: LineaCompra[], c: Pick<CabeceraCompra, 'd
   const total = r2(baseConGastos + canon + transporte + totalIgic)
   const aPagarProveedor = r2(total - totalTransporte)
   const otros = Number(c.otros_gastos || 0)
-  const totalConOtros = r2(total + otros)
-  return { subtotal, totalDto, base, gastos, igicGastos, baseConGastos, transporte, igicTransporte, totalTransporte, canon, igicLineas, totalIgic, total, aPagarProveedor, otros, totalConOtros }
+  // Fila «Otros gastos adicionales» del pie: importe, IGIC y total de la ventana de gastos.
+  const otrosIgic = Number(c.otros_gastos_igic || 0)
+  const otrosTotal = r2(otros + otrosIgic)
+  const totalConOtros = r2(total + otrosTotal)
+  return { subtotal, totalDto, base, gastos, igicGastos, baseConGastos, transporte, igicTransporte, totalTransporte, canon, igicLineas, totalIgic, total, aPagarProveedor, otros, otrosIgic, otrosTotal, totalConOtros }
+}
+
+/** Un bloque «Documento y/o Concepto» de la ventana «Gastos adicionales - Compras». */
+export interface GastoCompra {
+  concepto_id: number | null
+  descripcion: string | null
+  pagado: boolean
+  forma_pago_codigo: string | null
+  numero_factura: string | null
+  importe: number
+  /** Importe de IGIC del documento (euros). */
+  igic: number
+  /** Cuentas contables: se guardan como dato, no generan asientos. */
+  cuenta_partida: string | null
+  cuenta_contrapartida: string | null
+}
+
+export interface ConceptoGasto {
+  id: number
+  codigo: string | null
+  descripcion: string
+  cuenta_partida: string | null
+  cuenta_contrapartida: string | null
+}
+
+export const GASTO_COMPRA_COLS = 'bloque, concepto_id, descripcion, pagado, forma_pago_codigo, numero_factura, importe, igic, cuenta_partida, cuenta_contrapartida'
+
+export function gastoVacio(formaPago: string | null = null): GastoCompra {
+  return { concepto_id: null, descripcion: null, pagado: false, forma_pago_codigo: formaPago, numero_factura: null, importe: 0, igic: 0, cuenta_partida: null, cuenta_contrapartida: null }
+}
+
+/** Bloque sin nada escrito (la forma de pago por defecto no cuenta). */
+export function gastoSinDatos(g: GastoCompra) {
+  return !g.concepto_id && !g.descripcion && !g.pagado && !g.numero_factura && !g.importe && !g.igic && !g.cuenta_partida && !g.cuenta_contrapartida
+}
+
+/** Totales de la ventana de gastos: importe, IGIC y total. */
+export function totalesGastos(gastos: GastoCompra[]) {
+  const importe = r2(gastos.reduce((a, g) => a + (g.importe || 0), 0))
+  const igic = r2(gastos.reduce((a, g) => a + (g.igic || 0), 0))
+  return { importe, igic, total: r2(importe + igic) }
 }
 
 /**
@@ -128,6 +177,8 @@ export function calcularCompra(lineas: LineaCompra[], c: Pick<CabeceraCompra, 'd
  *   PM compra = media ponderada con el stock existente.
  * En un abono se elige si actualiza costes: si lo hace, toma los costes del abono y saca del
  * precio medio las unidades devueltas, sin tocar los datos de «última compra».
+ * Un abono saca siempre el stock, tenga las cantidades en negativo (lo normal: «¿Desea poner todas
+ * las cantidades en Negativo?») o en positivo. En una compra normal, una línea en negativo también sale.
  */
 export async function actualizarCompra(
   cab: CabeceraCompra & { numero: number },
@@ -140,8 +191,10 @@ export async function actualizarCompra(
   const dtoPie = Number(cab.descuento_pie_pct || 0)
   const repartir = Number(cab.otros_gastos || 0) + Number(cab.transporte_coste || 0)
   const subs = lineas.map(subLinea)
-  const totalSubs = subs.reduce((a, b) => a + b, 0)
-  const sentido = cab.es_abono ? -1 : 1
+  // El reparto va en proporción al importe de cada línea, sin signo (en un abono van en negativo).
+  const totalSubs = subs.reduce((a, b) => a + Math.abs(b), 0)
+  // Sentido del movimiento de cada línea: en un abono siempre sale; si no, según el signo.
+  const sentidoDe = (unidades: number) => (cab.es_abono || unidades < 0 ? -1 : 1)
   const hoy = new Date().toISOString().slice(0, 10)
 
   const calc = lineas.map((l, i) => {
@@ -149,9 +202,10 @@ export async function actualizarCompra(
     const puro = r3(l.precio_compra)
     const neto = netoLinea(l)
     const bruto = r3(neto * (1 - dtoPie / 100))
-    const reparto = totalSubs > 0 ? (repartir * subs[i]) / totalSubs : 0
-    const liquido = unidades > 0 ? r3((bruto * l.cantidad + reparto) / unidades) : bruto
-    return { l, unidades, puro, neto, bruto, liquido }
+    const reparto = totalSubs > 0 ? (repartir * Math.abs(subs[i])) / totalSubs : 0
+    const liquido = unidades !== 0 ? r3((bruto * Math.abs(l.cantidad) + reparto) / Math.abs(unidades)) : bruto
+    // `unidades` va ya en positivo; el signo lo lleva `sentido`.
+    return { l, unidades: Math.abs(unidades), sentido: sentidoDe(unidades), puro, neto, bruto, liquido }
   })
 
   // Stock previo (todos los almacenes) para el precio medio, antes de mover nada.
@@ -168,8 +222,8 @@ export async function actualizarCompra(
     .map((c, i) => ({ c, i }))
     .filter(({ c }) => c.unidades > 0)
     .map(({ c, i }) => ({
-      tipo_movimiento: cab.es_abono ? 'devolucion_proveedor' : 'compra',
-      sentido,
+      tipo_movimiento: c.sentido < 0 ? 'devolucion_proveedor' : 'compra',
+      sentido: c.sentido,
       almacen_codigo: cab.almacen_codigo,
       articulo_codigo: c.l.articulo_codigo,
       cantidad: c.unidades,
@@ -191,11 +245,11 @@ export async function actualizarCompra(
     for (const c of calc) {
       const previo = (stockPrevio.get(c.l.articulo_codigo) ?? 0) + (acumulado.get(c.l.articulo_codigo) ?? 0)
       const pmAnt = pmPrevio.get(c.l.articulo_codigo) ?? 0
-      const quedan = previo + sentido * c.unidades
+      const quedan = previo + c.sentido * c.unidades
       const pm =
-        previo > 0 && pmAnt > 0 && quedan > 0 ? r3((previo * pmAnt + sentido * c.unidades * c.liquido) / quedan) : cab.es_abono ? pmAnt : c.liquido
+        previo > 0 && pmAnt > 0 && quedan > 0 ? r3((previo * pmAnt + c.sentido * c.unidades * c.liquido) / quedan) : cab.es_abono ? pmAnt : c.liquido
       pmPrevio.set(c.l.articulo_codigo, pm)
-      acumulado.set(c.l.articulo_codigo, (acumulado.get(c.l.articulo_codigo) ?? 0) + sentido * c.unidades)
+      acumulado.set(c.l.articulo_codigo, (acumulado.get(c.l.articulo_codigo) ?? 0) + c.sentido * c.unidades)
       const costes = { coste_puro: c.puro, coste_neto: c.neto, coste_bruto: c.bruto, precio_liquidado: c.liquido, precio_medio_compra: pm }
       if (cab.es_abono) {
         const { error } = await supabase.from('articulo').update(costes).eq('codigo_interno', c.l.articulo_codigo)

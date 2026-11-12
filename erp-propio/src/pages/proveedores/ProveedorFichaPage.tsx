@@ -5,6 +5,7 @@ import { textoRegistro, useNavRegistro, type NavDir, type NavFiltro } from '../.
 import { GwField, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
+import { GwOperativa, type BloqueOperativa } from '../../components/gw/GwOperativa'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { gwBuscarPorInicio, useListaOrdenada } from '../../components/gw/GwListaOrdenada'
 import { buscarTerceroPorCodigo, defTercero } from '../../components/gw/listasTerceros'
@@ -28,7 +29,43 @@ const TAB_ROWS: GwTabDef[][] = [
     { key: 'articulos', label: 'Artículos' },
     { key: 'compras', label: 'Compras' },
     { key: 'obs', label: 'Observaciones e Imagen' },
+    // No está en GeminisWin: es el manual de la pantalla (Condiciones de Programación).
+    { key: 'operativa', label: 'Operativa' },
   ],
+]
+
+const OPERATIVA: BloqueOperativa[] = [
+  {
+    titulo: 'Bancos',
+    pasos: [
+      'Las cuentas se apuntan cuando el proveedor ya está dado de alta. No hace falta pulsar Modificar en la ficha: la barra pequeña de debajo de la rejilla funciona también consultando.',
+      'Nueva línea (primer botón): escribe el IBAN. Si es español, al salir del campo se rellenan solos el banco, la sucursal, el D.C. y el Nº de Cuenta. Pulsa la marca verde para aceptar o el aspa roja para cancelar.',
+      'Modificar línea y Borrar línea (segundo y tercer botón): primero pulsa la cuenta en la rejilla. Borrar pide confirmación.',
+      'Buscar (cuarto botón): escribe parte del IBAN, del banco o del número y se marca la primera cuenta que lo contenga.',
+      '«Cuenta Principal»: pulsa una cuenta y marca la casilla. Solo puede haber una: al marcar otra, la anterior deja de serlo. La primera cuenta que se apunta queda como principal.',
+    ],
+    notas: [
+      'El programa comprueba los dígitos de control del IBAN: si avisa de que no cuadran, revisa que esté bien copiado.',
+      'Cada alta, cambio o borrado de una cuenta queda apuntado en la auditoría.',
+    ],
+  },
+  {
+    titulo: 'Observaciones e Imagen',
+    pasos: [
+      'Pulsa Modificar en la ficha.',
+      'Escribe en «Observaciones» lo que haya que recordar de este proveedor (persona de contacto, correo de facturas, horarios…).',
+      'Para la imagen, pulsa el botón de la carpeta y escribe su dirección (URL), o escríbela en el cuadro de al lado. Si la dirección no es buena, el marco se queda con el aspa.',
+      '«Ver Imagen a ...» decide cómo se ve: Tamaño real (sin cambiarla), Tamaño ajustado (entera dentro del marco) o Rellenar marco (estirada hasta ocuparlo).',
+      'Pulsa Aceptar para guardar, o Cancelar para dejarlo como estaba.',
+    ],
+  },
+  {
+    titulo: 'Bueno es saber',
+    notas: [
+      'Proveedores y acreedores comparten pantalla: «Ver» (abajo) elige cuáles recorren las flechas y el buscador. Un acreedor no tiene Plantilla tarifas ni Artículos.',
+      'Eliminar no borra: marca el proveedor como baja con la fecha de hoy.',
+    ],
+  },
 ]
 
 // Pestañas que no tienen sentido para un acreedor (no vende mercancía).
@@ -339,7 +376,7 @@ export function ProveedorFichaPage() {
 
       <div className="mt-1">
         <GwTabs rows={draft.tipo === 'acreedor' ? TAB_ROWS_ACREEDOR : TAB_ROWS} active={tabVisible} onChange={setTab}>
-          {vacio && !TABS_SATELITE.has(tabVisible) ? (
+          {vacio && !TABS_SATELITE.has(tabVisible) && tabVisible !== 'operativa' ? (
             <div className="p-3 text-[13px]">No hay ningún {palabra}. Pulsa Nuevo para dar de alta el primero.</div>
           ) : (
             <>
@@ -347,10 +384,11 @@ export function ProveedorFichaPage() {
               {tabVisible === 'comerciales' && <TabDatosComerciales {...tabProps} />}
               {tabVisible === 'plantilla' && <TabPlantillaTarifas {...tabProps} />}
               {tabVisible === 'enlaces' && <TabEnlaces {...tabProps} />}
-              {tabVisible === 'bancos' && aviso(<TabBancos {...tabProps} />)}
+              {tabVisible === 'bancos' && aviso(<TabBancos {...tabProps} lineasEnConsulta />)}
               {tabVisible === 'articulos' && aviso(<TabArticulos {...tabProps} />)}
               {tabVisible === 'compras' && aviso(<TabCompras {...tabProps} />)}
               {tabVisible === 'obs' && <TabObservaciones {...tabProps} />}
+              {tabVisible === 'operativa' && <GwOperativa bloques={OPERATIVA} />}
             </>
           )}
         </GwTabs>

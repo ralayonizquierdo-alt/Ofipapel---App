@@ -28,7 +28,7 @@ export async function recalcularTotalesPedido(tienda: string, numero: number) {
   const [{ data: cab, error: e1 }, { data: ls, error: e2 }] = await Promise.all([
     supabase
       .from('pedido_proveedor')
-      .select('descuento_pie_pct, igic_pie_pct, gastos_proveedor, gastos_proveedor_igic_pct, transporte_coste, transporte_igic_pct, otros_gastos')
+      .select('descuento_pie_pct, igic_pie_pct, gastos_proveedor, gastos_proveedor_igic_pct, transporte_coste, transporte_igic_pct, otros_gastos, otros_gastos_igic')
       .eq('tienda_terminal_codigo', tienda)
       .eq('numero', numero)
       .single(),
@@ -56,6 +56,7 @@ export async function recalcularTotalesPedido(tienda: string, numero: number) {
     transporte_coste: n(cab.transporte_coste),
     transporte_igic_pct: n(cab.transporte_igic_pct),
     otros_gastos: n(cab.otros_gastos),
+    otros_gastos_igic: n(cab.otros_gastos_igic),
   })
   const { error } = await supabase.from('pedido_proveedor').update(campos).eq('tienda_terminal_codigo', tienda).eq('numero', numero)
   if (error) throw new Error(error.message)
