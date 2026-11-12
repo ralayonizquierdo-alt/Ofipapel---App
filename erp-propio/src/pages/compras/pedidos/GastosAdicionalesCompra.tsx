@@ -96,8 +96,8 @@ export function GastosAdicionalesCompra({
               const bloque = i + 1
               return (
                 <div key={bloque} className={`${COLUMNAS} items-start`}>
-                  <fieldset className="gw-group flex flex-col gap-[5px] !pt-0">
-                    <legend className="!text-[17px]">Documento y/o Concepto</legend>
+                  <fieldset className="gw-group flex flex-col gap-[5px] !pt-[3px]">
+                    <legend className="!text-[17px] !leading-[19px]">Documento y/o Concepto</legend>
                     <div className="flex gap-1">
                       <GwSelect
                         className="!w-[156px] shrink-0"
@@ -233,7 +233,7 @@ export function GastosAdicionalesCompra({
 function Derecha({ primera, rotulo, children }: { primera: boolean; rotulo?: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <span className="h-[21px] text-center text-[17px] leading-[19px]">{primera ? rotulo : ''}</span>
+      <span className="h-[24px] text-center text-[17px] leading-[19px]">{primera ? rotulo : ''}</span>
       {children}
     </div>
   )

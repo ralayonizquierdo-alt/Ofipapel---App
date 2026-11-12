@@ -1097,11 +1097,11 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         <table className={`gw-grid table-fixed ${txt} [&_td]:h-[22px] [&_td]:py-0 [&_th]:truncate ${rapida ? '[&_th]:text-[17px]' : '[&_th]:text-[15px]'}`}>
           <colgroup>
             <col style={{ width: rapida ? '9%' : '10.5%' }} />
-            <col style={{ width: rapida ? '33%' : '23%' }} />
+            <col style={{ width: rapida ? '33%' : '22%' }} />
             <col style={{ width: '5%' }} />
             <col style={{ width: '5%' }} />
             <col style={{ width: '7%' }} />
-            <col style={{ width: '7%' }} />
+            <col style={{ width: rapida ? '7%' : '8%' }} />
             <col style={{ width: '7%' }} />
             <col style={{ width: '5%' }} />
             <col style={{ width: '5%' }} />
@@ -1153,7 +1153,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                   <td className="text-right">{formatGw(l.cantidad, 3)}</td>
                   <td className={`text-right ${colorAnterior(l)}`}>{l.coste_anterior != null ? formatGw(l.coste_anterior, 3) : ''}</td>
                   <td className="text-right">{formatGw(l.precio_compra, 3)}</td>
-                  <td className="text-right">{formatGw(l.descuento_pct, 2)}</td>
+                  <td className="text-right">{l.descuento_pct ? formatGw(l.descuento_pct, 2) : ''}</td>
                   <td className="text-right">{formatGw(Number(cab?.igic_pie_pct ?? 0) > 0 ? cab?.igic_pie_pct : l.igic_pct, 2)}</td>
                   {!rapida && <td className="text-right">{l.canon ? formatGw(l.canon, 3) : ''}</td>}
                   <td className="text-right">{l.bonificacion ? formatGw(l.bonificacion, 2) : ''}</td>
