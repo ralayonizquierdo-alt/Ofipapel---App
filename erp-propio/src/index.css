@@ -234,6 +234,7 @@ tr.gw-encontrada td {
 .gw-ventana[data-seccion='compras'] { --gw-face: #dfe7f5; --sec-t1: #b9cbea; --sec-t2: #9bb4e0; }
 .gw-ventana[data-seccion='articulos'] { --gw-face: #eaf6d6; --sec-t1: #cfe9a6; --sec-t2: #b9de82; }
 .gw-ventana[data-seccion='traspasos'] { --gw-face: #fde7d2; --sec-t1: #f8c99c; --sec-t2: #f3b276; }
+.gw-ventana[data-seccion='roturas'] { --gw-face: #efe3d3; --sec-t1: #dcc3a1; --sec-t2: #c9a77c; }
 .gw-ventana[data-seccion] > .gw-titulo {
   background: linear-gradient(var(--sec-t1), var(--sec-t2));
   font-weight: bold;

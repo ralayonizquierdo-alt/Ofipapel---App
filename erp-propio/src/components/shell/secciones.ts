@@ -3,7 +3,7 @@
 // de accesos (QuickBar), para saber de un vistazo dónde se está. Los tonos van en index.css
 // (.gw-ventana[data-seccion=…]); el resto de pantallas se queda en el gris de siempre.
 
-export type Seccion = 'clientes' | 'pedidos' | 'pagos' | 'caja' | 'ventas' | 'facturacion' | 'compras' | 'articulos' | 'traspasos'
+export type Seccion = 'clientes' | 'pedidos' | 'pagos' | 'caja' | 'ventas' | 'facturacion' | 'compras' | 'articulos' | 'traspasos' | 'roturas'
 
 /** Color del icono de cada sección en la barra de accesos (el tono de la ventana va a juego). */
 export const COLOR_SECCION: Record<Seccion, string> = {
@@ -16,6 +16,7 @@ export const COLOR_SECCION: Record<Seccion, string> = {
   compras: '#2b5ea8',
   articulos: '#6a9a1f',
   traspasos: '#e07b1a',
+  roturas: '#8a5a2b',
 }
 
 const RUTAS: [Seccion, string[]][] = [
@@ -47,6 +48,8 @@ const RUTAS: [Seccion, string[]][] = [
     ['/articulos', '/familias', '/marcas', '/plantillas-tarifas', '/tarifas-oferta', '/modificacion-precios', '/stock', '/almacen', '/inventario', '/regularizacion-stock'],
   ],
   ['traspasos', ['/traspasos']],
+  // Gestor de Roturas: marrón (Rober, 12/11/2026).
+  ['roturas', ['/gestor-roturas', '/roturas-peticion', '/roturas-destruccion']],
 ]
 
 /** Sección de una ruta (por prefijo completo: «/pedidos» no casa con «/pedidos-proveedor»), o null. */

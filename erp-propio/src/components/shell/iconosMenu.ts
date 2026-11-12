@@ -274,7 +274,7 @@ const ICONOS: Record<string, Icono> = {
   'Control de Lotes': Layers,
   Almacenes: Warehouse,
   'Regularización de Stock': SlidersHorizontal,
-  'Gestor de Roturas': PackageX,
+  'Gestor de Roturas': [PackageX, COLOR_SECCION.roturas],
   Inventarios: ClipboardCheck,
   'Inventariar Almacén': ScanLine,
   Familias: FolderTree,

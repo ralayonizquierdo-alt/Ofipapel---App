@@ -35,6 +35,7 @@ export const PALETA: ColorPaleta[] = [
   { clave: 'facturacion', nombre: 'Coral', fondo: '#fbe1dc', t1: '#f4b9ad', t2: '#ee9f8f', vivo: '#d0503a' },
   { clave: 'traspasos', nombre: 'Melocotón', fondo: '#fde7d2', t1: '#f8c99c', t2: '#f3b276', vivo: '#e07b1a' },
   { clave: 'arena', nombre: 'Arena', fondo: '#f1e4d8', t1: '#ddc0a3', t2: '#cfa985', vivo: '#9a6235' },
+  { clave: 'roturas', nombre: 'Marrón', fondo: '#efe3d3', t1: '#dcc3a1', t2: '#c9a77c', vivo: '#8a5a2b' },
   { clave: 'caja', nombre: 'Gris perla', fondo: '#e8e8ee', t1: '#cdcdd8', t2: '#b6b6c6', vivo: '#5d6d7e' },
   { clave: 'oliva', nombre: 'Oliva', fondo: '#eef0d8', t1: '#d9ddaa', t2: '#c6cc85', vivo: '#7a8020' },
 ]
