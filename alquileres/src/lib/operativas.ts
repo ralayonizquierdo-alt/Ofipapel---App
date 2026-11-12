@@ -37,8 +37,9 @@ export const VENTANAS: ReglaOperativa = {
 // components/PegarWhatsApp.tsx — cargado, yaCargadas, cobroExistente
 const ENTRADA_RAPIDA: ReglaOperativa = {
   que: 'Entrada rápida',
-  formula: 'OK. RESERVA (verde) · OK. COBRO (azul) · OK. ANULADA (rojo)',
-  nota: 'Al cargar algo bien, lo dice **dentro de la caja** hasta lo siguiente. Si lo pegado **ya estaba cargado** '
+  formula: 'OK. RESERVA (verde) · OK. COBRO (azul) · OK. ANULACIÓN (rojo)',
+  nota: 'Al cargar algo bien, lo dice **dentro de la caja** hasta lo siguiente: **«Apto. AL203, del 13/11 al '
+    + '20/11 (7 noches).»** o **«Reserva: AL106 05/11-21/11»** y debajo **«1 reserva registrada»**. Si lo pegado **ya estaba cargado** '
     + '(misma reserva: piso, entrada y salida; mismo cobro: importe y fecha), sale **«¡¡¡YA EXISTE ESTE '
     + 'REGISTRO!!!»** con el que ya hay, y **no se carga dos veces**.',
 }

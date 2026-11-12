@@ -21,13 +21,13 @@ const eur = (n: number) =>
 
 /**
  * Lo que se acaba de cargar y su color dentro de la caja (Luis, 08/11/2026):
- * «OK. RESERVA» en verde, «OK. COBRO» en azul y «OK. ANULADA» en rojo.
+ * «OK. RESERVA» en verde, «OK. COBRO» en azul y «OK. ANULACIÓN» en rojo.
  */
 type TipoCargado = 'reserva' | 'cobro' | 'anulada'
 const COLOR_CARGADO: Record<TipoCargado, { texto: string; caja: string; titulo: string; detalle: string }> = {
   reserva: { texto: 'RESERVA', caja: 'border-green-400 bg-green-50', titulo: 'text-green-700', detalle: 'text-green-900' },
   cobro: { texto: 'COBRO', caja: 'border-blue-400 bg-blue-50', titulo: 'text-blue-700', detalle: 'text-blue-900' },
-  anulada: { texto: 'ANULADA', caja: 'border-red-400 bg-red-50', titulo: 'text-red-700', detalle: 'text-red-900' },
+  anulada: { texto: 'ANULACIÓN', caja: 'border-red-400 bg-red-50', titulo: 'text-red-700', detalle: 'text-red-900' },
 }
 
 const EJEMPLO = `Pega aquí el mensaje, tal cual llega:
@@ -80,15 +80,24 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
    * Antes, al guardar, la caja se vaciaba y volvía el ejemplo «ALAYON 104…»,
    * y parecía que no había pasado nada (Luis, 08/11/2026).
    */
-  const [cargado, setCargado] = useState<{ tipo: TipoCargado; aptos: string } | null>(null)
+  /**
+   * Lo que se ha registrado, como lo quiere Luis (12/11/2026): una línea por
+   * reserva («Apto. AL203, del 13/11 al 20/11 (7 noches).» o «Reserva: AL106
+   * 05/11-21/11») y debajo el recuento («1 reserva registrada»).
+   */
+  const [cargado, setCargado] = useState<{ tipo: TipoCargado; lineas: string[]; pie: string; aviso?: string } | null>(null)
   const [error, setError] = useState('')
   const areaRef = useRef<HTMLTextAreaElement>(null)
 
   const nombreApt = (id: string | null) => apartments.find(a => a.id === id)?.name || id || '¿?'
-  /** «Apartamento 104» → «Apto. 104»; los demás nombres («Ático 402», «Piso 3») tal cual. */
-  const apto = (id: string | null) => nombreApt(id).replace(/^Apartamento\s+/i, 'Apto. ')
-  /** «Apto. 104, Apto. 105», sin repetir. */
-  const aptos = (ids: (string | null)[]) => [...new Set(ids.map(apto))].join(', ')
+  /**
+   * El código de siempre, el de los conceptos del banco: «AL104», «ALP3». El
+   * Arenal no lleva «AL» (no es de Alayón: lo lleva SOC), va por su nombre.
+   */
+  const cod = (id: string | null) => !id ? '¿?' : /^\d+$/.test(id) || id === 'P3' ? `AL${id}` : nombreApt(id)
+  /** «2026-11-13» → «13/11». */
+  const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+  const cuenta = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
 
   // Cuatro formatos distintos, y se distinguen solos. La anulación se mira
   // antes que nada: trae fechas y vivienda igual que un alta, y leerla como un
@@ -272,8 +281,13 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         texto: validas.map(p => p.linea.texto).join('\n'),
       })
     }
-    setHecho(`${n} ${n === 1 ? 'reserva creada' : 'reservas creadas'}`)
-    setCargado({ tipo: 'reserva', aptos: aptos(validas.map(p => p.linea.apartmentId)) })
+    const pie = cuenta(n, 'reserva registrada', 'reservas registradas')
+    setHecho(pie)
+    setCargado({
+      tipo: 'reserva', pie,
+      lineas: validas.map(({ linea: l }) =>
+        `Apto. ${cod(l.apartmentId)}, del ${dm(l.checkIn!)} al ${dm(l.checkOut!)} (${cuenta(l.nights, 'noche', 'noches')}).`),
+    })
     setTexto(''); setFichero(null); setGuardando(false)
   }
 
@@ -311,9 +325,13 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       reservas: aAnular.length,
       texto: aAnular.map(x => x.a.texto).join('\n'),
     })
-    setCargado({ tipo: 'anulada', aptos: aptos(aAnular.map(x => x.elegida!.apartmentId)) })
-    setHecho(`${aAnular.length === 1 ? 'Reserva anulada' : `${aAnular.length} reservas anuladas`}: ${detalle}`
-      + (cobrado > 0 ? `. Ojo: hay ${eur(cobrado)} ya cobrados, míralo` : ''))
+    const pie = cuenta(aAnular.length, 'anulación registrada', 'anulaciones registradas')
+    setHecho(pie)
+    setCargado({
+      tipo: 'anulada', pie,
+      lineas: aAnular.map(({ elegida: r }) => `Reserva: ${cod(r!.apartmentId)} ${dm(r!.checkIn)}-${dm(r!.checkOut)}`),
+      aviso: cobrado > 0 ? `Ojo: hay ${eur(cobrado)} ya cobrados, míralo` : undefined,
+    })
     setTexto(''); setFichero(null); setElegidas({}); setGuardando(false)
   }
 
@@ -351,9 +369,12 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
         cobros: 1,
         ...conPapel,
       })
-      setCargado({ tipo: 'cobro', aptos: apto(cobro.apartmentId) })
-      setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}, sin reserva: sale en el Dashboard para revisarlo`
-        + (papel ? ` · justificante guardado (${papel.nombre})` : ''))
+      setHecho('1 cobro registrado')
+      setCargado({
+        tipo: 'cobro', pie: '1 cobro registrado',
+        lineas: [`${cod(cobro.apartmentId)}, sin reserva`],
+        aviso: 'Sale en el Dashboard para revisarlo',
+      })
       setTexto(''); setFichero(null); setGuardando(false)
       return
     }
@@ -382,9 +403,11 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
       cobros: 1,
       ...conPapel,
     })
-    setCargado({ tipo: 'cobro', aptos: apto(cobro.apartmentId) })
-    setHecho(`Cobro de ${eur(cobro.amount)} anotado en ${nombreApt(cobro.apartmentId)}`
-      + (papel ? ` · justificante guardado (${papel.nombre})` : ''))
+    setHecho('1 cobro registrado')
+    setCargado({
+      tipo: 'cobro', pie: '1 cobro registrado',
+      lineas: [`Reserva: ${cod(reservaDelCobro.apartmentId)} ${dm(reservaDelCobro.checkIn)}-${dm(reservaDelCobro.checkOut)}`],
+    })
     setTexto(''); setFichero(null); setGuardando(false)
   }
 
@@ -434,8 +457,15 @@ export function CajaPegar({ onClose, compacta = false }: { onClose?: () => void;
                     <p className={`flex items-center gap-1.5 text-lg font-bold ${c.titulo}`}>
                       <CheckCircle2 size={20} /> OK. {c.texto}
                     </p>
-                    {cargado?.aptos && <p className={`text-sm font-semibold ${c.detalle}`}>{cargado.aptos}</p>}
-                    <p className={`text-xs line-clamp-2 ${c.detalle}`}>{hecho}</p>
+                    {/* Hasta tres líneas: más no caben en la caja. */}
+                    {cargado?.lineas.slice(0, 3).map((l, i) => (
+                      <p key={i} className={`text-sm font-semibold ${c.detalle}`}>{l}</p>
+                    ))}
+                    {cargado && cargado.lineas.length > 3 && (
+                      <p className={`text-xs font-semibold ${c.detalle}`}>y {cargado.lineas.length - 3} más</p>
+                    )}
+                    <p className={`text-xs ${c.detalle}`}>{cargado?.pie ?? hecho}</p>
+                    {cargado?.aviso && <p className="text-xs font-semibold text-red-700">{cargado.aviso}</p>}
                   </>
                 )
               })() : (
