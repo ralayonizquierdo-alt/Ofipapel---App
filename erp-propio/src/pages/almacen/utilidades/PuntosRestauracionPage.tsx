@@ -144,6 +144,7 @@ export function PuntosRestauracionPage() {
   const [buscarArt, setBuscarArt] = useState<string | null>(null)
   const [dlgLinea, setDlgLinea] = useState<null | { nueva: boolean; numero_linea: number | null; almacen: string; articulo: string; stock: number | null }>(null)
   const turno = useRef(0)
+  const rejilla = useRef<HTMLDivElement>(null)
 
   const editing = mode !== 'consulta'
   const vista = editing ? draft : (cab ?? vacio(''))
@@ -183,6 +184,7 @@ export function PuntosRestauracionPage() {
   const cargarTramo = useCallback(async (c: Clave, despuesDe: number, reiniciar: boolean) => {
     const mio = ++turno.current
     setCargandoLineas(true)
+    if (reiniciar && rejilla.current) rejilla.current.scrollTop = 0
     const { data, error: e } = await supabase
       .from('punto_restauracion_stock_linea')
       .select(CAMPOS_LINEA)
@@ -549,7 +551,7 @@ export function PuntosRestauracionPage() {
       </div>
 
       {/* Rejilla: se carga por tramos al bajar */}
-      <div className="min-h-[120px] flex-1 overflow-auto border border-[var(--gw-border)] bg-white" onScroll={alBajar}>
+      <div ref={rejilla} className="min-h-[120px] flex-1 overflow-auto border border-[var(--gw-border)] bg-white" onScroll={alBajar}>
         <table className="gw-grid !text-[15px]">
           <thead className="sticky top-0 z-[1]">
             <tr>
