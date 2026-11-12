@@ -480,7 +480,8 @@ export const OPERATIVA_ASESORIA: ReglaOperativa[] = [
       + '«Ficheros guardados» (uno por clase y año: el nuevo sustituye al anterior), con **Comparar**, **Abrir** y '
       + '**Quitar**. Se marcan las que pasan de un céntimo. '
       + '**El Arenal 2B no entra**: lo lleva SOC y va con su informe. **«JUAN XXIII» es el Piso 3.** Un trimestre '
-      + 'que el gestor **aún no ha hecho** no se compara, y se avisa si **su TOTAL no suma** sus casillas.',
+      + 'que el gestor **aún no ha hecho** no se compara, y se avisa si **su TOTAL no suma** sus casillas. Al final, '
+      + '**«Notas de la comparación»** por año: cada diferencia con su **porqué**, muy corta; **«Resuelta»** la quita.',
   },
   {
     que: 'El Arenal',

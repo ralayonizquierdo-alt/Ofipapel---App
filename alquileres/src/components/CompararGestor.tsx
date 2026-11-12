@@ -10,6 +10,7 @@ import {
   type DocumentoAsesoria,
 } from '../lib/documentosAsesoria'
 import { abreJustificante, tamanoLegible } from '../lib/justificantes'
+import NotasComparacion from './NotasComparacion'
 
 /**
  * Comparar lo que dicen fuera con lo que tenemos nosotros.
@@ -351,6 +352,9 @@ export default function CompararGestor() {
             </p>
           </div>
         )}
+
+        {/* Al final del todo, las notas por año (Luis, 12/11/2026). */}
+        <NotasComparacion />
       </div>
     </div>
   )
