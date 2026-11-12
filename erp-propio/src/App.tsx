@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { GestorRoturasPage } from './pages/compras/roturas/GestorRoturasPage'
+// TEMPORAL (fase 6 de roturas): se borra al terminar la migración. Sin entrada de menú.
+import { ImportarRoturasPage } from './pages/compras/roturas/ImportarRoturasPage'
 import { PanelControlPage } from './pages/panel/PanelControlPage'
 import { GeneradorListadosPage } from './pages/listados/GeneradorListadosPage'
 import { ArticulosListPage } from './pages/articulos/ArticulosListPage'
@@ -179,6 +181,7 @@ function App() {
             {/* Archivo → Parámetros, Zonas de servicio, Carga Cotización e Importar (sin captura) */}
             <Route path="/fichaje-gestion" element={<FichajeGestionPage />} />
             <Route path="/gestor-roturas" element={<GestorRoturasPage inicial="pendientes" />} />
+            <Route path="/importar-roturas-antiguas" element={<ImportarRoturasPage />} />
             <Route path="/roturas-peticion" element={<GestorRoturasPage />} />
             <Route path="/roturas-destruccion" element={<GestorRoturasPage inicial="destruir" />} />
             <Route path="/archivo/*" element={<ArchivoRoutes />} />
