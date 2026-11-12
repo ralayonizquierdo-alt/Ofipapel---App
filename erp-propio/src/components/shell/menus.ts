@@ -320,13 +320,18 @@ export const MENUS: TopMenu[] = [
       item('Tarifas de Oferta', { to: '/tarifas-oferta', description: 'Tarifas de Oferta' }),
       item('Modificación de Precios', { to: '/modificacion-precios', description: 'Modificación de Precios' }),
       item('Modif. de Artículos en bloque', { to: '/almacen/modificacion-bloque', description: 'Modificación datos de Artículos' }),
-      // SIN CAPTURA de GeminisWin (Puntos de Restauración, Recalcular Stock y Eliminación de
-      // Artículos): hechas con el esquema y el estilo de sus gemelas; ajustar cuando llegue la captura.
-      item('Puntos de Restauración Stock', { to: '/almacen/puntos-restauracion', description: 'Puntos de Restauración de Stock (sin captura)' }),
+      // Calcadas de GeminisWin (capturas 8 y 9, 12/11/2026). Recalcular Stock y Eliminación de Artículos
+      // son solo para administradores (en GeminisWin piden clave): lo exige también la base de datos.
+      item('Puntos de Restauración Stock', { to: '/almacen/puntos-restauracion', description: 'Puntos de Restauración de Stock: copia del stock por almacén' }),
       item('Recalcular Stock', {
-        children: [item('Recalcular Stock desde Movimientos', { to: '/almacen/recalcular-stock', description: 'Recalcular el stock desde los movimientos (sin captura)' })],
+        children: [
+          item('Recalcular Stock', { to: '/almacen/recalcular-stock?proceso=stock', description: 'Rehace el stock desde los movimientos (solo administradores)' }),
+          item('Recalcular Stock de Lotes', { to: '/almacen/recalcular-stock?proceso=lotes', description: 'Rehace el stock de cada lote desde sus movimientos (solo administradores)' }),
+          item('Recalcular Stock Reservado', { to: '/almacen/recalcular-stock?proceso=reservado', description: 'Rehace las unidades reservadas desde los pedidos de clientes (solo administradores)' }),
+          item('Recalcular Stock Pedido', { to: '/almacen/recalcular-stock?proceso=pedido', description: 'Rehace las unidades pedidas desde los pedidos a proveedores (solo administradores)' }),
+        ],
       }),
-      item('Eliminación de Artículos', { to: '/almacen/eliminacion-articulos', description: 'Eliminación (baja) de Artículos sin movimientos (sin captura)' }),
+      item('Eliminación de Artículos', { to: '/almacen/eliminacion-articulos', description: 'Dar de baja artículos por filtros y restricciones (solo administradores)' }),
       'sep',
       item("Plu's", { to: '/almacen/plus', description: "Asignación de Plu's" }),
     ],

@@ -26,7 +26,6 @@ export function AlmacenUtilRoutes() {
       <Route path="plus" element={<PlusPage />} />
       <Route path="inventariar" element={<InventariarAlmacenPage />} />
       <Route path="puntos-restauracion" element={<PuntosRestauracionPage />} />
-      {/* SIN CAPTURA de GeminisWin: ajustar cuando llegue */}
       <Route path="recalcular-stock" element={<RecalcularStockPage />} />
       <Route path="eliminacion-articulos" element={<EliminacionArticulosPage />} />
       <Route path="lotes" element={<ControlLotesPage />} />

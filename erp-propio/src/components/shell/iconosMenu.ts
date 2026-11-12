@@ -285,7 +285,9 @@ const ICONOS: Record<string, Icono> = {
   'Modif. de Artículos en bloque': Files,
   'Puntos de Restauración Stock': History,
   'Recalcular Stock': RotateCw,
-  'Recalcular Stock desde Movimientos': RotateCw,
+  'Recalcular Stock de Lotes': RotateCw,
+  'Recalcular Stock Reservado': RotateCw,
+  'Recalcular Stock Pedido': RotateCw,
   'Eliminación de Artículos': [Trash2, ROJO],
   // Web
   'Publicar Artículos en la Web': CloudUpload,
