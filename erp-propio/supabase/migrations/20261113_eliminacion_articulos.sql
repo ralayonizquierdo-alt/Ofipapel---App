@@ -155,7 +155,7 @@ $$;
 -- Vuelve a calcular la lista en el servidor (no se fía de la que manda la pantalla) y, si se le
 -- dice cuántos artículos vio el usuario al confirmar (p_esperados), se niega si ya no coinciden.
 -- No borra nada: pone la fecha de baja y, si la fecha ya ha llegado, anula el artículo.
--- «Darlos de baja en la Web»: quita «publicar en web» y pone la fecha de baja web (los dos campos
+-- «Darlos de baja en la Web»: a los que están publicados les quita «publicar en web» y les pone la fecha de baja web (los dos campos
 -- de la ficha del artículo, pestaña Imagen/Web, que son los que mira la sincronización del catálogo).
 create or replace function public.fn_eliminar_articulos_baja(
   p jsonb,
@@ -190,7 +190,7 @@ begin
   end if;
 
   select count(*) filter (where not a.activo and a.fecha_baja is not null),
-         count(*) filter (where p_web and (a.web_publicado or a.web_fecha_baja is null))
+         count(*) filter (where p_web and a.web_publicado)
     into v_ya, v_web
     from articulo a where a.codigo_interno = any (v_cods);
 
@@ -199,7 +199,7 @@ begin
     fecha_baja = case when a.activo or a.fecha_baja is null then p_fecha else a.fecha_baja end,
     activo = case when p_fecha <= v_hoy then false else a.activo end,
     web_publicado = case when p_web then false else a.web_publicado end,
-    web_fecha_baja = case when p_web and (a.web_publicado or a.web_fecha_baja is null) then p_fecha else a.web_fecha_baja end,
+    web_fecha_baja = case when p_web and a.web_publicado then p_fecha else a.web_fecha_baja end,
     actualizado_en = now()
   where a.codigo_interno = any (v_cods);
 
