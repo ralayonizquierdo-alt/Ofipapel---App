@@ -4,12 +4,16 @@ Sustituye por completo a la app RAX-OS «Devoluciones y Roturas» (Vercel + Fire
 sus expedientes y después se apaga. Código de referencia: repo `RAX-OS`, `src/lib/domain/tipos.ts`.
 
 ## Dónde va en el ERP
-- **Compras → Gestor de Roturas** (`/gestor-roturas`): decidir, reclamar, cuadrar, anular.
-- **Almacén → Roturas** (`/roturas-peticion`): una sola entrada de menú. Registrar la rotura (móvil, sin
-  cobertura) lo ve todo el mundo; las pestañas «Para destruir» y «Separados» solo quien tiene el permiso
-  `/roturas-destruccion`.
+- **Una sola entrada de menú: Almacén → Gestor de Roturas** (Rober, 12/11/2026). Una sola pantalla
+  (`GestorRoturasPage`), con pestañas que se enseñan según el permiso de quien entra:
+  - Registrar rotura → todos (`/roturas-peticion`, que es también el permiso para entrar).
+  - Para destruir y Separados → `/roturas-destruccion`.
+  - Pendientes de Compras, Reclamadas, Cuadrar abono y Todos → `/gestor-roturas`.
+  Las rutas `/gestor-roturas` y `/roturas-destruccion` siguen abriendo la misma pantalla.
 - **Permisos (Rober, 12/11):** Gerencia, Administrador y Compras, todo; Almacén, registrar y destruir;
   el resto, solo registrar (`20261112_roturas_permisos_grupos.sql`).
+- **El desperfecto es obligatorio** al registrar (pantalla y servidor:
+  `20261112_roturas_desperfecto_obligatorio.sql`).
 
 ## Decisiones de Rober (11-12/11/2026)
 - 10 estados (RAX-OS tenía 16). Recambio = compensación con género: un solo camino.

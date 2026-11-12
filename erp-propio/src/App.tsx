@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
-import { RoturasAlmacenPage } from './pages/almacen/roturas/RoturasAlmacenPage'
 import { GestorRoturasPage } from './pages/compras/roturas/GestorRoturasPage'
 import { PanelControlPage } from './pages/panel/PanelControlPage'
 import { GeneradorListadosPage } from './pages/listados/GeneradorListadosPage'
@@ -179,9 +178,9 @@ function App() {
             <Route path="/tipos-cliente/*" element={<TipoClienteFichaPage />} />
             {/* Archivo → Parámetros, Zonas de servicio, Carga Cotización e Importar (sin captura) */}
             <Route path="/fichaje-gestion" element={<FichajeGestionPage />} />
-            <Route path="/gestor-roturas" element={<GestorRoturasPage />} />
-            <Route path="/roturas-peticion" element={<RoturasAlmacenPage inicial="registrar" />} />
-            <Route path="/roturas-destruccion" element={<RoturasAlmacenPage inicial="destruir" />} />
+            <Route path="/gestor-roturas" element={<GestorRoturasPage inicial="pendientes" />} />
+            <Route path="/roturas-peticion" element={<GestorRoturasPage />} />
+            <Route path="/roturas-destruccion" element={<GestorRoturasPage inicial="destruir" />} />
             <Route path="/archivo/*" element={<ArchivoRoutes />} />
             {/* Menú Almacén: «Listados Artículos» (06-20) sustituye a la pantalla antigua /stock */}
             <Route path="/stock" element={<Navigate to="/almacen/listados-articulos" replace />} />

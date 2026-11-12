@@ -1,4 +1,5 @@
-// Compras → Gestor de Roturas (/gestor-roturas). Parte de Compras del Gestor de Roturas (tarea 32,
+// Gestor de Roturas: UNA sola pantalla y una sola entrada de menú (Rober, 12/11/2026); cada pestaña
+// se enseña según el permiso de quien entra. Parte de Compras del Gestor de Roturas (tarea 32,
 // docs/ROTURAS.md), que sustituye a la app RAX-OS «Devoluciones y Roturas»:
 //   · Pendientes: lo que Almacén ha registrado. Compras decide: reclamar al proveedor (correo con
 //     PDF y fotos, desde el buzón de Compras), separarlo para el proveedor o destruirlo como obsoleto.
@@ -26,9 +27,14 @@ import {
   type TipoDocumentoRotura,
 } from '../../../lib/roturas'
 import { CuadreRoturas } from './CuadreRoturas'
+import { OperativaAlmacen, ParaDestruir, Registrar, Separados } from '../../almacen/roturas/RoturasAlmacenPage'
+import { usePermisos } from '../../../lib/PermisosContext'
 import { asuntoReclamacion, cuerpoReclamacion, generarPdfReclamacion, type ItemReclamacion } from './reclamacionPdf'
 
-type Pestana = 'pendientes' | 'reclamadas' | 'cuadrar' | 'todos' | 'operativa'
+export type PestanaRoturas = 'registrar' | 'destruir' | 'separados' | 'pendientes' | 'reclamadas' | 'cuadrar' | 'todos' | 'operativa'
+type Pestana = PestanaRoturas
+const DE_COMPRAS: Pestana[] = ['pendientes', 'reclamadas', 'cuadrar', 'todos']
+const DE_DESTRUIR: Pestana[] = ['destruir', 'separados']
 const EN_CURSO: EstadoRotura[] = ['ABONO_PROVEEDOR', 'SEPARADO_PROVEEDOR', 'PENDIENTE', 'RECHAZADO']
 const COLS =
   'id, numero, fecha, estado, articulo_codigo, articulo_referencia, articulo_descripcion, proveedor_codigo, almacen_codigo, cantidad, motivo, descripcion, origen_rotura, procedencia, empleado_solicitante_codigo, empleado_entrega, fecha_compra, importe_estimado, observaciones, reclamacion_enviada_en, reclamacion_correo_id, tipo_cuadre, pendiente_contabilizar, creado_offline, anulado_en, anulado_motivo, creado_por, creado_en, actualizado_en'
@@ -73,8 +79,18 @@ function Caja({ children, titulo }: { children: ReactNode; titulo?: ReactNode })
   )
 }
 
-export function GestorRoturasPage() {
-  const [pestana, setPestana] = useState<Pestana>('pendientes')
+export function GestorRoturasPage({ inicial }: { inicial?: PestanaRoturas }) {
+  // Una sola pantalla para todo (Rober, 12/11/2026); cada pestaña se enseña según el permiso:
+  //   registrar → todos · destruir y separados → /roturas-destruccion · el resto → /gestor-roturas.
+  const { tiene, cargando: cargandoPermisos } = usePermisos()
+  const gestor = tiene('/gestor-roturas')
+  const destruye = tiene('/roturas-destruccion')
+  const permitida = useCallback((p: Pestana) => (DE_COMPRAS.includes(p) ? gestor : DE_DESTRUIR.includes(p) ? destruye : true), [gestor, destruye])
+  const [pestana, setPestana] = useState<Pestana>('registrar')
+  useEffect(() => {
+    if (cargandoPermisos) return
+    setPestana(inicial && permitida(inicial) ? inicial : gestor ? 'pendientes' : 'registrar')
+  }, [cargandoPermisos, inicial, gestor, permitida])
   const [estados, setEstados] = useState<EstadoRoturaInfo[]>([])
   const [filas, setFilas] = useState<Expediente[]>([])
   const [proveedores, setProveedores] = useState<Record<string, Proveedor>>({})
@@ -109,8 +125,8 @@ export function GestorRoturasPage() {
 
   useEffect(() => {
     estadosRotura().then(setEstados).catch(() => setEstados([]))
-    void cargar()
-  }, [cargar])
+    if (gestor) void cargar()
+  }, [cargar, gestor])
 
   const info = useMemo(() => Object.fromEntries(estados.map((e) => [e.codigo, e])), [estados])
   const nombreProv = useCallback((c: string) => proveedores[c]?.nombre ?? c, [proveedores])
@@ -252,13 +268,16 @@ export function GestorRoturasPage() {
     </div>
   )
 
-  const PESTANAS: [Pestana, string][] = [
+  const PESTANAS = ([
+    ['registrar', 'Registrar rotura'],
     ['pendientes', `Pendientes de Compras (${pendientes.length})`],
     ['reclamadas', `Reclamadas (${reclamadas.length})`],
     ['cuadrar', 'Cuadrar abono'],
     ['todos', 'Todos'],
+    ['destruir', 'Para destruir'],
+    ['separados', 'Separados'],
     ['operativa', 'Operativa'],
-  ]
+  ] as [Pestana, string][]).filter(([p]) => permitida(p))
   const abiertoFila = filas.find((f) => f.id === abierto) ?? null
 
   return (
@@ -272,6 +291,7 @@ export function GestorRoturasPage() {
             onClick={() => {
               setPestana(p)
               setAbierto(null)
+              if (gestor && DE_COMPRAS.includes(p)) void cargar()
             }}
           >
             {t}
@@ -350,9 +370,17 @@ export function GestorRoturasPage() {
         </Caja>
       )}
 
-      {pestana === 'operativa' && <Operativa />}
+      {pestana === 'registrar' && <Registrar />}
+      {pestana === 'destruir' && destruye && <ParaDestruir estados={estados} />}
+      {pestana === 'separados' && destruye && <Separados />}
+      {pestana === 'operativa' && (
+        <>
+          <OperativaAlmacen />
+          {gestor && <Operativa />}
+        </>
+      )}
 
-      {abiertoFila && pestana !== 'operativa' && pestana !== 'cuadrar' && (
+      {abiertoFila && gestor && (pestana === 'pendientes' || pestana === 'reclamadas' || pestana === 'todos') && (
         <Detalle
           key={abiertoFila.id}
           f={abiertoFila}
@@ -691,7 +719,7 @@ function Operativa() {
           {
             titulo: 'Qué es',
             notas: [
-              'Aquí llegan las roturas que registra Almacén (Almacén → Roturas). Las unidades ya están en el Almacén 06: el programa las pasa solo.',
+              'Aquí llegan las roturas que registra Almacén (pestaña «Registrar rotura»). Las unidades ya están en el Almacén 06: el programa las pasa solo.',
               'Compras decide qué se hace con cada una y sigue la respuesta del proveedor hasta que se abona, se compensa o se destruye.',
             ],
           },

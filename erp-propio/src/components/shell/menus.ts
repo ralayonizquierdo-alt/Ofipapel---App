@@ -288,7 +288,6 @@ export const MENUS: TopMenu[] = [
       item('Transportistas', { to: '/transportistas', description: 'Ficha de Transportistas' }),
       'sep',
       item('Gestor Pedidos a Proveedores', { to: '/gestor-pedidos-proveedor', description: 'Gestor de Pedidos a Proveedores' }),
-      item('Gestor de Roturas', { to: '/gestor-roturas', description: 'Roturas registradas por Almacén: reclamar al proveedor por correo, seguir la respuesta y ver los expedientes' }),
       // SIN CAPTURA de GeminisWin: ficha y alta rápida hechas sobre PETICION/PETIDETA.
       item('Peticiones de Artículos', { to: '/peticiones', description: 'Peticiones de Artículos: encargos internos que se tramitan como pedido a proveedor' }),
       // El atajo CTRL+P lo recoge GenerarPeticionHost (abre el alta rápida encima de la ventana actual).
@@ -309,8 +308,9 @@ export const MENUS: TopMenu[] = [
       item('Control de Lotes', { to: '/almacen/lotes', description: 'Control de Lotes' }),
       item('Almacenes', { to: '/almacenes', description: 'Ficha de Almacenes' }),
       item('Regularización de Stock', { to: '/regularizacion-stock', description: 'Regularización de Stock' }),
-      // Una sola entrada (Rober, 12/11/2026): todos registran; destruir y separados solo los ve quien tiene ese permiso.
-      item('Roturas', { to: '/roturas-peticion', description: 'Registrar mercancía rota (vale sin cobertura). Almacén: confirmar destrucciones y separados para el proveedor' }),
+      // UNA sola entrada para todo (Rober, 12/11/2026). Entra cualquiera que pueda registrar; dentro, cada
+      // pestaña se enseña según su permiso (/roturas-destruccion, /gestor-roturas).
+      item('Gestor de Roturas', { to: '/roturas-peticion', description: 'Roturas: registrar, reclamar al proveedor, cuadrar abonos y destruir (cada uno ve lo que le toca)' }),
       item('Inventarios', { to: '/inventario', description: 'Inventarios' }),
       item('Inventariar Almacén', { to: '/almacen/inventariar', description: 'Inventariar Almacén' }),
       item('Familias', { to: '/familias', description: 'Ficha de Familias' }),
@@ -521,8 +521,8 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/peticiones', title: 'Peticiones de Artículos' },
   { prefix: '/regularizacion-stock', title: 'Regularización de Stock' },
   { prefix: '/gestor-roturas', title: 'Gestor de Roturas' },
-  { prefix: '/roturas-peticion', title: 'Roturas' },
-  { prefix: '/roturas-destruccion', title: 'Roturas' },
+  { prefix: '/roturas-peticion', title: 'Gestor de Roturas' },
+  { prefix: '/roturas-destruccion', title: 'Gestor de Roturas' },
   { prefix: '/tarifas-oferta', title: 'Tarifas de Oferta' },
   { prefix: '/modificacion-precios', title: 'Modificación de Precios' },
   { prefix: '/pedidos', title: 'Pedidos de Clientes' },

@@ -1,5 +1,5 @@
-// Almacén → Roturas (/roturas-peticion; /roturas-destruccion abre la misma pantalla en «Para destruir»).
-// Una sola entrada de menú: registrar lo ve todo el mundo; destruir y separados, quien tiene ese permiso.
+// Partes de Almacén del Gestor de Roturas (registrar, para destruir, separados). Se enseñan como
+// pestañas de GestorRoturasPage, cada una según el permiso de quien entra.
 // Parte de Almacén del Gestor de Roturas (tarea 32, docs/ROTURAS.md), que sustituye a la app RAX-OS:
 //   · Registrar rotura: el artículo roto, cuántos, por qué y fotos. Vale sin cobertura (se guarda en
 //     el móvil y se envía solo). Al registrar, el ERP pasa las unidades al Almacén 06.
@@ -11,17 +11,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { supabase } from '../../../lib/supabase'
 import { GwField, GwInput, GwSelect } from '../../../components/gw'
 import { GwOperativa } from '../../../components/gw/GwOperativa'
-import { usePermisos } from '../../../lib/PermisosContext'
-import { ORIGENES_ROTURA, type EstadoRotura, type EstadoRoturaInfo, type ExpedienteRotura, type OrigenRotura, estadosRotura } from '../../../lib/roturas'
+import { ORIGENES_ROTURA, type EstadoRotura, type EstadoRoturaInfo, type ExpedienteRotura, type OrigenRotura } from '../../../lib/roturas'
 import { enviarRotura, esFalloDeRed, guardarPendienteRotura, pendientesRotura, quitarPendienteRotura, sincronizarRoturas, type RoturaPendiente } from '../../../lib/roturasPendientes'
 
-type Pestana = 'registrar' | 'destruir' | 'separados' | 'operativa'
-const PESTANAS: [Pestana, string][] = [
-  ['registrar', 'Registrar rotura'],
-  ['destruir', 'Para destruir'],
-  ['separados', 'Separados'],
-  ['operativa', 'Operativa'],
-]
 
 const MOTIVOS = ['Caja aplastada', 'Producto roto', 'Producto derramado / manchado', 'Mal estado de fábrica', 'Otro']
 const ALMACEN_ROTURAS = '06'
@@ -67,33 +59,6 @@ async function nombresProveedor(codigos: string[]): Promise<Record<string, strin
   return Object.fromEntries(((data ?? []) as { codigo: string; nombre: string }[]).map((p) => [p.codigo, p.nombre]))
 }
 
-export function RoturasAlmacenPage({ inicial = 'registrar' }: { inicial?: Pestana }) {
-  const [pestana, setPestana] = useState<Pestana>(inicial)
-  const [estados, setEstados] = useState<EstadoRoturaInfo[]>([])
-  // Registrar lo ve todo el mundo; destruir y separados, solo Almacén, Compras y Gerencia.
-  const { tiene } = usePermisos()
-  const destruye = tiene('/roturas-destruccion')
-  const visibles = PESTANAS.filter(([p]) => destruye || p === 'registrar' || p === 'operativa')
-  useEffect(() => setPestana(inicial !== 'registrar' && !destruye ? 'registrar' : inicial), [inicial, destruye])
-  useEffect(() => {
-    estadosRotura().then(setEstados).catch(() => setEstados([]))
-  }, [])
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5 text-[13px]">
-      <div className="flex flex-wrap items-center gap-1 border border-[var(--gw-border-light)] bg-[var(--gw-face)] p-1.5">
-        {visibles.map(([p, t]) => (
-          <button key={p} type="button" className={`gw-btn h-[28px] ${pestana === p ? 'bg-[#91c9f7] font-bold' : ''}`} onClick={() => setPestana(p)}>
-            {t}
-          </button>
-        ))}
-      </div>
-      {pestana === 'registrar' && <Registrar />}
-      {pestana === 'destruir' && destruye && <ParaDestruir estados={estados} />}
-      {pestana === 'separados' && destruye && <Separados />}
-      {pestana === 'operativa' && <Operativa />}
-    </div>
-  )
-}
 
 // ------------------------------------------------------------------ Registrar rotura
 interface ArticuloElegido {
@@ -121,7 +86,7 @@ async function buscarArticulos(texto: string): Promise<ArticuloElegido[]> {
   return (data ?? []) as ArticuloElegido[]
 }
 
-function Registrar() {
+export function Registrar() {
   const [almacenes, setAlmacenes] = useState<{ codigo: string; nombre: string }[]>([])
   const [texto, setTexto] = useState('')
   const [resultados, setResultados] = useState<ArticuloElegido[]>([])
@@ -234,6 +199,7 @@ function Registrar() {
     if (!codigo) return setAviso({ ok: false, texto: 'Elige el artículo roto (o escribe su código si no hay cobertura).' })
     if (!Number.isFinite(n) || n <= 0) return setAviso({ ok: false, texto: 'La cantidad tiene que ser mayor que cero.' })
     if (!motivoFinal) return setAviso({ ok: false, texto: 'Escribe el motivo de la rotura.' })
+    if (descripcion.trim().length < 3) return setAviso({ ok: false, texto: 'Di qué desperfecto presenta: es obligatorio.' })
     const pendiente: RoturaPendiente = {
       clave: crypto.randomUUID(),
       datos: {
@@ -242,7 +208,7 @@ function Registrar() {
         almacen_codigo: almacen,
         cantidad: n,
         motivo: motivoFinal,
-        descripcion: descripcion.trim() || null,
+        descripcion: descripcion.trim(),
         origen_rotura: origen,
         empleado_entrega: entrega.trim() || null,
         creado_offline: !navigator.onLine,
@@ -393,7 +359,7 @@ function Registrar() {
         {motivo === 'Otro' && <GwInput className={`${grande} mt-1 w-full`} placeholder="Escribe el motivo" value={motivoLibre} onChange={(e) => setMotivoLibre(e.target.value)} />}
         <div className="mt-1.5 flex flex-wrap items-end gap-2">
           <div className="min-w-[240px] flex-1">
-            <GwField label="Detalle del desperfecto (opcional)">
+            <GwField label="Qué desperfecto presenta (obligatorio)">
               <GwInput className={`${grande} w-full`} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
             </GwField>
           </div>
@@ -442,7 +408,7 @@ function Registrar() {
 }
 
 // ------------------------------------------------------------------ Para destruir
-function ParaDestruir({ estados }: { estados: EstadoRoturaInfo[] }) {
+export function ParaDestruir({ estados }: { estados: EstadoRoturaInfo[] }) {
   const [filas, setFilas] = useState<ExpedienteRotura[]>([])
   const [nombres, setNombres] = useState<Record<string, string>>({})
   const [marcados, setMarcados] = useState<Set<number>>(new Set())
@@ -560,7 +526,7 @@ function ParaDestruir({ estados }: { estados: EstadoRoturaInfo[] }) {
 }
 
 // ------------------------------------------------------------------ Separados para el proveedor
-function Separados() {
+export function Separados() {
   const [filas, setFilas] = useState<ExpedienteRotura[]>([])
   const [nombres, setNombres] = useState<Record<string, string>>({})
   const [cargando, setCargando] = useState(true)
@@ -662,7 +628,7 @@ function Separados() {
 }
 
 // ------------------------------------------------------------------ Operativa
-function Operativa() {
+export function OperativaAlmacen() {
   return (
     <Caja>
       <GwOperativa
