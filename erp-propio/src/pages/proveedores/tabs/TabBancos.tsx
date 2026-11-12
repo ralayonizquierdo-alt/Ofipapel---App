@@ -195,17 +195,20 @@ export function TabBancos({
     else setError(`Ninguna cuenta de esta ficha contiene «${t}». Prueba con menos letras o cifras.`)
   }
 
-  /** Al salir del IBAN, si es español, rellena banco, sucursal, D.C. y cuenta que estén en blanco. */
+  /**
+   * Al salir del IBAN, si es español y sus dígitos de control cuadran, pone el banco, la sucursal,
+   * el D.C. y la cuenta que lleva dentro (en un IBAN español no pueden ser otros).
+   */
   function completarDesdeIban() {
-    if (!draft?.iban) return
+    if (!draft?.iban || validarIban(draft.iban)) return
     const p = partesIbanEs(draft.iban)
     if (!p) return
     setDraft({
       ...draft,
-      banco_codigo: draft.banco_codigo || (bancos.some((b) => b.codigo === p.banco) ? p.banco : null),
-      sucursal_codigo: draft.sucursal_codigo || p.sucursal,
-      digito_control: draft.digito_control || p.dc,
-      numero_cuenta: draft.numero_cuenta || p.cuenta,
+      banco_codigo: bancos.some((b) => b.codigo === p.banco) ? p.banco : draft.banco_codigo,
+      sucursal_codigo: p.sucursal,
+      digito_control: p.dc,
+      numero_cuenta: p.cuenta,
     })
   }
 
@@ -296,7 +299,7 @@ export function TabBancos({
         nuevo={puede && !enEdicion && !!proveedorCodigo}
         modificar={puede && !enEdicion && seleccionada != null}
         borrar={puede && !enEdicion && seleccionada != null}
-        buscar={!enEdicion && rows.length > 0}
+        buscar={!enEdicion}
         onBuscar={buscar}
         onNuevo={() => {
           setError(null)

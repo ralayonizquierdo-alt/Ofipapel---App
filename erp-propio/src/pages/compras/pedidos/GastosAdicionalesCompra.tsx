@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwSalir } from '../../../components/gw/GwIconos'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
@@ -230,7 +230,7 @@ export function GastosAdicionalesCompra({
 }
 
 /** Celda de la derecha: baja lo que ocupa la leyenda del bloque; en el primero cabe el rótulo de la cuenta. */
-function Derecha({ primera, rotulo, children }: { primera: boolean; rotulo?: string; children: React.ReactNode }) {
+function Derecha({ primera, rotulo, children }: { primera: boolean; rotulo?: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col">
       <span className="h-[21px] text-center text-[17px] leading-[19px]">{primera ? rotulo : ''}</span>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Binoculars, Check, FilePen, FilePlus2, FileX2, Sheet, Wallet, X } from 'lucide-react'
+import { Binoculars, Check, FilePen, FilePlus2, FileX2, HelpCircle, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { aplicarArticulo, tocarLinea, type LineaEnEdicion } from '../../../lib/lineaEnEdicion'
@@ -11,18 +11,27 @@ import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
 import { buscarArticulo } from '../../ventas/pedidos/precios'
+import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
+import { GwVentanaFlotante } from '../../../components/gw/GwVentanaFlotante'
 import { CompraBar } from './CompraBar'
+import { GastosAdicionalesCompra } from './GastosAdicionalesCompra'
 import { camposTotales } from './totales'
 import {
   CAB_COMPRA_COLS,
   ESTADOS_COMPRA,
+  GASTO_COMPRA_COLS,
   LINEA_COMPRA_COLS,
   actualizarCompra,
   calcularCompra,
+  gastoSinDatos,
+  gastoVacio,
   netoLinea,
   r3,
   subLinea,
+  totalesGastos,
   type CabeceraCompra,
+  type ConceptoGasto,
+  type GastoCompra,
   type LineaCompra,
 } from './compras'
 
@@ -30,6 +39,47 @@ import {
 // en el mismo documento. «Actualizado» entra el stock y recalcula los costes del artículo.
 // Con `rapida` es «Creación rápida de pedidos»: el mismo documento con letra grande y sin
 // transporte, pagos, gastos ni canon.
+// «Otros gastos adicionales» abre la ventana «Gastos adicionales - Compras» (GastosAdicionalesCompra).
+
+/** Cómo se usa la pantalla (enlace «Operativa» de la barra de estado). */
+const OPERATIVA: BloqueOperativa[] = [
+  {
+    titulo: 'Hacer una compra',
+    pasos: [
+      'Pulsa Nuevo (F3), elige el proveedor y el almacén.',
+      'Añade las líneas con «Nueva línea»: código, cantidad, precio y descuento.',
+      'Guarda con F1. El número se asigna al guardar.',
+      'Cuando llegue la mercancía, pulsa «Actualizado»: entra el stock y se recalculan los costes de los artículos.',
+    ],
+  },
+  {
+    titulo: 'Otros gastos adicionales (reparto de gastos)',
+    pasos: [
+      'Con la compra en alta o en modificación (F2), pulsa «Otros gastos adicionales». Al consultar, el botón está en gris.',
+      'Rellena hasta tres documentos: concepto (AIEM, despacho, forfait…), nº de factura, importe e IGIC. El total se calcula solo.',
+      'Marca «Pagado» y elige la forma de pago si ya está pagado.',
+      'Cierra con F4 o «Cerrar» y guarda la compra con F1.',
+    ],
+    notas: [
+      'Los totales pasan a la fila «Otros gastos adicionales» del pie (importe, IGIC y total) y entran en el total de la compra.',
+      'Al pulsar «Actualizado», el importe (sin IGIC) se reparte en el coste de los artículos, en proporción al importe de cada línea, junto con el transporte.',
+      'Las cuentas contables (Partida y Contra Part.) solo se guardan: no generan asientos.',
+      'Con la compra ya Actualizada, el importe y el IGIC de los gastos no se pueden cambiar, porque ya se repartieron en los costes.',
+    ],
+  },
+  {
+    titulo: 'Canon',
+    notas: ['El botón «Canon» solo se activa en alta o en modificación, igual que «Otros gastos adicionales». El canon de cada artículo se escribe en la columna «Canon» de su línea.'],
+  },
+  {
+    titulo: 'Abonos (devoluciones al proveedor)',
+    pasos: [
+      'En alta o modificación, pulsa «Abono».',
+      'El programa pregunta «¿Desea poner todas las cantidades en Negativo?». Con «Sí», todas las cantidades de las líneas pasan a negativo (también las que añadas después) y los totales se recalculan. Con «No», se quedan como están.',
+      'Guarda con F1. Al pulsar «Actualizado», el stock de un abono siempre sale del almacén.',
+    ],
+  },
+]
 
 interface Tienda {
   codigo: string
@@ -120,6 +170,7 @@ function vacia(tienda: Tienda | undefined): CabeceraCompra {
     gastos_proveedor: 0,
     gastos_proveedor_igic_pct: 0,
     otros_gastos: 0,
+    otros_gastos_igic: 0,
     recibido: false,
     stock_movido: false,
     pagado: false,
@@ -127,6 +178,12 @@ function vacia(tienda: Tienda | undefined): CabeceraCompra {
     no_pasar_contabilidad: false,
     observaciones: null,
   }
+}
+
+/** Línea con todas sus cantidades en negativo (abono). */
+function lineaEnNegativo(l: LineaCompra): LineaCompra {
+  const neg = (n: number) => (n ? -Math.abs(n) : 0)
+  return { ...l, cantidad: neg(l.cantidad), cajas: neg(l.cajas), bultos: neg(l.bultos), bonificacion: neg(l.bonificacion) }
 }
 
 function lineaVacia(): LineaCompra {
@@ -156,6 +213,7 @@ const NUM_CAB: (keyof CabeceraCompra)[] = [
   'gastos_proveedor',
   'gastos_proveedor_igic_pct',
   'otros_gastos',
+  'otros_gastos_igic',
 ]
 
 export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean }) {
@@ -201,6 +259,17 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [refresco, setRefresco] = useState(0)
+  // «Otros gastos adicionales»: los tres bloques de la ventana «Gastos adicionales - Compras».
+  const [conceptos, setConceptos] = useState<ConceptoGasto[]>([])
+  const [gastos, setGastos] = useState<GastoCompra[]>(() => [gastoVacio(), gastoVacio(), gastoVacio()])
+  const [gastosOrig, setGastosOrig] = useState<GastoCompra[] | null>(null)
+  // Bloques que ya están guardados (se vuelven a escribir aunque se hayan vaciado).
+  const gastosGuardados = useRef<Set<number>>(new Set())
+  const [ventanaGastos, setVentanaGastos] = useState(false)
+  // Abono: pregunta «¿Desea poner todas las cantidades en Negativo?» y lo contestado.
+  const [preguntaAbono, setPreguntaAbono] = useState(false)
+  const [abonoNegativo, setAbonoNegativo] = useState(false)
+  const [ayuda, setAyuda] = useState(false)
 
   const editing = mode !== 'consulta'
   const ro = !editing
@@ -229,6 +298,11 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       .eq('no_ver_en_compras', false)
       .order('descripcion')
       .then(({ data }) => setFormasPago((data ?? []).map((f) => ({ codigo: f.codigo as string, nombre: (f.descripcion as string) ?? '' }))))
+    supabase
+      .from('concepto_gasto_compra')
+      .select('id, codigo, descripcion, cuenta_partida, cuenta_contrapartida')
+      .order('descripcion')
+      .then(({ data }) => setConceptos((data ?? []) as ConceptoGasto[]))
     const uid = session?.user.id
     if (uid)
       supabase
@@ -275,7 +349,13 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       setMensaje(tomarAvisoNumero())
       setEditLinea(null)
       setSel(0)
+      setVentanaGastos(false)
+      setPreguntaAbono(false)
+      setAbonoNegativo(false)
+      gastosGuardados.current = new Set()
       if (esNuevo) {
+        setGastos([gastoVacio(), gastoVacio(), gastoVacio()])
+        setGastosOrig(null)
         setCab(vacia(tiendas.find((t) => t.codigo === tiendaDeTrabajo(tiendas))))
         setOrig(null)
         setLineas([])
@@ -323,6 +403,37 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         canon: Number(l.canon ?? 0),
         bonificacion: Number(l.bonificacion ?? 0),
       }))
+      // Gastos adicionales guardados (hasta tres bloques).
+      const { data: gs } = await supabase
+        .from('pedido_proveedor_gasto')
+        .select(GASTO_COMPRA_COLS)
+        .eq('tienda_terminal_codigo', c.tienda_terminal_codigo)
+        .eq('numero', c.numero)
+        .order('bloque')
+      if (cancel) return
+      const gts: GastoCompra[] = [gastoVacio(), gastoVacio(), gastoVacio()]
+      for (const g of gs ?? []) {
+        const b = Number(g.bloque)
+        if (b < 1 || b > 3) continue
+        gastosGuardados.current.add(b)
+        gts[b - 1] = {
+          concepto_id: g.concepto_id == null ? null : Number(g.concepto_id),
+          descripcion: g.descripcion as string | null,
+          pagado: !!g.pagado,
+          forma_pago_codigo: g.forma_pago_codigo as string | null,
+          numero_factura: g.numero_factura as string | null,
+          importe: Number(g.importe ?? 0),
+          igic: Number(g.igic ?? 0),
+          cuenta_partida: g.cuenta_partida as string | null,
+          cuenta_contrapartida: g.cuenta_contrapartida as string | null,
+        }
+      }
+      // Compras anteriores a la ventana de gastos: su importe suelto va al primer bloque para no perderlo.
+      if (!(gs ?? []).length && (c.otros_gastos || c.otros_gastos_igic)) gts[0] = { ...gts[0], importe: c.otros_gastos, igic: c.otros_gastos_igic }
+      setGastos(gts)
+      setGastosOrig(gts)
+      // Una compra con todas sus cantidades en negativo ya contestó «Sí» en su día.
+      setAbonoNegativo(c.es_abono && lns.length > 0 && lns.every((l) => l.cantidad < 0))
       setCab(c)
       setOrig({ cab: c, lineas: lns })
       setLineas(lns)
@@ -363,7 +474,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     () =>
       calcularCompra(
         lineasCalculo,
-        cab ?? { descuento_pie_pct: 0, igic_pie_pct: 0, gastos_proveedor: 0, gastos_proveedor_igic_pct: 0, transporte_coste: 0, transporte_igic_pct: 0, otros_gastos: 0 },
+        cab ?? { descuento_pie_pct: 0, igic_pie_pct: 0, gastos_proveedor: 0, gastos_proveedor_igic_pct: 0, transporte_coste: 0, transporte_igic_pct: 0, otros_gastos: 0, otros_gastos_igic: 0 },
       ),
     [lineasCalculo, cab],
   )
@@ -392,6 +503,44 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
 
   function patch(p: Partial<CabeceraCompra>) {
     setCab((c) => (c ? { ...c, ...p } : c))
+  }
+
+  // Forma de pago por defecto de los gastos adicionales: CONTADO, como en GeminisWin.
+  const formaContado = useMemo(() => formasPago.find((f) => f.nombre.trim().toUpperCase() === 'CONTADO')?.codigo ?? null, [formasPago])
+
+  /** Cambia un bloque de gastos y lleva los totales a la fila «Otros gastos adicionales» del pie. */
+  function cambiarGasto(bloque: number, cambios: Partial<GastoCompra>) {
+    const nuevos = gastos.map((g, i) => (i === bloque - 1 ? { ...g, ...cambios } : g))
+    setGastos(nuevos)
+    const t = totalesGastos(nuevos)
+    patch({ otros_gastos: t.importe, otros_gastos_igic: t.igic })
+  }
+
+  function abrirGastos() {
+    if (!editing || !cab) return
+    // La forma de pago sale en CONTADO en los bloques que aún no la tienen.
+    setGastos((gs) => gs.map((g) => (g.forma_pago_codigo == null && gastoSinDatos(g) ? { ...g, forma_pago_codigo: formaContado } : g)))
+    setVentanaGastos(true)
+  }
+
+  /** Botón «Abono»: al marcarlo pregunta si pone todas las cantidades en negativo. */
+  function pulsarAbono() {
+    if (!cab) return
+    if (cab.es_abono) {
+      patch({ es_abono: false })
+      setAbonoNegativo(false)
+      return
+    }
+    patch({ es_abono: true })
+    setPreguntaAbono(true)
+  }
+
+  function responderAbono(si: boolean) {
+    setPreguntaAbono(false)
+    setAbonoNegativo(si)
+    if (!si) return
+    setLineas((ls) => ls.map(lineaEnNegativo))
+    setEditLinea((e) => (e ? { ...e, l: lineaEnNegativo(e.l) } : e))
   }
 
   async function elegirProveedor(codigo: string) {
@@ -495,17 +644,20 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
       setMensaje('Indica el código del artículo de la línea.')
       return
     }
-    if (!(editLinea.l.cantidad > 0)) {
-      setMensaje('La cantidad debe ser mayor que cero.')
+    // En un abono las cantidades pueden ir en negativo; en una compra normal, siempre mayores que cero.
+    if (cab?.es_abono ? !editLinea.l.cantidad : !(editLinea.l.cantidad > 0)) {
+      setMensaje(cab?.es_abono ? 'Indica la cantidad de la línea (no puede ser cero).' : 'La cantidad debe ser mayor que cero. Para una devolución, marca «Abono».')
       return
     }
     setMensaje(null)
+    // Abono con «Sí» a las cantidades en negativo: las líneas nuevas entran también en negativo.
+    const aceptada = cab?.es_abono && abonoNegativo ? lineaEnNegativo(editLinea.l) : editLinea.l
     if (editLinea.idx === 'nuevo') {
-      setLineas((ls) => [...ls, editLinea.l])
+      setLineas((ls) => [...ls, aceptada])
       setSel(lineas.length)
     } else {
       const i = editLinea.idx
-      setLineas((ls) => ls.map((l, k) => (k === i ? editLinea.l : l)))
+      setLineas((ls) => ls.map((l, k) => (k === i ? aceptada : l)))
     }
     setEditLinea(null)
   }
@@ -611,6 +763,26 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           if (error) throw new Error(error.message)
         }
       }
+      // Gastos adicionales: los bloques con datos y los que ya estaban guardados (aunque se vacíen).
+      if (!rapida) {
+        const filasGasto = gastos
+          .map((g, i) => ({ g, bloque: i + 1 }))
+          .filter(({ g, bloque }) => !gastoSinDatos(g) || gastosGuardados.current.has(bloque))
+          .map(({ g, bloque }) => ({
+            tienda_terminal_codigo: cab.tienda_terminal_codigo,
+            numero,
+            bloque,
+            ...g,
+            forma_pago_codigo: gastoSinDatos(g) ? null : g.forma_pago_codigo,
+            total: Math.round(((g.importe || 0) + (g.igic || 0)) * 100) / 100,
+          }))
+        if (filasGasto.length) {
+          const { error } = await supabase.from('pedido_proveedor_gasto').upsert(filasGasto, { onConflict: 'tienda_terminal_codigo,numero,bloque' })
+          if (error) throw new Error(error.message)
+          for (const f of filasGasto) gastosGuardados.current.add(f.bloque)
+        }
+        setGastosOrig(gastos)
+      }
       setSaving(false)
       cargarClaves()
       if (mode === 'alta') {
@@ -629,11 +801,15 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   function cancelar() {
     setEditLinea(null)
     setMensaje(null)
+    setVentanaGastos(false)
+    setPreguntaAbono(false)
     if (mode === 'alta') {
       navigate(base)
       return
     }
+    if (gastosOrig) setGastos(gastosOrig)
     if (orig) {
+      setAbonoNegativo(orig.cab.es_abono && orig.lineas.length > 0 && orig.lineas.every((l) => l.cantidad < 0))
       setCab(orig.cab)
       setLineas(orig.lineas)
       cargarProveedor(orig.cab.proveedor_codigo)
@@ -755,8 +931,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         type="button"
         className="gw-btn !h-[48px] flex-col !gap-0 !text-[18px] !opacity-100 disabled:!text-black"
         disabled={ro || lineasBloqueadas}
-        title="Abono: devolución al proveedor (el stock sale del almacén)"
-        onClick={() => patch({ es_abono: !cab?.es_abono })}
+        title="Abono: devolución al proveedor (el stock sale del almacén). Al marcarlo pregunta si pone las cantidades en negativo"
+        onClick={pulsarAbono}
       >
         <span>
           <u>A</u>bono
@@ -1110,17 +1286,33 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                 <GwNumber decimals={2} value={r3(tot.gastos + tot.igicGastos)} />
               </div>
               <div className="grid grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-1">
-                <button type="button" className="gw-btn !h-[28px] !text-[16px]" disabled title="Total canon de las líneas">
+                <button
+                  type="button"
+                  className="gw-btn !h-[28px] !text-[16px]"
+                  disabled={ro}
+                  title="Canon de las líneas (solo en alta o modificación)"
+                  onClick={() => setMensaje(`Total canon: ${formatGw(tot.canon, 2)}. El canon de cada artículo se escribe en la columna «Canon» de su línea.`)}
+                >
                   Canon
                 </button>
                 <span className="whitespace-nowrap text-right text-[16px]">Y Transporte:</span>
                 <span className="pr-1 text-right text-[17px] font-bold">{formatGw(tot.transporte, 2)}</span>
               </div>
               <div className="grid grid-cols-[minmax(0,1fr)_110px] items-center gap-x-1">
-                <span className="gw-label truncate !text-[16px]" title="Otros gastos que se reparten en el coste de las líneas al Actualizar">
-                  <u>O</u>tros gastos adicionales:
+                <button
+                  type="button"
+                  className="gw-btn !h-[28px] !justify-end truncate !text-[16px]"
+                  disabled={ro}
+                  title="Otros gastos adicionales (reparto de gastos): abre la ventana «Gastos adicionales - Compras». Solo en alta o modificación"
+                  onClick={abrirGastos}
+                >
+                  <span>
+                    <u>O</u>tros gastos adicionales:
+                  </span>
+                </button>
+                <span className="pr-1 text-right text-[17px] font-bold" title="Importe de los otros gastos adicionales (sin IGIC)">
+                  {formatGw(tot.otros, 2)}
                 </span>
-                <GwNumber decimals={2} disabled={ro || lineasBloqueadas} value={cab?.otros_gastos ?? 0} onChange={(v) => patch({ otros_gastos: v ?? 0 })} />
               </div>
             </>
           )}
@@ -1166,7 +1358,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                 </span>
                 <span />
                 <span className="text-right" title="Total canon">
-                  {formatGw(tot.canon, 2)}
+                  {tot.canon ? formatGw(tot.canon, 2) : ''}
                 </span>
                 <span className="text-right" title="Total IGIC (líneas, gastos y transporte)">
                   {formatGw(tot.totalIgic, 2)}
@@ -1175,11 +1367,11 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                   {formatGw(tot.total, 2)}
                 </span>
                 <span />
-                <span className="text-right" title="Otros gastos adicionales">
-                  {formatGw(tot.otros, 2)}
+                <span className="text-right" title="IGIC de los otros gastos adicionales">
+                  {formatGw(tot.otrosIgic, 2)}
                 </span>
-                <span className="text-right" title="A pagar al proveedor (sin transporte)">
-                  {formatGw(tot.aPagarProveedor, 2)}
+                <span className="text-right" title="Total de los otros gastos adicionales">
+                  {formatGw(tot.otrosTotal, 2)}
                 </span>
                 <span className="text-right text-[#1a4fd0]" title="Total con otros gastos adicionales">
                   {formatGw(tot.totalConOtros, 2)}
@@ -1219,9 +1411,50 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
                 : mode === 'edicion'
                   ? 'Modificando · F1 guarda'
                   : `Orden: ${orden === 'numero' ? 'por número' : 'por proveedor'}${textoRegistro(nav)}`}
+          {!rapida && (
+            <button type="button" className="ml-3 inline-flex items-center gap-1 text-[#1a4fd0] underline" onClick={() => setAyuda(true)}>
+              <HelpCircle size={12} /> Operativa
+            </button>
+          )}
         </span>
         {mensaje && <span className="font-bold text-[#c42b1c]">{mensaje}</span>}
       </div>
+
+      {ventanaGastos && editing && (
+        <GastosAdicionalesCompra
+          gastos={gastos}
+          conceptos={conceptos}
+          formasPago={formasPago}
+          importeBloqueado={lineasBloqueadas}
+          onChange={cambiarGasto}
+          onCerrar={() => setVentanaGastos(false)}
+        />
+      )}
+      {preguntaAbono && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-[240px]">
+          <GwWindow title="Compras" onClose={() => responderAbono(false)} className="w-[620px] max-w-[95vw]">
+            <div className="flex flex-col gap-8 bg-white px-9 pb-11 pt-12">
+              <div className="flex items-center gap-4">
+                <span className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-full bg-[#1976d2] text-[34px] font-bold leading-none text-white">?</span>
+                <span className="text-[18px]">¿Desea poner todas las cantidades en Negativo?</span>
+              </div>
+              <div className="flex justify-end gap-4">
+                <button type="button" autoFocus className="gw-btn !h-[40px] w-[135px] !text-[18px]" onClick={() => responderAbono(true)}>
+                  Sí
+                </button>
+                <button type="button" className="gw-btn !h-[40px] w-[135px] !text-[18px]" onClick={() => responderAbono(false)}>
+                  No
+                </button>
+              </div>
+            </div>
+          </GwWindow>
+        </div>
+      )}
+      {ayuda && (
+        <GwVentanaFlotante titulo="Operativa — Compras" onCerrar={() => setAyuda(false)} ancho={620}>
+          <GwOperativa bloques={OPERATIVA} />
+        </GwVentanaFlotante>
+      )}
 
       {dialogo === 'proveedor' && (
         <GwLookupDialog

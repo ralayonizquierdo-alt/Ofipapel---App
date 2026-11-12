@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../lib/AuthContext'
-import { GwField, GwInput, GwWindow } from '../components/gw'
+import { Check, KeyRound, X } from 'lucide-react'
+import { GwInput, GwWindow } from '../components/gw'
 import { AREAS } from '../components/shell/SelectorArea'
 import { fijarArea, type Area } from '../lib/areaTrabajo'
 import { supabase } from '../lib/supabase'
@@ -14,6 +15,10 @@ import { NoSoyRobot, SITE_KEY_TURNSTILE } from '../components/claves/NoSoyRobot'
 // (si está configurado) y bloqueo de 15 minutos tras 5 claves incorrectas (fn_acceso_bloqueo).
 // Cada terminal recuerda el último número de empleado (o usuario) que entró, para que ya salga
 // escrito. Solo el número: la contraseña nunca se guarda. Si el navegador no deja, se ignora.
+// Botones grandes de la ventana de GeminisWin (los mismos que la del TPV, ventas/VentaDialogs).
+const BTN_GRANDE =
+  'flex h-[58px] items-center justify-center gap-1.5 border border-[var(--gw-border)] bg-[#e1e1e1] text-[20px] hover:border-[var(--gw-select)] hover:bg-[#e5f1fb] disabled:text-[#8a8a8a]'
+
 const CLAVE_ULTIMO_USUARIO = 'erp_ultimo_usuario'
 const ultimoUsuario = () => {
   try {
@@ -87,6 +92,16 @@ export function LoginPage() {
     setLoading(false)
   }
 
+  // «Cambiar Contraseña» y «¿Has olvidado la clave?» trabajan con el nombre de usuario: si se tecleó
+  // el número, se traduce.
+  async function abrirOlvide() {
+    if (/^\d{1,6}$/.test(email.trim())) {
+      const { data: deNumero } = await supabase.rpc('fn_login_por_numero', { p_numero: email.trim() })
+      if (typeof deNumero === 'string' && deNumero) setEmail(deNumero.replace(/@ofipapel\.local$/, ''))
+    }
+    setOlvide(true)
+  }
+
   const logo = (
     <img
       src={`${import.meta.env.BASE_URL}marca/logo-ofipapel.png`}
@@ -101,7 +116,7 @@ export function LoginPage() {
   const CUADROS: Area[] = ['contabilidad', 'avatar', 'web']
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--gw-mdi)] p-4">
-      <GwWindow title="Cambiar Empleado" className="w-[480px] max-w-full">
+      <GwWindow title="Introducir Empleado y contraseña" className="w-[720px] max-w-full">
         {olvide ? (
           <div className="flex flex-col gap-2 p-1">
             {logo}
@@ -143,67 +158,74 @@ export function LoginPage() {
                 )
               })}
             </div>
-            <div className="flex gap-2">
-              <div className="w-[150px] shrink-0">
-                <GwField label="Nº de empleado">
-                  <GwInput
-                    type="text"
-                    required
-                    autoFocus
-                    autoComplete="username"
-                    autoCapitalize="none"
-                    inputMode="text"
-                    className="!h-[52px] !text-[32px] !font-bold tracking-wider"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onFocus={(e) => e.currentTarget.select()}
-                    onKeyDown={(e) => {
-                      // Intro en el número: pasa a la contraseña (no envía todavía).
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        document.getElementById('entrada-clave')?.focus()
-                      }
-                    }}
-                  />
-                </GwField>
+            {/* Calcado de GeminisWin («Introducir Empleado y contraseña», capturas 9-01, 12/11/2026): marco
+                «Empleado» con número, nombre y «···»; «Contraseña:» con la llave; y abajo Cambiar Contraseña,
+                Aceptar y Cancelar. Propio del ERP: el logotipo, los cuadros de área, «¿Has olvidado la
+                clave?», «No soy un robot» y el ojo de la contraseña. */}
+            <fieldset className="gw-group px-2 pb-2">
+              <legend className="!text-[24px] !font-bold !leading-[28px]">Empleado</legend>
+              <div className="flex items-center gap-2">
+                <GwInput
+                  type="text"
+                  required
+                  autoFocus
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  inputMode="text"
+                  aria-label="Nº de empleado"
+                  className="!h-[44px] !w-[110px] flex-none !text-[28px] !font-bold tracking-wider"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onKeyDown={(e) => {
+                    // Intro en el número: pasa a la contraseña (no envía todavía).
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      document.getElementById('entrada-clave')?.focus()
+                    }
+                  }}
+                />
+                <GwInput type="text" readOnly tabIndex={-1} className="!h-[44px] min-w-0 flex-1 !text-[26px] !font-bold" value={nombreEmpleado} aria-label="Nombre del empleado" />
+                {/* En GeminisWin abre la lista de empleados. Aquí, antes de entrar, la lista no se enseña a nadie. */}
+                <button type="button" tabIndex={-1} disabled className="gw-btn !h-[44px] !w-[70px] flex-none !text-[22px] !font-bold" title="La lista de empleados no se enseña antes de entrar: teclea tu número">
+                  ···
+                </button>
               </div>
-              <div className="min-w-0 flex-1">
-                <GwField label="Nombre">
-                  <GwInput type="text" readOnly tabIndex={-1} className="!h-[52px] !text-[24px] !font-semibold" value={nombreEmpleado} aria-label="Nombre del empleado" />
-                </GwField>
+            </fieldset>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2">
+              <label htmlFor="entrada-clave" className="w-[230px] text-[26px] font-bold">
+                Contraseña:
+              </label>
+              <div className="w-[270px] max-w-full">
+                <CampoClave id="entrada-clave" required autoComplete="current-password" className="!h-[44px] !text-[24px] !font-bold tracking-widest" value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
+              <KeyRound size={28} className="text-[#c99a1c]" aria-hidden />
             </div>
-            <GwField label="Contraseña">
-              <div className="w-[250px] max-w-full">
-                <CampoClave id="entrada-clave" required autoComplete="current-password" className="!h-[52px] !text-[28px] !font-bold tracking-widest" value={password} onChange={(e) => setPassword(e.target.value)} />
-              </div>
-            </GwField>
-            <button type="button" className="self-start text-[12px] text-[#1d3a8a] hover:underline" onClick={async () => {
-                // «¿Has olvidado la clave?» trabaja con el nombre de usuario: si se tecleó el número, se traduce.
-                if (/^\d{1,6}$/.test(email.trim())) {
-                  const { data: deNumero } = await supabase.rpc('fn_login_por_numero', { p_numero: email.trim() })
-                  if (typeof deNumero === 'string' && deNumero) setEmail(deNumero.replace(/@ofipapel\.local$/, ''))
-                }
-                setOlvide(true)
-              }}>
+            <button type="button" className="self-start text-[12px] text-[#1d3a8a] hover:underline" onClick={abrirOlvide}>
               ¿Has olvidado la clave?
             </button>
             <NoSoyRobot key={vueltaCaptcha} onToken={setCaptcha} />
             {error && <div className="text-[12px] text-[#c42b1c]">{error}</div>}
-            <div className="mt-1 flex justify-end gap-1.5">
-              <button type="submit" className="gw-btn w-[80px]" disabled={loading}>
-                {loading ? 'Entrando…' : 'Aceptar'}
+            <div className="mt-1 grid grid-cols-1 gap-1.5 border-t border-[var(--gw-border-light)] pt-1.5 sm:grid-cols-[240px_1fr_190px_190px]">
+              {/* Antes de entrar, la contraseña se cambia con el código que llega al correo (lo mismo que «¿Has
+                  olvidado la clave?»); ya dentro, en Archivo → Cambiar Contraseña. */}
+              <button type="button" className={BTN_GRANDE} onClick={abrirOlvide} title="Poner una contraseña nueva con el código que llega a tu correo">
+                <KeyRound size={22} className="text-[#c99a1c]" aria-hidden /> Cambiar Contraseña
+              </button>
+              <span className="hidden sm:block" />
+              <button type="submit" className={BTN_GRANDE} disabled={loading}>
+                <Check size={20} className="text-[#127a12]" aria-hidden /> {loading ? 'Entrando…' : 'Aceptar'}
               </button>
               <button
                 type="button"
-                className="gw-btn w-[80px]"
+                className={BTN_GRANDE}
                 onClick={() => {
                   setEmail('')
                   setPassword('')
                   setError(null)
                 }}
               >
-                Cancelar
+                <X size={20} className="text-[#c42b1c]" aria-hidden /> Cancelar
               </button>
             </div>
           </form>

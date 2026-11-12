@@ -39,7 +39,7 @@ const OPERATIVA: BloqueOperativa[] = [
     titulo: 'Bancos',
     pasos: [
       'Las cuentas se apuntan cuando el proveedor ya está dado de alta. No hace falta pulsar Modificar en la ficha: la barra pequeña de debajo de la rejilla funciona también consultando.',
-      'Nueva línea (primer botón): escribe el IBAN. Si es español, al salir del campo se rellenan solos el banco, la sucursal, el D.C. y el Nº de Cuenta. Pulsa la marca verde para aceptar o el aspa roja para cancelar.',
+      'Nueva línea (primer botón): escribe el IBAN. Si es español, al salir del campo se ponen solos el banco, la sucursal, el D.C. y el Nº de Cuenta que lleva dentro. Pulsa la marca verde para aceptar o el aspa roja para cancelar.',
       'Modificar línea y Borrar línea (segundo y tercer botón): primero pulsa la cuenta en la rejilla. Borrar pide confirmación.',
       'Buscar (cuarto botón): escribe parte del IBAN, del banco o del número y se marca la primera cuenta que lo contenga.',
       '«Cuenta Principal»: pulsa una cuenta y marca la casilla. Solo puede haber una: al marcar otra, la anterior deja de serlo. La primera cuenta que se apunta queda como principal.',
