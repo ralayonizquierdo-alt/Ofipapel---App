@@ -1005,12 +1005,25 @@ function HojaCambioRuta({ sesion, reparto, linea, onCerrar, onHecho }: { sesion:
   return (
     <Hoja titulo={`Cambiar de ruta: ${linea.cliente}`} onCerrar={onCerrar}>
       {!rutas && !error && <div style={{ color: V.gris }}>Cargando…</div>}
+      {!!rutas?.length && <div style={{ fontWeight: 700, color: V.verde, marginBottom: 6 }}>¿A qué ruta pasa este pedido? Toca una:</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '35vh', overflow: 'auto' }}>
-        {rutas?.map((r) => (
-          <Boton key={`${r.tienda}-${r.numero}`} claro={destino !== r} onClick={() => setDestino(r)} style={{ textAlign: 'left', fontSize: 15 }}>
-            {r.ruta_nombre} {r.repartidor ? `· ${r.repartidor}` : ''}
-          </Boton>
-        ))}
+        {rutas?.map((r) => {
+          // Puede haber dos repartos abiertos de la misma ruta: se distinguen por la fecha y el número.
+          const hoy = new Date().toLocaleDateString('sv-SE', { timeZone: 'Atlantic/Canary' })
+          const dia = r.fecha === hoy ? 'hoy' : `del ${r.fecha.slice(8, 10)}/${r.fecha.slice(5, 7)}`
+          return (
+            <Boton key={`${r.tienda}-${r.numero}`} claro={destino !== r} onClick={() => setDestino(r)} style={{ textAlign: 'left', fontSize: 15 }}>
+              <div>
+                {destino === r ? '✔ ' : ''}
+                {r.ruta ? `RUTA ${/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta} · ` : ''}
+                {r.ruta_nombre} {r.repartidor ? `· ${r.repartidor}` : '· sin repartidor'}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 400, opacity: 0.85 }}>
+                Reparto nº {r.numero} · {dia} · {r.pedidos ?? 0} pedido{r.pedidos === 1 ? '' : 's'}
+              </div>
+            </Boton>
+          )
+        })}
         {rutas && !rutas.length && <div style={{ color: V.gris }}>No hay otras rutas abiertas hoy.</div>}
       </div>
       <textarea

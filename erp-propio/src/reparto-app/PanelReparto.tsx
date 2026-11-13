@@ -184,7 +184,13 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
               boxShadow: '0 4px 12px rgba(0,0,0,.15)',
             }}
           >
-            <div style={{ width: tv ? 240 : 170, minWidth: 0 }}>
+            <div style={{ width: tv ? 300 : 190, minWidth: 0 }}>
+              {/* «RUTA 1», «RUTA 2»… en grande, encima del nombre de la zona (Rober, 13/11/2026). */}
+              {r.ruta && (
+                <div style={{ fontWeight: 900, fontSize: tv ? 30 : 17, lineHeight: 1.05, color: '#1b3a1b', whiteSpace: 'nowrap' }}>
+                  RUTA {/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta}
+                </div>
+              )}
               <div
                 onClick={onAbrir ? () => onAbrir(r) : undefined}
                 title={onAbrir ? 'Abrir la ficha del reparto' : undefined}
