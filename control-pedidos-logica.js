@@ -235,6 +235,23 @@
           b = { ...b, cant: b.cant * k, precio: div(b.precio), neto: div(b.neto), udsCaja: null };
         }
       }
+      // Al revés (13/11/2026, propietario: «si me factura una caja de diez y yo
+      // pido 10 unidades, ¿qué quieres que decida?»): nosotros pedimos por cajas
+      // (1) y el proveedor factura las unidades (12) por el mismo dinero. Se da
+      // por bueno sin preguntar y su línea se pasa a nuestra unidad, que es la
+      // que va al Excel de Géminis.
+      let enUnidades = null;
+      if (!porCaja && a && b && a.cant > 0 && b.cant > a.cant) {
+        const pa = neto ? a.neto : a.precio;
+        const pb = b.neto != null ? b.neto : b.precio;
+        const cands = [Number.isInteger(b.cant / a.cant) ? b.cant / a.cant : null, parseNum(a.udsCaja) > 1 && b.cant === a.cant * parseNum(a.udsCaja) ? parseNum(a.udsCaja) : null];
+        const k = pa && pb ? cands.filter((c) => c && pa / pb >= c * 0.6 && pa / pb <= c * 1.6)[0] : null;
+        if (k) {
+          enUnidades = k;
+          const por = (x) => (x == null ? x : Math.round(x * k * 1e5) / 1e5);
+          b = { ...b, cant: a.cant, precio: por(b.precio), neto: por(b.neto), udsCaja: null };
+        }
+      }
       // La referencia que se enseña y con la que se decide es la de nuestro pedido.
       const ref = (a || b).ref;
       const enCat = cat && cat.get(clave);
@@ -268,6 +285,7 @@
         sugerencias: [],
       };
 
+      if (enUnidades) { fila.enUnidades = enUnidades; fila.motivos.push({ tipo: 'por_caja', texto: `Pedido por cajas de ${enUnidades}: el proveedor factura ${a.cant * enUnidades} uds. = ${a.cant} caja(s)`, revisar: false, informativo: true }); }
       if (porCaja) { fila.porCaja = porCaja; fila.motivos.push({ tipo: 'por_caja', texto: `El proveedor lo cuenta por cajas de ${porCaja} (${b.cant / porCaja} cajas = ${b.cant} uds.)`, revisar: false, informativo: true }); }
       if (a && a.veces > 1) fila.motivos.push({ tipo: 'duplicada_pedido', texto: `Aparece ${a.veces} veces en el pedido (se suman)`, revisar: true });
       // Un alta que junta varios códigos del proveedor viene, a propósito, en varias líneas.
@@ -1336,6 +1354,25 @@
     return String(porDefecto || '').replace(/^0+(?=\d)/, '');
   }
 
+  /** «Precio por 12 PCA»: si el importe sale con precio × cantidad ÷ N, devuelve N
+   *  (el precio es de un paquete de N y la cantidad va en unidades); si no, null. */
+  function precioPorPaquete(l) {
+    const cant = parseNum(l.cant), precio = parseNum(l.precio), importe = parseNum(l.importe);
+    if (!cant || precio == null || importe == null) return null;
+    const calc = red2(precio * cant * parseDtos(l.dtos).reduce((x, d) => x * (1 - d / 100), 1));
+    const m = /por\s+(\d+)/i.exec(l.duda || '');
+    const ns = [m ? Number(m[1]) : null, importe ? Math.round(calc / importe) : null].filter((n) => n && n > 1 && n <= 1000);
+    return ns.find((x) => Math.abs(red2(calc / x) - importe) <= 0.02 + 0.01 * cant / x) || null;
+  }
+  /** Quita la duda que solo era «precio por N … no sale de precio × cantidad» cuando
+   *  el importe sí sale por paquete (propuestas subidas antes del 13/11/2026). */
+  function sinDudaPorPaquete(l) {
+    if (!l || !l.duda || !/^\s*precio por\s+\d+/i.test(l.duda)) return l;
+    const resto = l.duda.split('·').map((x) => x.trim()).filter((x) => x && !/^precio por\s+\d+/i.test(x) && !/no sale de precio × cantidad/.test(x));
+    if (resto.length || !precioPorPaquete(l)) return l;
+    return Object.assign({}, l, { duda: '' });
+  }
+
   function lineasDeDocumento(res) {
     const r = res || {};
     const lineas = (r.lineas || []).map((l) => ({
@@ -1370,7 +1407,12 @@
         // Hay proveedores que redondean el neto unitario antes de multiplicar:
         // se admite un céntimo por unidad.
         if (Math.abs(calc - l.importe) > 0.02 + 0.01 * l.cant) {
-          avisos.push(`el importe ${fmt(l.importe)} no sale de precio × cantidad − descuentos (${fmt(calc)})`);
+          // «Precio por 5 PCA» (13/11/2026): el precio es de un paquete de N y la
+          // cantidad va en unidades. Si el importe sale con precio ÷ N, la línea
+          // está bien: no es dudosa. El precio no se toca (el neto sale del importe).
+          const n = precioPorPaquete(l);
+          if (n) { l.porN = n; if (/^\s*precio por\s+\d+[^·]*$/i.test(l.duda || '')) l.duda = ''; }
+          else avisos.push(`el importe ${fmt(l.importe)} no sale de precio × cantidad − descuentos (${fmt(calc)})`);
         }
       }
       if (avisos.length) l.duda = [l.duda, ...avisos].filter(Boolean).join(' · ');
@@ -1431,7 +1473,10 @@
     const o = opciones || {};
     const global = parseNum(o.dtoGlobal) || 0;
     return (lineas || []).map((l) => {
-      const precio = parseNum(l.precio) || 0;
+      // «Precio por 12 PCA» (precio de la caja, cantidad en unidades): a Géminis va
+      // el precio por unidad; si no, el descuento equivalente saldría de un 91 %.
+      const porN = !parseDtos(l.dtos).length ? precioPorPaquete(l) : null;
+      const precio = porN ? Math.round((parseNum(l.precio) / porN) * 1e5) / 1e5 : parseNum(l.precio) || 0;
       const dtos = parseDtos(l.dtos).concat(global ? [global] : []);
       const objetivo = l.importe != null ? red2(l.importe * (global ? 1 - global / 100 : 1)) : null;
       const eq = descuentoEquivalente(precio, l.cant, dtos, { decimales: o.decimales, subtotalObjetivo: objetivo });
@@ -1452,6 +1497,15 @@
     const fila = () => new Array(N).fill('');
     const c = cab || {};
     const aoa = [];
+    const dto0 = (opciones && opciones.dto) || 0;
+    const importeDe = (l) => {
+      const precio = l.precio == null ? 0 : l.precio;
+      const dtoLinea = l.dto != null ? l.dto : dto0;
+      return l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
+    };
+    // Total del Excel en la cabecera (fila 9, C–D, celdas vacías de la plantilla;
+    // 13/11/2026, propietario: «a Géminis no le afecta»). Nunca debajo de los artículos.
+    const totalExcel = red2((lineas || []).reduce((t, l) => t + (Number(importeDe(l)) || 0), 0));
     let r;
     r = fila(); r[10] = 1001; r[11] = '< L} LIBROS DE TEXTOS     '; r[14] = 'Para otros dieños consultar el arbol de FAMILIAS'; aoa.push(r);
     r = fila(); r[2] = 'PROPUESTA    DE     PEDIDO'; r[4] = 'ALMACEN'; r[5] = c.almacen || ''; r[9] = 'L}'; r[10] = 100125; r[11] = 'LIBRO TEXTOS (L} 25%)         ';
@@ -1466,7 +1520,7 @@
     r = fila(); r[0] = 'Compras@ofipapelsl.com'; r[13] = 'el padre no '; r[14] = 209163; r[15] = 'Monederos Billeteras (Diseño)'; aoa.push(r);
     r = fila(); r[2] = 'Contactar con:'; r[4] = 'E-mail'; r[10] = 209102; r[11] = 'ARTICULOS DISEÑO (Varios)     '; r[13] = 'lleva ';
     r[14] = 209166; r[15] = 'Neceser Escolar (Diseño)'; aoa.push(r);
-    r = fila(); r[10] = 209162; r[11] = 'MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[14] = 209176; r[15] = 'Plumier (Diseño)'; aoa.push(r);
+    r = fila(); r[2] = 'TOTAL IMPORTE'; r[3] = totalExcel; r[10] = 209162; r[11] = 'MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[14] = 209176; r[15] = 'Plumier (Diseño)'; aoa.push(r);
     r = fila(); r[1] = 'MARCA'; r[2] = 'Rfecia. Compra'; r[11] = 'CODIGO  A'; r[12] = 'Margen'; r[14] = 209179; r[15] = 'Portatodo (Diseño)'; aoa.push(r);
     aoa.push(['Codigo I.S.B.N.', 'EDITORIAL', 'Rfcia. Proveedor', 'DESCRIPCION', 'Caja', 'Ud./Caja', 'Udes', 'Precio U.', 'Dcto', 'Igic', 'IMPORTE', 'RECONVERTIR', 'COD. FAMILIA', 'PADRE', '>>>>>>>>>>>>>>>>>>>>>>>', '']);
     const dto = (opciones && opciones.dto) || 0;
@@ -1474,7 +1528,7 @@
     for (const l of lineas || []) {
       const precio = l.precio == null ? 0 : l.precio;
       const dtoLinea = l.dto != null ? l.dto : dto;
-      const importe = l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
+      const importe = importeDe(l);
       aoa.push([l.ean || '', c.marca || '', l.alta ? REF_ALTA : l.ref, l.alta ? (l.descAlta || l.desc || '') : (l.desc || ''), '', '', l.cant,
         precio, dtoLinea, l.igic != null ? l.igic : igic, importe, '', '', '', '', '']);
     }
@@ -1977,7 +2031,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, leerFacturaApli, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
+    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, precioPorPaquete, sinDudaPorPaquete, separarPorPedido, leerFacturaApli, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
     sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, cuadreArticulos, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

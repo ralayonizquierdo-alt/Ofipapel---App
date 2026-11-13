@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Lector de facturas en Excel y plantilla «Luis»: los mismos que Control de
      Pedidos (no duplicados). Al cambiar esa lógica, sube la versión aquí también. -->
-<script src="control-pedidos-logica.js?v=2026-10-29-1"></script>
+<script src="control-pedidos-logica.js?v=2026-11-13-1"></script>
 <style>
 :root{
   --verde-oscuro:#145c26;
@@ -2477,6 +2477,7 @@ function generarExcel(){
   filas.forEach(f=>{
     aoa.push([f.isbn, f.marca, f.ref, f.desc, f.caja, f.udCaja, f.udes, f.precioU, dtoParaExportar(f), f.igic, f.importe, '', f.familia, '', '', '']);
   });
+  ponerTotalExcel(aoa);
 
   const aoaSinAcentos = aoa.map(fila => fila.map(quitarAcentos));
 
@@ -2485,9 +2486,28 @@ function generarExcel(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
-  const fechaHoy = new Date().toISOString().slice(0,10);
-  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + '.xls';
+  const nombreArchivo = nombreExcel(proveedor, pedido, fecha);
   XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
+}
+
+// Nombre del Excel (13/11/2026, propietario): «PROVEEDOR Nº FACTURA MES AÑO»,
+// p. ej. «CABERO GROUP 2605151 FACTURA NOVIEMBRE 2026.xls». El mes y el año son
+// los de la fecha del documento (casilla Fecha); sin fecha, los de hoy.
+function nombreExcel(proveedor, numero, fechaIso){
+  const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const m = /^(\d{4})-(\d{2})/.exec(fechaIso || '');
+  const d = m ? { a: m[1], mes: MESES[Number(m[2]) - 1] } : { a: String(new Date().getFullYear()), mes: MESES[new Date().getMonth()] };
+  const limpio = (t) => quitarAcentos(String(t || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return [limpio(proveedor) || 'PROVEEDOR', limpio(numero), 'FACTURA', d.mes, d.a].filter(Boolean).join(' ') + '.xls';
+}
+
+// Total del Excel en la cabecera, fila 9 (C–D), celdas vacías en las dos
+// plantillas; nunca debajo de los artículos (13/11/2026, propietario: «a Géminis
+// no le afecta»).
+function ponerTotalExcel(aoa){
+  const total = Math.round(filas.reduce((t,f)=>t+(parseFloat(f.importe)||0),0)*100)/100;
+  aoa[8][2] = 'TOTAL IMPORTE';
+  aoa[8][3] = total;
 }
 
 // Plantilla «Rober»: la misma que exporta Control de Pedidos
@@ -2514,6 +2534,7 @@ function generarExcelRober(){
   filas.forEach(f=>{
     aoa.push([f.isbn, f.desc, f.ref, f.caja, f.udCaja, f.udes, f.precioU, dtoParaExportar(f), f.igic, f.importe, '', '', '', f.ref]);
   });
+  ponerTotalExcel(aoa);
 
   const aoaSinAcentos = aoa.map(fila => fila.map(quitarAcentos));
   const ws = XLSX.utils.aoa_to_sheet(aoaSinAcentos);
@@ -2521,8 +2542,7 @@ function generarExcelRober(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
-  const fechaHoy = new Date().toISOString().slice(0,10);
-  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + '_ROBER.xls';
+  const nombreArchivo = nombreExcel(proveedor, pedido, fechaIso);
   XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
 }
 

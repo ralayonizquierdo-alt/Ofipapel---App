@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-11-10-1"></script>
+<script src="control-pedidos-logica.js?v=2026-11-13-3"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -519,6 +519,11 @@ function ponerEtiquetas(raiz) {
 // ── Estado de un pedido ──────────────────────────────────────────────────────
 /** Pedidos leídos antes de entender «2 ALTA NUEVA» (referencia «2»): se arreglan una vez. */
 function repararAltas(p) {
+  // Propuestas subidas antes de entender «Precio por 12 PCA»: la duda sobra (13/11/2026).
+  for (const d of [p.propuesta, p.factura]) {
+    if (d && Array.isArray(d.lineas) && d.lineas.some((l) => CP.sinDudaPorPaquete(l) !== l)) { d.lineas = d.lineas.map(CP.sinDudaPorPaquete); setTimeout(guardar, 0); }
+  }
+  if (p.lineas.some((l) => CP.sinDudaPorPaquete(l) !== l)) { p.lineas = p.lineas.map(CP.sinDudaPorPaquete); setTimeout(guardar, 0); }
   if (!p.lineas.some((l) => CP.marcarAlta(l) !== l)) return;
   p.lineas = p.lineas.map(CP.marcarAlta);
   if (p.validado) invalidar(p); // lo validado se hizo con la referencia «2»: hay que volver a validar
@@ -1215,8 +1220,19 @@ function vistaReclamacion(clave, i, grupos, o) {
 /** Abre el programa de correo del usuario con la reclamación ya escrita (al
  *  último correo usado para ese proveedor, si lo hay). */
 function correoReclamacion(clave, proveedor, asunto) {
-  const para = correoProveedor(proveedor);
-  location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto || 'Reclamación de pedido')}&body=${encodeURIComponent(reclamaciones[clave] || '')}`;
+  abrirCorreo(correoProveedor(proveedor), asunto || 'Reclamación de pedido', reclamaciones[clave] || '');
+}
+/** Compras escribe desde Outlook web (13/11/2026, propietario: la app de Outlook
+ *  del ordenador no la puede usar): en el ordenador se abre un correo nuevo de
+ *  Outlook web ya rellenado; en el móvil, el programa de correo de siempre. */
+const EN_ORDENADOR = !(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+function abrirCorreo(para, asunto, cuerpo) {
+  if (EN_ORDENADOR) {
+    const q = new URLSearchParams({ to: para || '', subject: asunto || '', body: cuerpo || '' }).toString().replace(/\+/g, '%20');
+    window.open('https://outlook.office.com/mail/deeplink/compose?' + q, '_blank');
+    return;
+  }
+  location.href = `mailto:${encodeURIComponent(para || '')}?subject=${encodeURIComponent(asunto || '')}&body=${encodeURIComponent(cuerpo || '')}`;
 }
 /** Reclamación de UN pedido (dentro del pedido): sus faltas y sobras marcadas «Reclamar». */
 // ── Referencias que el proveedor da con otro código: para cambiarlas en Géminis ──
@@ -4123,7 +4139,7 @@ async function enviarConMiCorreo() {
   envio.para = para;
   // Compartir con archivo (móvil, tableta y Windows): el correo se abre con el PDF adjunto.
   // Compartir no permite poner el destinatario: se copia para pegarlo.
-  if (navigator.canShare && navigator.canShare({ files: [envio.file] })) {
+  if (!EN_ORDENADOR && navigator.canShare && navigator.canShare({ files: [envio.file] })) {
     try { if (para && navigator.clipboard) await navigator.clipboard.writeText(para); } catch { /* sin portapapeles: se escribe a mano */ }
     try {
       await navigator.share({ files: [envio.file], title: asunto, text: mensaje });
@@ -4135,7 +4151,7 @@ async function enviarConMiCorreo() {
     }
   }
   descargarPdfEnvio();
-  location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
+  abrirCorreo(para, asunto, mensaje);
   estado.innerHTML = `Se ha descargado <b>${h(envio.nombre)}</b> y se ha abierto tu correo: <b>adjunta ese PDF</b> y envíalo. Después pulsa «✅ Ya lo he enviado».`;
 }
 function marcarEnviado() {

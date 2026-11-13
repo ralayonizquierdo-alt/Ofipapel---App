@@ -781,7 +781,9 @@ test('Excel de Géminis, plantilla «Luis» (PEDIDOS_PROVEEDORES_ALTA_NUEVOS.xlt
   assert.deepEqual(aoa[10].slice(0, 14), ['Codigo I.S.B.N.', 'EDITORIAL', 'Rfcia. Proveedor', 'DESCRIPCION', 'Caja', 'Ud./Caja', 'Udes', 'Precio U.', 'Dcto', 'Igic', 'IMPORTE', 'RECONVERTIR', 'COD. FAMILIA', 'PADRE']);
   assert.deepEqual(aoa[11].slice(0, 11), ['8413240476511', '', 'AL000177', '12 LAPICES', '', '', 12, 8.28, 27, 7, 72.53]);
   assert.deepEqual(aoa[12].slice(2, 4), ['2 ALTA NUEVA', 'UA000570>MALETIN']);
-  assert.equal(aoa.length, 13, 'sin fila de total: la plantilla no la lleva');
+  assert.equal(aoa.length, 13, 'sin fila de total debajo de los artículos');
+  // El total va arriba, en la fila 9 (C–D), donde Géminis no lee artículos
+  assert.deepEqual([aoa[8][2], aoa[8][3]], ['TOTAL IMPORTE', 130.64]);
   // La marca elegida en la campaña va en la columna B (EDITORIAL) de cada artículo
   const conMarca = CP.filasGeminisLuis([{ ref: 'A', cant: 1, precio: 1 }, { ref: 'B', cant: 1, precio: 1 }], { proveedor: 'FINOCAM', marca: 'FINOCAM' }, {});
   assert.deepEqual(conMarca.slice(11).map((f) => f[1]), ['FINOCAM', 'FINOCAM']);
@@ -1184,4 +1186,29 @@ test('leerFacturaApli: factura de Apli por bloques, sin IA, y cuadra con el Subt
   assert.deepEqual(CP.separarPorPedido(r).map((x) => x.pedidoCliente), ['Pedido 5_ B2F', 'Pedido 16_ Ag. anual']);
   assert.equal(CP.leerFacturaApli(t.replace('56,80', '99,00')), null);
   assert.equal(CP.leerFacturaApli('OTRO PROVEEDOR'), null);
+});
+
+test('caja por unidades: pido 1 caja, el proveedor factura 12 uds. por lo mismo → cuadra sin decidir (13/11/2026)', () => {
+  const f = CP.compararPedido([{ ref: 'A', cant: 1, precio: 12 }], [{ ref: 'A', cant: 12, precio: 1, importe: 12 }], { comparar: 'neto' });
+  assert.equal(f[0].estado, 'ok');
+  assert.equal(f[0].cantPropuesta, 1);
+  // si el dinero no cuadra, se sigue preguntando
+  assert.equal(CP.compararPedido([{ ref: 'A', cant: 1, precio: 12 }], [{ ref: 'A', cant: 12, precio: 3, importe: 36 }], { comparar: 'neto' })[0].estado, 'cambio');
+});
+
+test('«Precio por 5 PCA»: el importe sale con precio ÷ 5 → la línea no es dudosa', () => {
+  const r = CP.lineasDeDocumento({ lineas: [
+    { referencia: '648/46', cantidad: 50, precio: 5.14, importe: 51.4, duda: 'Precio por 5 PCA' },
+    { referencia: 'X', cantidad: 10, precio: 2, importe: 30 },
+  ] });
+  assert.equal(r.lineas[0].duda, '');
+  assert.equal(r.lineas[0].precio, 5.14, 'el precio no se toca');
+  assert.ok(r.lineas[1].duda.includes('no sale'));
+});
+
+test('«Precio por 12 PCA»: a Géminis va el precio por unidad, sin descuento inventado', () => {
+  const [g] = CP.lineasParaGeminis([{ ref: '322/02-HB', cant: 12, precio: 9.19, importe: 9.19 }], { decimales: 2 });
+  assert.equal(g.precio, 0.76583);
+  assert.ok(Math.abs(g.dto) < 1, 'sin descuento del 91 %');
+  assert.equal(CP.sinDudaPorPaquete({ ref: 'A', cant: 12, precio: 9.19, importe: 9.19, duda: 'Precio por 12 PCA · el importe 9,19 no sale de precio × cantidad − descuentos (110,28)' }).duda, '');
 });
