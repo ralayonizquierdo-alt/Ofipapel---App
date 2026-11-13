@@ -10,6 +10,7 @@ import MigrateLocalData from './components/MigrateLocalData'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import PreguntarApp from './components/PreguntarApp'
 import AvisoSolapes from './components/AvisoSolapes'
+import AvisoConformidades from './components/AvisoConformidades'
 import AvisoVersion from './components/AvisoVersion'
 import BotonVolver from './components/BotonVolver'
 import { solapes } from './lib/solapes'
@@ -315,6 +316,8 @@ export default function App() {
     setComprobandoSesion(false)
   }), [])
   const [showChangePassword, setShowChangePassword] = useState(false)
+  // La ventana de conformidades espera a que se cierre la de reservas pisadas.
+  const [solapesVistos, setSolapesVistos] = useState(false)
 
   const alertCount = useMemo(() => {
     const today = new Date()
@@ -410,7 +413,10 @@ export default function App() {
           {rol === 'gestion' && <PreguntarApp />}
           {/* Salta al entrar y vuelve cada vez hasta que no quede ninguno. */}
           <RecuerdaPantalla rol={rol} />
-          {rol === 'gestion' && <AvisoSolapes />}
+          {rol === 'gestion' && <AvisoSolapes onCerrar={() => setSolapesVistos(true)} />}
+          {/* Las conformidades por enviar, igual: salta al entrar y «Ahora no»
+              la calla hasta la próxima vez. Después de la de pisadas. */}
+          {rol === 'gestion' && <AvisoConformidades esperar={!solapesVistos && solapes(reservations).length > 0} />}
           {/* «← Volver a …» en todas las pantallas, en cuanto hay a dónde volver. */}
           <BotonVolver />
           <main className="flex-1 min-h-0 overflow-auto print:overflow-visible">

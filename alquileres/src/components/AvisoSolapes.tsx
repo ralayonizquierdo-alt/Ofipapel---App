@@ -132,10 +132,11 @@ export function TarjetaSolapes() {
  * abra la aplicación: solo deja de salir cuando no queda ningún solape que
  * toque de hoy en adelante.
  */
-export default function AvisoSolapes() {
+export default function AvisoSolapes({ onCerrar }: { onCerrar?: () => void } = {}) {
   const { reservations } = useData()
   const navigate = useNavigate()
-  const [cerrado, setCerrado] = useState(false)
+  const [cerrado, setCerrar] = useState(false)
+  const setCerrado = (v: boolean) => { setCerrar(v); if (v) onCerrar?.() }
   const lista = useMemo(() => solapes(reservations), [reservations])
   if (cerrado || lista.length === 0) return null
 

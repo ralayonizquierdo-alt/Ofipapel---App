@@ -133,8 +133,10 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     que: 'Conformidades por enviar',
     formula: 'reserva pegada en la Entrada rápida + 2 horas',
     nota: 'A las **2 horas** de entrar una reserva (salvo las de Airbnb) sale aquí y como **globo rojo en el icono '
-      + 'de Alquileres del hub**. «Preparar correo» abre su conformidad: «Enviar por correo» y **se quita sola**. '
-      + 'El globo del hub se pone al día al abrir Alquileres en ese ordenador.',
+      + 'de Alquileres del hub**. «Ir a enviar» abre su ficha: «Enviar por correo» y **se quita sola**. '
+      + 'El globo del hub se pone al día al abrir Alquileres en ese ordenador. Al **entrar en la app** salta además '
+      + 'la ventana «Conformidad pendiente de enviar»: **«Ir a enviar»** abre la ficha con sus dos pestañas (cuadre y conformidad) para revisarla y pregunta si quieres '
+      + 'añadir una nota; **«Ahora no»** la calla hasta la próxima vez que entres.',
   },
   {
     // components/CorregirTarifaAno.tsx, lib/tarifaAnoSiguiente.ts

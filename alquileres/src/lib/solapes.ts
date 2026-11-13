@@ -76,7 +76,11 @@ const finDeAno = (iso: string) => iso.slice(5) === '12-31'
  * como 17/12 y como 18/12.
  */
 function mismaEstancia(a: Reservation, b: Reservation): { sobra: Reservation; motivo: string } | null {
-  const [larga, corta] = a.nights >= b.nights ? [a, b] : [b, a]
+  // Con las mismas noches, «la que sobra» es la que se apuntó después: la
+  // primera es la original y la otra, la copia (13/11/2026, 106 del 05/11).
+  const [larga, corta] = a.nights !== b.nights
+    ? (a.nights > b.nights ? [a, b] : [b, a])
+    : ((a.createdAt ?? '') <= (b.createdAt ?? '') ? [a, b] : [b, a])
   const dentro = corta.checkIn >= larga.checkIn && corta.checkOut <= larga.checkOut
   if (!dentro) return null
 
@@ -104,7 +108,9 @@ function mismaEstancia(a: Reservation, b: Reservation): { sobra: Reservation; mo
   }
   return {
     sobra: corta,
-    motivo: mismaEntrada
+    motivo: mismaEntrada && mismaSalida
+      ? 'mismas fechas de entrada y de salida: es el mismo alquiler apuntado dos veces (sobra la que se apuntó después)'
+      : mismaEntrada
       ? 'misma entrada y una salida más corta: parece el mismo alquiler apuntado dos veces'
       : 'misma salida y una entrada más tarde: parece el mismo alquiler apuntado dos veces',
   }

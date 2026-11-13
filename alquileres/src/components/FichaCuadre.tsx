@@ -46,8 +46,14 @@ const MENSAJE_CONFORMIDAD = 'Les rogamos que revisen la reserva adjunta y compru
 
 export type ModeloFicha = 'cuadre' | 'conformidad'
 
-export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInicial = 'cuadre' }: {
+export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInicial = 'cuadre', preguntarTexto = false }: {
   reserva: Reservation
+  /**
+   * Viniendo de un aviso de «conformidad pendiente» (Luis, 13/11/2026): antes
+   * de enviarla, pregunta si se quiere añadir texto. «Sí» lleva a NOTAS; «No»,
+   * a los botones de enviar.
+   */
+  preguntarTexto?: boolean
   onClose: () => void
   /**
    * «Cuadre de cobros» (lo cobrado mes a mes) o «Conformidad de la reserva»
@@ -81,6 +87,10 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
    */
   const [mensaje, setMensaje] = useRecordado('conformidad.mensaje', MENSAJE_CONFORMIDAD)
   const [notas, setNotas] = useState('')
+  const [pregunta, setPregunta] = useState(preguntarTexto)
+  const notasRef = useRef<HTMLTextAreaElement>(null)
+  const enviarRef = useRef<HTMLDivElement>(null)
+  const [resaltaEnviar, setResaltaEnviar] = useState(false)
   /** El cuadro tal como se manda: el mensaje, dos líneas en blanco y «NOTAS:». */
   const dialogo = `${mensaje.trim()}\n\n\nNOTAS: ${notas.trim()}`.trimEnd()
   const [anotando, setAnotando] = useState(false)
@@ -147,8 +157,18 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
    */
   function irATarifa() {
     if (!tarifa) return
-    onClose()
-    navigate(rutaDeTarifa(tarifa))
+    salirA(rutaDeTarifa(tarifa))
+  }
+
+  /**
+   * Ir a otra pantalla desde la ficha (la reserva, la tarifa) dejándola
+   * apuntada como abierta: así «← Volver» vuelve a la ficha y no a la pantalla
+   * de debajo (Luis, 13/11/2026). Se cierra después de navegar; si la pantalla
+   * ya no está, no hace nada, y si es la misma (Reservas), la cierra.
+   */
+  function salirA(ruta: string) {
+    navigate(ruta)
+    setTimeout(onClose, 0)
   }
 
   /**
@@ -346,6 +366,24 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
         </h2>
         <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} conformidad={conformidad} />
 
+        {conformidad && pregunta && (
+          <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-3 space-y-2 print:hidden">
+            <p className="text-sm font-semibold text-blue-900">¿Quieres añadir algún texto a esta conformidad?</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button"
+                onClick={() => { setPregunta(false); setTimeout(() => { notasRef.current?.focus(); notasRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 0) }}
+                className="px-3 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                ✍️ Sí, escribir una nota
+              </button>
+              <button type="button"
+                onClick={() => { setPregunta(false); setResaltaEnviar(true); setTimeout(() => enviarRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 0) }}
+                className="px-3 py-2 text-sm font-medium rounded-lg bg-white border border-blue-300 text-blue-900 hover:bg-blue-100">
+                No, enviarla así
+              </button>
+            </div>
+          </div>
+        )}
+
         {conformidad && (
           <div className="space-y-2">
             <div className="print:hidden">
@@ -361,7 +399,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
               <label htmlFor="notas-conformidad" className="block text-xs font-semibold text-slate-600 mt-2 mb-1">
                 NOTAS <span className="font-normal text-slate-400">· solo para esta reserva, no se guarda</span>
               </label>
-              <textarea id="notas-conformidad" value={notas} onChange={e => setNotas(e.target.value)}
+              <textarea id="notas-conformidad" ref={notasRef} value={notas} onChange={e => { setNotas(e.target.value); setResaltaEnviar(true) }}
                 rows={2} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
             </div>
             {/* En papel: el mensaje, dos líneas en blanco y «NOTAS:». */}
@@ -378,7 +416,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             <p className="text-sm font-semibold text-amber-900">¿Qué pasa con este importe?</p>
             {!anotando ? (
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => { onClose(); navigate(`/reservas?edit=${r.id}`) }}
+                <button type="button" onClick={() => salirA(`/reservas?edit=${r.id}`)}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-amber-400 text-amber-900 hover:bg-amber-100">
                   <Pencil size={15} /> Está mal: abrir la reserva para corregirlo
                 </button>
@@ -465,8 +503,13 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-2 pt-1 print:hidden">
-          <button onClick={() => { onClose(); navigate(`/reservas?edit=${r.id}`) }}
+        {resaltaEnviar && conformidad && (
+          <p className="text-sm font-semibold text-blue-900 text-right print:hidden">
+            Ahora, «Enviar por correo» o «WhatsApp» 👇
+          </p>
+        )}
+        <div ref={enviarRef} className="flex flex-wrap justify-end gap-2 pt-1 print:hidden">
+          <button onClick={() => salirA(`/reservas?edit=${r.id}`)}
             className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">
             <Pencil size={15} /> Abrir la reserva
           </button>

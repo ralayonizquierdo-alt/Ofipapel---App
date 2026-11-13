@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight, Ban, Mail } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, Euro, TrendingUp, Clock, ShieldAlert, ClipboardPaste, ChevronRight, Ban, Mail, ArrowRight } from 'lucide-react'
 import { EJERCICIO_APP } from '../lib/cuentas'
 import { useData } from '../contexts/DataContext'
 import type { Reservation } from '../types'
 import { formatDate, formatDateShort, today } from '../lib/dateUtils'
 import { calcIGIC } from '../lib/priceCalc'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigationType } from 'react-router-dom'
 import AlertasDescuadre from '../components/AlertasDescuadre'
 import { TarjetaSolapes } from '../components/AvisoSolapes'
 import CorreccionesLuis from '../components/CorreccionesLuis'
@@ -39,7 +39,11 @@ export default function Dashboard() {
   const [ficha, setFicha] = useState<Reservation | null>(null)
   /** Con qué pestaña se abre la ficha: la conformidad, si se viene de su aviso. */
   const [modeloFicha, setModeloFicha] = useState<ModeloFicha>('cuadre')
-  const abreFicha = (r: Reservation, modelo: ModeloFicha = 'cuadre') => { setModeloFicha(modelo); setFicha(r) }
+  /** La pregunta «¿añadir texto?» sale al abrirla, no al volver a ella con «← Volver». */
+  const [preguntar, setPreguntar] = useState(false)
+  const abreFicha = (r: Reservation, modelo: ModeloFicha = 'cuadre') => {
+    setModeloFicha(modelo); setPreguntar(modelo === 'conformidad'); setFicha(r)
+  }
   /**
    * Conformidades por enviar (Luis, 09/11/2026): avisan a las HORAS_ESPERA de
    * entrar la reserva. Se mira cada minuto para que salgan a su hora sin
@@ -53,6 +57,21 @@ export default function Dashboard() {
   const conformidades = useMemo(() => conformidadesPorEnviar(reservations, ahora), [reservations, ahora])
   // Si desde la ficha se va a otra pantalla, al volver sale otra vez abierta.
   useEnHistorial('ficha', ficha?.id ?? null, id => setFicha(id ? reservations.find(r => r.id === id) ?? null : null))
+  // Y con la misma pestaña (cuadre o conformidad) con la que se dejó.
+  useEnHistorial('fichaModelo', modeloFicha, m => setModeloFicha(m))
+  /**
+   * Desde la ventana «Conformidad pendiente de enviar» (AvisoConformidades): se
+   * llega aquí con la reserva y se abre su conformidad.
+   */
+  const location = useLocation()
+  const tipoNavegacion = useNavigationType()
+  useEffect(() => {
+    if (tipoNavegacion !== 'PUSH') return
+    const id = (location.state as { abrirConformidad?: string } | null)?.abrirConformidad
+    const r = id ? reservations.find(x => x.id === id) : undefined
+    if (r) abreFicha(r, 'conformidad')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
 
   const todayStr = today()
   const now = new Date()
@@ -216,9 +235,9 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <button type="button" onClick={() => abreFicha(r, 'conformidad')}
-                  title={`Abre la conformidad; desde ahí, «Enviar por correo». Avisa a las ${HORAS_ESPERA} horas de entrar la reserva.`}
+                  title={`Abre la ficha de la reserva (cuadre y conformidad): revisa y elige correo o WhatsApp. Avisa a las ${HORAS_ESPERA} horas de entrar la reserva.`}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
-                  <Mail size={14} /> Preparar correo
+                  Ir a enviar <ArrowRight size={14} />
                 </button>
               </div>
             ))}
@@ -373,7 +392,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {ficha && <FichaCuadre key={`${ficha.id}-${modeloFicha}`} reserva={ficha} modeloInicial={modeloFicha}
+      {ficha && <FichaCuadre key={`${ficha.id}-${modeloFicha}`} reserva={ficha} modeloInicial={modeloFicha} preguntarTexto={preguntar}
         onClose={() => setFicha(null)} />}
     </div>
   )
