@@ -2,6 +2,14 @@ import type { PriceEntry, PriceCalculation, ApartmentType, StayType, OfferPrice,
 import { getSeason } from './dateUtils'
 import { num } from './formato'
 
+/** El nombre de cada tipo en las tablas de tarifas (Precios y la ficha). */
+export const APT_TYPE_LABELS: Record<ApartmentType, string> = {
+  '1BR': '1 Dormitorio (104, 105)',
+  '2BR': '2 Dormitorios (106, 203, 204)',
+  '2BR_ATICO': 'Ático 402 (2 Dorm.)',
+  '3BR': 'Piso 3 (3 Dorm.)',
+}
+
 const CHANNEL_FEE = 0.15
 const CLEANING_FEE = 40
 const DISCOUNT_DIRECT = 0.10

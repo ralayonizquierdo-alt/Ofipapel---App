@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import type { PriceEntry, ApartmentType, Season, OfferPrice, OfferTarifa } from '../types'
-import { calcPrices, getApartmentType, tarifaDeOferta } from '../lib/priceCalc'
+import { calcPrices, getApartmentType, tarifaDeOferta, APT_TYPE_LABELS } from '../lib/priceCalc'
 import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
 import { Pencil, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
@@ -11,13 +11,6 @@ import { num, numSuelto } from '../lib/formato'
 import AplicarOferta from '../components/AplicarOferta'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_PRECIOS } from '../lib/operativas'
-
-const APT_TYPE_LABELS: Record<ApartmentType, string> = {
-  '1BR': '1 Dormitorio (104, 105)',
-  '2BR': '2 Dormitorios (106, 203, 204)',
-  '2BR_ATICO': 'Ático 402 (2 Dorm.)',
-  '3BR': 'Piso 3 (3 Dorm.)',
-}
 
 const CURRENT_YEAR = new Date().getFullYear()
 

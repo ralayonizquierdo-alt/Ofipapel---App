@@ -13,6 +13,8 @@ import { cobradoDeReserva } from '../lib/anuladas'
 import Modal from './ui/Modal'
 import CuadroEstancia from './CuadroEstancia'
 import Operativa from './Operativa'
+import TarifaParaEnviar from './TarifaParaEnviar'
+import { APT_TYPE_LABELS } from '../lib/priceCalc'
 import { OPERATIVA_FICHA } from '../lib/operativas'
 import type { Reservation } from '../types'
 
@@ -92,6 +94,8 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   const [pregunta, setPregunta] = useState(preguntarTexto)
   /** La columna «Web (publicar)»: se pone o se quita aquí y se recuerda en este ordenador. */
   const [conWeb, setConWeb] = useRecordado('ficha.conWeb', true)
+  /** La tabla de la tarifa, para mandarla con la ficha: solo si se marca, cada vez. */
+  const [conTarifa, setConTarifa] = useState(false)
   const notasRef = useRef<HTMLTextAreaElement>(null)
   const enviarRef = useRef<HTMLDivElement>(null)
   const [resaltaEnviar, setResaltaEnviar] = useState(false)
@@ -388,12 +392,23 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
           {conformidad ? 'Conformidad de la reserva' : 'Cuadre de la estancia'} — {nombre}{r.guestName ? ` · ${r.guestName}` : ''}
         </h2>
         {cuadre.tarifa && (
-          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer print:hidden w-fit">
-            <input type="checkbox" checked={conWeb} onChange={e => setConWeb(e.target.checked)} />
-            Incluir el precio <b className="text-green-700">Web (publicar)</b>
-          </label>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 print:hidden">
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer w-fit">
+              <input type="checkbox" checked={conWeb} onChange={e => setConWeb(e.target.checked)} />
+              Incluir el precio <b className="text-green-700">Web (publicar)</b>
+            </label>
+            {/* Solo cuando haga falta: por defecto no va (Luis, 13/11/2026). */}
+            <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer w-fit">
+              <input type="checkbox" checked={conTarifa} onChange={e => setConTarifa(e.target.checked)} />
+              Incluir la <b>tarifa</b> de la que sale el importe
+            </label>
+          </div>
         )}
         <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} conformidad={conformidad} conWeb={conWeb} />
+        {conTarifa && cuadre.tarifa && (
+          <TarifaParaEnviar entry={cuadre.tarifa.entry} tramo={cuadre.tarifa.tramo}
+            titulo={cuadre.tarifa.oferta ? `oferta «${cuadre.tarifa.oferta.label}»` : APT_TYPE_LABELS[cuadre.tarifa.entry.apartmentType]} />
+        )}
 
         {conformidad && pregunta && (
           <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-3 space-y-2 print:hidden">

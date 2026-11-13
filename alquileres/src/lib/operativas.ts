@@ -418,6 +418,13 @@ export const OPERATIVA_FICHA: ReglaOperativa[] = [
       + '(publicar)» la pone o la quita, también en lo que se imprime o se manda.',
   },
   {
+    // components/TarifaParaEnviar.tsx — conTarifa
+    que: 'Incluir la tarifa',
+    nota: 'Con la casilla **«Incluir la tarifa de la que sale el importe»** va debajo del cuadro **la tabla de la '
+      + 'tarifa sola** (sin la pantalla de Precios), con el **tramo aplicado marcado**, la temporada y el año. Entra '
+      + 'en la imagen de WhatsApp, el correo y el papel. **Por defecto no va**: se marca cada vez que haga falta.',
+  },
+  {
     // components/FichaCuadre.tsx — porConfirmar
     que: 'Enviar la conformidad',
     nota: 'Con «Enviar por correo» o «WhatsApp» la app abre el correo o WhatsApp, pero **no sabe si al final se '
