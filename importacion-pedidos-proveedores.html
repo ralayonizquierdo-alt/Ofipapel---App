@@ -2486,9 +2486,19 @@ function generarExcel(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
-  const fechaHoy = new Date().toISOString().slice(0,10);
-  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + '.xls';
+  const nombreArchivo = nombreExcel(proveedor, pedido, fecha);
   XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
+}
+
+// Nombre del Excel (13/11/2026, propietario): «PROVEEDOR Nº FACTURA MES AÑO»,
+// p. ej. «CABERO GROUP 2605151 FACTURA NOVIEMBRE 2026.xls». El mes y el año son
+// los de la fecha del documento (casilla Fecha); sin fecha, los de hoy.
+function nombreExcel(proveedor, numero, fechaIso){
+  const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const m = /^(\d{4})-(\d{2})/.exec(fechaIso || '');
+  const d = m ? { a: m[1], mes: MESES[Number(m[2]) - 1] } : { a: String(new Date().getFullYear()), mes: MESES[new Date().getMonth()] };
+  const limpio = (t) => quitarAcentos(String(t || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return [limpio(proveedor) || 'PROVEEDOR', limpio(numero), 'FACTURA', d.mes, d.a].filter(Boolean).join(' ') + '.xls';
 }
 
 // Total del Excel en la cabecera, fila 9 (C–D), celdas vacías en las dos
@@ -2532,8 +2542,7 @@ function generarExcelRober(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
-  const fechaHoy = new Date().toISOString().slice(0,10);
-  const nombreArchivo = 'PEDIDO_' + (proveedor||'PROVEEDOR').replace(/[^\w]+/g,'_') + '_' + fechaHoy + '_ROBER.xls';
+  const nombreArchivo = nombreExcel(proveedor, pedido, fechaIso);
   XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
 }
 
