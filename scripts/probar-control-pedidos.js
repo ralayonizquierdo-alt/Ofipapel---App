@@ -1205,3 +1205,10 @@ test('«Precio por 5 PCA»: el importe sale con precio ÷ 5 → la línea no es 
   assert.equal(r.lineas[0].precio, 5.14, 'el precio no se toca');
   assert.ok(r.lineas[1].duda.includes('no sale'));
 });
+
+test('«Precio por 12 PCA»: a Géminis va el precio por unidad, sin descuento inventado', () => {
+  const [g] = CP.lineasParaGeminis([{ ref: '322/02-HB', cant: 12, precio: 9.19, importe: 9.19 }], { decimales: 2 });
+  assert.equal(g.precio, 0.76583);
+  assert.ok(Math.abs(g.dto) < 1, 'sin descuento del 91 %');
+  assert.equal(CP.sinDudaPorPaquete({ ref: 'A', cant: 12, precio: 9.19, importe: 9.19, duda: 'Precio por 12 PCA · el importe 9,19 no sale de precio × cantidad − descuentos (110,28)' }).duda, '');
+});
