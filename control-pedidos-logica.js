@@ -1452,6 +1452,15 @@
     const fila = () => new Array(N).fill('');
     const c = cab || {};
     const aoa = [];
+    const dto0 = (opciones && opciones.dto) || 0;
+    const importeDe = (l) => {
+      const precio = l.precio == null ? 0 : l.precio;
+      const dtoLinea = l.dto != null ? l.dto : dto0;
+      return l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
+    };
+    // Total del Excel en la cabecera (fila 9, C–D, celdas vacías de la plantilla;
+    // 13/11/2026, propietario: «a Géminis no le afecta»). Nunca debajo de los artículos.
+    const totalExcel = red2((lineas || []).reduce((t, l) => t + (Number(importeDe(l)) || 0), 0));
     let r;
     r = fila(); r[10] = 1001; r[11] = '< L} LIBROS DE TEXTOS     '; r[14] = 'Para otros dieños consultar el arbol de FAMILIAS'; aoa.push(r);
     r = fila(); r[2] = 'PROPUESTA    DE     PEDIDO'; r[4] = 'ALMACEN'; r[5] = c.almacen || ''; r[9] = 'L}'; r[10] = 100125; r[11] = 'LIBRO TEXTOS (L} 25%)         ';
@@ -1466,7 +1475,7 @@
     r = fila(); r[0] = 'Compras@ofipapelsl.com'; r[13] = 'el padre no '; r[14] = 209163; r[15] = 'Monederos Billeteras (Diseño)'; aoa.push(r);
     r = fila(); r[2] = 'Contactar con:'; r[4] = 'E-mail'; r[10] = 209102; r[11] = 'ARTICULOS DISEÑO (Varios)     '; r[13] = 'lleva ';
     r[14] = 209166; r[15] = 'Neceser Escolar (Diseño)'; aoa.push(r);
-    r = fila(); r[10] = 209162; r[11] = 'MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[14] = 209176; r[15] = 'Plumier (Diseño)'; aoa.push(r);
+    r = fila(); r[2] = 'TOTAL IMPORTE'; r[3] = totalExcel; r[10] = 209162; r[11] = 'MOCHILAS (Diseño) SOLO  ALTA EN WEB                           '; r[14] = 209176; r[15] = 'Plumier (Diseño)'; aoa.push(r);
     r = fila(); r[1] = 'MARCA'; r[2] = 'Rfecia. Compra'; r[11] = 'CODIGO  A'; r[12] = 'Margen'; r[14] = 209179; r[15] = 'Portatodo (Diseño)'; aoa.push(r);
     aoa.push(['Codigo I.S.B.N.', 'EDITORIAL', 'Rfcia. Proveedor', 'DESCRIPCION', 'Caja', 'Ud./Caja', 'Udes', 'Precio U.', 'Dcto', 'Igic', 'IMPORTE', 'RECONVERTIR', 'COD. FAMILIA', 'PADRE', '>>>>>>>>>>>>>>>>>>>>>>>', '']);
     const dto = (opciones && opciones.dto) || 0;
@@ -1474,7 +1483,7 @@
     for (const l of lineas || []) {
       const precio = l.precio == null ? 0 : l.precio;
       const dtoLinea = l.dto != null ? l.dto : dto;
-      const importe = l.total != null ? l.total : red2(precio * l.cant * (1 - dtoLinea / 100));
+      const importe = importeDe(l);
       aoa.push([l.ean || '', c.marca || '', l.alta ? REF_ALTA : l.ref, l.alta ? (l.descAlta || l.desc || '') : (l.desc || ''), '', '', l.cant,
         precio, dtoLinea, l.igic != null ? l.igic : igic, importe, '', '', '', '', '']);
     }
