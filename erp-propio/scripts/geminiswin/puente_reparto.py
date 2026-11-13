@@ -33,7 +33,8 @@ import urllib.request
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 POR_DEFECTO = {
-    'carpeta': r'G:\GW002024',
+    # Ruta de red completa, no la letra G: — desde el Programador de tareas la letra puede no existir.
+    'carpeta': r'\\SERVER-OFIPAPEL\GEMINISW\GW002024',
     'url': 'https://sufxvpiwcncnyltrvoun.supabase.co/functions/v1/reparto-gw-ingesta',
     'dias': 6,                    # solo repartos generados en los últimos N días
     'cola_repartos': 3000,        # cuántos registros del final de REPARTOS se miran

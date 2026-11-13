@@ -7,7 +7,7 @@ la app de móvil (`/repartidor`). Se empieza con **una sola ruta**, supervisada.
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| Programa lector | `scripts/geminiswin/puente_reparto.py` | En un PC de la oficina (no en el servidor de GeminisWin), cada 5 min de 13:00 a 16:00: lee SOLO LECTURA `REPARTOS`, `REPARLIN`, `VENTAS` y `FACTURAS` de `G:\GW002024` y manda los repartos «Generado» de las rutas elegidas. Solo biblioteca estándar de Python |
+| Programa lector | `scripts/geminiswin/puente_reparto.py` | En un PC de la oficina junto al encargado de reparto (no en el de Rober ni en el servidor de GeminisWin; si no tiene Python, se instala), cada 5 min de 13:00 a 16:00: lee SOLO LECTURA `REPARTOS`, `REPARLIN`, `VENTAS` y `FACTURAS` de `\\SERVER-OFIPAPEL\GEMINISW\GW002024` (ruta de red, no la letra G:) y manda los repartos «Generado» de las rutas elegidas. Solo biblioteca estándar de Python |
 | Entrada del servidor | función `reparto-gw-ingesta` (sin JWT, con clave propia en la cabecera `x-puente-clave`) | `ping` (clave + rutas), ingesta y `partes` |
 | Base de datos | `supabase/migrations/20261114_reparto_puente_geminiswin.sql` | `reparto.origen` (`erp` / `geminiswin`), `reparto_gw_venta`, `reparto_gw_pasada`, `fn_reparto_gw_entrada` → `fn_reparto_gw_ingesta`, guardas, `fn_reparto_gw_partes` |
 
