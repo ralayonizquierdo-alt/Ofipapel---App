@@ -63,7 +63,12 @@ actúa con los permisos de quien lo llama. Dadas de alta en `nexa_operacion` con
 **Plazo del proveedor:** `proveedor.dias_entrega`; si no lo tiene, 7 días y la fila sale con `plazo_supuesto`.
 
 **Limitaciones conocidas**
-- Hoy el ERP solo tiene las ventas de prueba desde el 23/10: todo sale «insuficiente». Falta cargar el histórico
+- **13/11/2026: ya calcula con el histórico de GeminisWin.** El resumen HIST_VENTAS (ventas por artículo, almacén y
+  mes, 2023-11 a 2026-10) está en `venta_historico_mensual` (256.270 filas; `fn_carga_gw_hist_ventas()` la rellena
+  desde `carga_dbf`, repetible). `fn_compras_calcular_minimos` trabaja ahora por MESES: histórico + ventas del ERP
+  de los meses posteriores al último del histórico. Con los 2.000 artículos cargados: 1.414 con confianza alta,
+  281 media y 262 baja. El histórico trae 36.874 artículos: el resto entrará al completar el catálogo.
+  (Nota anterior, ya superada:) Hoy el ERP solo tiene las ventas de prueba desde el 23/10: todo sale «insuficiente». Falta cargar el histórico
   de ventas de GeminisWin (encargo a Cowork, nota 96 de `coordinacion_notas`).
 - No corrige la estacionalidad (vuelta al cole): para eso hace falta ≥ 1 año completo.
 - Aún no crea los pedidos: la fase 2 convertirá `fn_compras_propuesta_pedidos` en borradores de `pedido_proveedor`
