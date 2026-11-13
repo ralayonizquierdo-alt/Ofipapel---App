@@ -42,8 +42,8 @@ POR_DEFECTO = {
     'max_busqueda_ventas': 250000,    # hasta dónde se busca hacia atrás una venta que no se conoce
     'max_busqueda_facturas': 80000,
     'estados_fuera': [1, 6, 8, 10],   # estados de línea que no se llevan a la app (ver LEEME de Cowork)
-    'fecha_mas_dias': 1,          # REPARTOS.FECHA es el día en que se genera; se reparte al día siguiente
-    'salta_domingo': True,
+    'fecha_mas_dias': 1,          # REPARTOS.FECHA es el día en que se genera; se reparte al día siguiente…
+    'salta_fin_de_semana': True,  # …salvo el del viernes, que queda para el lunes (Rober, 13/11/2026)
 }
 
 
@@ -163,7 +163,7 @@ def dia_de_reparto(fecha_iso, cfg):
     if not fecha_iso:
         return None
     d = dt.date.fromisoformat(fecha_iso) + dt.timedelta(days=int(cfg['fecha_mas_dias']))
-    if cfg['salta_domingo'] and d.isoweekday() == 7:
+    while cfg['salta_fin_de_semana'] and d.isoweekday() >= 6:
         d += dt.timedelta(days=1)
     return d.isoformat()
 
