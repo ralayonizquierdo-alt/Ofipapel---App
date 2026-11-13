@@ -1,11 +1,13 @@
 import { TRAMO_LABEL, calcPrices } from '../lib/priceCalc'
-import { getSeason, formatDate } from '../lib/dateUtils'
+import { getSeason, formatDate, addDays, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import type { CuadreEstancia } from '../lib/cuadreEstancia'
 import { textoDiferencia } from '../lib/precioReserva'
 
 const eur = (n: number) => `${num(n, 2)} €`
 const dec = (n: number) => num(n, 2)
+/** Días desde la entrada en los que la agencia suele mandar el cobro. */
+const DIAS_PAGO_AGENCIA = 5
 
 /**
  * La línea que dice de dónde sale el importe: de la tarifa, de un precio
@@ -92,6 +94,13 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
   conWeb?: boolean
 }) {
   const { reserva: r, tarifa, visibles, suma, cobrado, diferencia, mesCorto } = cuadre
+  /**
+   * La agencia suele pagar a los DIAS_PAGO_AGENCIA días de la entrada (Luis,
+   * 13/11/2026): hasta entonces lo que falta es «pendiente de cobro», no un
+   * descubierto, y no va en rojo.
+   */
+  const plazoCobro = addDays(r.checkIn, DIAS_PAGO_AGENCIA)
+  const aunEnPlazo = today() <= plazoCobro
   const celda = `${compacto ? 'py-0.5 px-1.5' : 'py-1.5 px-2'} border border-slate-300`
 
   return (
@@ -280,12 +289,14 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
           </tr>
           <tr className={`font-bold ${
             Math.abs(diferencia) < 0.005 ? 'text-green-700'
-              : diferencia < 0 ? 'text-red-600' : 'text-purple-700'}`}>
+              : diferencia < 0 ? (aunEnPlazo ? 'text-amber-600' : 'text-red-600') : 'text-purple-700'}`}>
             <td className={celda}>
               Diferencia{' '}
               <span className="ml-2 font-normal text-slate-500">
                 {Math.abs(diferencia) < 0.005 ? 'la estancia queda cuadrada'
-                  : diferencia < 0 ? 'falta por cobrar' : 'cobrado de más'}
+                  : diferencia >= 0 ? 'cobrado de más'
+                  : aunEnPlazo ? `pendiente de cobro · la agencia suele pagarlo hacia el ${formatDate(plazoCobro)}`
+                  : `falta por cobrar · debía llegar hacia el ${formatDate(plazoCobro)}`}
               </span>
             </td>
             <td className={`${celda} text-right`}>{eur(diferencia)}</td>

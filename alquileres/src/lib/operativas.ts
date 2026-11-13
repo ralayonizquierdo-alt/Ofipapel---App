@@ -433,6 +433,14 @@ export const OPERATIVA_FICHA: ReglaOperativa[] = [
       + '**sigue pendiente**.',
   },
   {
+    // components/CuadroEstancia.tsx — aunEnPlazo
+    que: 'Pendiente o falta por cobrar',
+    formula: 'plazo de cobro = entrada + 5 días',
+    nota: 'La agencia suele pagar **a los 5 días de la entrada**. Hasta ese día, lo que falta sale en **ámbar** como '
+      + '**«pendiente de cobro»**; pasado sin cobrar, en **rojo** como **«falta por cobrar»**. (El Dashboard y Cobros '
+      + 'avisan aparte, cuando la estancia ha terminado.)',
+  },
+  {
     // components/FichaCuadre.tsx — salirA
     que: 'Abrir la reserva',
     nota: 'Abre la reserva para cambiarla; con **«← Volver»** regresas a esta ficha.',
