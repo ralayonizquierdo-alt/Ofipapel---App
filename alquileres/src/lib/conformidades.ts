@@ -7,7 +7,8 @@ import type { Reservation } from '../types'
  * asesoría con su «Conformidad de la reserva». No sale sola: a las
  * HORAS_ESPERA de entrar, avisa en el Dashboard y con un globo en el icono de
  * Alquileres del hub, y se prepara con un clic desde la ficha. El aviso se va
- * en cuanto se prepara el correo o el WhatsApp (`conformidadPreparada`).
+ * cuando, tras el correo o el WhatsApp, se contesta «Sí, enviada» en la ficha
+ * (`conformidadPreparada`, 13/11/2026).
  */
 export const HORAS_ESPERA = 2
 

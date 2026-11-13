@@ -133,7 +133,8 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     que: 'Conformidades por enviar',
     formula: 'reserva pegada en la Entrada rápida + 2 horas',
     nota: 'A las **2 horas** de entrar una reserva (salvo las de Airbnb) sale aquí y como **globo rojo en el icono '
-      + 'de Alquileres del hub**. «Ir a enviar» abre su ficha: «Enviar por correo» y **se quita sola**. '
+      + 'de Alquileres del hub**. «Ir a enviar» abre su ficha; se quita **solo cuando contestas «Sí, enviada»** '
+      + 'después de mandarla por correo o WhatsApp. '
       + 'El globo del hub se pone al día al abrir Alquileres en ese ordenador. Al **entrar en la app** salta además '
       + 'la ventana «Conformidad pendiente de enviar»: **«Ir a enviar»** abre la ficha con sus dos pestañas (cuadre y conformidad) para revisarla y pregunta si quieres '
       + 'añadir una nota; **«Ahora no»** la calla hasta la próxima vez que entres.',
@@ -396,6 +397,41 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
   PRECIO_DE_LA_RESERVA,
 ]
 
+/**
+ * La Operativa que va **dentro** de la ficha (Luis, 13/11/2026: «no hay
+ * operativa que te explique que si te sitúas en el precio vas a la tarifa»).
+ * Es lo mismo que en Cobros, pero a mano donde se usa.
+ */
+export const OPERATIVA_FICHA: ReglaOperativa[] = [
+  {
+    // components/CuadroEstancia.tsx — onTarifa
+    que: 'El precio de la tarifa',
+    nota: '**Pincha el precio de «Tarifa»** (en azul) y vas a **Precios** con esa fila marcada y la temporada '
+      + '(**INVIERNO o VERANO**) y el año. Allí está también el precio **Web (publicar)**. Con **«← Volver»** '
+      + 'regresas a esta ficha.',
+  },
+  {
+    // components/CuadroEstancia.tsx — conWeb
+    que: 'Web (publicar)',
+    formula: 'tarifa del tramo + 15 % inmobiliaria + 15 % reserva',
+    nota: 'Columna verde, **de orientación** para ti y para la agencia. La casilla «Incluir el precio Web '
+      + '(publicar)» la pone o la quita, también en lo que se imprime o se manda.',
+  },
+  {
+    // components/FichaCuadre.tsx — porConfirmar
+    que: 'Enviar la conformidad',
+    nota: 'Con «Enviar por correo» o «WhatsApp» la app abre el correo o WhatsApp, pero **no sabe si al final se '
+      + 'envió**. Por eso pregunta **«¿Has enviado la conformidad?»**: solo con **«Sí, enviada»** se quitan el aviso '
+      + 'y el globo, y queda en el Registro quién y cuándo. Con «No, todavía no» —o si se cierra sin contestar— '
+      + '**sigue pendiente**.',
+  },
+  {
+    // components/FichaCuadre.tsx — salirA
+    que: 'Abrir la reserva',
+    nota: 'Abre la reserva para cambiarla; con **«← Volver»** regresas a esta ficha.',
+  },
+]
+
 export const OPERATIVA_GASTOS: ReglaOperativa[] = [
   {
     // lib/deducible.ts — EXPENSE_DEDUCIBILIDAD
@@ -512,7 +548,8 @@ export const OPERATIVA_REGISTRO: ReglaOperativa[] = [
     que: 'También',
     formula: 'correo o WhatsApp a la agencia · precio pactado · anulación resuelta · reserva a mano',
     nota: 'Las reservas dadas de alta, cambiadas (**qué cambió y de qué a qué**) o borradas a mano. Del correo y el '
-      + 'WhatsApp se apunta que **se preparó**: la aplicación no sabe si al final se le dio a Enviar.',
+      + 'WhatsApp se apunta que **se preparó**: la aplicación no sabe si al final se le dio a Enviar. De una '
+      + 'conformidad, además, **«enviada»** cuando se contesta «Sí, enviada» en la ficha.',
   },
   {
     // components/PegarWhatsApp.tsx — texto

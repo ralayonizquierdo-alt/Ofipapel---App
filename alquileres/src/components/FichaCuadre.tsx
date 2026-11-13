@@ -12,6 +12,8 @@ import { copiarConFormato, htmlConEstilos } from '../lib/copiarConFormato'
 import { cobradoDeReserva } from '../lib/anuladas'
 import Modal from './ui/Modal'
 import CuadroEstancia from './CuadroEstancia'
+import Operativa from './Operativa'
+import { OPERATIVA_FICHA } from '../lib/operativas'
 import type { Reservation } from '../types'
 
 /**
@@ -275,21 +277,40 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
    * al final se le dio a Enviar.
    */
   function apuntaEnvio(por: 'Correo' | 'WhatsApp') {
-    // Con la conformidad preparada, deja de avisar en el Dashboard y en el hub.
-    if (conformidad) {
-      updateReservation(r.id, {
-        conformidadPreparada: {
-          fecha: new Date().toISOString(), por: usuarioActual() ?? undefined,
-          via: por === 'Correo' ? 'correo' : 'whatsapp',
-        },
-      })
-    }
+    // La conformidad no se da por enviada al pulsar: se pregunta (Luis,
+    // 13/11/2026: «¿y si por lo que sea no se ha enviado?»).
+    if (conformidad) setPorConfirmar(por)
     anotaVolcado({
       origen: 'envio', year: Number(r.checkIn.slice(0, 4)),
       resumen: `${por} preparado: ${conformidad ? 'conformidad' : 'cuadre'} de ${nombre}, `
         + `del ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`,
     })
   }
+
+  /**
+   * Tras «Enviar por correo» o «WhatsApp», la ficha pregunta si se envió. Solo
+   * con «Sí, enviada» se apunta en la reserva (`conformidadPreparada`) y dejan
+   * de salir el aviso y el globo; si se dice que no o se cierra sin contestar,
+   * sigue pendiente. La app no puede saberlo sola: WhatsApp y el correo no le
+   * devuelven nada.
+   */
+  const [porConfirmar, setPorConfirmar] = useState<'Correo' | 'WhatsApp' | null>(null)
+  function confirmarEnvio() {
+    if (!porConfirmar) return
+    updateReservation(r.id, {
+      conformidadPreparada: {
+        fecha: new Date().toISOString(), por: usuarioActual() ?? undefined,
+        via: porConfirmar === 'Correo' ? 'correo' : 'whatsapp',
+      },
+    })
+    anotaVolcado({
+      origen: 'envio', year: Number(r.checkIn.slice(0, 4)),
+      resumen: `${porConfirmar === 'Correo' ? 'Correo' : 'WhatsApp'} enviado: conformidad de ${nombre}, `
+        + `del ${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`,
+    })
+    setPorConfirmar(null)
+  }
+  const enviada = r.conformidadPreparada
 
   const asunto = `${conformidad ? 'Conformidad de reserva' : 'Cuadre de estancia'} — ${nombre}, `
     + `${formatDate(r.checkIn)} al ${formatDate(r.checkOut)}`
@@ -511,6 +532,32 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
           </p>
         )}
 
+        {conformidad && porConfirmar && (
+          <div className="rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3 print:hidden">
+            <p className="text-sm font-semibold text-amber-900">
+              ¿Has enviado la conformidad del {nombre} {porConfirmar === 'Correo' ? 'por correo' : 'por WhatsApp'}?
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={confirmarEnvio}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700">
+                <Check size={15} /> Sí, enviada
+              </button>
+              <button onClick={() => setPorConfirmar(null)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 bg-white rounded-lg hover:bg-slate-50">
+                No, todavía no
+              </button>
+            </div>
+          </div>
+        )}
+        {conformidad && !porConfirmar && enviada && (
+          <p className="flex items-center gap-2 text-sm text-green-800 print:hidden">
+            <Check size={16} className="text-green-600 shrink-0" />
+            Conformidad enviada {enviada.via === 'correo' ? 'por correo' : 'por WhatsApp'} el{' '}
+            {new Date(enviada.fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            {enviada.por ? ` por ${enviada.por}` : ''}.
+          </p>
+        )}
+
         {resaltaEnviar && conformidad && (
           <p className="text-sm font-semibold text-blue-900 text-right print:hidden">
             Ahora, «Enviar por correo» o «WhatsApp» 👇
@@ -548,6 +595,7 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
             <Printer size={15} /> Imprimir / PDF
           </button>
         </div>
+        <Operativa titulo="Ficha" reglas={OPERATIVA_FICHA} />
       </div>
     </Modal>
   )

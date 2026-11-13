@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom'
  * Ahora salta al entrar, igual que la de «alquilado dos veces»: «Ir a enviar»
  * abre la ficha (cuadre y conformidad) para revisarla de esa reserva y pregunta si se quiere añadir texto;
  * «Ahora no» la calla **solo hasta la próxima vez** que se abra la app. Deja
- * de salir cuando la conformidad se prepara (correo o WhatsApp).
+ * de salir cuando, tras mandarla, se contesta «Sí, enviada» en la ficha.
  *
  * Espera a que se cierre la de reservas pisadas (`esperar`): una encima de
  * otra no se leen.
