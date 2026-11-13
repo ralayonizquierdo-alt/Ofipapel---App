@@ -56,7 +56,23 @@
  * porWhatsApp): sale como en papel, con el título y el mensaje que solo se
  * ven al imprimir.
  */
-.como-imagen { padding: 16px; width: 760px; }
+/*
+ * Estrecha (440 px) para que en el móvil se lea sin zoom: WhatsApp la ajusta
+ * al ancho de la pantalla, y a 760 px la letra quedaba diminuta (Luis,
+ * 13/11/2026). Lo que es solo de pantalla (botones, NOTAS vacías, Operativa,
+ * la pregunta de si se envió) se quita del todo: antes solo se filtraba al
+ * copiar, pero su alto se quedaba y la imagen salía con un hueco en blanco
+ * enorme debajo.
+ */
+.como-imagen { padding: 10px; width: 440px; }
+.como-imagen .print\:hidden { display: none !important; }
+/* Letra más grande que en pantalla: en el móvil la imagen se ve a ~390 px. */
+.como-imagen .text-xs { font-size: 15px !important; line-height: 1.35 !important; }
+.como-imagen .text-sm { font-size: 16px !important; line-height: 1.4 !important; }
+.como-imagen .text-lg { font-size: 20px !important; }
+/* La cabecera tiene siete columnas: un poco más apretada para que quepa en 440 px. */
+.como-imagen .cabecera-reserva.text-xs { font-size: 13.5px !important; }
+.como-imagen .cabecera-reserva th, .como-imagen .cabecera-reserva td { padding: 4px 3px !important; }
 .como-imagen .print\:\!block { display: block !important; }
 /* La tarifa es un enlace en pantalla; en la imagen que se envía, texto normal. */
 .como-imagen [role="link"] { background: transparent !important; color: inherit !important; text-decoration: none !important; }

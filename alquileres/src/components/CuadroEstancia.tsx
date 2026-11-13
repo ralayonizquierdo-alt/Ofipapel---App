@@ -97,7 +97,7 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
   return (
     <>
       {/* ── Cabecera: la reserva de un vistazo ── */}
-      <table className="w-full text-xs tabular-nums">
+      <table className="cabecera-reserva w-full text-xs tabular-nums">
         <thead>
           <tr className="bg-slate-100 text-slate-600">
             <th className={`${celda} text-left font-medium`}>Apto.</th>
