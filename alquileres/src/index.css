@@ -58,3 +58,5 @@
  */
 .como-imagen { padding: 16px; width: 760px; }
 .como-imagen .print\:\!block { display: block !important; }
+/* La tarifa es un enlace en pantalla; en la imagen que se envía, texto normal. */
+.como-imagen [role="link"] { background: transparent !important; color: inherit !important; text-decoration: none !important; }
