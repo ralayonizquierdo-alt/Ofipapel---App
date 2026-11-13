@@ -1187,3 +1187,21 @@ test('leerFacturaApli: factura de Apli por bloques, sin IA, y cuadra con el Subt
   assert.equal(CP.leerFacturaApli(t.replace('56,80', '99,00')), null);
   assert.equal(CP.leerFacturaApli('OTRO PROVEEDOR'), null);
 });
+
+test('caja por unidades: pido 1 caja, el proveedor factura 12 uds. por lo mismo → cuadra sin decidir (13/11/2026)', () => {
+  const f = CP.compararPedido([{ ref: 'A', cant: 1, precio: 12 }], [{ ref: 'A', cant: 12, precio: 1, importe: 12 }], { comparar: 'neto' });
+  assert.equal(f[0].estado, 'ok');
+  assert.equal(f[0].cantPropuesta, 1);
+  // si el dinero no cuadra, se sigue preguntando
+  assert.equal(CP.compararPedido([{ ref: 'A', cant: 1, precio: 12 }], [{ ref: 'A', cant: 12, precio: 3, importe: 36 }], { comparar: 'neto' })[0].estado, 'cambio');
+});
+
+test('«Precio por 5 PCA»: el importe sale con precio ÷ 5 → la línea no es dudosa', () => {
+  const r = CP.lineasDeDocumento({ lineas: [
+    { referencia: '648/46', cantidad: 50, precio: 5.14, importe: 51.4, duda: 'Precio por 5 PCA' },
+    { referencia: 'X', cantidad: 10, precio: 2, importe: 30 },
+  ] });
+  assert.equal(r.lineas[0].duda, '');
+  assert.equal(r.lineas[0].precio, 5.14, 'el precio no se toca');
+  assert.ok(r.lineas[1].duda.includes('no sale'));
+});

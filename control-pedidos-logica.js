@@ -235,6 +235,23 @@
           b = { ...b, cant: b.cant * k, precio: div(b.precio), neto: div(b.neto), udsCaja: null };
         }
       }
+      // Al revés (13/11/2026, propietario: «si me factura una caja de diez y yo
+      // pido 10 unidades, ¿qué quieres que decida?»): nosotros pedimos por cajas
+      // (1) y el proveedor factura las unidades (12) por el mismo dinero. Se da
+      // por bueno sin preguntar y su línea se pasa a nuestra unidad, que es la
+      // que va al Excel de Géminis.
+      let enUnidades = null;
+      if (!porCaja && a && b && a.cant > 0 && b.cant > a.cant) {
+        const pa = neto ? a.neto : a.precio;
+        const pb = b.neto != null ? b.neto : b.precio;
+        const cands = [Number.isInteger(b.cant / a.cant) ? b.cant / a.cant : null, parseNum(a.udsCaja) > 1 && b.cant === a.cant * parseNum(a.udsCaja) ? parseNum(a.udsCaja) : null];
+        const k = pa && pb ? cands.filter((c) => c && pa / pb >= c * 0.6 && pa / pb <= c * 1.6)[0] : null;
+        if (k) {
+          enUnidades = k;
+          const por = (x) => (x == null ? x : Math.round(x * k * 1e5) / 1e5);
+          b = { ...b, cant: a.cant, precio: por(b.precio), neto: por(b.neto), udsCaja: null };
+        }
+      }
       // La referencia que se enseña y con la que se decide es la de nuestro pedido.
       const ref = (a || b).ref;
       const enCat = cat && cat.get(clave);
@@ -268,6 +285,7 @@
         sugerencias: [],
       };
 
+      if (enUnidades) { fila.enUnidades = enUnidades; fila.motivos.push({ tipo: 'por_caja', texto: `Pedido por cajas de ${enUnidades}: el proveedor factura ${a.cant * enUnidades} uds. = ${a.cant} caja(s)`, revisar: false, informativo: true }); }
       if (porCaja) { fila.porCaja = porCaja; fila.motivos.push({ tipo: 'por_caja', texto: `El proveedor lo cuenta por cajas de ${porCaja} (${b.cant / porCaja} cajas = ${b.cant} uds.)`, revisar: false, informativo: true }); }
       if (a && a.veces > 1) fila.motivos.push({ tipo: 'duplicada_pedido', texto: `Aparece ${a.veces} veces en el pedido (se suman)`, revisar: true });
       // Un alta que junta varios códigos del proveedor viene, a propósito, en varias líneas.
@@ -1370,7 +1388,14 @@
         // Hay proveedores que redondean el neto unitario antes de multiplicar:
         // se admite un céntimo por unidad.
         if (Math.abs(calc - l.importe) > 0.02 + 0.01 * l.cant) {
-          avisos.push(`el importe ${fmt(l.importe)} no sale de precio × cantidad − descuentos (${fmt(calc)})`);
+          // «Precio por 5 PCA» (13/11/2026): el precio es de un paquete de N y la
+          // cantidad va en unidades. Si el importe sale con precio ÷ N, la línea
+          // está bien: no es dudosa. El precio no se toca (el neto sale del importe).
+          const mDuda = /por\s+(\d+)/i.exec(l.duda || '');
+          const ns = [mDuda ? Number(mDuda[1]) : null, calc && l.importe ? Math.round(calc / l.importe) : null].filter((n) => n && n > 1 && n <= 1000);
+          const n = ns.find((x) => Math.abs(red2(calc / x) - l.importe) <= 0.02 + 0.01 * l.cant / x);
+          if (n) { l.porN = n; if (/^\s*precio por\s+\d+[^·]*$/i.test(l.duda || '')) l.duda = ''; }
+          else avisos.push(`el importe ${fmt(l.importe)} no sale de precio × cantidad − descuentos (${fmt(calc)})`);
         }
       }
       if (avisos.length) l.duda = [l.duda, ...avisos].filter(Boolean).join(' · ');
