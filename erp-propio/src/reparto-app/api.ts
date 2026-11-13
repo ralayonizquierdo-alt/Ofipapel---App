@@ -41,7 +41,10 @@ export interface LineaApp {
   telefono: string | null
   total: number | null
   pagado: number | null
-  factura: number | null
+  factura: number | string | null
+  /** Solo en repartos traídos de GeminisWin por el puente. */
+  contado?: boolean | null
+  forma_pago?: string | null
   bultos: number | null
   incidencia: string | null
   motivo: string | null
@@ -156,6 +159,11 @@ export const cambiarRuta = (token: string, tienda: string, numero: number, vt: s
     p_dest_numero: destNumero,
     p_motivo: motivo,
   })
+
+export async function cambiarPin(token: string, actual: string, nuevo: string) {
+  const r = await rpc<{ ok: boolean; error?: string }>('fn_app_rep_cambiar_pin', { p_token: token, p_actual: actual, p_nuevo: nuevo })
+  if (!r.ok) throw new ErrorApp(r.error ?? 'No se pudo cambiar el PIN.')
+}
 
 export const posicion = (token: string, tienda: string, numero: number, lat: number, lng: number, precision: number | null) =>
   rpc('fn_app_rep_posicion', { p_token: token, p_tienda: tienda, p_numero: numero, p_lat: lat, p_lng: lng, p_precision: precision })

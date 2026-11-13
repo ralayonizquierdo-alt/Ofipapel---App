@@ -7,6 +7,7 @@ import {
   entrar,
   entrarDesdeFichaje,
   ErrorApp,
+  cambiarPin,
   guardar,
   guardarCache,
   guardarSesion,
@@ -329,6 +330,7 @@ function Entrada({ onEntrar }: { onEntrar: (s: Sesion) => void }) {
 function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion; onElegir: (r: RepartoApp) => void; onSalir: () => void; onCaducada: () => void }) {
   const [lista, setLista] = useState<RepartoApp[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pin, setPin] = useState(false)
   useEffect(() => {
     cargarRepartos(sesion.token)
       .then(setLista)
@@ -359,7 +361,64 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
         </div>
         {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
       </Tarjeta>
+      <div style={{ textAlign: 'center', marginTop: 14 }}>
+        <button type="button" onClick={() => setPin(true)} style={{ background: 'none', border: 'none', color: V.verdeMed, fontSize: 15, textDecoration: 'underline', padding: 8 }}>
+          🔑 Cambiar mi PIN
+        </button>
+      </div>
+      {pin && <HojaPin sesion={sesion} onCerrar={() => setPin(false)} />}
     </>
+  )
+}
+
+function HojaPin({ sesion, onCerrar }: { sesion: Sesion; onCerrar: () => void }) {
+  const [actual, setActual] = useState('')
+  const [nuevo, setNuevo] = useState('')
+  const [repite, setRepite] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [hecho, setHecho] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const campo: CSSProperties = { width: '100%', border: '2px solid #cfe0cf', borderRadius: 12, padding: 12, fontSize: 20, letterSpacing: 4, marginBottom: 10 }
+  const soloCifras = (v: string) => v.replace(/\D/g, '').slice(0, 8)
+  const guardar = async () => {
+    if (nuevo !== repite) return setError('El PIN nuevo no coincide en las dos casillas.')
+    setEnviando(true)
+    setError(null)
+    try {
+      await cambiarPin(sesion.token, actual, nuevo)
+      setHecho(true)
+    } catch (e) {
+      setError((e as ErrorApp).red ? 'Sin conexión: inténtalo con cobertura.' : (e as Error).message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+  return (
+    <Hoja titulo="Cambiar mi PIN" onCerrar={onCerrar}>
+      {hecho ? (
+        <>
+          <div style={{ color: V.verde, fontSize: 17, marginBottom: 12 }}>✅ PIN cambiado. La próxima vez entra con el nuevo.</div>
+          <Boton onClick={onCerrar} style={{ width: '100%' }}>
+            Vale
+          </Boton>
+        </>
+      ) : (
+        <>
+          <input type="password" inputMode="numeric" autoComplete="off" placeholder="PIN actual" value={actual} onChange={(e) => setActual(soloCifras(e.target.value))} style={campo} />
+          <input type="password" inputMode="numeric" autoComplete="off" placeholder="PIN nuevo (4 a 8 cifras)" value={nuevo} onChange={(e) => setNuevo(soloCifras(e.target.value))} style={campo} />
+          <input type="password" inputMode="numeric" autoComplete="off" placeholder="Repite el PIN nuevo" value={repite} onChange={(e) => setRepite(soloCifras(e.target.value))} style={campo} />
+          {error && <div style={{ color: V.rojo, marginBottom: 10 }}>{error}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Boton claro color={V.gris} onClick={onCerrar} style={{ flex: 1 }}>
+              Cancelar
+            </Boton>
+            <Boton disabled={enviando || actual.length < 4 || nuevo.length < 4 || repite.length < 4} onClick={guardar} style={{ flex: 2 }}>
+              Guardar
+            </Boton>
+          </div>
+        </>
+      )}
+    </Hoja>
   )
 }
 
@@ -848,7 +907,7 @@ function Lista({
                 <div style={{ fontSize: 13, color: V.gris, marginTop: 2 }}>
                   {l.factura ? `Factura ${l.factura} · ` : `Albarán ${l.vt}/${l.vn} · `}
                   {euros(l.total)}
-                  {l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? ` · por cobrar ${euros(l.total - l.pagado)}` : l.total ? ' · pagado' : ''}
+                  {l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? ` · ${l.contado ? 'CONTADO, ' : ''}por cobrar ${euros(l.total - l.pagado)}` : l.total ? ' · pagado' : ''}
                 </div>
                 {l.antes && <div style={{ fontSize: 13, color: V.rojo, marginTop: 4 }}>{l.antes}</div>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
