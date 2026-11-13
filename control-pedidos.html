@@ -1220,8 +1220,19 @@ function vistaReclamacion(clave, i, grupos, o) {
 /** Abre el programa de correo del usuario con la reclamación ya escrita (al
  *  último correo usado para ese proveedor, si lo hay). */
 function correoReclamacion(clave, proveedor, asunto) {
-  const para = correoProveedor(proveedor);
-  location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto || 'Reclamación de pedido')}&body=${encodeURIComponent(reclamaciones[clave] || '')}`;
+  abrirCorreo(correoProveedor(proveedor), asunto || 'Reclamación de pedido', reclamaciones[clave] || '');
+}
+/** Compras escribe desde Outlook web (13/11/2026, propietario: la app de Outlook
+ *  del ordenador no la puede usar): en el ordenador se abre un correo nuevo de
+ *  Outlook web ya rellenado; en el móvil, el programa de correo de siempre. */
+const EN_ORDENADOR = !(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+function abrirCorreo(para, asunto, cuerpo) {
+  if (EN_ORDENADOR) {
+    const q = new URLSearchParams({ to: para || '', subject: asunto || '', body: cuerpo || '' }).toString().replace(/\+/g, '%20');
+    window.open('https://outlook.office.com/mail/deeplink/compose?' + q, '_blank');
+    return;
+  }
+  location.href = `mailto:${encodeURIComponent(para || '')}?subject=${encodeURIComponent(asunto || '')}&body=${encodeURIComponent(cuerpo || '')}`;
 }
 /** Reclamación de UN pedido (dentro del pedido): sus faltas y sobras marcadas «Reclamar». */
 // ── Referencias que el proveedor da con otro código: para cambiarlas en Géminis ──
@@ -4128,7 +4139,7 @@ async function enviarConMiCorreo() {
   envio.para = para;
   // Compartir con archivo (móvil, tableta y Windows): el correo se abre con el PDF adjunto.
   // Compartir no permite poner el destinatario: se copia para pegarlo.
-  if (navigator.canShare && navigator.canShare({ files: [envio.file] })) {
+  if (!EN_ORDENADOR && navigator.canShare && navigator.canShare({ files: [envio.file] })) {
     try { if (para && navigator.clipboard) await navigator.clipboard.writeText(para); } catch { /* sin portapapeles: se escribe a mano */ }
     try {
       await navigator.share({ files: [envio.file], title: asunto, text: mensaje });
@@ -4140,7 +4151,7 @@ async function enviarConMiCorreo() {
     }
   }
   descargarPdfEnvio();
-  location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(mensaje)}`;
+  abrirCorreo(para, asunto, mensaje);
   estado.innerHTML = `Se ha descargado <b>${h(envio.nombre)}</b> y se ha abierto tu correo: <b>adjunta ese PDF</b> y envíalo. Después pulsa «✅ Ya lo he enviado».`;
 }
 function marcarEnviado() {
