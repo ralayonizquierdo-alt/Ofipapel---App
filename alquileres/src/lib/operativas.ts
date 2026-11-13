@@ -385,6 +385,14 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
       + 'queda guardado** hasta que se cambie (en este ordenador) y, dos líneas más abajo, **NOTAS** de esa reserva, '
       + 'que **no se guardan**.',
   },
+  {
+    // components/CuadroEstancia.tsx — conWeb
+    que: 'Web (publicar)',
+    formula: 'tarifa del tramo + 15 % inmobiliaria + 15 % reserva (la misma columna verde de Precios)',
+    nota: 'Columna verde de la ficha, **de orientación** para ti y para la agencia. La casilla «Incluir el precio '
+      + 'Web (publicar)» la pone o la quita, también en lo que se imprime o se manda; se recuerda en este ordenador. '
+      + 'Al pinchar la tarifa, Precios marca la fila y dice **INVIERNO o VERANO** y el año.',
+  },
   PRECIO_DE_LA_RESERVA,
 ]
 

@@ -88,6 +88,8 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
   const [mensaje, setMensaje] = useRecordado('conformidad.mensaje', MENSAJE_CONFORMIDAD)
   const [notas, setNotas] = useState('')
   const [pregunta, setPregunta] = useState(preguntarTexto)
+  /** La columna «Web (publicar)»: se pone o se quita aquí y se recuerda en este ordenador. */
+  const [conWeb, setConWeb] = useRecordado('ficha.conWeb', true)
   const notasRef = useRef<HTMLTextAreaElement>(null)
   const enviarRef = useRef<HTMLDivElement>(null)
   const [resaltaEnviar, setResaltaEnviar] = useState(false)
@@ -364,7 +366,13 @@ export default function FichaCuadre({ reserva, onClose, onVerCobros, modeloInici
         <h2 className="hidden print:!block text-lg font-bold text-slate-900">
           {conformidad ? 'Conformidad de la reserva' : 'Cuadre de la estancia'} — {nombre}{r.guestName ? ` · ${r.guestName}` : ''}
         </h2>
-        <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} conformidad={conformidad} />
+        {cuadre.tarifa && (
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer print:hidden w-fit">
+            <input type="checkbox" checked={conWeb} onChange={e => setConWeb(e.target.checked)} />
+            Incluir el precio <b className="text-green-700">Web (publicar)</b>
+          </label>
+        )}
+        <CuadroEstancia cuadre={cuadre} onTarifa={irATarifa} conformidad={conformidad} conWeb={conWeb} />
 
         {conformidad && pregunta && (
           <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-3 space-y-2 print:hidden">

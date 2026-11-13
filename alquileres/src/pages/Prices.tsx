@@ -363,7 +363,17 @@ function PriceTable({ entry, onEdit, titulo, marcarTramo }: {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden break-inside-avoid">
       <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
-        <h3 className="font-semibold text-slate-700 text-sm">{titulo ?? APT_TYPE_LABELS[entry.apartmentType]}</h3>
+        <h3 className="font-semibold text-slate-700 text-sm">
+          {titulo ?? APT_TYPE_LABELS[entry.apartmentType]}
+          {/* Viniendo de una ficha, la tarifa marcada dice de qué temporada es:
+              los dos bloques se parecen y la cabecera de temporada queda lejos
+              (Luis, 13/11/2026). */}
+          {marcarTramo && (
+            <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${entry.season === 'VERANO' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+              {entry.season} {entry.year}
+            </span>
+          )}
+        </h3>
         {onEdit && (
           <button onClick={onEdit} className="print:hidden flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
             <Pencil size={13} /> Editar precios base

@@ -1,4 +1,4 @@
-import { TRAMO_LABEL } from '../lib/priceCalc'
+import { TRAMO_LABEL, calcPrices } from '../lib/priceCalc'
 import { getSeason, formatDate } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 import type { CuadreEstancia } from '../lib/cuadreEstancia'
@@ -71,7 +71,7 @@ function PactadoParaLaAgencia({ cuadre }: { cuadre: CuadreEstancia }) {
  * la diferencia. `compacto` es para el recuadro que sale al pasar el ratón, que
  * tiene que caber en pantalla sin desplazarse.
  */
-export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, conformidad = false }: {
+export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, conformidad = false, conWeb = false }: {
   cuadre: CuadreEstancia
   compacto?: boolean
   /** Con esto la tarifa se puede pinchar para ir a verla en Precios (Luis, 06/11/2026). */
@@ -83,6 +83,13 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
    * tarifa. Del precio, solo si fue pactado.
    */
   conformidad?: boolean
+  /**
+   * La columna «Web (publicar)» (Luis, 13/11/2026): el precio con el que se
+   * publica ese tramo, de orientación para él y para la agencia. Sale de la
+   * misma cuenta que Precios (`calcPrices`): base + las dos comisiones del 15 %.
+   * Se pone o se quita con la casilla de la ficha.
+   */
+  conWeb?: boolean
 }) {
   const { reserva: r, tarifa, visibles, suma, cobrado, diferencia, mesCorto } = cuadre
   const celda = `${compacto ? 'py-0.5 px-1.5' : 'py-1.5 px-2'} border border-slate-300`
@@ -99,6 +106,9 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
             <th className={`${celda} text-right font-medium`}>Tarifa</th>
             <th className={`${celda} text-right font-medium`}>Cargos</th>
             <th className={`${celda} text-left font-medium`}>Temporada</th>
+            {conWeb && tarifa && (
+              <th className={`${celda} text-right font-medium text-green-700 bg-green-50`}>Web (publicar)</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -120,6 +130,11 @@ export default function CuadroEstancia({ cuadre, compacto = false, onTarifa, con
             )}
             <td className={`${celda} text-right`}>{dec(r.cleaningFee || 0)}</td>
             <td className={celda}>{getSeason(r.checkIn) === 'VERANO' ? 'Verano' : 'Invierno'}</td>
+            {conWeb && tarifa && (
+              <td className={`${celda} text-right font-bold text-green-700 bg-green-50`}>
+                {dec(calcPrices(tarifa.precioTramo).webPrice)}
+              </td>
+            )}
           </tr>
         </tbody>
       </table>
