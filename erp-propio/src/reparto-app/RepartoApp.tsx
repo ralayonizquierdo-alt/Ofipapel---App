@@ -907,7 +907,19 @@ function Lista({
                 <div style={{ fontSize: 13, color: V.gris, marginTop: 2 }}>
                   {l.factura ? `Factura ${l.factura} · ` : `Albarán ${l.vt}/${l.vn} · `}
                   {euros(l.total)}
-                  {l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? ` · ${l.contado ? 'CONTADO, ' : ''}por cobrar ${euros(l.total - l.pagado)}` : l.total ? ' · pagado' : ''}
+                  {l.contado === false ? (
+                    // GeminisWin, venta a crédito: no se cobra en la entrega, solo se firma el albarán.
+                    ' · crédito: solo firmar'
+                  ) : l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? (
+                    <b style={{ color: l.contado ? V.rojo : undefined }}>
+                      {' · '}
+                      {l.contado ? 'CONTADO: ' : ''}por cobrar {euros(l.total - l.pagado)}
+                    </b>
+                  ) : l.total ? (
+                    ' · pagado'
+                  ) : (
+                    ''
+                  )}
                 </div>
                 {l.antes && <div style={{ fontSize: 13, color: V.rojo, marginTop: 4 }}>{l.antes}</div>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
