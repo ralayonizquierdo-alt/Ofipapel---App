@@ -23,3 +23,10 @@ títulos); `Parametr.xxx` sale de la tabla de parámetros; `_pageno` es el nº d
 `ORIENTATION=1` es apaisado y `PAPERSIZE=9` es A4. Los nombres de informe no dicen a qué opción
 del desplegable corresponden: se cruzan por las columnas y el título (`m.inftitulo`) con las
 capturas de cada ventana «Informes de…».
+
+## Puente de reparto (`puente_reparto.py`) — temporal
+
+Lleva a la app de repartidores los repartos abiertos de GeminisWin (solo lectura de los DBF, sin
+instalar nada en el servidor). Qué hace, cómo se configura y cómo se quita:
+`docs/REPARTO_PUENTE_GEMINISWIN.md`. Los ficheros que crea al lado (`.clave`, `.json`, `.estado`,
+`.log`, `partes/`) no se versionan.
