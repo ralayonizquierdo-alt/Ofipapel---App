@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-11-13-2"></script>
+<script src="control-pedidos-logica.js?v=2026-11-13-3"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -519,6 +519,11 @@ function ponerEtiquetas(raiz) {
 // ── Estado de un pedido ──────────────────────────────────────────────────────
 /** Pedidos leídos antes de entender «2 ALTA NUEVA» (referencia «2»): se arreglan una vez. */
 function repararAltas(p) {
+  // Propuestas subidas antes de entender «Precio por 12 PCA»: la duda sobra (13/11/2026).
+  for (const d of [p.propuesta, p.factura]) {
+    if (d && Array.isArray(d.lineas) && d.lineas.some((l) => CP.sinDudaPorPaquete(l) !== l)) { d.lineas = d.lineas.map(CP.sinDudaPorPaquete); setTimeout(guardar, 0); }
+  }
+  if (p.lineas.some((l) => CP.sinDudaPorPaquete(l) !== l)) { p.lineas = p.lineas.map(CP.sinDudaPorPaquete); setTimeout(guardar, 0); }
   if (!p.lineas.some((l) => CP.marcarAlta(l) !== l)) return;
   p.lineas = p.lineas.map(CP.marcarAlta);
   if (p.validado) invalidar(p); // lo validado se hizo con la referencia «2»: hay que volver a validar

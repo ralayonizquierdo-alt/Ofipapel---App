@@ -1354,6 +1354,25 @@
     return String(porDefecto || '').replace(/^0+(?=\d)/, '');
   }
 
+  /** «Precio por 12 PCA»: si el importe sale con precio × cantidad ÷ N, devuelve N
+   *  (el precio es de un paquete de N y la cantidad va en unidades); si no, null. */
+  function precioPorPaquete(l) {
+    const cant = parseNum(l.cant), precio = parseNum(l.precio), importe = parseNum(l.importe);
+    if (!cant || precio == null || importe == null) return null;
+    const calc = red2(precio * cant * parseDtos(l.dtos).reduce((x, d) => x * (1 - d / 100), 1));
+    const m = /por\s+(\d+)/i.exec(l.duda || '');
+    const ns = [m ? Number(m[1]) : null, importe ? Math.round(calc / importe) : null].filter((n) => n && n > 1 && n <= 1000);
+    return ns.find((x) => Math.abs(red2(calc / x) - importe) <= 0.02 + 0.01 * cant / x) || null;
+  }
+  /** Quita la duda que solo era «precio por N … no sale de precio × cantidad» cuando
+   *  el importe sí sale por paquete (propuestas subidas antes del 13/11/2026). */
+  function sinDudaPorPaquete(l) {
+    if (!l || !l.duda || !/^\s*precio por\s+\d+/i.test(l.duda)) return l;
+    const resto = l.duda.split('·').map((x) => x.trim()).filter((x) => x && !/^precio por\s+\d+/i.test(x) && !/no sale de precio × cantidad/.test(x));
+    if (resto.length || !precioPorPaquete(l)) return l;
+    return Object.assign({}, l, { duda: '' });
+  }
+
   function lineasDeDocumento(res) {
     const r = res || {};
     const lineas = (r.lineas || []).map((l) => ({
@@ -1391,9 +1410,7 @@
           // «Precio por 5 PCA» (13/11/2026): el precio es de un paquete de N y la
           // cantidad va en unidades. Si el importe sale con precio ÷ N, la línea
           // está bien: no es dudosa. El precio no se toca (el neto sale del importe).
-          const mDuda = /por\s+(\d+)/i.exec(l.duda || '');
-          const ns = [mDuda ? Number(mDuda[1]) : null, calc && l.importe ? Math.round(calc / l.importe) : null].filter((n) => n && n > 1 && n <= 1000);
-          const n = ns.find((x) => Math.abs(red2(calc / x) - l.importe) <= 0.02 + 0.01 * l.cant / x);
+          const n = precioPorPaquete(l);
           if (n) { l.porN = n; if (/^\s*precio por\s+\d+[^·]*$/i.test(l.duda || '')) l.duda = ''; }
           else avisos.push(`el importe ${fmt(l.importe)} no sale de precio × cantidad − descuentos (${fmt(calc)})`);
         }
@@ -1456,7 +1473,10 @@
     const o = opciones || {};
     const global = parseNum(o.dtoGlobal) || 0;
     return (lineas || []).map((l) => {
-      const precio = parseNum(l.precio) || 0;
+      // «Precio por 12 PCA» (precio de la caja, cantidad en unidades): a Géminis va
+      // el precio por unidad; si no, el descuento equivalente saldría de un 91 %.
+      const porN = !parseDtos(l.dtos).length ? precioPorPaquete(l) : null;
+      const precio = porN ? Math.round((parseNum(l.precio) / porN) * 1e5) / 1e5 : parseNum(l.precio) || 0;
       const dtos = parseDtos(l.dtos).concat(global ? [global] : []);
       const objetivo = l.importe != null ? red2(l.importe * (global ? 1 - global / 100 : 1)) : null;
       const eq = descuentoEquivalente(precio, l.cant, dtos, { decimales: o.decimales, subtotalObjetivo: objetivo });
@@ -2011,7 +2031,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, separarPorPedido, leerFacturaApli, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
+    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, precioPorPaquete, sinDudaPorPaquete, separarPorPedido, leerFacturaApli, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
     sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, cuadreArticulos, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
