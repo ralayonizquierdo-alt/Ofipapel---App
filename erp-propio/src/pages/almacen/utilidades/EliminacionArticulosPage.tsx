@@ -27,7 +27,8 @@ import { BotonCerrar, ImpresionInforme, ModalGw, VisorInforme, fechaEs, msgError
 // Artículos», filtros y restricciones + características). En GeminisWin solo se activa con la
 // clave especial: aquí es solo para administradores y lo exige también la base de datos.
 //  · Pantalla / Impresora / Examinar: fn_eliminar_articulos_listado (solo lectura).
-//  · Procesar: fn_eliminar_articulos_baja (da de baja a partir de la fecha; no borra nada).
+//  · Procesar: fn_eliminar_articulos_baja (da de baja a partir de la fecha) o, sin la marca «No Eliminar»,
+//    fn_eliminar_articulos_borrar (borra solo los que no tienen nada; el resto se da de baja).
 //  · El BORRADO DEFINITIVO no está programado: pendiente de decidir por la gerencia.
 // Migración: supabase/migrations/20261113_eliminacion_articulos.sql.
 
@@ -138,7 +139,8 @@ const COLS: ColInforme<Fila>[] = [
 ]
 
 const TITULO = 'Eliminar Artículos: artículos que cumplen los filtros y las restricciones'
-const AVISO_BORRADO = 'El borrado definitivo no está disponible todavía: usa dar de baja.'
+const AVISO_BORRADO =
+  'Si quitas la marca, se BORRAN de verdad los artículos que no tengan nada (ni ventas, compras, pedidos, presupuestos, traspasos, movimientos ni stock). Los que tengan algo no se borran: se dan de baja.'
 const CHK = '!text-[15px] leading-[19px]'
 
 type Salida = 'pantalla' | 'impresora' | 'examinar' | 'procesar'
@@ -163,6 +165,9 @@ export function EliminacionArticulosPage() {
   const set = (p: Partial<Filtro>) => setF((x) => ({ ...x, ...p }))
   const [fecha, setFecha] = useState<string | null>(hoyCanarias)
   const [web, setWeb] = useState(true)
+  // Marcada (como abre GeminisWin): dar de baja. Sin marcar: borrado definitivo de los que no tienen nada.
+  const [noEliminar, setNoEliminar] = useState(true)
+  const [textoBorrar, setTextoBorrar] = useState('')
   const [salida, setSalida] = useState<Salida>('pantalla')
   const [procesando, setProcesando] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null)
@@ -183,7 +188,7 @@ export function EliminacionArticulosPage() {
     setMsg(null)
     const p = aJson(f)
     if (salida === 'pantalla' || salida === 'examinar') return setVisor({ p, modo: salida })
-    if (salida === 'procesar' && !fecha) {
+    if (salida === 'procesar' && noEliminar && !fecha) {
       return setMsg({ ok: false, texto: 'Falta la fecha de baja: escríbela en «Dar de Baja a partir de la fecha» y vuelve a pulsar Procesar.' })
     }
     setProcesando(true)
@@ -200,10 +205,36 @@ export function EliminacionArticulosPage() {
         const filas = await rpcPagina<Fila>(FN_LISTADO, p, 0, 1)
         const n = Number(filas[0]?.total_filas ?? 0)
         if (!n) setMsg({ ok: false, texto: 'Ningún artículo cumple los filtros y las restricciones: no hay nada que dar de baja. Revisa los filtros con «Examinar».' })
-        else setConfirmar({ p, n })
+        else {
+          setTextoBorrar('')
+          setConfirmar({ p, n })
+        }
       }
     } catch (e) {
       setMsg({ ok: false, texto: `No se ha podido procesar: ${msgError(e)}` })
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  /** Borrado definitivo: solo los que no tienen nada; el resto se da de baja (lo decide la base de datos). */
+  async function borrar() {
+    if (!confirmar) return
+    const { p, n } = confirmar
+    setConfirmar(null)
+    setProcesando(true)
+    try {
+      const { data, error } = await supabase.rpc('fn_eliminar_articulos_borrar', { p, p_esperados: n })
+      if (error) throw error
+      const r = data as { total: number; borrados: number; dados_de_baja: number }
+      setMsg({
+        ok: true,
+        texto:
+          `Proceso terminado: ${r.borrados} artículo(s) borrados del todo` +
+          (r.dados_de_baja ? `; ${r.dados_de_baja} tenían ventas, compras, pedidos, movimientos o stock y se han dado de baja en vez de borrarse.` : '.'),
+      })
+    } catch (e) {
+      setMsg({ ok: false, texto: `No se ha borrado ningún artículo: ${msgError(e)}` })
     } finally {
       setProcesando(false)
     }
@@ -422,8 +453,8 @@ export function EliminacionArticulosPage() {
                   ],
                   notas: [
                     'Solo para administradores (en GeminisWin pide la clave especial). La base de datos también lo comprueba.',
-                    'No se borra ningún artículo: se les pone la fecha de baja y quedan anulados. Si la fecha es futura, solo se apunta la fecha y el artículo sigue activo hasta que se anule.',
-                    'El borrado definitivo no está disponible todavía (lo tiene que decidir la gerencia): por eso la casilla «Al Procesar, No Eliminar Artículos» está siempre marcada.',
+                    'Con la casilla «Al Procesar, No Eliminar Artículos» marcada (como abre), no se borra nada: se les pone la fecha de baja y quedan anulados. Si la fecha es futura, el artículo sigue activo hasta ese día y entonces se da de baja solo (cada noche).',
+                    'Si quitas esa marca, es BORRADO DEFINITIVO: se borran del todo solo los artículos que no tienen nada (ni ventas, compras, pedidos, presupuestos, traspasos, movimientos ni stock) y no se pueden recuperar. Los que tengan algo no se borran: se dan de baja. Pide escribir BORRAR para confirmar.',
                     '«Darlos de baja en la Web» quita «publicar en web» a los que estaban publicados y les pone la fecha de baja web; la web se actualiza en la siguiente sincronización del catálogo.',
                     '«No Eliminar Artículos que tengan Ventas» mira las ventas y los pedidos de clientes; «Compras», los pedidos a proveedores; «Traspasos», los traspasos entre almacenes.',
                     'Cada artículo dado de baja queda en la Auditoría con quién lo hizo. Para deshacerlo, vuelve a activar el artículo desde su ficha.',
@@ -447,13 +478,15 @@ export function EliminacionArticulosPage() {
 
       <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-0.5 px-1">
         <span title={AVISO_BORRADO}>
-          <GwCheck className={CHK} label="Al Procesar, No Eliminar Artículos, Dar de Baja a partir de la fecha:" checked disabled />
+          <GwCheck className={CHK} label="Al Procesar, No Eliminar Artículos, Dar de Baja a partir de la fecha:" checked={noEliminar} onChange={setNoEliminar} />
         </span>
         <span className="ml-auto w-[170px] flex-none">
           <GwDate className={IN} title="Fecha de baja" value={fecha} onChange={setFecha} />
         </span>
         <GwCheck className={`${CHK} w-[300px] flex-none`} label="Darlos de baja en la Web" checked={web} onChange={setWeb} />
-        <span className="w-full text-[12px] italic leading-[14px] text-[#6d6d6d]">{AVISO_BORRADO}</span>
+        <span className={`w-full text-[12px] leading-[14px] ${noEliminar ? 'italic text-[#6d6d6d]' : 'font-bold text-[#c42b1c]'}`}>
+          {noEliminar ? AVISO_BORRADO : 'BORRADO DEFINITIVO activado: los artículos que no tengan nada se borran y no se pueden recuperar. Los que tengan algo se dan de baja.'}
+        </span>
       </div>
 
       {msg && (
@@ -496,11 +529,29 @@ export function EliminacionArticulosPage() {
       {confirmar && (
         <ModalGw titulo="Eliminar Artículos" onClose={() => setConfirmar(null)} ancho={560}>
           <div className="flex flex-col gap-2 p-1 text-[15px] leading-[21px]">
-            <p>
-              Se van a dar de baja <b>{confirmar.n.toLocaleString('es-ES')}</b> artículo(s) a partir del <b>{fechaEs(fecha)}</b>
-              {web ? ', y también en la web los que estén publicados' : ''}.
-            </p>
-            <p>No se borra ninguno: quedan con la fecha de baja y anulados, y cada uno queda apuntado en la Auditoría.</p>
+            {noEliminar ? (
+              <>
+                <p>
+                  Se van a dar de baja <b>{confirmar.n.toLocaleString('es-ES')}</b> artículo(s) a partir del <b>{fechaEs(fecha)}</b>
+                  {web ? ', y también en la web los que estén publicados' : ''}.
+                </p>
+                <p>No se borra ninguno: quedan con la fecha de baja y anulados, y cada uno queda apuntado en la Auditoría.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-[#c42b1c]">
+                  BORRADO DEFINITIVO de <b>{confirmar.n.toLocaleString('es-ES')}</b> artículo(s).
+                </p>
+                <p>
+                  Se borran del todo los que no tengan nada (ni ventas, compras, pedidos, presupuestos, traspasos, movimientos ni stock) y <b>no se pueden recuperar</b>. Los que tengan
+                  algo no se borran: se dan de baja. Cada uno queda apuntado en la Auditoría.
+                </p>
+                <label className="flex items-center gap-2">
+                  Para confirmar, escribe BORRAR:
+                  <input className="gw-input h-[28px] w-[120px] px-1 uppercase" value={textoBorrar} onChange={(e) => setTextoBorrar(e.target.value)} />
+                </label>
+              </>
+            )}
             <div className="mt-1 flex justify-end gap-2">
               <button
                 type="button"
@@ -512,9 +563,15 @@ export function EliminacionArticulosPage() {
               >
                 <Search size={15} /> Examinar la lista
               </button>
-              <button type="button" className="gw-btn !h-[34px] !gap-1.5 !px-3 !text-[15px]" onClick={darDeBaja}>
-                <Check size={16} strokeWidth={3} className="text-[#127a12]" /> Dar de baja {confirmar.n.toLocaleString('es-ES')} artículo(s)
-              </button>
+              {noEliminar ? (
+                <button type="button" className="gw-btn !h-[34px] !gap-1.5 !px-3 !text-[15px]" onClick={darDeBaja}>
+                  <Check size={16} strokeWidth={3} className="text-[#127a12]" /> Dar de baja {confirmar.n.toLocaleString('es-ES')} artículo(s)
+                </button>
+              ) : (
+                <button type="button" className="gw-btn !h-[34px] !gap-1.5 !px-3 !text-[15px] text-[#c42b1c]" disabled={textoBorrar.trim().toUpperCase() !== 'BORRAR'} onClick={borrar}>
+                  Borrar {confirmar.n.toLocaleString('es-ES')} artículo(s)
+                </button>
+              )}
               <button type="button" className="gw-btn !h-[34px] !px-3 !text-[15px]" onClick={() => setConfirmar(null)}>
                 Cancelar
               </button>

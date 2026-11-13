@@ -8,7 +8,7 @@ import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { IN, L } from '../../../components/gw/GwInformeArticulos'
 import { OperativaDialogo } from '../../utilidades/comun'
-import { ModalGw, fechaEs, msgError, useAlmacenes, useTiendas } from './comun'
+import { ModalGw, descargarCsv, fechaEs, msgError, useAlmacenes, useTiendas } from './comun'
 
 // Almacén → Puntos de Restauración Stock, CALCADA de GeminisWin (captura 04 del bloque 8, 12/11/2026).
 // Un punto de restauración es una copia del stock por almacén en un momento dado
@@ -111,14 +111,25 @@ const OPERATIVA = [
     ],
   },
   {
-    titulo: 'Modificar, anular y restaurar',
+    titulo: 'Comparar y restaurar',
     notas: [
-      '«Modificar» (F2) deja cambiar la fecha, el concepto, las observaciones y el documento, y con los botones de debajo de la rejilla añadir, cambiar o quitar líneas del punto.',
-      '«Anular» borra el punto entero con todas sus líneas: no se puede recuperar.',
+      'Un punto de restauración es una copia de seguridad del stock: no se puede modificar ni anular. Si hace falta otro, se crea uno nuevo.',
+      '«Comparar con el stock actual» enseña, artículo por artículo, lo que había en el punto y lo que hay ahora, y se puede exportar a Excel. Míralo antes de restaurar.',
       '«Restaurar Stock» deja el stock de los artículos del punto como estaba cuando se guardó, con movimientos de regularización por la diferencia. Queda anotado en «Fe. Restaur.».',
     ],
   },
 ]
+
+interface Comp {
+  almacen_codigo: string
+  articulo_codigo: string
+  descripcion: string | null
+  cantidad_punto: number
+  cantidad_actual: number
+  diferencia: number
+  total_filas: number
+  total_diferencias: number
+}
 
 export function PuntosRestauracionPage() {
   const navigate = useNavigate()
@@ -142,6 +153,7 @@ export function PuntosRestauracionPage() {
   const [cargandoLineas, setCargandoLineas] = useState(false)
   const [selLinea, setSelLinea] = useState<number | null>(null)
   const [buscarArt, setBuscarArt] = useState<string | null>(null)
+  const [comp, setComp] = useState<{ soloDif: boolean; filas: Comp[] } | null>(null)
   const [dlgLinea, setDlgLinea] = useState<null | { nueva: boolean; numero_linea: number | null; almacen: string; articulo: string; stock: number | null }>(null)
   const turno = useRef(0)
   const rejilla = useRef<HTMLDivElement>(null)
@@ -305,24 +317,34 @@ export function PuntosRestauracionPage() {
     if (e) return error(e)
     await cargar(clave)
   }
-  async function anular() {
-    if (!clave || !cab) return
+  // Un punto de restauración es una copia de seguridad del stock: no se modifica ni se borra desde
+  // la pantalla (Rober, 12/11/2026). Solo se consulta, se crea, se compara y se restaura.
+  function anular() {
+    setMsg({ texto: 'Un punto de restauración no se puede anular: es una copia de seguridad del stock.', error: true })
+  }
+
+  /** Punto frente al stock de ahora (fn_punto_restauracion_comparar): para mirar antes de restaurar. */
+  async function comparar(soloDif: boolean) {
+    if (!clave) return
     setMsg(null)
-    const n = total != null ? ` y sus ${total.toLocaleString('es-ES')} líneas` : ' y todas sus líneas'
-    const aviso = cab.origen_tipo === 'inventario' ? `\n\nOJO: lo creó el inventario ${cab.origen_numero ?? ''}. Si lo borras, ese inventario ya no se podrá deshacer con este punto.` : ''
-    if (!confirm(`¿Anular el punto de restauración ${clave.tienda_terminal_codigo}-${clave.numero}${n}?\n\nSe borra del todo y no se puede recuperar.${aviso}`)) return
-    setSaving(true)
-    const vecino = (await nav.ir('anterior')) ?? (await nav.ir('siguiente'))
-    const { error: e } = await supabase.from('punto_restauracion_stock').delete().eq('tienda_terminal_codigo', clave.tienda_terminal_codigo).eq('numero', clave.numero)
-    setSaving(false)
+    const { data, error: e } = await supabase.rpc('fn_punto_restauracion_comparar', {
+      p_tienda: clave.tienda_terminal_codigo,
+      p_numero: clave.numero,
+      p_solo_diferencias: soloDif,
+      p_limite: 1000,
+      p_desplazamiento: 0,
+    })
     if (e) return error(e)
-    nav.refrescar()
-    if (vecino) await cargar({ tienda_terminal_codigo: vecino.tienda_terminal_codigo, numero: Number(vecino.numero) })
-    else {
-      setCab(null)
-      setParams({}, { replace: true })
-    }
-    setMsg({ texto: `Anulado el punto de restauración ${clave.tienda_terminal_codigo}-${clave.numero}.` })
+    setComp({ soloDif, filas: (data ?? []) as Comp[] })
+  }
+
+  function exportarComparacion() {
+    if (!comp || !clave) return
+    descargarCsv(
+      `punto_restauracion_${clave.tienda_terminal_codigo}-${clave.numero}.csv`,
+      ['Almacén', 'Artículo', 'Descripción', 'Stock en el punto', 'Stock actual', 'Diferencia'],
+      comp.filas.map((c) => [c.almacen_codigo, c.articulo_codigo, c.descripcion, c.cantidad_punto, c.cantidad_actual, c.diferencia]),
+    )
   }
 
   /** Restaurar: la función de base de datos que ya existía (regularizaciones por la diferencia). */
@@ -612,6 +634,9 @@ export function PuntosRestauracionPage() {
         <span className="flex-1 text-[17px] text-[#1a1aff]">
           {alta ? 'Al aceptar se copia el stock de los almacenes elegidos' : `Registros: ${total == null ? '…' : total.toLocaleString('es-ES')}. Inventario Artículos Implicados`}
         </span>
+        <button type="button" className="gw-btn !h-[24px] !px-3 !text-[13px]" disabled={!clave || editing || saving} title="Compara el stock guardado en el punto con el stock de ahora" onClick={() => void comparar(true)}>
+          Comparar con el stock actual
+        </button>
         <button
           type="button"
           className="gw-btn !h-[24px] !px-3 !text-[13px]"
@@ -637,7 +662,7 @@ export function PuntosRestauracionPage() {
         onSearch={() => setBuscar('punto')}
         onPrint={() => window.print()}
         onNew={nuevo}
-        onEdit={() => cab && clave && (setMsg(null), setDraft(cab), setMode('edicion'))}
+        onEdit={() => setMsg({ texto: 'Un punto de restauración no se modifica: es una copia de seguridad del stock. Si hace falta otro, crea uno nuevo.', error: true })}
         onDelete={anular}
         onSave={guardar}
         onCancel={cancelar}
@@ -712,6 +737,62 @@ export function PuntosRestauracionPage() {
                 Cancelar
               </button>
             </div>
+          </div>
+        </ModalGw>
+      )}
+      {comp && (
+        <ModalGw titulo="Punto frente al stock actual" onClose={() => setComp(null)} ancho={860}>
+          <div className="flex flex-col gap-2 p-2 text-[13px]">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={comp.soloDif} onChange={(e) => void comparar(e.target.checked)} /> Solo los que tienen diferencia
+              </label>
+              <span className="font-bold">
+                {Number(comp.filas[0]?.total_diferencias ?? 0).toLocaleString('es-ES')} con diferencia de {Number(comp.filas[0]?.total_filas ?? 0).toLocaleString('es-ES')}
+                {comp.soloDif ? ' (filtrados)' : ''}
+              </span>
+              <span className="flex-1" />
+              <button type="button" className="gw-btn !h-[26px] !px-3" disabled={!comp.filas.length} onClick={exportarComparacion}>
+                Exportar a Excel (CSV)
+              </button>
+              <button type="button" className="gw-btn !h-[26px] !px-3" onClick={() => setComp(null)}>
+                Cerrar
+              </button>
+            </div>
+            <div className="max-h-[56vh] overflow-auto">
+              <table className="gw-grid w-full">
+                <thead>
+                  <tr>
+                    <th className="w-[60px]">Alm.</th>
+                    <th className="w-[130px]">Artículo</th>
+                    <th>Descripción</th>
+                    <th className="w-[110px]">En el punto</th>
+                    <th className="w-[110px]">Ahora</th>
+                    <th className="w-[110px]">Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comp.filas.map((c) => (
+                    <tr key={`${c.almacen_codigo}-${c.articulo_codigo}`}>
+                      <td>{c.almacen_codigo}</td>
+                      <td>{c.articulo_codigo}</td>
+                      <td className="max-w-0 truncate">{c.descripcion}</td>
+                      <td className="text-right">{formatGw(Number(c.cantidad_punto), 3)}</td>
+                      <td className="text-right">{formatGw(Number(c.cantidad_actual), 3)}</td>
+                      <td className={`text-right ${Number(c.diferencia) ? 'font-bold text-[#c42b1c]' : ''}`}>{formatGw(Number(c.diferencia), 3)}</td>
+                    </tr>
+                  ))}
+                  {!comp.filas.length && (
+                    <tr>
+                      <td colSpan={6} className="text-center text-[#6d6d6d]">
+                        {comp.soloDif ? 'El stock de ahora coincide con el del punto.' : 'El punto no tiene líneas.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {comp.filas.length >= 1000 && <div className="text-[#8a5a00]">Se enseñan y se exportan las primeras 1.000 filas.</div>}
           </div>
         </ModalGw>
       )}
