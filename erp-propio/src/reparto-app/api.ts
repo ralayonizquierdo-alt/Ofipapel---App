@@ -160,6 +160,10 @@ export const cambiarRuta = (token: string, tienda: string, numero: number, vt: s
     p_motivo: motivo,
   })
 
+/** Aviso de ubicación: ¿lo ha leído ya este repartidor? Con aceptar = true deja constancia de la lectura. */
+export const avisoUbicacion = (token: string, version: string, aceptar = false) =>
+  rpc<{ leido: boolean; leido_en: string | null }>('fn_app_rep_aviso', { p_token: token, p_version: version, p_aceptar: aceptar, p_dispositivo: navigator.userAgent.slice(0, 200) })
+
 export async function cambiarPin(token: string, actual: string, nuevo: string) {
   const r = await rpc<{ ok: boolean; error?: string }>('fn_app_rep_cambiar_pin', { p_token: token, p_actual: actual, p_nuevo: nuevo })
   if (!r.ok) throw new ErrorApp(r.error ?? 'No se pudo cambiar el PIN.')

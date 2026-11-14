@@ -7,6 +7,7 @@ import {
   entrar,
   entrarDesdeFichaje,
   ErrorApp,
+  avisoUbicacion,
   cambiarPin,
   guardar,
   guardarCache,
@@ -24,6 +25,7 @@ import {
   type Sesion,
 } from './api'
 import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
+import { AVISO_PIE, AVISO_PUNTOS, AVISO_TITULO, AVISO_VERSION } from './avisoUbicacion'
 
 // App de repartidores (/repartidor): móvil, sin cuenta del ERP. Mismo estilo que Fichaje (fichaje.html):
 // verdes de Ofipapel, fondo con tréboles, tarjetas blancas con borde lima.
@@ -184,6 +186,10 @@ export function RepartoApp() {
       })
   }, [])
 
+  // Aviso de ubicación: se enseña una vez por repartidor y versión del texto (también queda en el servidor).
+  const [, setAvisoVisto] = useState(0)
+  const avisoLeido = !!sesion && leer<string>(`reparto.aviso.${sesion.repartidor}`) === AVISO_VERSION
+
   const salir = () => {
     guardarSesion(null)
     guardar('reparto.abierto', null)
@@ -208,6 +214,8 @@ export function RepartoApp() {
       <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {!sesion ? (
           <Entrada onEntrar={setSesion} />
+        ) : !avisoLeido ? (
+          <AvisoUbicacion sesion={sesion} onLeido={() => setAvisoVisto((v) => v + 1)} onSalir={salir} onCaducada={() => setSesion(null)} />
         ) : !reparto ? (
           <ElegirRuta sesion={sesion} onElegir={elegir} onSalir={salir} onCaducada={() => setSesion(null)} />
         ) : (
@@ -215,6 +223,60 @@ export function RepartoApp() {
         )}
       </div>
     </div>
+  )
+}
+
+// ------------------------------------------------------------------ Aviso de ubicación (primera vez)
+function AvisoUbicacion({ sesion, onLeido, onSalir, onCaducada }: { sesion: Sesion; onLeido: () => void; onSalir: () => void; onCaducada: () => void }) {
+  const [estado, setEstado] = useState<'comprobando' | 'leer' | 'enviando'>('comprobando')
+  const [error, setError] = useState<string | null>(null)
+  const hecho = useCallback(() => {
+    guardar(`reparto.aviso.${sesion.repartidor}`, AVISO_VERSION)
+    onLeido()
+  }, [sesion.repartidor, onLeido])
+  // Si ya lo leyó en otro móvil, no se le vuelve a enseñar.
+  useEffect(() => {
+    avisoUbicacion(sesion.token, AVISO_VERSION)
+      .then((r) => (r.leido ? hecho() : setEstado('leer')))
+      .catch((e: ErrorApp) => (e.caducada ? onCaducada() : setEstado('leer')))
+  }, [sesion.token, hecho, onCaducada])
+  const aceptar = async () => {
+    setEstado('enviando')
+    setError(null)
+    try {
+      await avisoUbicacion(sesion.token, AVISO_VERSION, true)
+      hecho()
+    } catch (e) {
+      const err = e as ErrorApp
+      if (err.caducada) return onCaducada()
+      setError(err.red ? 'Sin conexión: hace falta cobertura para confirmar la lectura.' : err.message)
+      setEstado('leer')
+    }
+  }
+  return (
+    <>
+      <Cabecera sub={sesion.nombre.toUpperCase()} derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
+      <Tarjeta>
+        <div style={{ fontWeight: 700, fontSize: 20, color: V.verde, marginBottom: 10 }}>📍 {AVISO_TITULO}</div>
+        {estado === 'comprobando' ? (
+          <div style={{ color: V.gris }}>Un momento…</div>
+        ) : (
+          <>
+            {AVISO_PUNTOS.map(([t, d]) => (
+              <div key={t} style={{ marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: V.verde, fontSize: 15 }}>{t}</div>
+                <div style={{ fontSize: 15, lineHeight: 1.35 }}>{d}</div>
+              </div>
+            ))}
+            <div style={{ fontSize: 12.5, color: V.gris, lineHeight: 1.35, margin: '12px 0' }}>{AVISO_PIE}</div>
+            {error && <div style={{ color: V.rojo, marginBottom: 10 }}>{error}</div>}
+            <Boton disabled={estado === 'enviando'} onClick={aceptar} style={{ width: '100%' }}>
+              He leído y entiendo
+            </Boton>
+          </>
+        )}
+      </Tarjeta>
+    </>
   )
 }
 
