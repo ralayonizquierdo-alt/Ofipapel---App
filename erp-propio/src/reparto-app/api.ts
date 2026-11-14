@@ -9,6 +9,8 @@ export interface Sesion {
   repartidor: string
   nombre: string
   puede_cambiar_ruta: boolean
+  /** Entrada «OFICINA»: ve todas las rutas, solo lectura. */
+  supervisor?: boolean
   caduca: number
 }
 
@@ -111,7 +113,7 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 export const repartidores = () => rpc<{ codigo: string; nombre: string }[]>('fn_app_rep_repartidores', {})
 
 export async function entrar(repartidor: string, pin: string): Promise<Sesion> {
-  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean}>('fn_app_rep_login', {
+  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean; supervisor?: boolean }>('fn_app_rep_login', {
     p_repartidor: repartidor,
     p_pin: pin,
     p_dispositivo: navigator.userAgent.slice(0, 200),
@@ -122,6 +124,7 @@ export async function entrar(repartidor: string, pin: string): Promise<Sesion> {
     repartidor: r.repartidor,
     nombre: r.nombre,
     puede_cambiar_ruta: r.puede_cambiar_ruta,
+    supervisor: r.supervisor === true,
     caduca: Date.now() + 15.5 * 3600_000,
   }
   guardarSesion(s)
@@ -159,6 +162,41 @@ export const cambiarRuta = (token: string, tienda: string, numero: number, vt: s
     p_dest_numero: destNumero,
     p_motivo: motivo,
   })
+
+// ------------------------------------------------------------ Oficina: todas las rutas (solo lectura)
+export interface RutaOficina {
+  tienda: string
+  numero: number
+  fecha: string
+  estado: number
+  ruta: string | null
+  ruta_nombre: string | null
+  repartidor: string | null
+  total: number
+  entregados: number
+  incidencias: number
+  no_entregados: number
+  pendientes: number
+  ultimo: string | null
+}
+export interface LineaOficina {
+  vt: string
+  vn: number
+  estado: 'entregado' | 'incidencia' | 'no_entregado' | 'pendiente'
+  cliente: string
+  poblacion: string | null
+  factura: number | string | null
+  total: number | null
+  pagado: number | null
+  contado: boolean | null
+  incidencia: string | null
+  motivo: string | null
+  nota: string | null
+  hora: string | null
+}
+export const todasLasRutas = (token: string) => rpc<{ supervisor: boolean; hoy?: string; rutas?: RutaOficina[] }>('fn_app_rep_todas', { p_token: token })
+export const lineasOficina = (token: string, tienda: string, numero: number) =>
+  rpc<LineaOficina[]>('fn_app_rep_todas_lineas', { p_token: token, p_tienda: tienda, p_numero: numero })
 
 /** Aviso de ubicación: ¿lo ha leído ya este repartidor? Con aceptar = true deja constancia de la lectura. */
 export const avisoUbicacion = (token: string, version: string, aceptar = false) =>

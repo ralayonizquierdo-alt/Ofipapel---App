@@ -8,6 +8,10 @@ import {
   entrarDesdeFichaje,
   ErrorApp,
   avisoUbicacion,
+  lineasOficina,
+  todasLasRutas,
+  type LineaOficina,
+  type RutaOficina,
   cambiarPin,
   guardar,
   guardarCache,
@@ -214,6 +218,8 @@ export function RepartoApp() {
       <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {!sesion ? (
           <Entrada onEntrar={setSesion} />
+        ) : sesion.supervisor ? (
+          <Oficina sesion={sesion} onSalir={salir} onCaducada={() => setSesion(null)} />
         ) : !avisoLeido ? (
           <AvisoUbicacion sesion={sesion} onLeido={() => setAvisoVisto((v) => v + 1)} onSalir={salir} onCaducada={() => setSesion(null)} />
         ) : !reparto ? (
@@ -223,6 +229,165 @@ export function RepartoApp() {
         )}
       </div>
     </div>
+  )
+}
+
+// ------------------------------------------------------------------ Oficina: todas las rutas (solo lectura)
+const ESTADO_OFI: Record<LineaOficina['estado'], [string, string]> = {
+  entregado: ['Entregado', V.verdeMed],
+  incidencia: ['Entregado con incidencia', V.naranja],
+  no_entregado: ['NO entregado', V.rojo],
+  pendiente: ['Pendiente', V.gris],
+}
+const textoDe = (lista: [string, string][], v: string | null) => (v ? (lista.find(([k]) => k === v)?.[1] ?? v) : null)
+
+function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () => void; onCaducada: () => void }) {
+  const [rutas, setRutas] = useState<RutaOficina[] | null>(null)
+  const [hoy, setHoy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [abierta, setAbierta] = useState<RutaOficina | null>(null)
+  const [lineas, setLineas] = useState<LineaOficina[] | null>(null)
+  const [hora, setHora] = useState<string | null>(null)
+
+  const cargar = useCallback(async () => {
+    try {
+      const r = await todasLasRutas(sesion.token)
+      setRutas(r.rutas ?? [])
+      setHoy(r.hoy ?? null)
+      setError(null)
+      setHora(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))
+    } catch (e) {
+      const err = e as ErrorApp
+      if (err.caducada) onCaducada()
+      else setError(err.red ? 'Sin conexión: se reintenta solo.' : err.message)
+    }
+  }, [sesion.token, onCaducada])
+  const cargarLineas = useCallback(
+    async (r: RutaOficina) => {
+      try {
+        setLineas(await lineasOficina(sesion.token, r.tienda, r.numero))
+      } catch (e) {
+        const err = e as ErrorApp
+        if (err.caducada) onCaducada()
+        else setError(err.red ? 'Sin conexión: se reintenta solo.' : err.message)
+      }
+    },
+    [sesion.token, onCaducada],
+  )
+  // Se refresca sola cada 30 segundos (la lista y, si hay una ruta abierta, su detalle).
+  useEffect(() => {
+    void cargar()
+    if (abierta) void cargarLineas(abierta)
+    const t = setInterval(() => {
+      void cargar()
+      if (abierta) void cargarLineas(abierta)
+    }, 30_000)
+    return () => clearInterval(t)
+  }, [cargar, cargarLineas, abierta])
+
+  const titulo = (r: RutaOficina) => `RUTA ${r.ruta && /^\d+$/.test(r.ruta) ? Number(r.ruta) : (r.ruta ?? '')} · ${r.ruta_nombre ?? ''}`
+  const dia = (f: string) => new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })
+  const situacion = (r: RutaOficina): [string, string] =>
+    r.estado !== 2
+      ? ['Cerrado', V.gris]
+      : !r.total
+        ? ['Sin pedidos', V.gris]
+        : r.pendientes === 0
+          ? ['✔ Listo para cerrar', V.verdeMed]
+          : r.pendientes === r.total
+            ? [hoy && r.fecha > hoy ? 'Preparado, sin salir' : 'Sin empezar', V.gris]
+            : [`En reparto · quedan ${r.pendientes}`, V.naranja]
+
+  if (abierta) {
+    const r = rutas?.find((x) => x.tienda === abierta.tienda && x.numero === abierta.numero) ?? abierta
+    const [sit, color] = situacion(r)
+    return (
+      <>
+        <Cabecera
+          sub="OFICINA"
+          derecha={
+            <BotonCabecera
+              onClick={() => {
+                setAbierta(null)
+                setLineas(null)
+              }}
+            >
+              ← Rutas
+            </BotonCabecera>
+          }
+        />
+        <Tarjeta>
+          <div style={{ fontWeight: 700, fontSize: 19, color: V.verde }}>{titulo(r)}</div>
+          <div style={{ color: V.gris, fontSize: 14 }}>
+            {r.repartidor ?? 'Sin repartidor'} · {dia(r.fecha)} · reparto nº {r.numero}
+          </div>
+          <div style={{ fontWeight: 700, color, margin: '6px 0 10px' }}>{sit}</div>
+          {!lineas && <div style={{ color: V.gris }}>Cargando…</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {lineas?.map((l) => {
+              const [et, ec] = ESTADO_OFI[l.estado]
+              const detalle = [textoDe(MOTIVOS, l.motivo), textoDe(INCIDENCIAS, l.incidencia), l.nota].filter(Boolean).join(' · ')
+              return (
+                <div key={`${l.vt}-${l.vn}`} style={{ borderLeft: `6px solid ${ec}`, background: '#f7faf7', borderRadius: 10, padding: '8px 10px' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{l.cliente}</div>
+                  <div style={{ fontSize: 13, color: V.gris }}>
+                    {l.factura ? `Factura ${l.factura}` : `Albarán ${l.vt}/${l.vn}`} · {euros(l.total)}
+                    {l.contado ? (l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? ' · CONTADO sin pagar' : ' · contado, pagado') : ''}
+                    {l.poblacion ? ` · ${l.poblacion}` : ''}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: ec, marginTop: 2 }}>
+                    {et}
+                    {l.hora ? ` · ${l.hora}` : ''}
+                  </div>
+                  {detalle && <div style={{ fontSize: 13, color: V.texto }}>{detalle}</div>}
+                </div>
+              )
+            })}
+          </div>
+          {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
+        </Tarjeta>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Cabecera sub="OFICINA" derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
+      <Tarjeta>
+        <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Todas las rutas</div>
+        <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Solo para mirar. Se actualiza sola{hora ? ` · ${hora}` : ''}.</div>
+        {!rutas && !error && <div style={{ color: V.gris }}>Cargando…</div>}
+        {rutas && !rutas.length && <div style={{ color: V.gris }}>No hay ningún reparto abierto ni de hoy.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rutas?.map((r) => {
+            const [sit, color] = situacion(r)
+            return (
+              <button
+                key={`${r.tienda}-${r.numero}`}
+                type="button"
+                onClick={() => {
+                  setLineas(null)
+                  setAbierta(r)
+                }}
+                style={{ textAlign: 'left', background: '#fff', border: `2px solid ${color}`, borderRadius: 16, padding: 12 }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 17, color: V.verde }}>{titulo(r)}</div>
+                <div style={{ color: V.gris, fontSize: 13 }}>
+                  {r.repartidor ?? 'Sin repartidor'} · {dia(r.fecha)}
+                </div>
+                <div style={{ fontWeight: 700, color, marginTop: 4 }}>{sit}</div>
+                <div style={{ fontSize: 13, color: V.texto }}>
+                  {r.total} pedidos · {r.entregados} entregados
+                  {r.incidencias ? ` · ${r.incidencias} con incidencia` : ''}
+                  {r.no_entregados ? ` · ${r.no_entregados} NO entregados` : ''}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
+      </Tarjeta>
+    </>
   )
 }
 
