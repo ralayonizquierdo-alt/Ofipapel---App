@@ -206,7 +206,7 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
             <BarraPuntos r={r} alto={tv ? 34 : 20} horas={tv} />
             <div style={{ textAlign: 'right', minWidth: tv ? 130 : 90 }}>
               <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: tv ? 30 : 18, color: cerrado ? '#5f6b5f' : r.pendientes ? C.verde : C.verdeCl }}>
-                {cerrado ? 'Cerrado' : !r.total ? 'Sin pedidos' : r.pendientes ? `${r.pendientes} quedan` : '✔ Hecho'}
+                {cerrado ? 'Cerrado' : !r.total ? 'Sin pedidos' : r.pendientes ? `${r.pendientes} quedan` : '✔ Listo para cerrar'}
               </div>
               <div style={{ color: '#5f6b5f', fontSize: tv ? 14 : 11 }}>
                 {r.entregados + r.incidencias}/{r.total} entregados
