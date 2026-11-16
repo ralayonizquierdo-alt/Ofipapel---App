@@ -35,6 +35,7 @@ import {
 } from './api'
 import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
 import { AVISO_PIE, AVISO_PUNTOS, AVISO_TITULO, AVISO_VERSION } from './avisoUbicacion'
+import { OPERATIVA_OFICINA, OPERATIVA_REPARTIDOR } from './operativaReparto'
 
 // App de repartidores (/repartidor): móvil, sin cuenta del ERP. Mismo estilo que Fichaje (fichaje.html):
 // verdes de Ofipapel, fondo con tréboles, tarjetas blancas con borde lima.
@@ -101,6 +102,8 @@ function useFuentesYManifiesto() {
 
 // ------------------------------------------------------------------ Piezas de estilo
 function Cabecera({ sub, derecha }: { sub?: string; derecha?: ReactNode }) {
+  const [ayuda, setAyuda] = useState(false)
+  const apartados = sub === 'OFICINA' ? OPERATIVA_OFICINA : OPERATIVA_REPARTIDOR
   return (
     <div
       style={{
@@ -120,7 +123,46 @@ function Cabecera({ sub, derecha }: { sub?: string; derecha?: ReactNode }) {
           {sub ?? 'OFIPAPEL'}
         </div>
       </div>
+      {/* Operativa: discreta, en todas las pantallas. */}
+      <button
+        type="button"
+        onClick={() => setAyuda(true)}
+        aria-label="Cómo funciona"
+        style={{ width: 32, height: 32, borderRadius: 16, border: '1.5px solid rgba(255,255,255,.55)', background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: 16, fontWeight: 700, flexShrink: 0 }}
+      >
+        ?
+      </button>
       {derecha}
+      {ayuda && (
+        <div onClick={() => setAyuda(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#fff', width: '100%', maxWidth: 560, maxHeight: '88dvh', borderRadius: '22px 22px 0 0', borderTop: `5px solid ${V.lima}`, display: 'flex', flexDirection: 'column', color: V.texto }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px 10px' }}>
+              <div style={{ flex: 1, fontWeight: 700, fontSize: 19, color: V.verde }}>Cómo funciona</div>
+              <button type="button" onClick={() => setAyuda(false)} style={{ border: 'none', background: V.pale, color: V.verde, borderRadius: 12, padding: '8px 14px', fontWeight: 700, fontSize: 15 }}>
+                Cerrar
+              </button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '0 16px 28px' }}>
+              {apartados.map((a) => (
+                <div key={a.titulo} style={{ marginBottom: 14 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: V.verde, marginBottom: 4 }}>
+                    {a.icono} {a.titulo}
+                  </div>
+                  {a.pasos.map((t) => (
+                    <div key={t} style={{ display: 'flex', gap: 8, fontSize: 15, lineHeight: 1.4, marginBottom: 4 }}>
+                      <span style={{ color: V.verdeCl, flexShrink: 0 }}>•</span>
+                      <span>{t}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
