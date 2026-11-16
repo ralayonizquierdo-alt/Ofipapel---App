@@ -88,6 +88,10 @@ El área Contabilidad del ERP pasa a tener el árbol de menús de CONTANET, con 
 orden, y con los colores, tipos de letra y ventanas del ERP. Las utilidades propias del ERP se
 integran en ese árbol.
 
+**Criterio de Rober (16/11/2026):** colores y letras del ERP, pero la barra de botones igual que la de
+CONTANET: cada icono en su mismo sitio, con el dibujo y el color lo más parecidos posible. Igual en las
+ventanas de cada módulo. Los iconos se dibujan de nuevo (no se copian los ficheros del fabricante).
+
 ### Fase 4 — Calcar las pantallas, por tandas
 Mismo método que con GeminisWin: tandas de capturas, varias pantallas en paralelo, revisión y
 publicación en la web de prueba. Orden propuesto:
