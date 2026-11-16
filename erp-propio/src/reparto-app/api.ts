@@ -112,12 +112,12 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 
 export const repartidores = () => rpc<{ codigo: string; nombre: string }[]>('fn_app_rep_repartidores', {})
 
-export async function entrar(repartidor: string, pin: string): Promise<Sesion> {
-  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean; supervisor?: boolean }>('fn_app_rep_login', {
-    p_repartidor: repartidor,
-    p_pin: pin,
-    p_dispositivo: navigator.userAgent.slice(0, 200),
-  })
+/** Entra con el PIN. Si debeCambiar, la sesión NO se guarda todavía: antes hay que poner un PIN nuevo (cambiarPin + guardarSesion). */
+export async function entrar(repartidor: string, pin: string): Promise<{ sesion: Sesion; debeCambiar: boolean }> {
+  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean; supervisor?: boolean; debe_cambiar?: boolean }>(
+    'fn_app_rep_login',
+    { p_repartidor: repartidor, p_pin: pin, p_dispositivo: navigator.userAgent.slice(0, 200) },
+  )
   if (!r.ok) throw new ErrorApp(r.error ?? 'PIN incorrecto.')
   const s: Sesion = {
     token: r.token,
@@ -127,8 +127,9 @@ export async function entrar(repartidor: string, pin: string): Promise<Sesion> {
     supervisor: r.supervisor === true,
     caduca: Date.now() + 15.5 * 3600_000,
   }
-  guardarSesion(s)
-  return s
+  const debeCambiar = r.debe_cambiar === true
+  if (!debeCambiar) guardarSesion(s)
+  return { sesion: s, debeCambiar }
 }
 
 /** Entrada directa desde Fichaje (/fichaje → «🚚 Mi reparto» abre /repartidor?t=token): el PIN ya lo puso allí. */

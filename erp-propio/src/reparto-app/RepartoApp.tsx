@@ -477,23 +477,83 @@ function Entrada({ onEntrar }: { onEntrar: (s: Sesion) => void }) {
       .catch((e: ErrorApp) => setError(e.red ? 'Sin conexión. Prueba otra vez cuando tengas cobertura.' : e.message))
   }, [])
 
-  const pulsar = async (d: string) => {
-    if (cargando) return
-    const nuevo = (pin + d).slice(0, 4)
-    setPin(nuevo)
+  // PIN de 4 a 8 cifras: se teclea y se pulsa «Entrar». Con el PIN inicial (o si lo pide), antes de pasar se elige uno nuevo.
+  const [quiereCambiar, setQuiereCambiar] = useState(false)
+  const [paso, setPaso] = useState<'pin' | 'nuevo' | 'repite'>('pin')
+  const [pendiente, setPendiente] = useState<{ sesion: Sesion; actual: string } | null>(null)
+  const [nuevo, setNuevo] = useState('')
+
+  const volver = () => {
+    setQuien(null)
+    setPin('')
     setError(null)
-    if (nuevo.length === 4 && quien) {
+    setPaso('pin')
+    setPendiente(null)
+    setNuevo('')
+    setQuiereCambiar(false)
+  }
+  const pulsar = (d: string) => {
+    if (cargando) return
+    setPin((p) => (p + d).slice(0, 8))
+    setError(null)
+  }
+  const aceptar = async () => {
+    if (cargando || pin.length < 4 || !quien) return
+    if (paso === 'pin') {
       setCargando(true)
       try {
-        onEntrar(await entrar(quien.codigo, nuevo))
+        const r = await entrar(quien.codigo, pin)
+        if (r.debeCambiar || quiereCambiar) {
+          setPendiente({ sesion: r.sesion, actual: pin })
+          setPaso('nuevo')
+          setPin('')
+        } else onEntrar(r.sesion)
       } catch (e) {
         setError((e as Error).message)
         setPin('')
       } finally {
         setCargando(false)
       }
+    } else if (paso === 'nuevo') {
+      if (pendiente && pin === pendiente.actual) {
+        setError('El PIN nuevo tiene que ser distinto del que tenías.')
+        setPin('')
+        return
+      }
+      setNuevo(pin)
+      setPin('')
+      setPaso('repite')
+    } else if (pendiente) {
+      if (pin !== nuevo) {
+        setError('No coincide. Empieza otra vez con el PIN nuevo.')
+        setPin('')
+        setNuevo('')
+        setPaso('nuevo')
+        return
+      }
+      setCargando(true)
+      try {
+        await cambiarPin(pendiente.sesion.token, pendiente.actual, nuevo)
+        guardarSesion(pendiente.sesion)
+        onEntrar(pendiente.sesion)
+      } catch (e) {
+        setError((e as ErrorApp).red ? 'Sin conexión: inténtalo con cobertura.' : (e as Error).message)
+        setPin('')
+        setNuevo('')
+        setPaso('nuevo')
+      } finally {
+        setCargando(false)
+      }
     }
   }
+  const rotulo =
+    paso === 'pin'
+      ? quiereCambiar
+        ? 'Pon primero tu PIN de ahora'
+        : 'Pon tu PIN y pulsa Entrar'
+      : paso === 'nuevo'
+        ? 'Elige tu PIN nuevo: 4, 6 u 8 cifras'
+        : 'Repite el PIN nuevo'
 
   return (
     <>
@@ -523,9 +583,14 @@ function Entrada({ onEntrar }: { onEntrar: (s: Sesion) => void }) {
       ) : (
         <Tarjeta>
           <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 20, color: V.verde }}>Hola, {quien.nombre}</div>
-          <div style={{ textAlign: 'center', color: V.gris, marginBottom: 10 }}>Pon tu PIN</div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 14 }}>
-            {[0, 1, 2, 3].map((i) => (
+          {paso !== 'pin' && (
+            <div style={{ background: '#fff7e0', border: `1px solid ${V.naranja}`, borderRadius: 12, padding: '8px 12px', fontSize: 14, margin: '8px 0' }}>
+              🔑 {quiereCambiar ? 'Vas a cambiar tu PIN.' : 'Es la primera vez que entras: tienes que poner un PIN tuyo.'} Que no lo sepa nadie más.
+            </div>
+          )}
+          <div style={{ textAlign: 'center', color: paso === 'pin' ? V.gris : V.verde, fontWeight: paso === 'pin' ? 400 : 700, marginBottom: 10 }}>{rotulo}</div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 14, minHeight: 18 }}>
+            {Array.from({ length: Math.max(4, pin.length) }, (_, i) => (
               <span key={i} style={{ width: 18, height: 18, borderRadius: 9, background: i < pin.length ? V.verdeMed : '#dfe8df' }} />
             ))}
           </div>
@@ -535,7 +600,7 @@ function Entrada({ onEntrar }: { onEntrar: (s: Sesion) => void }) {
                 {d}
               </Boton>
             ))}
-            <Boton claro color={V.gris} onClick={() => (setQuien(null), setPin(''), setError(null))} style={{ fontSize: 14 }}>
+            <Boton claro color={V.gris} onClick={volver} style={{ fontSize: 14 }}>
               No soy yo
             </Boton>
             <Boton claro onClick={() => pulsar('0')} style={{ fontSize: 26, padding: '14px 0' }}>
@@ -545,8 +610,21 @@ function Entrada({ onEntrar }: { onEntrar: (s: Sesion) => void }) {
               ⌫
             </Boton>
           </div>
-          {cargando && <div style={{ textAlign: 'center', color: V.gris, marginTop: 10 }}>Entrando…</div>}
+          <Boton disabled={cargando || pin.length < 4 || (paso !== 'pin' && pin.length % 2 === 1)} onClick={aceptar} style={{ width: '100%', marginTop: 12, fontSize: 20, padding: '14px 0' }}>
+            {cargando ? 'Un momento…' : paso === 'pin' ? 'Entrar' : paso === 'nuevo' ? 'Siguiente' : 'Guardar y entrar'}
+          </Boton>
           {error && <div style={{ color: V.rojo, textAlign: 'center', marginTop: 10, fontWeight: 600 }}>{error}</div>}
+          {paso === 'pin' && (
+            <div style={{ textAlign: 'center', marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => (setQuiereCambiar(!quiereCambiar), setPin(''), setError(null))}
+                style={{ background: 'none', border: 'none', color: V.verdeMed, fontSize: 15, textDecoration: 'underline', padding: 8 }}
+              >
+                {quiereCambiar ? 'No, solo quiero entrar' : '🔑 Cambiar mi PIN'}
+              </button>
+            </div>
+          )}
         </Tarjeta>
       )}
     </>
@@ -557,7 +635,6 @@ function Entrada({ onEntrar }: { onEntrar: (s: Sesion) => void }) {
 function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion; onElegir: (r: RepartoApp) => void; onSalir: () => void; onCaducada: () => void }) {
   const [lista, setLista] = useState<RepartoApp[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [pin, setPin] = useState(false)
   useEffect(() => {
     cargarRepartos(sesion.token)
       .then(setLista)
@@ -588,64 +665,7 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
         </div>
         {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
       </Tarjeta>
-      <div style={{ textAlign: 'center', marginTop: 14 }}>
-        <button type="button" onClick={() => setPin(true)} style={{ background: 'none', border: 'none', color: V.verdeMed, fontSize: 15, textDecoration: 'underline', padding: 8 }}>
-          🔑 Cambiar mi PIN
-        </button>
-      </div>
-      {pin && <HojaPin sesion={sesion} onCerrar={() => setPin(false)} />}
     </>
-  )
-}
-
-function HojaPin({ sesion, onCerrar }: { sesion: Sesion; onCerrar: () => void }) {
-  const [actual, setActual] = useState('')
-  const [nuevo, setNuevo] = useState('')
-  const [repite, setRepite] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [hecho, setHecho] = useState(false)
-  const [enviando, setEnviando] = useState(false)
-  const campo: CSSProperties = { width: '100%', border: '2px solid #cfe0cf', borderRadius: 12, padding: 12, fontSize: 20, letterSpacing: 4, marginBottom: 10 }
-  const soloCifras = (v: string) => v.replace(/\D/g, '').slice(0, 8)
-  const guardar = async () => {
-    if (nuevo !== repite) return setError('El PIN nuevo no coincide en las dos casillas.')
-    setEnviando(true)
-    setError(null)
-    try {
-      await cambiarPin(sesion.token, actual, nuevo)
-      setHecho(true)
-    } catch (e) {
-      setError((e as ErrorApp).red ? 'Sin conexión: inténtalo con cobertura.' : (e as Error).message)
-    } finally {
-      setEnviando(false)
-    }
-  }
-  return (
-    <Hoja titulo="Cambiar mi PIN" onCerrar={onCerrar}>
-      {hecho ? (
-        <>
-          <div style={{ color: V.verde, fontSize: 17, marginBottom: 12 }}>✅ PIN cambiado. La próxima vez entra con el nuevo.</div>
-          <Boton onClick={onCerrar} style={{ width: '100%' }}>
-            Vale
-          </Boton>
-        </>
-      ) : (
-        <>
-          <input type="password" inputMode="numeric" autoComplete="off" placeholder="PIN actual" value={actual} onChange={(e) => setActual(soloCifras(e.target.value))} style={campo} />
-          <input type="password" inputMode="numeric" autoComplete="off" placeholder="PIN nuevo (4 a 8 cifras)" value={nuevo} onChange={(e) => setNuevo(soloCifras(e.target.value))} style={campo} />
-          <input type="password" inputMode="numeric" autoComplete="off" placeholder="Repite el PIN nuevo" value={repite} onChange={(e) => setRepite(soloCifras(e.target.value))} style={campo} />
-          {error && <div style={{ color: V.rojo, marginBottom: 10 }}>{error}</div>}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Boton claro color={V.gris} onClick={onCerrar} style={{ flex: 1 }}>
-              Cancelar
-            </Boton>
-            <Boton disabled={enviando || actual.length < 4 || nuevo.length < 4 || repite.length < 4} onClick={guardar} style={{ flex: 2 }}>
-              Guardar
-            </Boton>
-          </div>
-        </>
-      )}
-    </Hoja>
   )
 }
 
