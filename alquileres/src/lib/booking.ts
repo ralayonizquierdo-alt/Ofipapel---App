@@ -57,6 +57,10 @@ export interface PrecioBooking {
 
 export const COLECCION_BOOKING = 'preciosBooking'
 
+/** Lo que se le pega a Claude cada mes para que mire Booking y lo apunte. */
+export const ENCARGO_CLAUDE = 'Mira en Booking los precios de una semana de cada apartamento, de invierno y de verano, '
+  + 'y apúntalos en Alquileres → Precios → Comparar con Booking.'
+
 /** Las consultas, las más recientes primero. `null` mientras llegan de la nube. */
 export function usePreciosBooking(): PrecioBooking[] | null {
   const [lista, setLista] = useState<PrecioBooking[] | null>(null)

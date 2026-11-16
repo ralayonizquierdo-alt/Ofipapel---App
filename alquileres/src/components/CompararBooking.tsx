@@ -1,11 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Season } from '../types'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Printer } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Printer, ClipboardCopy } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import {
   APARTAMENTOS_BOOKING, NOCHES_BOOKING, TIPO_BOOKING, apuntaPrecioBooking, precioNuestro,
-  quitaPrecioBooking, usePreciosBooking, type PrecioBooking, type PrecioNuestro,
+  quitaPrecioBooking, usePreciosBooking, type PrecioBooking, type PrecioNuestro, ENCARGO_CLAUDE,
 } from '../lib/booking'
 import { addDays, formatDate, getSeason, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
@@ -105,8 +105,9 @@ export default function CompararBooking() {
             (apt, entrada) => precioNuestro(prices, offerPrices, apt, entrada))}
             disabled={!consultas || consultas.length === 0}
             className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-            <Printer size={15} /> Imprimir para la agencia
+            <Printer size={15} /> Imprimir / PDF para la agencia
           </button>
+          <BotonCopiarEncargo />
           <button onClick={() => setAbierto(a => !a)}
             className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
             <Plus size={15} /> Apuntar precio de Booking
@@ -315,6 +316,26 @@ function imprimeParaAgencia(
   doc.write(html)
   doc.close()
   setTimeout(() => { marco.contentWindow!.focus(); marco.contentWindow!.print() }, 300)
+}
+
+/** Copia el encargo mensual para pegárselo a Claude. */
+export function BotonCopiarEncargo() {
+  const [copiado, setCopiado] = useState(false)
+  async function copia() {
+    try {
+      await navigator.clipboard.writeText(ENCARGO_CLAUDE)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2500)
+    } catch {
+      alert(`No se ha podido copiar. Escríbele a Claude:\n\n${ENCARGO_CLAUDE}`)
+    }
+  }
+  return (
+    <button type="button" onClick={copia}
+      className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+      <ClipboardCopy size={15} /> {copiado ? 'Copiado ✓' : 'Copiar el encargo para Claude'}
+    </button>
+  )
 }
 
 /** «01/12 al 08/12/2026». */

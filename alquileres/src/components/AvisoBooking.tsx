@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Tag, ArrowRight } from 'lucide-react'
-import { miradoEsteMes, usePreciosBooking } from '../lib/booking'
+import { miradoEsteMes, usePreciosBooking, ENCARGO_CLAUDE } from '../lib/booking'
+import { BotonCopiarEncargo } from './CompararBooking'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 
 /**
@@ -9,6 +10,10 @@ import { MONTH_NAMES_ES } from '../lib/dateUtils'
  * que publica la agencia en Booking (Precios → Comparar con Booking). Mientras
  * en el mes no haya ninguna consulta apuntada, sale al entrar; «Ahora no» la
  * calla solo hasta la próxima vez que se abra la app, como las demás.
+ *
+ * Lo normal es que lo haga Claude (Luis, 16/11/2026: «esto es lo propio»):
+ * el aviso trae el encargo para copiarlo y pegárselo; «Ahora no» si no se puede
+ * en ese momento.
  *
  * Espera a que se cierren las otras ventanas de entrada (`esperar`).
  */
@@ -30,8 +35,10 @@ export default function AvisoBooking({ esperar = false }: { esperar?: boolean })
             <p className="text-sm text-blue-100">En {mes} aún no se ha apuntado ninguno.</p>
           </div>
         </div>
-        <div className="px-5 py-4 text-sm text-slate-700">
-          Mira en Booking una semana de cada apartamento y apunta lo que pide. La app lo compara con nuestra tarifa.
+        <div className="px-5 py-4 text-sm text-slate-700 space-y-3">
+          <p>Cuando puedas, copia este encargo y pégaselo a Claude: él mira Booking y lo apunta todo.</p>
+          <p className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 italic">«{ENCARGO_CLAUDE}»</p>
+          <BotonCopiarEncargo />
         </div>
         <div className="px-5 py-4 border-t border-slate-200 flex flex-wrap items-center justify-end gap-3">
           <button onClick={() => setCerrado(true)}
@@ -40,7 +47,7 @@ export default function AvisoBooking({ esperar = false }: { esperar?: boolean })
           </button>
           <button onClick={() => { setCerrado(true); navigate('/precios?ver=booking') }}
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
-            Ir a apuntar <ArrowRight size={15} />
+            Ver la comparativa <ArrowRight size={15} />
           </button>
         </div>
       </div>
