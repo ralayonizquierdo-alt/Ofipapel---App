@@ -1544,6 +1544,10 @@ async function hacerCopia(){
   const btn = document.getElementById('btnCopiaAhora');
   btn.disabled = true; btn.textContent = 'Haciendo copia…';
   try{
+    // La copia anterior: el asunto del correo dice «desde» esa fecha «hasta» hoy.
+    let desde = null;
+    try{ const ant = await leerEstadoCopia(); desde = ant && ant.ultima || null; }catch(e){}
+    if(!desde){ try{ desde = localStorage.getItem(COPIA_LOCAL_KEY); }catch(e){} }
     const nombre = nombreCopia();
     const texto = JSON.stringify({app:'vacaciones', hecha: new Date().toISOString(), por: usuarioDeSesion(), datos: state}, null, 2);
     descargarTexto(nombre, texto);
@@ -1556,7 +1560,7 @@ async function hacerCopia(){
       const resp = await fetch(url, {
         method:'POST',
         headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},
-        body: JSON.stringify({nombre, contenido: aBase64(texto), registros}),
+        body: JSON.stringify({nombre, contenido: aBase64(texto), registros, desde}),
       });
       const r = await resp.json().catch(()=>({}));
       if(!resp.ok) throw new Error(r.error || `El servidor ha contestado ${resp.status}.`);
