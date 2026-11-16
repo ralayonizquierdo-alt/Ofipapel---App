@@ -554,6 +554,24 @@ function isPedidoEstadoQuestion(text) {
   return text === PEDIDO_ESTADO_TRIGGER;
 }
 
+// EL PLAZO GENÉRICO NO CONTESTA «¿CUÁNDO LLEGA EL MÍO?».
+//
+// La regla de envíos cuenta los portes y los plazos de cada isla, y está bien
+// para «¿cuánto tardáis?». Pero cuando el cliente trae SU número de pedido
+// —«684824 donataco, quiero saber cuando entregan mi Pedido»— lo que quiere es
+// el estado de ESE pedido, no la tabla de plazos.
+//
+// Salió el 16/11/2026, y de rebote: al añadir «cuándo entregan» a las palabras
+// clave de envíos (para que esa pregunta no se fuera a la IA), la regla empezó
+// a comerse también los mensajes que traen número de pedido. Con número, manda
+// el pedido; sin número, manda la regla de envíos, como siempre.
+function esRespuestaDeEnvios(text) {
+  if (!text) return false;
+  return String(text).startsWith(ENVIOS_GENERAL_INTRO) || ISLAND_SHIPPING.some(
+    (isla) => String(text).startsWith(`A ${isla.name} el envío es gratis`)
+  );
+}
+
 // Las dos en inglés. El flujo de "estado de mi pedido" es el único camino de
 // reglas fijas que un cliente en inglés recorre entero (lo arranca la IA o el
 // atajo del número suelto, no una regla de FAQ), así que sus textos tienen que
@@ -2244,6 +2262,7 @@ module.exports = {
   pedidosInfo,
   pedidoEstadoTrigger,
   isPedidoEstadoQuestion,
+  esRespuestaDeEnvios,
   PRESUPUESTO_ESCOLAR_INFO,
   FACTURA_INFO,
   isPresupuestoEscolar,

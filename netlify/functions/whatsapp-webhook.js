@@ -107,6 +107,7 @@ const {
   pedidosInfo,
   pedidoEstadoTrigger,
   isPedidoEstadoQuestion,
+  esRespuestaDeEnvios,
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const gestion = require('./gestion-pedidos');
@@ -1361,7 +1362,10 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // no era lo que había preguntado. Si una regla fija ya sabe qué contestar,
   // manda ella; el atajo solo entra cuando no hay nada mejor, o cuando la regla
   // que ha coincidido es justo la de "estado de mi pedido".
-  const faqMandaSobreElPedido = Boolean(faqReply) && !isPedidoEstadoQuestion(faqReply);
+  // La regla de envíos tampoco manda cuando el cliente trae su número: el
+  // plazo genérico no contesta «¿cuándo llega el MÍO?» (ver esRespuestaDeEnvios).
+  const faqMandaSobreElPedido =
+    Boolean(faqReply) && !isPedidoEstadoQuestion(faqReply) && !esRespuestaDeEnvios(faqReply);
   if (!pasoPedido && !faqMandaSobreElPedido && woocommerce.isConfigured() && mencionaUnPedidoConcreto(text)) {
     const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting, idioma);
     if (gestionado) return;

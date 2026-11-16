@@ -636,6 +636,45 @@ async function caso(etiqueta, mensaje, revisar, desde) {
   });
   escenario.lecturaDeLaFoto = null;
 
+  // EL NOMBRE QUE YA VENÍA EN EL PRIMER MENSAJE (16/11/2026).
+  //
+  // Esto es el ORIGEN de todo el enredo del pedido #684824:
+  //
+  //   cliente: «684824 donataco,...quiero saber cuando entregan mi Pedido»
+  //   bot:     «Para confirmar que el pedido es tuyo, dime el nombre comercial…»
+  //   cliente: «Te lo acabo de decir»
+  //
+  // Y tenía razón. El pedido es de «DONATACO SLU» y en su mensaje ponía
+  // «donataco»; lo que fallaba era comparar la cadena entera, que la coma y el
+  // resto de la frase rompen. A partir de ahí se cerró la verificación, la IA
+  // cogió el hilo y la conversación se torció entera.
+  escenario.pedido = {
+    id: 684824, status: 'processing', total: '171.68', date_created: '2026-11-12T09:00:00',
+    date_paid: '2026-11-12T09:00:00',
+    billing: { phone: '+34600111999', first_name: '', last_name: '', company: 'DONATACO SLU' },
+  };
+  escenario.fila = null;
+  escenario.historial = [];
+
+  await caso(
+    'el nombre viene junto al número, en la misma frase',
+    '684824 donataco,...quiero saber cuando entregan mi Pedido',
+    () => {
+      assert.ok(
+        !/nombre comercial/i.test(texto('respuesta')),
+        'le pidió el nombre que acababa de darle'
+      );
+      assert.ok(texto('respuesta').includes('684824'), 'tenía que contestar el estado a la primera');
+      assert.ok(/171[.,]68/.test(texto('respuesta')), 'con su total real');
+    }
+  );
+
+  // Y lo que NO puede pasar: que valga cualquier cosa. La verificación sigue
+  // siendo una verificación.
+  await caso('una frase sin el nombre no vale', 'Te lo acabo de decir', () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'dio el estado sin que el nombre coincidiera');
+  }, '34600111000');
+
   // LA VERIFICACIÓN NO SE PIERDE PORQUE EL BOT DIGA OTRA COSA (16/11/2026).
   //
   // Caso real (propietario: «aquí da la respuesta estándar como si no hubiera

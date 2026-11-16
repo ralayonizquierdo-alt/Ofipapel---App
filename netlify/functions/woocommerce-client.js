@@ -1168,6 +1168,9 @@ function normalizeNombre(s) {
     .trim();
 }
 
+// La forma jurídica no identifica a nadie: media Canarias es «SL».
+const FORMA_JURIDICA = new Set(['sl', 'slu', 'sa', 'sau', 'sl', 'sll', 'srl', 'scp', 'sc', 'cb', 'ltd', 'inc', 'sociedad', 'limitada']);
+
 function nombreCoincide(input, order) {
   const normInput = normalizeNombre(input);
   if (!normInput) return false;
@@ -1177,7 +1180,32 @@ function nombreCoincide(input, order) {
   ]
     .map(normalizeNombre)
     .filter(Boolean);
-  return candidatos.some((c) => c.includes(normInput) || normInput.includes(c));
+  if (candidatos.some((c) => c.includes(normInput) || normInput.includes(c))) return true;
+
+  // EL NOMBRE PUEDE VENIR DENTRO DE UNA FRASE (16/11/2026).
+  //
+  // Comparar la cadena entera solo funciona si el cliente escribe el nombre y
+  // nada más. Visto en real:
+  //
+  //   cliente: «684824 donataco,...quiero saber cuando entregan mi Pedido»
+  //   bot:     «Para confirmar que el pedido es tuyo, dime el nombre
+  //             comercial o el nombre y apellidos con los que se hizo.»
+  //   cliente: «Te lo acabo de decir»
+  //
+  // Y tenía toda la razón: el pedido es de «DONATACO SLU» y ahí ponía
+  // «donataco». Pero la coma y el resto de la frase rompen el `includes`, así
+  // que el bot le pidió el dato que acababa de darle — y de ahí en adelante la
+  // conversación se torció entera.
+  //
+  // Se comparan PALABRAS. Tienen que estar TODAS las que identifican de verdad
+  // (las de 4 letras o más, sin la forma jurídica): con «Juan García» no basta
+  // con decir «garcía». Esto no afloja la verificación, la hace entender al
+  // cliente que contesta como contesta la gente.
+  const palabrasDelMensaje = new Set(normInput.split(' '));
+  return candidatos.some((c) => {
+    const propias = c.split(' ').filter((w) => w.length >= 4 && !FORMA_JURIDICA.has(w));
+    return propias.length > 0 && propias.every((w) => palabrasDelMensaje.has(w));
+  });
 }
 
 const ESTADO_TRADUCIDO = {
