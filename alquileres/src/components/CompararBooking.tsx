@@ -17,8 +17,8 @@ const ANUNCIO = 'https://www.booking.com/hotel/es/apartments-av-suecia.es.html'
  * 16/11/2026): el IGIC va dentro. Si la limpieza también, aún no se sabe.
  * Cuando se sepa, se cambia este texto o se quita.
  */
-const AVISO_SIN_SABER = 'Booking dice que su precio «incluye impuestos y cargos»: el IGIC (7 %) va dentro y en lo nuestro no. '
-  + 'Falta saber si también lleva la limpieza.'
+const AVISO_SIN_SABER = 'Booking dice que su precio «incluye impuestos y cargos», así que a lo nuestro se le suma el IGIC (7 %) '
+  + 'para comparar lo mismo. Falta saber si Booking lleva también la limpieza.'
 
 /** «+235 € (+26,6 %)». */
 function diferencia(booking: number, nuestro: number) {
@@ -116,7 +116,7 @@ export default function CompararBooking() {
                 <th className="text-left py-2.5 px-4 font-medium">Apartamento</th>
                 <th className="text-left py-2.5 px-4 font-medium">Tarifa</th>
                 <th className="text-left py-2.5 px-4 font-medium whitespace-nowrap">Semana consultada</th>
-                <th className="text-right py-2.5 px-4 font-medium text-green-700 whitespace-nowrap">Nuestro (web + limpieza)</th>
+                <th className="text-right py-2.5 px-4 font-medium text-green-700 whitespace-nowrap">Nuestro (web + limpieza + IGIC)</th>
                 <th className="text-right py-2.5 px-4 font-medium text-blue-700">Booking</th>
                 <th className="text-right py-2.5 px-4 font-medium">Diferencia</th>
                 <th className="text-left py-2.5 px-4 font-medium whitespace-nowrap">Mirado el</th>
@@ -287,8 +287,8 @@ function FormularioBooking({ nombre, onHecho }: { nombre: (id: string) => string
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-700">
           {nuestro
-            ? <>Nuestro para esa semana ({nuestro.tarifa}): <b className="text-green-700">{num(nuestro.total, 2)} €</b>
-                <span className="text-slate-500"> = web {num(nuestro.web, 2)} € + limpieza {num(nuestro.limpieza, 2)} €</span></>
+            ? <>Nuestro para esa semana · {nuestro.tarifa}: <b className="text-green-700">{num(nuestro.total, 2)} €</b>
+                <span className="text-slate-500"> = web {num(nuestro.web, 2)} € + limpieza {num(nuestro.limpieza, 2)} € + IGIC {num(nuestro.igic, 2)} €</span></>
             : <span className="text-red-600">No hay tarifa para esas fechas.</span>}
         </p>
         <div className="flex gap-2">

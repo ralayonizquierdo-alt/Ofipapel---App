@@ -2,8 +2,8 @@ import { collection, deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firesto
 import { useEffect, useState } from 'react'
 import { db } from './firebase'
 import { usuarioActual } from './auth'
-import { buscaTarifa, calcPrices } from './priceCalc'
-import { MONTH_NAMES_ES } from './dateUtils'
+import { buscaTarifa, calcPrices, getApartmentType } from './priceCalc'
+import { MONTH_NAMES_ES, getSeason } from './dateUtils'
 import type { OfferPrice, PriceEntry } from '../types'
 
 /**
@@ -81,27 +81,59 @@ export async function quitaPrecioBooking(id: string): Promise<void> {
   await deleteDoc(doc(db, COLECCION_BOOKING, id))
 }
 
-/** Lo nuestro para esa semana: el precio web de 1 semana más la limpieza. */
+/**
+ * El precio de Booking «incluye impuestos y cargos» (visto el 16/11/2026), así
+ * que a lo nuestro se le suma el IGIC para comparar lo mismo con lo mismo.
+ */
+export const IGIC = 0.07
+
+/** Lo nuestro para esa semana: web de 1 semana + limpieza + IGIC. */
 export interface PrecioNuestro {
-  /** Web (publicar) + limpieza: lo que se compara con Booking. */
+  /** Web + limpieza + IGIC: lo que se compara con Booking. */
   total: number
+  /** Web (publicar) + limpieza, sin IGIC. */
+  sinIgic: number
   web: number
   limpieza: number
+  igic: number
   /** «Invierno 2026», «Verano 2027» u «Oferta octubre 2026». */
   tarifa: string
+  /**
+   * El año de las fechas aún no tiene tarifa y se ha usado la del año más
+   * reciente de esa temporada (Booking publica el verano siguiente antes de
+   * que se haga la tarifa en enero).
+   */
+  deOtroAnio?: number
 }
+
+const r2 = (n: number) => Math.round(n * 100) / 100
 
 export function precioNuestro(
   prices: PriceEntry[], offerPrices: OfferPrice[], apartmentId: string, entrada: string,
 ): PrecioNuestro | null {
-  const t = buscaTarifa(prices, apartmentId, entrada, NOCHES_BOOKING, offerPrices)
-  if (!t) return null
+  let t = buscaTarifa(prices, apartmentId, entrada, NOCHES_BOOKING, offerPrices)
+  let deOtroAnio: number | undefined
+  if (!t) {
+    // Sin tarifa de ese año: la última que haya de esa temporada y tipo, la
+    // misma regla que usa Precios al preparar un año nuevo.
+    const y = Number(entrada.slice(0, 4))
+    const ultima = prices
+      .filter(p => p.season === getSeason(entrada) && p.apartmentType === getApartmentType(apartmentId) && p.year < y)
+      .sort((a, b) => b.year - a.year)[0]
+    if (!ultima) return null
+    t = buscaTarifa(prices, apartmentId, `${ultima.year}${entrada.slice(4)}`, NOCHES_BOOKING, [])
+    if (!t) return null
+    deOtroAnio = y
+  }
   const limpieza = t.entry.cleaningFee
   const web = calcPrices(t.base, limpieza).webPrice
+  const sinIgic = r2(web + limpieza)
+  const igic = r2(sinIgic * IGIC)
   const tarifa = t.oferta
     ? `Oferta ${MONTH_NAMES_ES[t.oferta.month - 1].toLowerCase()} ${t.oferta.year}`
     : `${t.entry.season === 'VERANO' ? 'Verano' : 'Invierno'} ${t.entry.year}`
-  return { total: Math.round((web + limpieza) * 100) / 100, web, limpieza, tarifa }
+      + (deOtroAnio ? ` (aún no hay ${deOtroAnio})` : '')
+  return { total: r2(sinIgic + igic), sinIgic, web, limpieza, igic, tarifa, deOtroAnio }
 }
 
 /** «2026-11»: el mes de un día, para saber si este mes ya se miró Booking. */

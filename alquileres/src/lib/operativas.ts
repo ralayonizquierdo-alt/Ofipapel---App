@@ -298,8 +298,9 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
   {
     // lib/booking.ts — precioNuestro(), components/CompararBooking.tsx, components/AvisoBooking.tsx
     que: 'Comparar con Booking',
-    formula: 'diferencia = precio de Booking − (web de 1 semana + limpieza)',
-    nota: '**Siempre 7 noches**, con la tarifa de esas fechas (oferta incluida). El precio de Booking **se apunta a mano**. '
+    formula: 'diferencia = precio de Booking − (web de 1 semana + limpieza + IGIC 7 %)',
+    nota: '**Siempre 7 noches**, con la tarifa de esas fechas (**la oferta, si ese mes la tiene**; si el año aún no tiene tarifa, '
+      + 'la última de esa temporada). Booking **ya lleva el IGIC**. El precio de Booking **se apunta a mano**. '
       + '**Una vez al mes**: si en el mes no hay ninguno apuntado, sale el aviso al entrar. El Piso 3 y el Arenal no están en Booking.',
   },
   {
