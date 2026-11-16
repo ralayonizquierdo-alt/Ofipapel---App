@@ -499,7 +499,6 @@ body{
       node.setAttribute('cx', bx); node.setAttribute('cy', by); node.setAttribute('r', .6);
       node.setAttribute('fill', ring);
       g.appendChild(node);
-      webNodes.push({ x: bx, y: by, color: ring, spoke: i, tip: true });
     });
 
     // nodo brillante a mitad de camino del trazo principal
@@ -509,7 +508,16 @@ body{
     midNode.setAttribute('cx', mid[0]); midNode.setAttribute('cy', mid[1]); midNode.setAttribute('r', .7);
     midNode.setAttribute('fill', ring);
     g.appendChild(midNode);
-    webNodes.push({ x: mid[0], y: mid[1], color: ring, spoke: i, tip: false, ang: Math.atan2(y - 50, x - 50) });
+    var spokeAng = Math.atan2(y - 50, x - 50);
+    webNodes.push({ x: mid[0], y: mid[1], color: ring, spoke: i, ring: 1, ang: spokeAng });
+    // nodo del anillo interior, más cerca del centro, sobre el propio rayo
+    var inner = pts[2];
+    var innerNode = document.createElementNS(NS, 'circle');
+    innerNode.setAttribute('class', 'cnode');
+    innerNode.setAttribute('cx', inner[0]); innerNode.setAttribute('cy', inner[1]); innerNode.setAttribute('r', .6);
+    innerNode.setAttribute('fill', ring);
+    g.appendChild(innerNode);
+    webNodes.push({ x: inner[0], y: inner[1], color: ring, spoke: i, ring: 0, ang: spokeAng });
 
     group.appendChild(g);
     conns.push({ g: g, main: main });
@@ -533,14 +541,12 @@ body{
     g.appendChild(dot);
   });
 
-  // ── Maraña (16/11/2026, a petición del propietario): los nodos pequeños
-  // de cada rayo se enlazan con los de los rayos vecinos, para que la red
-  // se vea conectada de verdad y no como 9 rayos sueltos. Dos reglas: un
-  // anillo que une el nodo central de cada rayo con el del siguiente (por
-  // ángulo), y cada punta de ramita con sus 3 nodos más cercanos de OTROS
-  // rayos (si están a menos de WEB_MAX). Cada hilo va en degradado del color
-  // de un extremo al del otro. Va debajo de los rayos (primer hijo del grupo).
-  var WEB_MAX = 24;
+  // ── Tela de araña (16/11/2026, a petición del propietario): los rayos
+  // se unen entre sí en dos anillos concéntricos, cada nodo solo con el del
+  // rayo vecino a la misma altura — ordenado, no una maraña (la primera
+  // versión unía cada punta con sus 3 vecinos más cercanos y quedaba
+  // demasiado enredada). Hilos quebrados como los rayos, en degradado del
+  // color de un extremo al del otro, debajo de los rayos.
   var webLinks = [];
   var webGroup = document.createElementNS(NS, 'g');
   webGroup.setAttribute('class', 'web');
@@ -583,16 +589,9 @@ body{
     }
     return out + ' L' + b.x.toFixed(2) + ',' + b.y.toFixed(2);
   }
-  var mids = webNodes.filter(function(n){ return !n.tip; }).sort(function(a, b){ return a.ang - b.ang; });
-  mids.forEach(function(n, k){ addLink(n, mids[(k + 1) % mids.length]); });
-  webNodes.filter(function(n){ return n.tip; }).forEach(function(n){
-    webNodes
-      .filter(function(m){ return m.spoke !== n.spoke; })
-      .map(function(m){ return { m: m, d: Math.hypot(m.x - n.x, m.y - n.y) }; })
-      .filter(function(o){ return o.d < WEB_MAX; })
-      .sort(function(p, q){ return p.d - q.d; })
-      .slice(0, 3)
-      .forEach(function(o){ addLink(n, o.m); });
+  [0, 1].forEach(function(r){
+    var ringNodes = webNodes.filter(function(n){ return n.ring === r; }).sort(function(a, b){ return a.ang - b.ang; });
+    ringNodes.forEach(function(n, k){ addLink(n, ringNodes[(k + 1) % ringNodes.length]); });
   });
   // un pulso de luz recorre de vez en cuando uno de cada tres hilos
   webLinks.forEach(function(l, k){
@@ -631,8 +630,8 @@ body{
       l.path.style.strokeDashoffset = '';
     }, (delay + 1) * 1000);
   });
-  // Chisporroteo eléctrico: cada poco, un par de hilos al azar cambian de
-  // forma de golpe y dan un fogonazo, como corriente viva. Arranca cuando
+  // Chisporroteo eléctrico: cada poco, un hilo al azar cambia de
+  // forma de golpe y a veces da un fogonazo, como corriente viva. Arranca cuando
   // la red ya está dibujada; se para con la pestaña oculta y no se activa si
   // el sistema pide reducir movimiento.
   var webReady = (0.25 + sats.length * 0.16 + 0.7 + webLinks.length * 0.03 + 1) * 1000;
@@ -640,7 +639,7 @@ body{
     setTimeout(function(){
       setInterval(function(){
         if (document.hidden || !webLinks.length) return;
-        for (var n = 0; n < 2; n++){
+        for (var n = 0; n < 1; n++){
           var l = webLinks[Math.floor(Math.random() * webLinks.length)];
           l.path.setAttribute('d', boltPath(l.a, l.b));
           if (Math.random() < .35) {
