@@ -1492,6 +1492,29 @@ function enviosReply(normalizedText) {
   return `${ENVIOS_GENERAL_INTRO} El envío gratis y el plazo cambian según la isla — ¿a cuál te refieres? Así te doy el dato exacto.`;
 }
 
+// ¿HAY PEDIDO MÍNIMO? NO (dato del propietario, 16/11/2026).
+//
+// «El pedido mínimo para envío son 20 euros y si no llega tiene un gasto de
+// 5 euros de transporte.» Es decir: NO hay pedido mínimo para comprar — se
+// puede pedir una unidad — lo que hay es un mínimo para que el envío salga
+// gratis.
+//
+// Hacía falta decirlo porque el dato estaba a medias: los 20 € y los 5 €
+// ya vivían en `ISLAND_SHIPPING`, pero en ningún sitio ponía que no hay
+// pedido mínimo, que es justo lo que preguntó el cliente. Sin esa frase, la
+// IA contestó que sí lo había y que a lo mejor no podíamos venderle una sola
+// caja (14/11/2026). Ver `condicionSinRespaldo`.
+//
+// El importe sale de ISLAND_SHIPPING, no escrito a mano: si cambia el umbral,
+// cambia esta respuesta sola.
+function pedidoMinimoReply(normalizedText) {
+  const isla = findIslandInText(normalizedText) || ISLAND_SHIPPING.find((i) => i.name === 'Tenerife');
+  const otras = isla.name === 'Tenerife'
+    ? ' En las demás islas el importe del envío gratis es otro — dime a cuál te refieres y te lo digo exacto.'
+    : '';
+  return `No hay pedido mínimo: puedes pedir lo que necesites, aunque sea una unidad. Lo que tiene mínimo es el ENVÍO GRATIS: a ${isla.name}, a partir de ${isla.freeFrom}€ no pagas transporte, y por debajo se cobran ${isla.feeBelow}€.${otras}`;
+}
+
 // Versión completa (todas las islas), para el contexto de la IA.
 const ENVIOS_INFO = `${ENVIOS_GENERAL_INTRO}\n\n${ISLAND_SHIPPING.map(islandShippingLine).join('\n')}\n\nPara artículos muy pesados o voluminosos, el porte se calcula aparte, a consultar.`;
 
@@ -1989,6 +2012,19 @@ const FAQ_RULES = [
   {
     keywords: ['forma de pago', 'formas de pago', 'metodo de pago', 'método de pago', 'como pagar', 'cómo pagar', 'pago con tarjeta', 'contra reembolso', 'transferencia'],
     reply: PAGO_INFO,
+  },
+  {
+    // Va DELANTE de la de envíos: «¿hay pedido mínimo?» lleva la palabra
+    // «pedido» y acabaría en la de estado del pedido o en la de portes, y la
+    // pregunta es otra. Sin regla propia la contestaba la IA, y se la inventó.
+    keywords: [
+      'pedido minimo', 'pedido mínimo', 'pedidos minimos', 'pedidos mínimos',
+      'minimo de pedido', 'mínimo de pedido', 'minimo de compra', 'mínimo de compra',
+      'compra minima', 'compra mínima', 'cantidad minima', 'cantidad mínima',
+      'importe minimo', 'importe mínimo', 'hay minimo', 'hay mínimo',
+      'algun minimo', 'algún mínimo', 'minimum order', 'minimum purchase',
+    ],
+    reply: pedidoMinimoReply,
   },
   {
     // "portes" (bare) colisionaba con "transportes" (p. ej. "Transportes Noda",

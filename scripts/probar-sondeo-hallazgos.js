@@ -348,6 +348,20 @@ console.log('\n=== 10. El pedido mínimo que nadie ha escrito en ninguna parte')
     'con una nota del panel que lo diga, el bot sí puede contestarlo'
   );
   comprobar(!condicionSinRespaldo('El bloc A7 cuesta 1,20 € + IGIC', ''), 'NO salta: una respuesta de precio normal');
+
+  // Y DESDE EL 16/11/2026 EL DATO EXISTE, que es lo que de verdad cierra esto.
+  // «El pedido mínimo para envío son 20 euros y si no llega tiene un gasto de
+  // 5 euros de transporte» (propietario). O sea: NO hay pedido mínimo para
+  // comprar; lo que tiene mínimo es el envío gratis. Ahora lo contesta una
+  // regla fija y la IA ni entra.
+  const respuesta = matchFaqRule('Hay pedido mínimo');
+  comprobar(Boolean(respuesta), 'ahora hay una regla fija que lo contesta');
+  comprobar(/no hay pedido m[ií]nimo/i.test(respuesta || ''), 'y dice lo que es: que NO hay');
+  comprobar(/20\s*€/.test(respuesta || '') && /5\s*€/.test(respuesta || ''), 'con los 20 € y los 5 € reales');
+  comprobar(
+    Boolean(matchFaqRule('hay algún mínimo de compra?')),
+    'también preguntado de otra forma'
+  );
 }
 
 if (fallos > 0) {
