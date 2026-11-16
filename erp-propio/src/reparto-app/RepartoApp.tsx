@@ -84,6 +84,9 @@ const numeroWhatsApp = (tel: string | null | undefined): string | null => {
   if (n.length === 11 && n.startsWith('34')) n = n.slice(2)
   return n.length === 9 && /^[67]/.test(n) ? '34' + n : null
 }
+/** «RUTA 1 · LOS CRISTIANOS»: el número de la ruta delante del nombre de la zona. */
+const nombreRuta = (ruta: string | null | undefined, nombre: string | null | undefined) =>
+  [ruta ? `RUTA ${/^\d+$/.test(ruta) ? Number(ruta) : ruta}` : null, nombre || (ruta ? null : 'Sin ruta')].filter(Boolean).join(' · ')
 const euros = (n: number | null | undefined) => (n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €')
 const base = import.meta.env.BASE_URL
 // Fichaje (/fichaje, en el ERP): el registro horario legal; lo gestiona gerencia en Archivo → Fichaje.
@@ -163,17 +166,17 @@ function Cabecera({ sub, derecha }: { sub?: string; derecha?: ReactNode }) {
       style={{
         background: 'linear-gradient(135deg,#0d3d0d 0%,#1A5C1A 45%,#237523 75%,#3a8f2a 100%)',
         borderRadius: 22,
-        padding: '14px 16px',
+        padding: '14px 12px',
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
+        gap: 8,
         boxShadow: '0 8px 24px rgba(0,0,0,.25)',
       }}
     >
-      <img src={`${base}marca/logo-ofipapel.png`} alt="Ofipapel" style={{ height: 44, width: 'auto', flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0, color: '#fff' }}>
-        <div style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 800, fontSize: 24, lineHeight: 1.1 }}>Reparto</div>
-        <div style={{ fontSize: 12, letterSpacing: 2.5, fontWeight: 600, opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <img src={`${base}marca/logo-ofipapel.png`} alt="Ofipapel" style={{ height: 38, width: 'auto', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0, color: '#fff', overflow: 'hidden' }}>
+        <div style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 800, fontSize: 21, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Reparto</div>
+        <div style={{ fontSize: 11, letterSpacing: 1.2, fontWeight: 600, opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {sub ?? 'OFIPAPEL'}
         </div>
       </div>
@@ -791,12 +794,16 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
               key={`${r.tienda}-${r.numero}`}
               type="button"
               onClick={() => {
-                if (!r.mio && !window.confirm(`¿Coges la ruta ${r.ruta_nombre ?? ''}${r.manana ? ' (mañana)' : ''}? Será tuya. Si te equivocas, dentro puedes soltarla.`)) return
+                if (!r.mio && !window.confirm(`¿Coges la ${nombreRuta(r.ruta, r.ruta_nombre)}${r.manana ? ' (mañana)' : ''}? Será tuya. Si te equivocas, dentro puedes soltarla.`)) return
                 onElegir(r)
               }}
               style={{ textAlign: 'left', background: r.mio ? V.pale : '#fff', border: `2px solid ${r.mio ? V.verdeMed : '#cfe0cf'}`, borderRadius: 16, padding: 14 }}
             >
-              <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>🚚 {r.ruta_nombre ?? 'Sin ruta'}</div>
+              <div style={{ fontSize: 18, color: V.verde }}>
+                🚚 {r.ruta && <b style={{ fontWeight: 800 }}>RUTA {/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta}</b>}
+                {r.ruta && r.ruta_nombre ? ' · ' : ''}
+                <span style={{ fontWeight: 500 }}>{r.ruta_nombre ?? (r.ruta ? '' : 'Sin ruta')}</span>
+              </div>
               <div style={{ color: V.gris, fontSize: 14 }}>
                 {r.manana ? 'Mañana · ' : ''}
                 {r.pedidos} pedidos · {r.pendientes} por entregar{r.mio ? ' · TUYA' : ' · libre'}
@@ -1006,7 +1013,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
 
   return (
     <>
-      <Cabecera sub={`${(datos?.reparto.ruta_nombre ?? reparto.ruta_nombre ?? '').toUpperCase()} · ${sesion.nombre.toUpperCase()}`} derecha={<BotonCabecera onClick={onVolver}>Rutas</BotonCabecera>} />
+      <Cabecera sub={`${nombreRuta(datos?.reparto.ruta ?? reparto.ruta, datos?.reparto.ruta_nombre ?? reparto.ruta_nombre).toUpperCase()} · ${sesion.nombre.toUpperCase()}`} derecha={<BotonCabecera onClick={onVolver}>Rutas</BotonCabecera>} />
 
       {gps === null && (
         <Tarjeta>
