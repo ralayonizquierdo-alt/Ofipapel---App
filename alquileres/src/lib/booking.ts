@@ -57,9 +57,16 @@ export interface PrecioBooking {
 
 export const COLECCION_BOOKING = 'preciosBooking'
 
-/** Lo que se le pega a Claude cada mes para que mire Booking y lo apunte. */
-export const ENCARGO_CLAUDE = 'Mira en Booking los precios de una semana de cada apartamento, de invierno y de verano, '
+/**
+ * El encargo de cada mes para Claude, y el enlace que abre Claude Desktop en
+ * la pestaña Code, en la carpeta del proyecto, con el encargo ya escrito (solo
+ * falta pulsar Enter). `claude://code/new?q=…&folder=…` es el enlace oficial.
+ */
+export const ENCARGO_CLAUDE = 'Mira Booking: comprueba los precios de una semana de cada apartamento, de invierno y de verano, '
   + 'y apúntalos en Alquileres → Precios → Comparar con Booking.'
+const CARPETA_PROYECTO = 'C:\\Users\\Luis\\Ofipapel---App'
+export const ENLACE_CLAUDE = `claude://code/new?q=${encodeURIComponent(ENCARGO_CLAUDE)}`
+  + `&folder=${encodeURIComponent(CARPETA_PROYECTO)}`
 
 /** Las consultas, las más recientes primero. `null` mientras llegan de la nube. */
 export function usePreciosBooking(): PrecioBooking[] | null {

@@ -300,8 +300,9 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
     que: 'Comparar con Booking',
     formula: 'diferencia = precio de Booking − (web de 1 semana + limpieza + IGIC 7 %)',
     nota: '**Siempre 7 noches**, con la tarifa de esas fechas (**la oferta, si ese mes la tiene**; si el año aún no tiene tarifa, '
-      + 'la última de esa temporada). Booking **ya lleva el IGIC**. El precio de Booking **lo mira y apunta Claude** '
-      + '(«Copiar el encargo para Claude») o se apunta a mano. «Imprimir / PDF para la agencia»: una temporada por hoja, sin fechas de consulta. '
+      + 'la última de esa temporada). Booking **ya lleva el IGIC**. El precio de Booking **lo mira y apunta Claude**: '
+      + '«Comprobar con Claude» lo abre con el encargo escrito y **solo hay que pulsar Enter** (también se puede apuntar a mano). '
+      + '«Imprimir / PDF para la agencia»: **una temporada por hoja**, con el desglose desde el neto y **sin fechas de consulta**. '
       + '**Una vez al mes**: si en el mes no hay ninguno apuntado, sale el aviso al entrar. El Piso 3 y el Arenal no están en Booking.',
   },
   {
