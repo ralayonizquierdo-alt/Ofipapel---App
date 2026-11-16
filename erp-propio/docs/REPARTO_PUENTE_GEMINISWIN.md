@@ -12,6 +12,7 @@ la app de móvil (`/repartidor`). Se empieza con **una sola ruta**, supervisada.
 | Base de datos | `supabase/migrations/20261114_reparto_puente_geminiswin.sql` | `reparto.origen` (`erp` / `geminiswin`), `reparto_gw_venta`, `reparto_gw_pasada`, `fn_reparto_gw_entrada` → `fn_reparto_gw_ingesta`, guardas, `fn_reparto_gw_partes` |
 
 - **Qué rutas entran**: parámetro `reparto.puente_gw_rutas` (por ejemplo `["01"]`). Vacío = el puente no trae nada. El programa lo pregunta en cada pasada, así que se cambia solo en el ERP.
+- **Repartos que no se quieren en la app**: parámetro `reparto.puente_gw_ignorar` (por ejemplo `["52-48281"]`). El puente los salta aunque sigan abiertos en GeminisWin; al quitarlos de la lista vuelven solos.
 - **Clave del puente**: en la base de datos solo está su huella sha-256 (`reparto_privado.puente_gw`). La clave en claro vive en `puente_reparto.clave`, junto al programa, en el PC. No va en el repositorio. Para cambiarla: fichero nuevo + `update reparto_privado.puente_gw set clave_sha256 = …`.
 - **Estados** (LEEME de Cowork del 13/11): línea 2 → pendiente; 3 u `OLDVTAREP` 7 → viene de anterior (sale la primera); 4 y 5 → entregado; 7 → no entregado; 1, 6, 8 y 10 no se llevan a la app. Reparto 2 = abierto, 4 = cerrado.
 - **Fecha**: `REPARTOS.FECHA` es el día en que se genera; el reparto se hace al día siguiente, y el del viernes queda para el lunes (confirmado por Rober, 13/11/2026). Se ajusta en `puente_reparto.json` (`fecha_mas_dias`, `salta_fin_de_semana`).
