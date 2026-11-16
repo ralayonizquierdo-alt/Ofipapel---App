@@ -703,27 +703,54 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
       <Cabecera sub={sesion.nombre.toUpperCase()} derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
       <AvisosTraspaso sesion={sesion} />
       <Tarjeta>
-        <div style={{ fontWeight: 700, fontSize: 18, color: V.verde, marginBottom: 10 }}>Elige tu ruta de hoy</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: V.verde, marginBottom: 10 }}>Tu ruta de hoy</div>
         {!lista && !error && <div style={{ color: V.gris }}>Cargando…</div>}
-        {lista && !lista.length && <div style={{ color: V.gris }}>No hay rutas abiertas para ti. Si esperabas una, avisa en la oficina.</div>}
+        {lista && !lista.some((r) => !r.manana) && (
+          <div style={{ color: V.gris }}>{lista.length ? 'Hoy no tienes ninguna ruta abierta.' : 'No hay rutas abiertas para ti. Si esperabas una, avisa en la oficina.'}</div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {lista?.map((r) => (
-            <button
-              key={`${r.tienda}-${r.numero}`}
-              type="button"
-              onClick={() => onElegir(r)}
-              style={{ textAlign: 'left', background: r.mio ? V.pale : '#fff', border: `2px solid ${r.mio ? V.verdeMed : '#cfe0cf'}`, borderRadius: 16, padding: 14 }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>🚚 {r.ruta_nombre ?? 'Sin ruta'}</div>
-              <div style={{ color: V.gris, fontSize: 14 }}>
-                {r.manana ? 'Mañana · ' : ''}
-                {r.pedidos} pedidos · {r.pendientes} por entregar{r.mio ? ' · tuya' : ' · sin repartidor'}
-              </div>
-            </button>
-          ))}
+          {lista
+            ?.filter((r) => !r.manana)
+            .map((r) => (
+              <button
+                key={`${r.tienda}-${r.numero}`}
+                type="button"
+                onClick={() => onElegir(r)}
+                style={{ textAlign: 'left', background: r.mio ? V.pale : '#fff', border: `2px solid ${r.mio ? V.verdeMed : '#cfe0cf'}`, borderRadius: 16, padding: 14 }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>🚚 {r.ruta_nombre ?? 'Sin ruta'}</div>
+                <div style={{ color: V.gris, fontSize: 14 }}>
+                  {r.pedidos} pedidos · {r.pendientes} por entregar{r.mio ? ' · tuya' : ' · sin repartidor'}
+                </div>
+              </button>
+            ))}
         </div>
         {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
       </Tarjeta>
+      {!!lista?.some((r) => r.manana) && (
+        <Tarjeta style={{ borderTopColor: '#8a968a', background: '#f1f4f1' }}>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#4a564a' }}>📅 Reparto de mañana</div>
+          <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Para ir mirándolo y comprobar los albaranes. No se entrega hasta su día.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {lista
+              .filter((r) => r.manana)
+              .map((r) => (
+                <button
+                  key={`${r.tienda}-${r.numero}`}
+                  type="button"
+                  onClick={() => onElegir(r)}
+                  style={{ textAlign: 'left', background: '#fafbfa', border: '2px dashed #b3bdb3', borderRadius: 16, padding: 12 }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: 16, color: '#4a564a' }}>🚚 {r.ruta_nombre ?? 'Sin ruta'}</div>
+                  <div style={{ color: V.gris, fontSize: 13 }}>
+                    {new Date(r.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })} · {r.pedidos} pedidos
+                    {r.mio ? '' : ' · sin repartidor'}
+                  </div>
+                </button>
+              ))}
+          </div>
+        </Tarjeta>
+      )}
     </>
   )
 }
@@ -738,7 +765,11 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   const [abierta, setAbierta] = useState<string | null>(null)
   const [hoja, setHoja] = useState<Hoja>(null)
   const [pendientesCola, setPendientesCola] = useState(() => cola().length)
-  const [modo, setModo] = useState<'comprobar' | 'repartir'>(() => (leer<string>(`reparto.modo.${reparto.tienda}-${reparto.numero}`) as 'comprobar' | 'repartir') ?? 'comprobar')
+  // Reparto de mañana: se puede mirar y comprobar, no entregar (salvo que el repartidor diga que lo reparte hoy).
+  const [adelantado, setAdelantado] = useState(() => leer<boolean>(`reparto.adelantado.${reparto.tienda}-${reparto.numero}`) === true)
+  const fechaReparto = datos?.reparto.fecha ?? reparto.fecha
+  const esManana = !adelantado && !!fechaReparto && fechaReparto > new Date().toLocaleDateString('sv-SE', { timeZone: 'Atlantic/Canary' })
+  const [modoElegido, setModo] = useState<'comprobar' | 'repartir'>(() => (leer<string>(`reparto.modo.${reparto.tienda}-${reparto.numero}`) as 'comprobar' | 'repartir') ?? 'comprobar')
   const [gps, setGps] = useState<'si' | 'no' | null>(() => leer<'si' | 'no'>('reparto.gps'))
   // Fichaje: sin la entrada fichada hoy no se puede entregar (sí ver, comprobar, ordenar y cambiar de ruta).
   const [fichaje, setFichaje] = useState<EstadoFichaje | 'comprobando' | 'sin_conexion'>(() => estadoGuardado(sesion.repartidor) ?? 'comprobando')
@@ -834,6 +865,11 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   }
 
   const accion = (l: LineaApp, tipo: 'entregado' | 'incidencia' | 'no_entregado' | 'deshacer', detalle?: string, nota?: string) => {
+    if (tipo !== 'deshacer' && esManana) {
+      setHoja(null)
+      setAviso('Este reparto es para mañana: todavía no se puede entregar.')
+      return
+    }
     if (tipo !== 'deshacer' && !puedeEntregar) {
       setHoja(null)
       setAviso('Primero ficha la entrada en Fichaje: hasta entonces puedes ver, comprobar y ordenar la ruta, pero no entregar.')
@@ -899,7 +935,12 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     void enviar()
   }
 
+  const modo = esManana ? 'comprobar' : modoElegido
   const cambiarModo = (m: 'comprobar' | 'repartir') => {
+    if (esManana && m === 'repartir') {
+      setAviso('Este reparto es para mañana: hoy solo puedes mirarlo y comprobar los albaranes.')
+      return
+    }
     setModo(m)
     guardar(`reparto.modo.${reparto.tienda}-${reparto.numero}`, m)
   }
@@ -968,7 +1009,27 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         </Tarjeta>
       )}
 
-      <div style={{ display: 'flex', background: 'rgba(255,255,255,.9)', borderRadius: 16, padding: 4, gap: 4 }}>
+      {esManana && (
+        <Tarjeta style={{ borderTopColor: '#8a968a', background: '#f1f4f1' }}>
+          <div style={{ fontWeight: 700, fontSize: 17, color: '#4a564a' }}>
+            📅 Reparto de mañana{fechaReparto ? ` · ${new Date(fechaReparto + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}` : ''}
+          </div>
+          <div style={{ fontSize: 14, color: V.gris, marginTop: 4 }}>Puedes mirar los pedidos y comprobar los albaranes. Entregar, cuando llegue su día.</div>
+          <button
+            type="button"
+            onClick={() => {
+              if (!window.confirm('¿Seguro que este reparto lo haces HOY? Pulsa Aceptar solo si te lo han dicho en la oficina.')) return
+              guardar(`reparto.adelantado.${reparto.tienda}-${reparto.numero}`, true)
+              setAdelantado(true)
+            }}
+            style={{ background: 'none', border: 'none', color: V.gris, textDecoration: 'underline', fontSize: 13, padding: '8px 0 0' }}
+          >
+            Me han dicho que lo reparta hoy
+          </button>
+        </Tarjeta>
+      )}
+
+      <div style={{ display: 'flex', background: 'rgba(255,255,255,.9)', borderRadius: 16, padding: 4, gap: 4, opacity: esManana ? 0.6 : 1 }}>
         {(['comprobar', 'repartir'] as const).map((m) => (
           <button
             key={m}
