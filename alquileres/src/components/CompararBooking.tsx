@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Season } from '../types'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import {
   APARTAMENTOS_BOOKING, NOCHES_BOOKING, TIPO_BOOKING, apuntaPrecioBooking, precioNuestro,
-  quitaPrecioBooking, usePreciosBooking, type PrecioBooking,
+  quitaPrecioBooking, usePreciosBooking, type PrecioBooking, type PrecioNuestro,
 } from '../lib/booking'
 import { addDays, formatDate, getSeason, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
@@ -204,7 +204,9 @@ export default function CompararBooking() {
                         <td className="py-2 px-4 whitespace-nowrap">{nombre(f.c.apartmentId)}</td>
                         <td className="py-2 px-4 whitespace-nowrap text-slate-600">{f.nuestro?.tarifa ?? '—'}</td>
                         <td className="py-2 px-4 whitespace-nowrap text-slate-600">{semana(f.c.entrada)}</td>
-                        <td className="py-2 px-4 text-right whitespace-nowrap text-green-700">{f.nuestro ? `${num(f.nuestro.total, 2)} €` : '—'}</td>
+                        <td className="py-2 px-4 text-right whitespace-nowrap text-green-700">
+                          {f.nuestro ? <><Desglose n={f.nuestro} />{num(f.nuestro.total, 2)} €</> : '—'}
+                        </td>
                         <td className="py-2 px-4 text-right whitespace-nowrap text-blue-700">{num(f.c.precio, 2)} €</td>
                         <td className={`py-2 px-4 text-right whitespace-nowrap ${colorDif(dif?.d)}`}>
                           {dif ? `${dif.texto} (${dif.pct})` : '—'}
@@ -246,13 +248,87 @@ function Celdas({ fila }: { fila: { c: PrecioBooking; nuestro: ReturnType<typeof
     <>
       <td className="py-3 px-4 whitespace-nowrap text-slate-600">{semana(c.entrada)}</td>
       <td className="py-3 px-4 text-right whitespace-nowrap font-semibold text-green-700">
-        {nuestro ? `${num(nuestro.total, 2)} €` : '—'}
+        {nuestro ? <><Desglose n={nuestro} />{num(nuestro.total, 2)} €</> : '—'}
       </td>
       <td className="py-3 px-4 text-right whitespace-nowrap font-semibold text-blue-700">{num(c.precio, 2)} €</td>
       <td className={`py-3 px-4 text-right whitespace-nowrap ${colorDif(dif?.d)}`}>
         {dif ? <>{dif.texto}<br /><span className="text-xs">{dif.pct}</span></> : '—'}
       </td>
       <td className="py-3 px-4 whitespace-nowrap text-slate-600">{formatDate(c.consultado)}</td>
+    </>
+  )
+}
+
+/**
+ * El cuadradito delante de nuestro importe (Luis, 16/11/2026): **al hacer
+ * clic** se abre el desglose, y se cierra con otro clic, fuera o con Esc.
+ * Nunca al pasar el ratón: en Cobros los recuadros que se abren solos al
+ * moverse por la pantalla formaban «un medio caos».
+ *
+ * La ventanita va fija sobre la pantalla (no dentro de la tabla), porque la
+ * tabla se desliza de lado y la recortaría.
+ */
+function Desglose({ n }: { n: PrecioNuestro }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const boton = useRef<HTMLButtonElement>(null)
+  const caja = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!pos) return
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (!caja.current?.contains(t) && !boton.current?.contains(t)) setPos(null)
+    }
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') setPos(null) }
+    const cerrar = () => setPos(null)
+    document.addEventListener('mousedown', fuera)
+    document.addEventListener('keydown', tecla)
+    // Al desplazar la pantalla, la ventanita se quedaría flotando en otro sitio.
+    window.addEventListener('scroll', cerrar, true)
+    return () => {
+      document.removeEventListener('mousedown', fuera)
+      document.removeEventListener('keydown', tecla)
+      window.removeEventListener('scroll', cerrar, true)
+    }
+  }, [pos])
+
+  function abre() {
+    if (pos) { setPos(null); return }
+    const r = boton.current!.getBoundingClientRect()
+    const ancho = 300
+    setPos({
+      top: Math.min(r.bottom + 6, window.innerHeight - 290),
+      left: Math.max(8, Math.min(r.left - ancho + 24, window.innerWidth - ancho - 8)),
+    })
+  }
+
+  const linea = (texto: string, valor: number, fuerte = false) => (
+    <div className={`flex justify-between gap-4 ${fuerte ? 'font-bold text-slate-800 border-t border-slate-200 pt-1 mt-1' : 'text-slate-600'}`}>
+      <span>{texto}</span><span className="whitespace-nowrap">{num(valor, 2)} €</span>
+    </div>
+  )
+
+  return (
+    <>
+      <button ref={boton} type="button" onClick={abre} aria-expanded={!!pos}
+        aria-label="Ver el desglose"
+        className={`inline-flex items-center justify-center w-5 h-5 mr-2 align-middle rounded border text-xs font-bold leading-none ${
+          pos ? 'bg-green-600 border-green-600 text-white' : 'border-green-600 text-green-700 hover:bg-green-50'}`}>
+        {pos ? '−' : '+'}
+      </button>
+      {pos && (
+        <div ref={caja} style={{ top: pos.top, left: pos.left, width: 300 }}
+          className="fixed z-50 bg-white border border-slate-300 rounded-lg shadow-xl p-3 text-left text-sm font-normal">
+          <p className="text-xs font-bold text-slate-500 mb-1.5">{n.tarifa} · 1 semana</p>
+          {linea('Base propietario', n.base)}
+          {linea('+ Inmobiliaria (15 %)', n.comision)}
+          {linea('+ Reserva (15 %)', n.comision)}
+          {linea('= Web (publicar)', n.web, true)}
+          {linea('+ Limpieza', n.limpieza)}
+          {linea('+ IGIC (7 %)', n.igic)}
+          {linea('= Nuestro', n.total, true)}
+        </div>
+      )}
     </>
   )
 }

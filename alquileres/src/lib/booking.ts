@@ -93,6 +93,10 @@ export interface PrecioNuestro {
   total: number
   /** Web (publicar) + limpieza, sin IGIC. */
   sinIgic: number
+  /** Base del propietario por la semana (tarifa de 1 semana). */
+  base: number
+  /** Cada comisión (inmobiliaria y reserva), 15 % de la base. */
+  comision: number
   web: number
   limpieza: number
   igic: number
@@ -126,14 +130,18 @@ export function precioNuestro(
     deOtroAnio = y
   }
   const limpieza = t.entry.cleaningFee
-  const web = calcPrices(t.base, limpieza).webPrice
+  const calc = calcPrices(t.base, limpieza)
+  const web = calc.webPrice
   const sinIgic = r2(web + limpieza)
   const igic = r2(sinIgic * IGIC)
   const tarifa = t.oferta
     ? `Oferta ${MONTH_NAMES_ES[t.oferta.month - 1].toLowerCase()} ${t.oferta.year}`
     : `${t.entry.season === 'VERANO' ? 'Verano' : 'Invierno'} ${t.entry.year}`
       + (deOtroAnio ? ` (aún no hay ${deOtroAnio})` : '')
-  return { total: r2(sinIgic + igic), sinIgic, web, limpieza, igic, tarifa, deOtroAnio }
+  return {
+    total: r2(sinIgic + igic), sinIgic, base: t.base, comision: calc.realEstate,
+    web, limpieza, igic, tarifa, deOtroAnio,
+  }
 }
 
 /** «2026-11»: el mes de un día, para saber si este mes ya se miró Booking. */
