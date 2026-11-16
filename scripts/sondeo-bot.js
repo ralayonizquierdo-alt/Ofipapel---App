@@ -70,6 +70,13 @@ const opcion = (n, pordefecto) => {
 const SOLO_AVISOS = args.includes('--solo-avisos');
 const IA_ELEGIDA = opcion('--ia', null);
 const FILTRO = opcion('--filtro', null);
+// ¿QUIÉN CONTESTA? (16/11/2026, pregunta del propietario: «¿tenemos atajados
+// ya la manera de que la IA deje de contestar cuando no se la necesita?»).
+// No se puede recortar a ojo lo que no se ha medido: con esta opción el
+// sondeo dice, de sus 220 respuestas, cuáles las escribe una regla fija o el
+// catálogo y cuáles la IA, y en qué clase de pregunta. Solo añade un resumen
+// al final: no cambia ni una respuesta ni la cuenta de avisos.
+const QUIEN_CONTESTA = args.includes('--quien-contesta');
 
 const SECRETO = 'secreto-de-sondeo';
 process.env.WHATSAPP_APP_SECRET = SECRETO;
@@ -245,6 +252,7 @@ let enviados = [];
 let busquedas = [];
 let conversacion = [];
 let pidioPedido = null;
+let hablóLaIA = false;   // ¿ha llegado a escribir la IA en este turno?
 
 global.fetch = async (url, opts) => {
   const u = String(url);
@@ -253,6 +261,7 @@ global.fetch = async (url, opts) => {
     const cuerpo = JSON.parse(opts.body);
     const system = cuerpo.system || '';
     const ultimo = (cuerpo.messages || []).slice(-1)[0]?.content || '';
+    hablóLaIA = true;
     const texto = modoIA === 'mentirosa' ? iaMentirosa(system, ultimo) : iaHonesta(system, ultimo);
     return {
       ok: true,
@@ -678,6 +687,7 @@ function detectar({ pregunta, categoria, dicho, buscado, datos }) {
   const modos = IA_ELEGIDA ? [IA_ELEGIDA] : ['honesta', 'mentirosa'];
   const resumen = new Map();
   const vistas = new Map();
+  const quien = new Map();   // categoría → {ia, regla}
   let total = 0;
   let conAviso = 0;
 
@@ -698,6 +708,7 @@ function detectar({ pregunta, categoria, dicho, buscado, datos }) {
       ultimosDatos = [];
       datosDelTurno = [];
       pidioPedido = null;
+      hablóLaIA = false;
 
       try {
         await wh.handler(evento(pregunta));
@@ -724,6 +735,12 @@ function detectar({ pregunta, categoria, dicho, buscado, datos }) {
         resumen.set(tipo, (resumen.get(tipo) || 0) + 1);
       }
 
+      if (QUIEN_CONTESTA) {
+        const q = quien.get(categoria) || { ia: 0, regla: 0 };
+        q[hablóLaIA ? 'ia' : 'regla'] += 1;
+        quien.set(categoria, q);
+      }
+
       if (SOLO_AVISOS && !avisos.length) continue;
 
       if (categoria !== categoriaAnterior) {
@@ -745,4 +762,18 @@ function detectar({ pregunta, categoria, dicho, buscado, datos }) {
   if (!orden.length) console.log('  Sin avisos.');
   for (const [tipo, n] of orden) console.log(`  ${String(n).padStart(3)}  ${tipo}`);
   console.log('');
+
+  if (QUIEN_CONTESTA) {
+    const filas = [...quien.entries()].sort((a, b) => b[1].ia - a[1].ia);
+    const ia = filas.reduce((n, [, q]) => n + q.ia, 0);
+    const regla = filas.reduce((n, [, q]) => n + q.regla, 0);
+    console.log('═'.repeat(74));
+    console.log(`  QUIÉN CONTESTA — la IA en ${ia} de ${ia + regla}; regla fija o catálogo en ${regla}`);
+    console.log('═'.repeat(74));
+    console.log('  ' + 'categoría'.padEnd(22) + 'IA'.padStart(5) + 'regla'.padStart(8));
+    for (const [cat, q] of filas) {
+      console.log('  ' + cat.padEnd(22) + String(q.ia).padStart(5) + String(q.regla).padStart(8));
+    }
+    console.log('');
+  }
 })();
