@@ -16,7 +16,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     icono: '🚚',
     titulo: 'Tu ruta',
     pasos: [
-      'Arriba sale «Tu ruta de hoy». Debajo, en gris, el «Reparto de mañana»: puedes mirarlo y comprobar los albaranes, pero no entregar hasta su día.',
+      'Elige tu ruta. Si pone «Mañana», es la del día siguiente: puedes mirarla, pero aún no toca.',
       'Las rutas salen solas cuando la oficina las prepara. Si no ves la tuya, avisa en la oficina.',
     ],
   },
