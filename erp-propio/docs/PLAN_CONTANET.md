@@ -42,6 +42,25 @@ Datos reales: prácticamente ninguno (13 asientos de prueba, ejercicio 2026).
 2. **Mónica**, que es quien usa CONTANET cada día, para unas pocas decisiones (punto 5) y para
    reconocer las pantallas; con Luis y la asesoría donde haga falta. Rober no tiene que contestar dudas contables.
 
+### Dónde está el material (nota 157 del tablón de coordinación, 13/11/2026)
+- **Datos**, en el servidor de la oficina: `\\\\SERVER-OFIPAPEL\\Aplicaciones\\ARCHIVOS OFIPAPEL\\LISTADOS AUTOMATIZADOS`
+  (= `P:\\ARCHIVOS OFIPAPEL\\LISTADOS AUTOMATIZADOS`). Por cada «empresa» de CONTANET, cuatro CSV separados
+  por tabulador (`PLAN_CONTABLE`, `DIARIO`, `DATOS_SUPLEMENTARIOS`, `IVA_IGIC`) y un balance de sumas y
+  saldos en Excel. Además, las copias de seguridad originales de CONTANET (ZIP).
+- **Capturas** de menús y pantallas: cinco ZIP (menús y bloques 2 a 5) que Cowork entregó a Rober por su
+  chat. En el servidor solo está el primero.
+- Desde el chat del ERP no se llega al servidor: el material hay que traerlo (ver fase 1).
+
+### Lo que ya se sabe de esos datos
+- En CONTANET **cada año es una «empresa» distinta**. Las 21 exportadas son en realidad dos: Ofipapel
+  (2018 a 2026) y Luis Alayón (2018 a 2026). En el ERP serán dos empresas, cada una con sus ejercicios.
+- **Hay años repetidos**: Ofipapel 2019 aparece tres veces (03, 04 «a diciembre» y 10) y Ofipapel 2020 dos
+  (06 y 09 «reparada»). Mónica tiene que decir cuál es la buena de cada año.
+- Las de Luis Alayón 2019 a 2026 parecen datos de demostración: confirmar con Mónica antes de cargarlas.
+- El DIARIO de Ofipapel 2018 (01) se exportó cortado al 41 % y no llegó a repetirse: hay que volver a sacarlo.
+- Ofipapel 2016 y 2017 no existen en CONTANET. Las empresas 07 (Sage) y 08 (Pruebas) no se exportaron.
+- Los balances de sumas y saldos de cada empresa-año son justo la prueba de la fase 5.
+
 ## 3. Las fases
 
 ### Fase 1 — Inventario de CONTANET (solo mirar)
