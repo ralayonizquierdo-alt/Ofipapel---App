@@ -56,6 +56,8 @@ const CATALOGO = [
   'BOLIGRAFO BIC Cristal Azul',
   'CALCULADORA CASIO MS-20UC Azul',
   'TONER BROTHER TN-248 Negro Original',
+  // El tóner del caso real del 10/11/2026 (ver más abajo).
+  'TONER LASER Compatible Brother TN-243/247 (Negro)',
 ];
 
 const norm = (s) =>
@@ -145,6 +147,97 @@ const CASOS = [
       `       salió: ${productos.length ? productos.map((p) => p.nombre).join(' · ').slice(0, 150) : '*** NADA ***'}`
     );
   }
+
+  // TODA REFERENCIA, CON GUION Y SIN GUION. SIEMPRE (11/11/2026).
+  //
+  // Regla del propietario, después de tres años de parches: «no le vas a tener
+  // que poner todos los modelos de tóner que trabajamos... la regla es que
+  // cualquier modelo lo pruebe con guión y sin guión. No vamos a tener que
+  // meterle los miles de modelos, porque si no hoy fallará uno, mañana otro».
+  //
+  // Por eso esto NO comprueba modelos: comprueba la regla. Varios de los de
+  // abajo están inventados a propósito y no existen en ninguna lista de este
+  // repo — si la regla es de verdad una regla, también valen.
+  //
+  // Y se mira QUÉ SE LE PIDE A LA WEB, no qué sale: lo que estaba roto es que
+  // la referencia bien escrita no llegaba a pedirse nunca, y eso no se ve en
+  // los resultados de una simulación.
+  console.log('\n=== Con guion y sin guion, venga como venga\n');
+
+  const CON_Y_SIN_GUION = [
+    // La referencia del caso real, en las dos formas de escribirla.
+    ['TN-247 brother', ['tn-247', 'tn247']],
+    ['tn247 brother', ['tn247', 'tn-247']],
+    // Modelos de verdad de otras marcas.
+    ['toner TK-3190', ['tk-3190', 'tk3190']],
+    ['cartucho CF283A', ['cf283a', 'cf-283']],
+    ['tambor DR-2400', ['dr-2400', 'dr2400']],
+    ['cartucho 305XL', ['305xl', '305-xl']],
+    // INVENTADOS: no están en ninguna lista y tienen que funcionar igual.
+    ['toner ZQ-9971', ['zq-9971', 'zq9971']],
+    ['zq9971 negro', ['zq9971', 'zq-9971']],
+    ['referencia XY4812B', ['xy4812b', 'xy-4812']],
+    // Doble: el mismo tóner vale para dos modelos y el catálogo puede tener
+    // escrito solo uno, así que se prueban los dos por separado.
+    ['toner TN-243/247', ['tn-243/247', 'tn-243', 'tn-247']],
+    // Con la cola del color.
+    ['TN-247BK', ['tn-247bk', 'tn-247']],
+  ];
+
+  for (const [consulta, esperados] of CON_Y_SIN_GUION) {
+    pedidas = [];
+    await wc.buscarEnCatalogo(consulta, 6);
+    const faltan = esperados.filter((e) => !pedidas.includes(e));
+    if (faltan.length) fallos++;
+    console.log(`${faltan.length ? 'MAL ' : 'OK  '} ${consulta}`);
+    console.log(`       pidió: ${pedidas.map((t) => `"${t}"`).join(' ') || '(nada)'}`);
+    if (faltan.length) console.log(`       NO pidió: ${faltan.join(' ')}`);
+  }
+
+  // LO QUE NO PUEDE PASAR: que esto se dispare con cualquier cosa. Una medida,
+  // una fecha o nuestro código interno NO son referencias, y gastar en ellas
+  // las pocas consultas que hay se las quita a la que sí lo es (pasó: la
+  // etiqueta del tóner traía «Cod.101012010» y se comía las plazas).
+  console.log('\n=== Y lo que NO es una referencia\n');
+
+  const NO_SON_REFERENCIAS = [
+    'papel a4 80gr 500 hojas',
+    'sobres 162x229 blancos',
+    'entregamos hasta 2026 en toda Canarias',
+    'me mandas 2 cajas de 500 folios',
+    'papeleras de rejilla',
+  ];
+
+  for (const consulta of NO_SON_REFERENCIAS) {
+    pedidas = [];
+    await wc.buscarEnCatalogo(consulta, 6);
+    // Una variante inventada es la que va pegada o con guion y no estaba en el
+    // mensaje: «80-gr», «162-x», «2026-...».
+    const inventadas = pedidas.filter(
+      (t) => !t.includes(' ') && /^[a-z]{1,5}-?\d/.test(t) && !consulta.toLowerCase().includes(t)
+    );
+    if (inventadas.length) {
+      fallos++;
+      console.log(`MAL  ${consulta}\n       se inventó: ${inventadas.join(' ')}`);
+    } else {
+      console.log(`OK   ${consulta}`);
+    }
+  }
+
+  // Y la etiqueta entera del caso real: la referencia tiene que ir DELANTE del
+  // código interno, que no existe en la web.
+  pedidas = [];
+  await wc.buscarEnCatalogo(
+    'Cod.101012010, TONER LASER Compatible, Brother TN-243/247 (Negro), TN-247BK Compatible, 04090-91439-27102025',
+    6
+  );
+  const trajoLaBuena = pedidas.includes('tn-243/247') || pedidas.includes('tn-247');
+  if (!trajoLaBuena) fallos++;
+  console.log(
+    `${trajoLaBuena ? 'OK  ' : 'MAL '} la etiqueta del tóner, entera\n       pidió: ${pedidas
+      .map((t) => `"${t}"`)
+      .join(' ')}`
+  );
 
   console.log(
     fallos === 0

@@ -94,6 +94,8 @@ const {
   llamaPorSuNombreInfo,
   medidasSinRespaldo,
   prometeMirarloLuego,
+  condicionSinRespaldo,
+  sinDatoCondicion,
   confirmaLoQueNoHay,
   noConstaInfo,
   respuestaConEnlace,
@@ -105,12 +107,13 @@ const {
   pedidosInfo,
   pedidoEstadoTrigger,
   isPedidoEstadoQuestion,
+  esRespuestaDeEnvios,
 } = require('./whatsapp-agent-config');
 const woocommerce = require('./woocommerce-client');
 const gestion = require('./gestion-pedidos');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
 const { paraWhatsapp } = require('./whatsapp-formato');
-const { respuestaDeCatalogo, pareceUnaIncidencia } = require('./whatsapp-respuesta-catalogo');
+const { respuestaDeCatalogo, pareceUnaIncidencia, referenciaSinRespaldo } = require('./whatsapp-respuesta-catalogo');
 const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
 
 // EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
@@ -158,6 +161,7 @@ const {
   paraElPanel: lecturaParaElPanel,
   ultimaFotoDelHistorial,
   preguntaJustoAntesDeLaFoto,
+  pedidoEnLaLectura,
 } = require('./whatsapp-vision');
 const { responderAUnaFoto } = require('./whatsapp-foto-responder');
 
@@ -466,12 +470,42 @@ function negacionDeEntrega(history, text) {
   return NIEGA_LA_ENTREGA_RE.test(String(text || ''));
 }
 
+// UNA VERIFICACIÓN A MEDIAS NO SE PIERDE PORQUE EL BOT DIGA OTRA COSA.
+//
+// Esto miraba SOLO el último mensaje del bot, así que cualquier cosa que el
+// bot dijera en medio —los botones de «¿quieres hablar con una persona?», el
+// «un segundo, estoy consultando el catálogo»— borraba el flujo del pedido.
+//
+// Visto en real el 16/11/2026 (propietario: «aquí da la respuesta estándar
+// como si no hubiera encontrado el pedido, no entiendo qué está pasando»):
+//
+//   bot:     [botones de escalado]              ← esto mató el paso
+//   cliente: «Donataco»
+//   bot:     «El pedido #684824 no aparece a nombre de "Donataco"…»  ← LA IA
+//   cliente: «DONATACO SLU B38069928»
+//   bot:     «Un segundo, estoy consultando el catálogo»  ← en un hilo de pedido
+//
+// Y lo más sangrante: la comprobación habría dicho que SÍ. El pedido está a
+// nombre de «DONATACO SLU» y `nombreCoincide('Donataco', …)` da true. El dato
+// estaba, el flujo no.
+//
+// Ahora se mira un poco hacia atrás. La ventana es corta a propósito —tres
+// mensajes del bot— y se corta en seco si por el camino aparece una respuesta
+// de estado ya dada: eso significa que aquella verificación terminó y
+// resucitarla sería peor que perderla.
+const MENSAJES_QUE_AGUANTA_LA_VERIFICACION = 3;
+
 function detectarPasoPedido(history) {
-  const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
-  if (!ultimoBot) return null;
-  if (ultimoBot.content.startsWith(PEDIDO_MARCA_ESPERANDO_NUMERO)) return { paso: 'numero' };
-  const m = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(ultimoBot.content);
-  if (m) return { paso: 'nombre', orderId: m[1] };
+  const delBot = [...history].filter((m) => m.role === 'assistant').reverse();
+
+  for (const m of delBot.slice(0, MENSAJES_QUE_AGUANTA_LA_VERIFICACION)) {
+    const contenido = String(m.content || '');
+    // Una verificación que ya acabó (se contestó el estado) no se reabre.
+    if (contenido.startsWith(MARCA_PEDIDO_ENTREGADO) || contenido.startsWith(MARCA_PEDIDO_CONTESTADO)) return null;
+    if (contenido.startsWith(PEDIDO_MARCA_ESPERANDO_NUMERO)) return { paso: 'numero' };
+    const conNombre = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(contenido);
+    if (conNombre) return { paso: 'nombre', orderId: conNombre[1] };
+  }
   return null;
 }
 
@@ -486,6 +520,10 @@ function detectarPasoPedido(history) {
 // pedido, si el dato está caducado o si Supabase no contesta, se cae al estado
 // de WooCommerce de siempre — nunca se deja a un cliente sin respuesta.
 const MARCA_PEDIDO_ENTREGADO = '[PEDIDO:ENTREGADO]';
+// Se pone cuando el estado YA se le ha dado al cliente. Sirve para que una
+// verificación terminada no se reabra sola (ver detectarPasoPedido). Como las
+// demás marcas, solo va al historial: al cliente no se le manda.
+const MARCA_PEDIDO_CONTESTADO = '[PEDIDO:CONTESTADO]';
 
 async function respuestaDeEstado(order, idioma) {
   const porDefecto = { texto: woocommerce.formatOrderStatus(order, idioma), ofrecerPersona: false };
@@ -532,7 +570,7 @@ async function contestarElEstado(from, text, order, greeting, idioma) {
   const reply = greeting + texto;
   // La marca solo sirve para reconocer el turno siguiente: si el cliente
   // contesta que no lo ha recibido, eso no es una duda, es un problema.
-  await appendToHistory(from, text, `${entregado ? MARCA_PEDIDO_ENTREGADO : ''}${reply}`);
+  await appendToHistory(from, text, `${entregado ? MARCA_PEDIDO_ENTREGADO : MARCA_PEDIDO_CONTESTADO}${reply}`);
   await sendWhatsappMessage(from, reply);
 }
 
@@ -567,7 +605,11 @@ function mencionaUnPedidoConcreto(text) {
 
 async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es') {
   if (paso.paso === 'numero') {
-    const match = text.match(/\d{3,}/);
+    // `paso.orderId` es el número ya identificado por quien llama — hoy, el que
+    // venía dentro de una foto. Entonces `text` es lo que se archiva en el panel
+    // (la foto con su lectura debajo), no de donde se saca el número: ahí dentro
+    // hay fechas e importes y el primer `\d{3,}` sería cualquier cosa.
+    const match = paso.orderId ? [String(paso.orderId)] : text.match(/\d{3,}/);
     if (!match) return false; // no parece un número de pedido: se abandona el flujo, turno normal
 
     const orderId = match[0];
@@ -593,9 +635,17 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
         ? idioma === 'en'
           ? `${greeting}I can't check your order right now — our website isn't responding. That doesn't mean your order isn't there. `
           : `${greeting}Ahora mismo no puedo comprobar tu pedido: nuestra web no me contesta. Eso no quiere decir que tu pedido no esté. `
-        : idioma === 'en'
-          ? `${greeting}I can't find any order with the number ${orderId}. `
-          : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
+        // El número que viene de una foto lo ha leído una máquina, así que puede
+        // tener una cifra cambiada. Decirle «no existe el 677260» cuando a lo
+        // mejor es el 677280 es de las mentiras caras: se dice de dónde sale el
+        // número, que es lo único seguro.
+        : paso.orderId && paso.deFoto
+          ? idioma === 'en'
+            ? `${greeting}In the photo I read order number ${orderId}, and I can't find any order with that number — I may have read it wrong. `
+            : `${greeting}En la foto leo el pedido nº ${orderId} y no me aparece ninguno con ese número; puede que lo haya leído mal. `
+          : idioma === 'en'
+            ? `${greeting}I can't find any order with the number ${orderId}. `
+            : `${greeting}No encuentro ningún pedido con el número ${orderId}. `;
       await sendEscalateButtons(from, prefix, idioma);
       await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
       return true;
@@ -1024,6 +1074,31 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       }
     }
 
+    // SI LA FOTO ES SU PEDIDO, SE CONSULTA EL PEDIDO.
+    //
+    // Va delante de todo lo demás de la foto porque no hay nada que decidir: el
+    // cliente ha mandado la captura de su pedido, el número está leído, y lo que
+    // quiere saber es cómo va. Esperar a que escriba la pregunta no aporta nada,
+    // y la rama de abajo acabaría ofreciéndole una persona con el número
+    // delante (visto en real el 10/11/2026).
+    //
+    // El pie de foto manda igual que siempre: si lo que escribe con la foto ya
+    // tiene su propia respuesta fija ("¿me mandáis la factura del pedido?"),
+    // esto no se le adelanta — es la misma regla que en la rama de texto.
+    const pedidoDeLaFoto = lectura ? pedidoEnLaLectura(lectura) : null;
+    const faqDelPieDeFoto = pieDeFoto ? matchFaqRule(pieDeFoto) : null;
+    const pieMandaSobreElPedido = Boolean(faqDelPieDeFoto) && !isPedidoEstadoQuestion(faqDelPieDeFoto);
+    if (pedidoDeLaFoto && woocommerce.isConfigured() && !pieMandaSobreElPedido) {
+      const gestionado = await continuarBusquedaPedido(
+        message.from,
+        registro,
+        { paso: 'numero', orderId: pedidoDeLaFoto, deFoto: true },
+        presentacion,
+        idiomaFoto
+      );
+      if (gestionado) return;
+    }
+
     if (lectura?.buscar) {
       // LA FOTO ESPERA A SU PREGUNTA.
       //
@@ -1287,7 +1362,10 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // no era lo que había preguntado. Si una regla fija ya sabe qué contestar,
   // manda ella; el atajo solo entra cuando no hay nada mejor, o cuando la regla
   // que ha coincidido es justo la de "estado de mi pedido".
-  const faqMandaSobreElPedido = Boolean(faqReply) && !isPedidoEstadoQuestion(faqReply);
+  // La regla de envíos tampoco manda cuando el cliente trae su número: el
+  // plazo genérico no contesta «¿cuándo llega el MÍO?» (ver esRespuestaDeEnvios).
+  const faqMandaSobreElPedido =
+    Boolean(faqReply) && !isPedidoEstadoQuestion(faqReply) && !esRespuestaDeEnvios(faqReply);
   if (!pasoPedido && !faqMandaSobreElPedido && woocommerce.isConfigured() && mencionaUnPedidoConcreto(text)) {
     const gestionado = await continuarBusquedaPedido(message.from, text, { paso: 'numero' }, greeting, idioma);
     if (gestionado) return;
@@ -1737,6 +1815,25 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       || PRODUCTO_NO_VERIFICADO_INFO;
   }
 
+  // UNA CONDICIÓN DE VENTA QUE NO TENEMOS ESCRITA EN NINGÚN SITIO.
+  //
+  // Visto en real el 14/11/2026: el cliente preguntó «Hay pedido mínimo» y el
+  // bot contestó que sí, que algunos productos lo tienen, y después que «si
+  // ese bloc tiene pedido mínimo de varias cajas, no podríamos venderte solo
+  // una». En el bot no hay ni un dato de pedido mínimo: se lo inventó entero,
+  // y le dijo a un cliente que a lo mejor no podíamos venderle lo que pedía.
+  //
+  // Aquí no hay enlace que valga —esto no se resuelve con el catálogo—, así
+  // que se le dice lo único cierto y se le ofrece una persona. En cuanto haya
+  // una nota del panel con el dato real, la nota manda y esta red no salta.
+  if (condicionSinRespaldo(respuesta, buildAiSystemPrompt(unirContexto(contextoConsumibles, datosDeCatalogo), fichaCliente, notas, text))) {
+    const prefijo = `${greeting}${sinDatoCondicion(idioma)}`;
+    console.error('whatsapp: respuesta descartada (condición de venta sin ningún dato detrás).');
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
+  }
+
   const medidasInventadas = medidasSinRespaldo(respuesta, respaldoDeMedidas);
   if (medidasInventadas.length > 0 || prometeMirarloLuego(respuesta)) {
     const conEnlace = respuestaConEnlace(enlaceBusqueda, idioma);
@@ -1751,12 +1848,23 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     }
     // Sin enlace que dar (la búsqueda no encontró nada), no se improvisa: se
     // ofrece una persona, que es lo que de verdad resuelve.
-    await sendEscalateButtons(message.from, `${greeting}No quiero decirte una medida por otra. `, idioma);
-    await appendToHistory(
-      message.from,
-      text,
-      `${greeting}No quiero decirte una medida por otra. ${escalateQuestion(idioma)}`
-    );
+    //
+    // Y SE DICE LO QUE PASA, NO SIEMPRE LO DE LAS MEDIDAS (14/11/2026). Esta
+    // rama salta por dos motivos distintos y soltaba el mismo texto para los
+    // dos: a «¿se puede pagar con tarjeta?» se le contestaba «no quiero
+    // decirte una medida por otra», que no viene a cuento de nada. Salió al
+    // dejar de mandar enlaces de búsqueda que no eran del artículo — antes
+    // ese enlace tapaba el texto malo.
+    const porMedidas = medidasInventadas.length > 0;
+    const prefijo = porMedidas
+      ? idioma === 'en'
+        ? `${greeting}I don't want to give you the wrong size. `
+        : `${greeting}No quiero decirte una medida por otra. `
+      : idioma === 'en'
+        ? `${greeting}I'd rather not promise you something I can't confirm. `
+        : `${greeting}Prefiero no prometerte algo que no te puedo confirmar. `;
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
     return;
   }
 
@@ -1786,8 +1894,13 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // seguridad lo descartaba igualmente por no mirar si había datos de respaldo.
   // Sin datos de catálogo tampoco vale afirmar que algo está en stock: saber
   // qué cartucho lleva una impresora no es saber si nos queda.
+  //
+  // Y DESDE EL 11/11/2026, TAMPOCO CON UN CATÁLOGO QUE NO HABLA DE LO QUE PIDE.
+  // «Había resultados» era el único requisito, y con unos tóneres cualesquiera
+  // delante el bot afirmó tener el TN-247 que le pedían (ver
+  // referenciaSinRespaldo): tener resultados no es tener el resultado.
   if (
-    !datosDeCatalogo &&
+    (!datosDeCatalogo || referenciaSinRespaldo(text, datosDeCatalogo)) &&
     (isUnverifiedConfirmation(respuesta) || isUnverifiedStockClaim(respuesta) || seInventaUnPrecio(respuesta, datosDeCatalogo))
   ) {
     // Si sabemos de qué impresora habla, la respuesta segura conserva la

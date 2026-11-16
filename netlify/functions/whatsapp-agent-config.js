@@ -554,6 +554,24 @@ function isPedidoEstadoQuestion(text) {
   return text === PEDIDO_ESTADO_TRIGGER;
 }
 
+// EL PLAZO GENÉRICO NO CONTESTA «¿CUÁNDO LLEGA EL MÍO?».
+//
+// La regla de envíos cuenta los portes y los plazos de cada isla, y está bien
+// para «¿cuánto tardáis?». Pero cuando el cliente trae SU número de pedido
+// —«684824 donataco, quiero saber cuando entregan mi Pedido»— lo que quiere es
+// el estado de ESE pedido, no la tabla de plazos.
+//
+// Salió el 16/11/2026, y de rebote: al añadir «cuándo entregan» a las palabras
+// clave de envíos (para que esa pregunta no se fuera a la IA), la regla empezó
+// a comerse también los mensajes que traen número de pedido. Con número, manda
+// el pedido; sin número, manda la regla de envíos, como siempre.
+function esRespuestaDeEnvios(text) {
+  if (!text) return false;
+  return String(text).startsWith(ENVIOS_GENERAL_INTRO) || ISLAND_SHIPPING.some(
+    (isla) => String(text).startsWith(`A ${isla.name} el envío es gratis`)
+  );
+}
+
 // Las dos en inglés. El flujo de "estado de mi pedido" es el único camino de
 // reglas fijas que un cliente en inglés recorre entero (lo arranca la IA o el
 // atajo del número suelto, no una regla de FAQ), así que sus textos tienen que
@@ -815,7 +833,7 @@ const ARTICULOS = [
   'resma', 'resmas', 'bloc', 'blocs', 'cuaderno', 'cuadernos', 'libreta', 'libretas',
   'agenda', 'agendas', 'calendario', 'calendarios', 'planning', 'cuadriculado',
   // Archivo
-  'archivador', 'archivadores', 'carpeta', 'carpetas', 'subcarpeta', 'subcarpetas',
+  'archivador', 'archivadores', 'archivadora', 'archivadoras', 'carpeta', 'carpetas', 'subcarpeta', 'subcarpetas',
   'funda', 'fundas', 'clasificador', 'clasificadores', 'revistero', 'revisteros',
   'caja', 'cajas', 'cajonera', 'cajoneras', 'separador', 'separadores', 'portafolios',
   // Escritura
@@ -877,6 +895,42 @@ const RE_ARTICULOS = new RegExp(
 
 function nombraUnArticulo(texto) {
   return RE_ARTICULOS.test(sinAcentos(texto));
+}
+
+// UN ENVASE NO ES UN ARTÍCULO.
+//
+// «Caja» está en el vocabulario, y con razón: una caja archivadora es un
+// producto. Pero en «quiero una caja», «no sé cuántas pack viene en una caja»
+// o «cuántas cajas tengo que pedir», la caja es el ENVASE de lo que se pidió
+// antes, no lo que se pide.
+//
+// Visto en real el 14/11/2026 (propietario: «si analizas el link que pone no
+// tiene nada que ver con lo que el cliente pide»). El cliente pidió «una caja
+// de bloc de nota blanca A7 para el bar Bojangles» y, tres mensajes después,
+// el bot le mandó esto diciendo que eran «todos los blocs A7 que vendemos»:
+//
+//   ofipapel.net/?s=pack+viene+caja     ← de «No sé cuántas pack viene en una caja»
+//
+// Cada mensaje de seguimiento armaba su propia búsqueda con sus propias
+// palabras. «Hay pedido mínimo» llegó a dar «?s=pedido+minimo».
+//
+// Esta función dice si lo único «de producto» que hay en el mensaje es el
+// envase. Cuando es así, el mensaje NO trae artículo nuevo: habla del de
+// antes, y hay que mirar el hilo (ver consultaDelHilo en whatsapp-catalogo.js).
+const ENVASES = [
+  'caja', 'cajas', 'cajita', 'cajitas',
+  'pack', 'packs', 'paquete', 'paquetes',
+  'unidad', 'unidades', 'ud', 'uds',
+  'blister', 'bolsa', 'bolsas', 'bote', 'botes', 'juego', 'juegos', 'lote', 'lotes',
+];
+const RE_SOLO_ENVASE = new RegExp(`(?<![a-z0-9])(${ENVASES.join('|')})(?![a-z0-9])`, 'gi');
+
+function soloNombraEnvase(texto) {
+  const limpio = sinAcentos(String(texto || ''));
+  if (!RE_ARTICULOS.test(limpio)) return false;
+  // Se quitan los envases y se vuelve a mirar: si ya no queda ningún artículo,
+  // es que el envase era lo único que había.
+  return !RE_ARTICULOS.test(limpio.replace(RE_SOLO_ENVASE, ' '));
 }
 
 function isUnverifiedConfirmation(text) {
@@ -1112,6 +1166,55 @@ const MIRARLO_LUEGO_PATTERNS = [
   /\b(?:let\s+me\s+(?:check|confirm|ask)|i'?ll\s+(?:check|confirm|get\s+back|let\s+you\s+know)|i\s+will\s+check)\b/i,
 ];
 
+// CONDICIONES DE VENTA QUE NO TENEMOS ESCRITAS EN NINGÚN SITIO.
+//
+// Visto en real el 14/11/2026 (propietario: «no sé por qué dice que el pedido
+// mínimo son varias cajas, no sé de dónde saca eso»):
+//
+//   cliente: «Hay pedido mínimo»
+//   bot:     «Sí, algunos productos tienen pedido mínimo…»
+//   cliente: «Quiero una caja»
+//   bot:     «si ese bloc tiene pedido mínimo de varias cajas, no podríamos
+//             venderte solo una»
+//
+// En el bot NO HAY ni un solo dato de pedido mínimo: ni FAQ, ni nota, ni nada
+// que venga del catálogo. Se lo inventó entero, y encima con consecuencias —
+// le dijo a un cliente que a lo mejor no podíamos venderle lo que pedía.
+//
+// Es la misma familia que los precios, las medidas y el stock: una afirmación
+// sobre el negocio que no sale de ningún dato. La diferencia es que aquí no
+// hay nada con qué contrastarla, así que la regla es simple: si no hay una
+// nota del panel que hable de ello, el bot no opina.
+//
+// LO QUE DE VERDAD LO CIERRA es que el dato exista. En cuanto se escriba en
+// «Aprendizaje del bot» («el pedido mínimo es X», «no hay pedido mínimo»), esa
+// nota viaja en el prompt, manda sobre lo que la IA crea saber, y esta red
+// deja de saltar sola.
+const CONDICIONES_SIN_DATO = [
+  /\bpedidos?\s+m[ií]nimos?\b/i,
+  /\b(cantidad|compra|importe|unidades)\s+m[ií]nim[ao]s?\b/i,
+  /\bm[ií]nimo\s+de\s+(pedido|compra|unidades|cajas)\b/i,
+  /\bminimum\s+(order|purchase|quantity)\b/i,
+];
+
+// `datos` es todo lo que el bot tenía delante al contestar (catálogo, notas,
+// ficha del cliente): si el tema sale ahí, la IA puede hablar de ello.
+function condicionSinRespaldo(respuesta, datos = '') {
+  const t = String(respuesta || '');
+  if (!CONDICIONES_SIN_DATO.some((p) => p.test(t))) return false;
+  return !CONDICIONES_SIN_DATO.some((p) => p.test(String(datos || '')));
+}
+
+// Lo que se dice en su lugar: lo único cierto.
+const SIN_DATO_CONDICION =
+  'Eso no lo tengo yo: el pedido mínimo lo confirma el equipo. ';
+const SIN_DATO_CONDICION_EN =
+  "I don't have that here — the team confirms minimum orders. ";
+
+function sinDatoCondicion(idioma = 'es') {
+  return idioma === 'en' ? SIN_DATO_CONDICION_EN : SIN_DATO_CONDICION;
+}
+
 function prometeMirarloLuego(texto) {
   const t = String(texto || '');
   return MIRARLO_LUEGO_PATTERNS.some((p) => p.test(t));
@@ -1335,7 +1438,23 @@ const ISLAND_SHIPPING = [
     freeFrom: 20,
     feeBelow: 5,
     delivery: '24 a 48h',
-    cutoffNote: 'Si el pedido se hace antes de las 13:00h, se entrega al día siguiente (salvo imprevistos); si se hace después de esa hora, ya no entra en el reparto del día siguiente, sino en el del otro día. El reparto es de lunes a viernes (no hay reparto en sábado ni domingo), así que un pedido de fin de semana entra en el reparto del lunes.',
+    // OJO CON ESTE TEXTO: es la regla de reparto y la IA lo repite tal cual.
+    //
+    // Hasta el 16/11/2026 acababa diciendo «un pedido de fin de semana entra
+    // en el reparto del lunes», y eso es FALSO — lo confirmó el propietario:
+    // «un pedido que se hace el sábado no puede entrar en el reparto del
+    // lunes, y si se hace el viernes después de la 1 tampoco».
+    //
+    // Se contradecía con su propia frase anterior (después de las 13:00 entra
+    // «en el del otro día») y con `gestion-pedidos.js`, que lo calcula bien:
+    // sábado -> se factura el lunes -> se reparte el MARTES.
+    //
+    // Un cliente preguntó «lo hice el sábado, ¿cuándo lo entregan?» y se llevó
+    // «entró en el reparto del lunes». La IA no se lo inventó: lo leyó aquí.
+    // Por eso este texto y `diaDeFacturacion()` se comprueban juntos en
+    // scripts/probar-estado-pedido.js — si uno cambia, el otro tiene que ir
+    // detrás.
+    cutoffNote: 'El reparto es de lunes a viernes (en sábado y domingo no hay). Un pedido hecho antes de las 13:00h de un día laborable entra en el reparto del día siguiente; a partir de esa hora entra en el del otro día. Por eso un pedido del viernes por la tarde, del sábado o del domingo NO entra en el reparto del lunes: se prepara el lunes y se reparte el martes.',
   },
   { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
@@ -1371,6 +1490,29 @@ function enviosReply(normalizedText) {
     return 'No, solo hacemos envíos dentro de las Islas Canarias — no enviamos a Península ni al extranjero.';
   }
   return `${ENVIOS_GENERAL_INTRO} El envío gratis y el plazo cambian según la isla — ¿a cuál te refieres? Así te doy el dato exacto.`;
+}
+
+// ¿HAY PEDIDO MÍNIMO? NO (dato del propietario, 16/11/2026).
+//
+// «El pedido mínimo para envío son 20 euros y si no llega tiene un gasto de
+// 5 euros de transporte.» Es decir: NO hay pedido mínimo para comprar — se
+// puede pedir una unidad — lo que hay es un mínimo para que el envío salga
+// gratis.
+//
+// Hacía falta decirlo porque el dato estaba a medias: los 20 € y los 5 €
+// ya vivían en `ISLAND_SHIPPING`, pero en ningún sitio ponía que no hay
+// pedido mínimo, que es justo lo que preguntó el cliente. Sin esa frase, la
+// IA contestó que sí lo había y que a lo mejor no podíamos venderle una sola
+// caja (14/11/2026). Ver `condicionSinRespaldo`.
+//
+// El importe sale de ISLAND_SHIPPING, no escrito a mano: si cambia el umbral,
+// cambia esta respuesta sola.
+function pedidoMinimoReply(normalizedText) {
+  const isla = findIslandInText(normalizedText) || ISLAND_SHIPPING.find((i) => i.name === 'Tenerife');
+  const otras = isla.name === 'Tenerife'
+    ? ' En las demás islas el importe del envío gratis es otro — dime a cuál te refieres y te lo digo exacto.'
+    : '';
+  return `No hay pedido mínimo: puedes pedir lo que necesites, aunque sea una unidad. Lo que tiene mínimo es el ENVÍO GRATIS: a ${isla.name}, a partir de ${isla.freeFrom}€ no pagas transporte, y por debajo se cobran ${isla.feeBelow}€.${otras}`;
 }
 
 // Versión completa (todas las islas), para el contexto de la IA.
@@ -1872,6 +2014,19 @@ const FAQ_RULES = [
     reply: PAGO_INFO,
   },
   {
+    // Va DELANTE de la de envíos: «¿hay pedido mínimo?» lleva la palabra
+    // «pedido» y acabaría en la de estado del pedido o en la de portes, y la
+    // pregunta es otra. Sin regla propia la contestaba la IA, y se la inventó.
+    keywords: [
+      'pedido minimo', 'pedido mínimo', 'pedidos minimos', 'pedidos mínimos',
+      'minimo de pedido', 'mínimo de pedido', 'minimo de compra', 'mínimo de compra',
+      'compra minima', 'compra mínima', 'cantidad minima', 'cantidad mínima',
+      'importe minimo', 'importe mínimo', 'hay minimo', 'hay mínimo',
+      'algun minimo', 'algún mínimo', 'minimum order', 'minimum purchase',
+    ],
+    reply: pedidoMinimoReply,
+  },
+  {
     // "portes" (bare) colisionaba con "transportes" (p. ej. "Transportes Noda",
     // una empresa de transporte) — se cambia por frases específicas de gastos de envío.
     // De contexto: todo lo que contesta esta regla está también en el prompt de
@@ -1892,7 +2047,11 @@ const FAQ_RULES = [
       'cuanto tiempo tarda', 'cuánto tiempo tarda', 'cuanto tiempo llega',
       'en entregarlo', 'en entregarla', 'en entregarmelo', 'en entregármelo',
       'en entregar', 'en llegar', 'tarda en llegar', 'tardan en llegar',
-      'plazo de reparto', 'tiempo de entrega', 'plazos de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso'],
+      'plazo de reparto', 'tiempo de entrega', 'plazos de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso',
+      // «Lo hice el sábado, ¿cuándo LO ENTREGAN?» no casaba con ninguna y se fue
+      // a la IA, que contestó con la regla de reparto mal escrita (16/11/2026).
+      'lo entregan', 'la entregan', 'me lo entregan', 'cuando lo entregan', 'cuándo lo entregan',
+      'cuando entregan', 'cuándo entregan', 'dia de reparto', 'día de reparto', 'entra en el reparto'],
     reply: enviosReply,
   },
   {
@@ -2122,6 +2281,8 @@ module.exports = {
   medidasDe,
   medidasSinRespaldo,
   prometeMirarloLuego,
+  condicionSinRespaldo,
+  sinDatoCondicion,
   confirmaLoQueNoHay,
   afirmaTenerAlgo,
   noConstaInfo,
@@ -2137,6 +2298,7 @@ module.exports = {
   pedidosInfo,
   pedidoEstadoTrigger,
   isPedidoEstadoQuestion,
+  esRespuestaDeEnvios,
   PRESUPUESTO_ESCOLAR_INFO,
   FACTURA_INFO,
   isPresupuestoEscolar,
@@ -2144,5 +2306,7 @@ module.exports = {
   palabrasPropias,
   nombraAlgoConcreto,
   nombraUnArticulo,
+  ISLAND_SHIPPING,
+  soloNombraEnvase,
   buildAiSystemPrompt,
 };

@@ -28,6 +28,8 @@ const {
 const { paraWhatsapp } = require('../netlify/functions/whatsapp-formato');
 const { matchFaqRule } = require('../netlify/functions/whatsapp-agent-core');
 const { respuestaDeCatalogo } = require('../netlify/functions/whatsapp-respuesta-catalogo');
+const { urlDeBusqueda } = require('../netlify/functions/woocommerce-client');
+const { soloNombraEnvase, condicionSinRespaldo } = require('../netlify/functions/whatsapp-agent-config');
 
 let fallos = 0;
 const bien = (t) => console.log(`  OK   ${t}`);
@@ -288,6 +290,78 @@ console.log('\n=== 8. Los dos de la mañana del 10/11/2026');
     const repite = t && t.includes(f.slice(0, 25));
     comprobar(!repite, `no le repite su mensaje: «${f.slice(0, 38)}…»`);
   }
+}
+
+console.log('\n=== 9. El pedido del bar Bojangles (14/11/2026)');
+{
+  // El cliente pidió «una caja de bloc de nota blanca A7 para el bar
+  // Bojangles Los Cristianos» y, tres mensajes después, el bot le mandó esto
+  // diciendo que eran «todos los blocs A7 que vendemos»:
+  //
+  //   ofipapel.net/?s=pack+viene+caja
+  //
+  // Cada mensaje de seguimiento armaba su propia búsqueda con sus propias
+  // palabras. El enlace se ve y se pulsa: uno que no devuelve nada es tan
+  // malo como un precio inventado (propietario: «si analizas el link que pone
+  // no tiene nada que ver con lo que el cliente pide»).
+  const HILO = 'Buenas tardes Quería pedir una caja de bloc de nota blanca A7 para el bar Bojangles Los Cristianos';
+
+  // Un envase NO es el artículo: estos mensajes hablan del bloc de antes.
+  for (const seguimiento of [
+    'No sé cuántas pack viene en una caja',
+    'Quiero una caja',
+    'Cuantas cajas tengo que pedir',
+  ]) {
+    comprobar(soloNombraEnvase(seguimiento), `es seguimiento, no artículo nuevo: «${seguimiento}»`);
+  }
+  comprobar(!soloNombraEnvase(HILO), 'el mensaje del cliente SÍ trae artículo («bloc»)');
+  comprobar(!soloNombraEnvase('cajas de cartón para mudanza'), 'NO salta: unas cajas de cartón sí son el artículo');
+  comprobar(!nombraUnArticulo('Hay pedido mínimo'), '«hay pedido mínimo» no nombra ningún artículo');
+
+  // Y el enlace que sale del hilo lleva el artículo Y la medida, sin el envase.
+  const enlace = urlDeBusqueda(HILO);
+  comprobar(/[?&]s=[^&]*bloc/.test(enlace), `el enlace lleva «bloc»: ${enlace}`);
+  comprobar(/[?&]s=[^&]*a7/.test(enlace), 'el enlace lleva la medida «a7», que es lo que distingue un bloc de otro');
+  comprobar(!/[?&]s=[^&]*caja/.test(enlace), 'y NO lleva «caja», que es el envase');
+  comprobar(!/pack|viene|bojangles|cristianos|bar/.test(enlace), 'ni el resto del mensaje');
+}
+
+console.log('\n=== 10. El pedido mínimo que nadie ha escrito en ninguna parte');
+{
+  // «No sé por qué dice que el pedido mínimo son varias cajas, no sé de dónde
+  // saca eso» (propietario). Y tiene razón: en el bot no hay ni un dato de
+  // pedido mínimo. La IA se lo inventó, y le dijo a un cliente que a lo mejor
+  // no podíamos venderle lo que pedía.
+  const inventadas = [
+    'Sí, algunos productos tienen pedido mínimo. ¿Cuántas cajas necesitarías?',
+    'si ese bloc tiene pedido mínimo de varias cajas, no podríamos venderte solo una',
+    'El pedido mínimo depende del modelo concreto de bloc',
+    'Hay una cantidad mínima de 5 unidades',
+    'There is a minimum order for that item',
+  ];
+  for (const r of inventadas) comprobar(condicionSinRespaldo(r, ''), `se frena: «${r.slice(0, 44)}…»`);
+
+  // Pero en cuanto el dato EXISTE —una nota del panel—, la nota manda y esta
+  // red no estorba. Es lo que de verdad cierra esto.
+  comprobar(
+    !condicionSinRespaldo('El pedido mínimo es de 50 €', 'NOTA DEL PANEL: el pedido mínimo es de 50 € sin IGIC'),
+    'con una nota del panel que lo diga, el bot sí puede contestarlo'
+  );
+  comprobar(!condicionSinRespaldo('El bloc A7 cuesta 1,20 € + IGIC', ''), 'NO salta: una respuesta de precio normal');
+
+  // Y DESDE EL 16/11/2026 EL DATO EXISTE, que es lo que de verdad cierra esto.
+  // «El pedido mínimo para envío son 20 euros y si no llega tiene un gasto de
+  // 5 euros de transporte» (propietario). O sea: NO hay pedido mínimo para
+  // comprar; lo que tiene mínimo es el envío gratis. Ahora lo contesta una
+  // regla fija y la IA ni entra.
+  const respuesta = matchFaqRule('Hay pedido mínimo');
+  comprobar(Boolean(respuesta), 'ahora hay una regla fija que lo contesta');
+  comprobar(/no hay pedido m[ií]nimo/i.test(respuesta || ''), 'y dice lo que es: que NO hay');
+  comprobar(/20\s*€/.test(respuesta || '') && /5\s*€/.test(respuesta || ''), 'con los 20 € y los 5 € reales');
+  comprobar(
+    Boolean(matchFaqRule('hay algún mínimo de compra?')),
+    'también preguntado de otra forma'
+  );
 }
 
 if (fallos > 0) {

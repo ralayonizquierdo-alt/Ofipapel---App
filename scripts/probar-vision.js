@@ -194,6 +194,40 @@ comprobar('sin marca de tiempo no se arriesga', () => {
   assert.strictEqual(preguntaJustoAntesDeLaFoto([{ role: 'user', content: 'algo' }]), '');
 });
 
+// EL NÚMERO DE PEDIDO QUE VIENE DENTRO DE LA FOTO (10/11/2026).
+//
+// Caso real: el cliente mandó la captura de su pedido preguntando por él y se
+// llevó «he visto la foto, pero no te puedo confirmar desde aquí» con el número
+// delante. Lo que se comprueba aquí es lo de siempre en las dos direcciones: que
+// el número se saca cuando está, y que NO se saca de una foto que no habla de
+// un pedido — contarle a alguien el estado de un pedido que no es el suyo sería
+// mucho peor que no haberlo mirado.
+console.log('\n=== El número de pedido que viene en la foto\n');
+
+for (const [etiqueta, lectura, esperado] of [
+  [
+    'la captura del cliente, tal cual llegó',
+    { seVe: 'captura de pantalla de una confirmación de pedido', textoLeido: '[Pedido #677260] (06/11/2026)' },
+    '677260',
+  ],
+  ['con «nº» en medio', { seVe: 'captura', textoLeido: 'Pedido nº 674885 — En preparación' }, '674885'],
+  ['con la palabra pegada al número', { seVe: 'documento', textoLeido: 'PEDIDO 658818 LEMON TREE' }, '658818'],
+  ['en inglés', { seVe: 'screenshot', textoLeido: 'Order #677260 confirmed' }, '677260'],
+  ['con la errata de siempre', { seVe: 'captura', textoLeido: 'pdido #637491 enviado' }, '637491'],
+  // Dice «pedido» y el número va suelto, pero es el único que puede serlo.
+  ['el número suelto, si es el único', { seVe: 'captura de un pedido', textoLeido: 'Gracias por tu compra 677301' }, '677301'],
+  // Y AQUÍ ES DONDE NO SE ADIVINA:
+  ['sin la palabra pedido no se arriesga', { seVe: 'caja de folios', textoLeido: 'MATTIO A4 80g 500h 123456' }, null],
+  ['una fecha no es un número de pedido', { seVe: 'captura de un pedido', textoLeido: 'Pedido de 06/11/2026' }, null],
+  ['un EAN no es un número de pedido', { seVe: 'código de barras de un pedido', textoLeido: '8412345678901' }, null],
+  ['con dos números sueltos no se adivina', { seVe: 'captura de un pedido', textoLeido: 'pedido 677260 por 123456' }, '677260'],
+  ['nada legible', { seVe: 'cartucho de tinta', textoLeido: '' }, null],
+]) {
+  comprobar(etiqueta, () => {
+    assert.strictEqual(vision.pedidoEnLaLectura(lectura), esperado);
+  });
+}
+
 console.log('\n=== "No me llega la foto" cuando sí llegó\n');
 
 // Las frases son las de la conversación real del 19/10/2026, copiadas tal cual.

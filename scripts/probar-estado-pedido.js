@@ -232,6 +232,58 @@ comprobar('en inglés también, y escrito a mano', () => {
 // WooCommerce de siempre. Aquí lo delicado no es el plazo: es el dinero.
 // ---------------------------------------------------------------------------
 
+// ———————————————————————————————————————————————————————————————
+// LA REGLA DE REPARTO, ESCRITA EN DOS SITIOS, TIENE QUE DECIR LO MISMO.
+//
+// Visto en real el 16/11/2026 (propietario: «un pedido que se hace el sábado
+// no puede entrar en el reparto del lunes, y si se hace el viernes después de
+// la 1 tampoco»):
+//
+//   cliente: «Lo hice el sábado, ¿cuándo lo entregan?»
+//   bot:     «Si lo hiciste el sábado, entró en el reparto del lunes.»
+//
+// La IA NO se lo inventó: lo leyó de nuestro propio texto de envíos, que
+// acababa diciendo «un pedido de fin de semana entra en el reparto del lunes»
+// — contradiciendo a `gestion-pedidos.js`, que lo calcula bien, y a su propia
+// frase anterior.
+//
+// Por eso se comprueban LOS DOS JUNTOS: la cuenta y lo que se le dice al
+// cliente. Que uno de los dos cambie y el otro no es exactamente lo que pasó.
+console.log('\n=== Sábado y viernes tarde: el reparto es el martes\n');
+
+{
+  const { ISLAND_SHIPPING } = require(path.join(RAIZ, 'netlify/functions/whatsapp-agent-config.js'));
+  const SABADO = '2026-11-14T12:00:00+00:00';
+  const VIERNES_TARDE = '2026-11-13T14:00:00+00:00';
+  const VIERNES_MANANA = '2026-11-13T12:00:00+00:00';
+  const reparto = (f) => gestion.siguienteLaborable(gestion.diaDeFacturacion(f));
+
+  comprobar('un pedido del SÁBADO se reparte el martes, no el lunes', () => {
+    assert.strictEqual(gestion.diaDeFacturacion(SABADO), '2026-11-16'); // lunes
+    assert.strictEqual(reparto(SABADO), '2026-11-17');                  // martes
+  });
+  comprobar('el VIERNES después de las 13:00, también el martes', () => {
+    assert.strictEqual(reparto(VIERNES_TARDE), '2026-11-17');
+  });
+  comprobar('el VIERNES antes de las 13:00 sí llega al lunes', () => {
+    assert.strictEqual(reparto(VIERNES_MANANA), '2026-11-16');
+  });
+
+  // Y lo que se le DICE al cliente tiene que ser eso mismo.
+  const tenerife = ISLAND_SHIPPING.find((i) => i.name === 'Tenerife');
+  comprobar('el texto de envíos no promete el reparto del lunes', () => {
+    assert.ok(tenerife.cutoffNote, 'Tenerife se quedó sin nota de corte');
+    assert.ok(
+      !/fin de semana entra en el reparto del lunes/i.test(tenerife.cutoffNote),
+      `el texto sigue diciendo lo que no es: ${tenerife.cutoffNote}`
+    );
+    assert.ok(
+      /no entra en el reparto del lunes/i.test(tenerife.cutoffNote),
+      'el texto tiene que decir expresamente que NO entra en el del lunes'
+    );
+  });
+}
+
 console.log('\n=== El pago: de quién se habla y de quién no\n');
 
 const wc = require(path.join(RAIZ, 'netlify/functions/woocommerce-client.js'));
@@ -329,6 +381,20 @@ Module.prototype.require = function (p) {
           : { order: null, motivo: m.MOTIVO.NO_EXISTE },
     };
   }
+  // La foto no se lee de verdad (eso lo prueba probar-vision.js): aquí lo que
+  // se mira es qué hace el webhook con lo que la lectura devuelve. El resto del
+  // módulo es el de verdad, `pedidoEnLaLectura` incluida.
+  if (p === './whatsapp-vision') {
+    return { ...m, leerFoto: async () => escenario.lecturaDeLaFoto || null };
+  }
+  if (p === './whatsapp-media') {
+    return {
+      ...m,
+      guardarAdjuntoDeCliente: async (ev_, from, mediaId) => ({
+        mediaId, tipo: 'image/jpeg', bytes: 1234, buffer: Buffer.from([0]),
+      }),
+    };
+  }
   if (p === './whatsapp-agent-core') {
     return {
       ...m,
@@ -361,9 +427,13 @@ global.fetch = async (url, opts) => {
   return { ok: true, status: 200, json: async () => ({}), text: async () => '{}' };
 };
 
-const ev = (texto, desde = '34600777222') => {
+// `mensaje` es el texto del cliente o, para una foto, {type:'image', ...}.
+const ev = (mensaje, desde = '34600777222') => {
+  const contenido = typeof mensaje === 'string'
+    ? { type: 'text', text: { body: mensaje } }
+    : mensaje;
   const body = JSON.stringify({ entry: [{ changes: [{ value: {
-    messages: [{ from: desde, id: `wamid.${Math.random()}`, type: 'text', text: { body: texto } }],
+    messages: [{ from: desde, id: `wamid.${Math.random()}`, ...contenido }],
     contacts: [{ profile: { name: 'Cliente' } }],
   } }] }] });
   return { httpMethod: 'POST', headers: { 'x-hub-signature-256': `sha256=${crypto.createHmac('sha256', SECRETO).update(Buffer.from(body, 'utf8')).digest('hex')}` }, body };
@@ -501,6 +571,153 @@ async function caso(etiqueta, mensaje, revisar, desde) {
     assert.ok(/no encuentro ning[úu]n pedido|can't find any order/i.test(texto('botones')),
       'aquí sí toca decírselo');
   });
+
+  // EL PEDIDO LLEGA EN UNA FOTO (10/11/2026).
+  //
+  // Caso real del propietario: el cliente mandó la captura de su pedido
+  // —«[Pedido #677260] (06/11/2026)»— preguntando por él, y se llevó «he visto
+  // la foto, pero no te puedo confirmar desde aquí» con los botones de hablar
+  // con una persona. La foto se había leído bien y el número estaba dentro.
+  //
+  // Es el mismo razonamiento que con la nota de voz: lo que sale de la foto son
+  // palabras, y tienen que entrar por el camino de siempre.
+  const capturaDelPedido = (caption) => ({
+    type: 'image',
+    image: { id: 'media-1', ...(caption ? { caption } : {}) },
+  });
+
+  escenario.lecturaDeLaFoto = {
+    seVe: 'captura de pantalla de una confirmación de pedido',
+    textoLeido: `[Pedido #${escenario.pedido.id}] (06/11/2026)`,
+    buscar: false,
+  };
+
+  await caso('La captura de su pedido, sin escribir nada', capturaDelPedido(), () => {
+    assert.deepStrictEqual(consultasAGestion, [String(escenario.pedido.id)],
+      'no consultó el pedido que venía leído en la foto');
+    assert.ok(texto('respuesta').includes(String(escenario.pedido.id)),
+      `le contestó otra cosa: ${texto('respuesta')}`);
+    assert.ok(!tiene('botones'), 'le ofreció una persona teniendo el estado delante');
+  });
+
+  // Con pie de foto es lo mismo: la pregunta es justo esa.
+  await caso('La captura y «cómo va mi pedido?»', capturaDelPedido('cómo va mi pedido?'), () => {
+    assert.deepStrictEqual(consultasAGestion, [String(escenario.pedido.id)], 'no lo consultó');
+    assert.ok(texto('respuesta').includes(String(escenario.pedido.id)), texto('respuesta'));
+  });
+
+  // LO QUE NO PUEDE FALLAR, OTRA VEZ: el número sale de la foto, pero la
+  // identidad se sigue comprobando contra WooCommerce. Desde otro teléfono se
+  // le pide el nombre y NO se le dice el estado de nadie.
+  await caso('La misma captura, pero desde otro teléfono', capturaDelPedido(), () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'consultó el estado sin haber verificado nada');
+    assert.ok(/nombre comercial/i.test(texto('respuesta')), 'tenía que pedir el nombre');
+  }, '34600111000');
+
+  // Y si el número leído no existe, no se le dice «ese pedido no consta»: lo
+  // ha leído una máquina y puede tener una cifra cambiada.
+  escenario.lecturaDeLaFoto = {
+    seVe: 'captura de un pedido', textoLeido: 'Pedido #999999', buscar: false,
+  };
+  await caso('El número leído en la foto no existe', capturaDelPedido(), () => {
+    const dicho = texto('botones') + texto('respuesta');
+    assert.ok(/le[íi]do mal|read it wrong/i.test(dicho),
+      `tiene que decir que puede haber leído mal el número: ${dicho}`);
+    assert.ok(tiene('botones'), 'y ofrecerle una persona');
+  });
+
+  // Y una foto que no habla de ningún pedido sigue su camino de siempre: no se
+  // consulta nada.
+  escenario.lecturaDeLaFoto = {
+    seVe: 'caja de folios A4', textoLeido: 'MATTIO A4 80g', buscar: true,
+  };
+  await caso('Una foto de un producto no consulta pedidos', capturaDelPedido(), () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'se puso a consultar pedidos por una foto de folios');
+  });
+  escenario.lecturaDeLaFoto = null;
+
+  // EL NOMBRE QUE YA VENÍA EN EL PRIMER MENSAJE (16/11/2026).
+  //
+  // Esto es el ORIGEN de todo el enredo del pedido #684824:
+  //
+  //   cliente: «684824 donataco,...quiero saber cuando entregan mi Pedido»
+  //   bot:     «Para confirmar que el pedido es tuyo, dime el nombre comercial…»
+  //   cliente: «Te lo acabo de decir»
+  //
+  // Y tenía razón. El pedido es de «DONATACO SLU» y en su mensaje ponía
+  // «donataco»; lo que fallaba era comparar la cadena entera, que la coma y el
+  // resto de la frase rompen. A partir de ahí se cerró la verificación, la IA
+  // cogió el hilo y la conversación se torció entera.
+  escenario.pedido = {
+    id: 684824, status: 'processing', total: '171.68', date_created: '2026-11-12T09:00:00',
+    date_paid: '2026-11-12T09:00:00',
+    billing: { phone: '+34600111999', first_name: '', last_name: '', company: 'DONATACO SLU' },
+  };
+  escenario.fila = null;
+  escenario.historial = [];
+
+  await caso(
+    'el nombre viene junto al número, en la misma frase',
+    '684824 donataco,...quiero saber cuando entregan mi Pedido',
+    () => {
+      assert.ok(
+        !/nombre comercial/i.test(texto('respuesta')),
+        'le pidió el nombre que acababa de darle'
+      );
+      assert.ok(texto('respuesta').includes('684824'), 'tenía que contestar el estado a la primera');
+      assert.ok(/171[.,]68/.test(texto('respuesta')), 'con su total real');
+    }
+  );
+
+  // Y lo que NO puede pasar: que valga cualquier cosa. La verificación sigue
+  // siendo una verificación.
+  await caso('una frase sin el nombre no vale', 'Te lo acabo de decir', () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'dio el estado sin que el nombre coincidiera');
+  }, '34600111000');
+
+  // LA VERIFICACIÓN NO SE PIERDE PORQUE EL BOT DIGA OTRA COSA (16/11/2026).
+  //
+  // Caso real (propietario: «aquí da la respuesta estándar como si no hubiera
+  // encontrado el pedido, no entiendo qué está pasando»). El bot había pedido
+  // el nombre del pedido #684824, pero entre medias mandó los botones de
+  // escalado — y eso borraba el paso, porque solo se miraba el ÚLTIMO mensaje
+  // del bot. A partir de ahí la IA llevó la conversación («el pedido no
+  // aparece a nombre de Donataco…», texto que no existe en el código) y el
+  // siguiente mensaje del cliente se fue a buscar al CATÁLOGO.
+  //
+  // Lo más sangrante: la comprobación habría dicho que sí. El pedido está a
+  // nombre de «DONATACO SLU» y el cliente escribió «Donataco».
+  escenario.pedido = {
+    id: 684824, status: 'processing', total: '171.68', date_created: '2026-11-12T09:00:00',
+    date_paid: '2026-11-12T09:00:00',
+    billing: { phone: '+34600111999', first_name: '', last_name: '', company: 'DONATACO SLU' },
+  };
+  escenario.fila = null;
+
+  escenario.historial = [
+    { role: 'user', content: 'estado de mi pedido 684824' },
+    { role: 'assistant', content: '[PEDIDO:ESPERANDO_NOMBRE:684824]Para confirmar que el pedido es tuyo, dime el nombre comercial.' },
+    // El bot dice otra cosa en medio: ESTO es lo que mataba el flujo.
+    { role: 'assistant', content: '[Se ofreció escalar a una persona] ¿Quieres que te pongamos en contacto?' },
+  ];
+  await caso('«Donataco» después de los botones de escalado', 'Donataco', () => {
+    assert.ok(
+      texto('respuesta').includes('684824'),
+      `se perdió la verificación y no contestó el pedido: ${texto('respuesta') || texto('botones')}`
+    );
+    assert.ok(/171[.,]68/.test(texto('respuesta')), 'tiene que dar el total real del pedido');
+  });
+
+  // Y una verificación YA TERMINADA no se reabre: si el estado se contestó, el
+  // siguiente mensaje del cliente es otra cosa.
+  escenario.historial = [
+    { role: 'assistant', content: '[PEDIDO:ESPERANDO_NOMBRE:684824]Dime el nombre comercial.' },
+    { role: 'assistant', content: '[PEDIDO:CONTESTADO]El pedido #684824 está pagado y en preparación.' },
+  ];
+  await caso('una verificación ya contestada no se reabre', 'gracias, otra cosa: ¿tenéis folios?', () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'volvió a consultar el pedido cuando ya estaba contestado');
+  });
+  escenario.historial = [];
 
   console.log(fallos === 0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);

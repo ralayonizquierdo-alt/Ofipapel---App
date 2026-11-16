@@ -1,4 +1,4 @@
-39
+40
 # Cuántos avisos da hoy el sondeo (`node scripts/sondeo-bot.js`) sobre sus 220
 # respuestas — la primera línea es el número y es lo único que lee el CI.
 #
@@ -17,3 +17,14 @@
 # esos dos días, arreglar dos fallos del propio simulador y estrenar el detector
 # de «enlace con relleno» (que encontró 6 enlaces de búsqueda con basura dentro:
 # «?s=cuanto+vale+papel+a4»).
+#
+# 16/11/2026: sube de 39 a 40, y SUBE PORQUE SE ARREGLÓ ALGO. Al frenar las
+# condiciones de venta inventadas (el «pedido mínimo» que la IA se sacó de la
+# manga el 14/11) y al dejar de mandar enlaces de búsqueda que no son del
+# artículo, varias mentiras de la IA simulada que antes pasaban ahora acaban
+# en el escalado — que es la respuesta correcta. El detector MISMA RESPUESTA
+# se queja de que ese texto se repite, y por eso el contador sube. Comprobado
+# una a una: las 19 líneas que cambian son todas de ese detector y ninguna es
+# un aviso nuevo de otra clase. De paso desaparecieron las 7 respuestas que
+# decían «no quiero decirte una medida por otra» a preguntas que no iban de
+# medidas (a «¿se puede pagar con tarjeta?», por ejemplo).
