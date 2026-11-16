@@ -23,14 +23,19 @@ import type { OfferPrice, PriceEntry } from '../types'
 /** Las noches que se comparan: siempre una semana. */
 export const NOCHES_BOOKING = 7
 
-/** Cómo llama Booking a cada apartamento (fijado por Luis con las fotos, 13/11/2026). */
+/**
+ * Cómo llama Booking a cada apartamento. Los fijó Luis con las fotos el
+ * 13/11/2026 y la agencia los cambió el 16/11: desde entonces los dos estudios
+ * se llaman igual, y el 203 y el 204 también, así que en Booking no se
+ * distinguen (sí por precio: el mismo para los dos de cada pareja).
+ */
 export const TIPO_BOOKING: Record<string, string> = {
-  '104': 'Estudio 35 m²',
-  '105': 'Estudio con balcón 35 m²',
+  '104': 'Estudio con terraza 35 m²',
+  '105': 'Estudio con terraza 35 m²',
   '106': 'Apartamento con balcón 50 m²',
-  '203': 'Apartamento Superior 65 m²',
-  '204': 'Apartamento de 2 dormitorios 65 m²',
-  '402': 'Apartamento Superior 70 m²',
+  '203': 'Apartamento de 2 dormitorios con terraza 65 m²',
+  '204': 'Apartamento de 2 dormitorios con terraza 65 m²',
+  '402': 'Ático 70 m²',
 }
 
 /** Los que están en Booking, en el orden de la casa. El Piso 3 y el Arenal no. */

@@ -13,11 +13,12 @@ import { num } from '../lib/formato'
 const ANUNCIO = 'https://www.booking.com/hotel/es/apartments-av-suecia.es.html'
 
 /**
- * Hasta que la agencia conteste si el precio de Booking lleva limpieza e IGIC
- * (preguntado el 16/11/2026), la diferencia se lee con cuidado. Cuando se
- * sepa, se cambia este texto o se quita.
+ * Booking pone bajo cada precio «Incluye impuestos y cargos» (visto el
+ * 16/11/2026): el IGIC va dentro. Si la limpieza también, aún no se sabe.
+ * Cuando se sepa, se cambia este texto o se quita.
  */
-const AVISO_SIN_SABER = 'Aún no sabemos si el precio de Booking lleva la limpieza y el IGIC: la diferencia es orientativa.'
+const AVISO_SIN_SABER = 'Booking dice que su precio «incluye impuestos y cargos»: el IGIC (7 %) va dentro y en lo nuestro no. '
+  + 'Falta saber si también lleva la limpieza.'
 
 /** «+235 € (+26,6 %)». */
 function diferencia(booking: number, nuestro: number) {
