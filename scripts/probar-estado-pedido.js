@@ -232,6 +232,58 @@ comprobar('en inglés también, y escrito a mano', () => {
 // WooCommerce de siempre. Aquí lo delicado no es el plazo: es el dinero.
 // ---------------------------------------------------------------------------
 
+// ———————————————————————————————————————————————————————————————
+// LA REGLA DE REPARTO, ESCRITA EN DOS SITIOS, TIENE QUE DECIR LO MISMO.
+//
+// Visto en real el 16/11/2026 (propietario: «un pedido que se hace el sábado
+// no puede entrar en el reparto del lunes, y si se hace el viernes después de
+// la 1 tampoco»):
+//
+//   cliente: «Lo hice el sábado, ¿cuándo lo entregan?»
+//   bot:     «Si lo hiciste el sábado, entró en el reparto del lunes.»
+//
+// La IA NO se lo inventó: lo leyó de nuestro propio texto de envíos, que
+// acababa diciendo «un pedido de fin de semana entra en el reparto del lunes»
+// — contradiciendo a `gestion-pedidos.js`, que lo calcula bien, y a su propia
+// frase anterior.
+//
+// Por eso se comprueban LOS DOS JUNTOS: la cuenta y lo que se le dice al
+// cliente. Que uno de los dos cambie y el otro no es exactamente lo que pasó.
+console.log('\n=== Sábado y viernes tarde: el reparto es el martes\n');
+
+{
+  const { ISLAND_SHIPPING } = require(path.join(RAIZ, 'netlify/functions/whatsapp-agent-config.js'));
+  const SABADO = '2026-11-14T12:00:00+00:00';
+  const VIERNES_TARDE = '2026-11-13T14:00:00+00:00';
+  const VIERNES_MANANA = '2026-11-13T12:00:00+00:00';
+  const reparto = (f) => gestion.siguienteLaborable(gestion.diaDeFacturacion(f));
+
+  comprobar('un pedido del SÁBADO se reparte el martes, no el lunes', () => {
+    assert.strictEqual(gestion.diaDeFacturacion(SABADO), '2026-11-16'); // lunes
+    assert.strictEqual(reparto(SABADO), '2026-11-17');                  // martes
+  });
+  comprobar('el VIERNES después de las 13:00, también el martes', () => {
+    assert.strictEqual(reparto(VIERNES_TARDE), '2026-11-17');
+  });
+  comprobar('el VIERNES antes de las 13:00 sí llega al lunes', () => {
+    assert.strictEqual(reparto(VIERNES_MANANA), '2026-11-16');
+  });
+
+  // Y lo que se le DICE al cliente tiene que ser eso mismo.
+  const tenerife = ISLAND_SHIPPING.find((i) => i.name === 'Tenerife');
+  comprobar('el texto de envíos no promete el reparto del lunes', () => {
+    assert.ok(tenerife.cutoffNote, 'Tenerife se quedó sin nota de corte');
+    assert.ok(
+      !/fin de semana entra en el reparto del lunes/i.test(tenerife.cutoffNote),
+      `el texto sigue diciendo lo que no es: ${tenerife.cutoffNote}`
+    );
+    assert.ok(
+      /no entra en el reparto del lunes/i.test(tenerife.cutoffNote),
+      'el texto tiene que decir expresamente que NO entra en el del lunes'
+    );
+  });
+}
+
 console.log('\n=== El pago: de quién se habla y de quién no\n');
 
 const wc = require(path.join(RAIZ, 'netlify/functions/woocommerce-client.js'));

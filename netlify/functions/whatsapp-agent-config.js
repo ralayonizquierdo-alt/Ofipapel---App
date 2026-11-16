@@ -1420,7 +1420,23 @@ const ISLAND_SHIPPING = [
     freeFrom: 20,
     feeBelow: 5,
     delivery: '24 a 48h',
-    cutoffNote: 'Si el pedido se hace antes de las 13:00h, se entrega al día siguiente (salvo imprevistos); si se hace después de esa hora, ya no entra en el reparto del día siguiente, sino en el del otro día. El reparto es de lunes a viernes (no hay reparto en sábado ni domingo), así que un pedido de fin de semana entra en el reparto del lunes.',
+    // OJO CON ESTE TEXTO: es la regla de reparto y la IA lo repite tal cual.
+    //
+    // Hasta el 16/11/2026 acababa diciendo «un pedido de fin de semana entra
+    // en el reparto del lunes», y eso es FALSO — lo confirmó el propietario:
+    // «un pedido que se hace el sábado no puede entrar en el reparto del
+    // lunes, y si se hace el viernes después de la 1 tampoco».
+    //
+    // Se contradecía con su propia frase anterior (después de las 13:00 entra
+    // «en el del otro día») y con `gestion-pedidos.js`, que lo calcula bien:
+    // sábado -> se factura el lunes -> se reparte el MARTES.
+    //
+    // Un cliente preguntó «lo hice el sábado, ¿cuándo lo entregan?» y se llevó
+    // «entró en el reparto del lunes». La IA no se lo inventó: lo leyó aquí.
+    // Por eso este texto y `diaDeFacturacion()` se comprueban juntos en
+    // scripts/probar-estado-pedido.js — si uno cambia, el otro tiene que ir
+    // detrás.
+    cutoffNote: 'El reparto es de lunes a viernes (en sábado y domingo no hay). Un pedido hecho antes de las 13:00h de un día laborable entra en el reparto del día siguiente; a partir de esa hora entra en el del otro día. Por eso un pedido del viernes por la tarde, del sábado o del domingo NO entra en el reparto del lunes: se prepara el lunes y se reparte el martes.',
   },
   { name: 'La Gomera', keywords: ['gomera'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
   { name: 'El Hierro', keywords: ['hierro'], freeFrom: 200, feeBelow: 15, delivery: '48 a 72h' },
@@ -1977,7 +1993,11 @@ const FAQ_RULES = [
       'cuanto tiempo tarda', 'cuánto tiempo tarda', 'cuanto tiempo llega',
       'en entregarlo', 'en entregarla', 'en entregarmelo', 'en entregármelo',
       'en entregar', 'en llegar', 'tarda en llegar', 'tardan en llegar',
-      'plazo de reparto', 'tiempo de entrega', 'plazos de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso'],
+      'plazo de reparto', 'tiempo de entrega', 'plazos de entrega', 'mandan a', 'mandais', 'mandáis', 'enviais', 'enviáis', 'envian a', 'envían a', 'a domicilio', 'domicilio', 'mandarla', 'mandarlo', 'mandarmelo', 'mandármelo', 'enviarla', 'enviarlo', 'enviarmelo', 'enviármelo', 'me lo mandan', 'me la mandan', 'lo mandan a', 'la mandan a', 'contra reembolso',
+      // «Lo hice el sábado, ¿cuándo LO ENTREGAN?» no casaba con ninguna y se fue
+      // a la IA, que contestó con la regla de reparto mal escrita (16/11/2026).
+      'lo entregan', 'la entregan', 'me lo entregan', 'cuando lo entregan', 'cuándo lo entregan',
+      'cuando entregan', 'cuándo entregan', 'dia de reparto', 'día de reparto', 'entra en el reparto'],
     reply: enviosReply,
   },
   {
@@ -2231,6 +2251,7 @@ module.exports = {
   palabrasPropias,
   nombraAlgoConcreto,
   nombraUnArticulo,
+  ISLAND_SHIPPING,
   soloNombraEnvase,
   buildAiSystemPrompt,
 };

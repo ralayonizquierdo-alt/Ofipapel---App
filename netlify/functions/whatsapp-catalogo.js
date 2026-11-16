@@ -325,4 +325,6 @@ async function construirContextoCatalogo({ from, text, history, forzar = false }
   };
 }
 
-module.exports = { construirContextoCatalogo, unirContexto };
+module.exports = {
+  consultaDelHilo,
+  enlaceSiEsDeProducto, construirContextoCatalogo, unirContexto };
