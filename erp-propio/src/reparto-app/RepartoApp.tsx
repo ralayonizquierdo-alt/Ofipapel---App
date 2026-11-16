@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as PEvent, type ReactNode } from 'react'
 import {
+  cambiarTelefono,
   cancelarTraspaso,
   proponerTraspaso,
   responderTraspaso,
@@ -396,6 +397,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
                     {l.hora ? ` · ${l.hora}` : ''}
                   </div>
                   {detalle && <div style={{ fontSize: 13, color: V.texto }}>{detalle}</div>}
+                  {l.telefono_repartidor && <div style={{ fontSize: 13, color: '#1f6fb2' }}>📞 El repartidor usó otro teléfono: {l.telefono_repartidor}</div>}
                 </div>
               )
             })}
@@ -727,7 +729,7 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
 }
 
 // ------------------------------------------------------------------ Ruta
-type Hoja = { tipo: 'incidencia' | 'no_entregado' | 'ruta'; linea: LineaApp } | null
+type Hoja = { tipo: 'incidencia' | 'no_entregado' | 'ruta' | 'telefono'; linea: LineaApp } | null
 
 function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; reparto: RepartoApp; onVolver: () => void; onCaducada: () => void }) {
   const [datos, setDatos] = useState(() => lineasEnCache(reparto.tienda, reparto.numero))
@@ -1047,6 +1049,18 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           onOk={(d, n) => accion(hoja.linea, 'no_entregado', d, n)}
         />
       )}
+      {hoja?.tipo === 'telefono' && (
+        <HojaTelefono
+          sesion={sesion}
+          reparto={reparto}
+          linea={hoja.linea}
+          onCerrar={() => setHoja(null)}
+          onHecho={(tel) => {
+            cambiarLocal(clave(hoja.linea), { telefono: tel ?? hoja.linea.telefono_original ?? null, telefono_cambiado: !!tel })
+            setHoja(null)
+          }}
+        />
+      )}
       {hoja?.tipo === 'ruta' && (
         <HojaCambioRuta
           sesion={sesion}
@@ -1334,7 +1348,16 @@ function Lista({
                   )}
                 </div>
                 {l.antes && <div style={{ fontSize: 13, color: V.rojo, marginTop: 4 }}>{l.antes}</div>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <div style={{ fontSize: 13, color: V.gris, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span>
+                    📞 {l.telefono || 'Sin teléfono'}
+                    {l.telefono_cambiado ? ' (puesto por ti)' : ''}
+                  </span>
+                  <button type="button" onClick={() => onHoja({ tipo: 'telefono', linea: l })} style={{ background: 'none', border: 'none', color: V.verdeMed, textDecoration: 'underline', fontSize: 13, padding: 4 }}>
+                    {l.telefono ? 'No es este: poner otro' : 'Poner un teléfono'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                   {l.telefono && (
                     <a href={`tel:${l.telefono.replace(/\s/g, '')}`} style={enlace}>
                       📞 Llamar
@@ -1482,6 +1505,56 @@ function HojaOpciones({ titulo, opciones, onCerrar, onOk }: { titulo: string; op
             </Boton>
           </div>
         </>
+      )}
+    </Hoja>
+  )
+}
+
+function HojaTelefono({ sesion, reparto, linea, onCerrar, onHecho }: { sesion: Sesion; reparto: RepartoApp; linea: LineaApp; onCerrar: () => void; onHecho: (tel: string | null) => void }) {
+  const [tel, setTel] = useState(linea.telefono_cambiado ? (linea.telefono ?? '') : '')
+  const [error, setError] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState(false)
+  const guardarTel = async (valor: string) => {
+    setEnviando(true)
+    setError(null)
+    try {
+      onHecho(await cambiarTelefono(sesion.token, linea.rt ?? reparto.tienda, linea.rn ?? reparto.numero, linea.vt, linea.vn, valor))
+    } catch (e) {
+      setError((e as ErrorApp).red ? 'Sin conexión: hace falta cobertura para guardarlo.' : (e as Error).message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+  return (
+    <Hoja titulo={`Teléfono de ${linea.cliente}`} onCerrar={onCerrar}>
+      <div style={{ fontSize: 14, color: V.gris, marginBottom: 8 }}>
+        Escribe el número bueno. Vale solo para esta entrega; la oficina lo verá para corregir la ficha.
+        {linea.telefono_original ? ` El que venía: ${linea.telefono_original}.` : ''}
+      </div>
+      <input
+        type="tel"
+        inputMode="tel"
+        autoFocus
+        value={tel}
+        onChange={(e) => setTel(e.target.value.replace(/[^0-9+ ]/g, '').slice(0, 18))}
+        placeholder="Por ejemplo 600 123 456"
+        style={{ width: '100%', border: '2px solid #cfe0cf', borderRadius: 12, padding: 12, fontSize: 20, marginBottom: 10 }}
+      />
+      {error && <div style={{ color: V.rojo, marginBottom: 10 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Boton claro color={V.gris} onClick={onCerrar} style={{ flex: 1 }}>
+          Cancelar
+        </Boton>
+        <Boton disabled={enviando || tel.replace(/\D/g, '').length < 9} onClick={() => guardarTel(tel)} style={{ flex: 2 }}>
+          Guardar
+        </Boton>
+      </div>
+      {linea.telefono_cambiado && (
+        <div style={{ textAlign: 'center', marginTop: 10 }}>
+          <button type="button" disabled={enviando} onClick={() => guardarTel('')} style={{ background: 'none', border: 'none', color: V.rojo, textDecoration: 'underline', fontSize: 14, padding: 6 }}>
+            Quitar el mío y volver al que venía
+          </button>
+        </div>
       )}
     </Hoja>
   )

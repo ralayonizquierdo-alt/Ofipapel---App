@@ -55,6 +55,9 @@ export interface LineaApp {
   intento2: string | null
   entregado_en: string | null
   comprobado: boolean
+  /** El repartidor ha puesto otro teléfono para esta entrega (telefono_original es el que venía). */
+  telefono_cambiado?: boolean
+  telefono_original?: string | null
   /** Reparto al que pertenece de verdad el pedido (distinto del abierto si me lo han pasado). */
   rt?: string
   rn?: number
@@ -171,6 +174,13 @@ export const cambiarRuta = (token: string, tienda: string, numero: number, vt: s
     p_motivo: motivo,
   })
 
+/** Pone (o quita, con '') otro teléfono para esta entrega. Hace falta cobertura. */
+export async function cambiarTelefono(token: string, tienda: string, numero: number, vt: string, vn: number, telefono: string) {
+  const r = await rpc<{ ok: boolean; error?: string; telefono: string | null }>('fn_app_rep_telefono', { p_token: token, p_tienda: tienda, p_numero: numero, p_vt: vt, p_vn: vn, p_telefono: telefono })
+  if (!r.ok) throw new ErrorApp(r.error ?? 'No se pudo guardar el teléfono.')
+  return r.telefono
+}
+
 // ------------------------------------------------------------ Pasar un pedido a otro repartidor
 export interface TraspasoRecibido {
   id: number
@@ -237,6 +247,8 @@ export interface LineaOficina {
   motivo: string | null
   nota: string | null
   hora: string | null
+  /** Teléfono que el repartidor puso porque el que venía no era el bueno. */
+  telefono_repartidor?: string | null
 }
 export const todasLasRutas = (token: string) => rpc<{ supervisor: boolean; hoy?: string; rutas?: RutaOficina[] }>('fn_app_rep_todas', { p_token: token })
 export const lineasOficina = (token: string, tienda: string, numero: number) =>
