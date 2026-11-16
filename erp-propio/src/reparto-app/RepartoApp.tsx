@@ -761,7 +761,9 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   }, [mirarFichaje])
   const puedeEntregar = fichaje === 'trabajando' || fichaje === 'sin_vinculo'
 
-  const ls = useMemo(() => datos?.lineas ?? [], [datos])
+  // Los pedidos que ya lleva un compañero (pasados y aceptados) salen de la lista; quedan anotados al final.
+  const pasados = useMemo(() => (datos?.lineas ?? []).filter((l) => l.traspaso?.estado === 'aceptado'), [datos])
+  const ls = useMemo(() => (datos?.lineas ?? []).filter((l) => l.traspaso?.estado !== 'aceptado'), [datos])
   const clave = (l: LineaApp) => `${l.vt}-${l.vn}`
 
   const recargar = useCallback(async () => {
@@ -889,7 +891,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
 
   const reordenar = (nuevas: LineaApp[]) => {
     if (!datos) return
-    const nuevo = { ...datos, lineas: nuevas }
+    const nuevo = { ...datos, lineas: [...nuevas, ...pasados] }
     setDatos(nuevo)
     guardarCache(reparto.tienda, reparto.numero, nuevo)
     encolar('fn_app_rep_orden', { p_tienda: reparto.tienda, p_numero: reparto.numero, p_orden: nuevas.filter((l) => !l.viene_de).map((l) => ({ vt: l.vt, vn: l.vn })) })
@@ -1031,6 +1033,17 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           onRetirar={retirar}
           bloqueado={!puedeEntregar}
         />
+      )}
+
+      {!!pasados.length && (
+        <Tarjeta style={{ padding: 12, fontSize: 14, color: V.gris }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>➡ Pasados a compañeros ({pasados.length})</div>
+          {pasados.map((l) => (
+            <div key={clave(l)}>
+              {l.cliente} · lo lleva {l.traspaso?.a}
+            </div>
+          ))}
+        </Tarjeta>
       )}
 
       {hoja?.tipo === 'incidencia' && (

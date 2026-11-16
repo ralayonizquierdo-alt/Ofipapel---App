@@ -56,7 +56,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     pasos: [
       'Abre el pedido y pulsa «Pasar a otro». Elige su ruta.',
       'A tu compañero le sale un aviso y lo acepta o lo rechaza. Avísale de palabra: tarda hasta medio minuto en salirle.',
-      'Si acepta, el pedido pasa a su lista y lo entrega él. Si rechaza, sigue siendo tuyo.',
+      'Si acepta, el pedido desaparece de tu lista, pasa a la suya y lo entrega él. Si rechaza, sigue siendo tuyo.',
       'Mientras no conteste puedes retirar la oferta.',
     ],
   },
