@@ -60,6 +60,9 @@ body{
 .connector-svg .active .cbolt{opacity:1;stroke-width:.9;}
 .connector-svg .active .cbranch{opacity:.85;}
 .connector-svg .cnode{opacity:.9;}
+/* Maraña: hilos finos entre los nodos pequeños de rayos distintos */
+.connector-svg path.cweb{stroke-width:.3;opacity:.62;filter:url(#boltGlow);}
+.connector-svg path.cweb.active{opacity:1;stroke-width:.42;}
 
 .orbit{position:relative;width:100%;height:100%;}
 
@@ -442,6 +445,7 @@ body{
   // pequeños nodos brillantes, generados a partir de --x/--y/--c-ring/
   // --c-glow ya declarados en cada satélite (única fuente de verdad). ──
   var conns = [];
+  var webNodes = []; // nodos pequeños de todos los rayos, para la maraña
   sats.forEach(function(sat, i){
     var cs = sat.style;
     var x = parseFloat(cs.getPropertyValue('--x'));
@@ -494,6 +498,7 @@ body{
       node.setAttribute('cx', bx); node.setAttribute('cy', by); node.setAttribute('r', .6);
       node.setAttribute('fill', ring);
       g.appendChild(node);
+      webNodes.push({ x: bx, y: by, color: ring, spoke: i, tip: true });
     });
 
     // nodo brillante a mitad de camino del trazo principal
@@ -503,6 +508,7 @@ body{
     midNode.setAttribute('cx', mid[0]); midNode.setAttribute('cy', mid[1]); midNode.setAttribute('r', .7);
     midNode.setAttribute('fill', ring);
     g.appendChild(midNode);
+    webNodes.push({ x: mid[0], y: mid[1], color: ring, spoke: i, tip: false, ang: Math.atan2(y - 50, x - 50) });
 
     group.appendChild(g);
     conns.push({ g: g, main: main });
@@ -526,6 +532,91 @@ body{
     g.appendChild(dot);
   });
 
+  // ── Maraña (16/11/2026, a petición del propietario): los nodos pequeños
+  // de cada rayo se enlazan con los de los rayos vecinos, para que la red
+  // se vea conectada de verdad y no como 9 rayos sueltos. Dos reglas: un
+  // anillo que une el nodo central de cada rayo con el del siguiente (por
+  // ángulo), y cada punta de ramita con sus 3 nodos más cercanos de OTROS
+  // rayos (si están a menos de WEB_MAX). Cada hilo va en degradado del color
+  // de un extremo al del otro. Va debajo de los rayos (primer hijo del grupo).
+  var WEB_MAX = 24;
+  var webLinks = [];
+  var webGroup = document.createElementNS(NS, 'g');
+  webGroup.setAttribute('class', 'web');
+  group.insertBefore(webGroup, group.firstChild);
+  var defs = svg.querySelector('defs');
+  var seen = {};
+  function linkKey(a, b){ var i = webNodes.indexOf(a), j = webNodes.indexOf(b); return i < j ? i + '-' + j : j + '-' + i; }
+  function addLink(a, b){
+    var k = linkKey(a, b);
+    if (seen[k] || a.spoke === b.spoke) return;
+    seen[k] = true;
+    var gid = 'webgrad' + webLinks.length;
+    var grad = document.createElementNS(NS, 'linearGradient');
+    grad.setAttribute('id', gid);
+    grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+    grad.setAttribute('x1', a.x); grad.setAttribute('y1', a.y);
+    grad.setAttribute('x2', b.x); grad.setAttribute('y2', b.y);
+    [[0, a.color], [1, b.color]].forEach(function(st){
+      var s = document.createElementNS(NS, 'stop');
+      s.setAttribute('offset', st[0]); s.setAttribute('stop-color', st[1]);
+      grad.appendChild(s);
+    });
+    defs.appendChild(grad);
+    // curva suave: punto de control desplazado en perpendicular
+    var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    var ddx = b.x - a.x, ddy = b.y - a.y, dl = Math.hypot(ddx, ddy) || 1;
+    var bend = (Math.random() - .5) * dl * .35;
+    var cxp = mx - ddy / dl * bend, cyp = my + ddx / dl * bend;
+    var path = document.createElementNS(NS, 'path');
+    path.setAttribute('class', 'cweb');
+    path.setAttribute('d', 'M' + a.x.toFixed(2) + ',' + a.y.toFixed(2) + ' Q' + cxp.toFixed(2) + ',' + cyp.toFixed(2) + ' ' + b.x.toFixed(2) + ',' + b.y.toFixed(2));
+    path.setAttribute('stroke', 'url(#' + gid + ')');
+    webGroup.appendChild(path);
+    webLinks.push({ path: path, spokes: [a.spoke, b.spoke] });
+  }
+  var mids = webNodes.filter(function(n){ return !n.tip; }).sort(function(a, b){ return a.ang - b.ang; });
+  mids.forEach(function(n, k){ addLink(n, mids[(k + 1) % mids.length]); });
+  webNodes.filter(function(n){ return n.tip; }).forEach(function(n){
+    webNodes
+      .filter(function(m){ return m.spoke !== n.spoke; })
+      .map(function(m){ return { m: m, d: Math.hypot(m.x - n.x, m.y - n.y) }; })
+      .filter(function(o){ return o.d < WEB_MAX; })
+      .sort(function(p, q){ return p.d - q.d; })
+      .slice(0, 3)
+      .forEach(function(o){ addLink(n, o.m); });
+  });
+  // un pulso de luz recorre de vez en cuando uno de cada tres hilos
+  webLinks.forEach(function(l, k){
+    if (k % 3) return;
+    var pid = 'webpath' + k;
+    l.path.setAttribute('id', pid);
+    var dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('r', .45); dot.setAttribute('fill', '#fff'); dot.setAttribute('opacity', '.8');
+    dot.setAttribute('filter', 'url(#boltGlow)');
+    var anim = document.createElementNS(NS, 'animateMotion');
+    anim.setAttribute('dur', (3 + Math.random() * 2.5).toFixed(2) + 's');
+    anim.setAttribute('begin', (2.6 + Math.random() * 2).toFixed(2) + 's');
+    anim.setAttribute('repeatCount', 'indefinite');
+    if (Math.random() < .5) { anim.setAttribute('keyPoints', '1;0'); anim.setAttribute('keyTimes', '0;1'); anim.setAttribute('calcMode', 'linear'); }
+    var mp = document.createElementNS(NS, 'mpath');
+    mp.setAttributeNS('http://www.w3.org/1999/xlink', 'href', '#' + pid);
+    mp.setAttribute('href', '#' + pid);
+    anim.appendChild(mp); dot.appendChild(anim);
+    webGroup.appendChild(dot);
+  });
+  // los hilos se dibujan después de los rayos y sus ramitas
+  webLinks.forEach(function(l, k){
+    var len = l.path.getTotalLength();
+    l.path.style.strokeDasharray = len;
+    l.path.style.strokeDashoffset = len;
+    var delay = 0.25 + sats.length * 0.16 + 0.7 + k * 0.03;
+    requestAnimationFrame(function(){
+      l.path.style.transition = 'stroke-dashoffset .9s cubic-bezier(.4,0,.2,1) ' + delay + 's';
+      l.path.style.strokeDashoffset = '0';
+    });
+  });
+
   // Dibuja cada trazo (longitud real vía getTotalLength) con retardo
   // escalonado por satélite — la "animación de conexión de nodos".
   conns.forEach(function(c, i){
@@ -545,8 +636,9 @@ body{
   sats.forEach(function(sat, i){
     var c = conns[i];
     if (!c) return;
-    var on = function(){ c.g.classList.add('active'); };
-    var off = function(){ c.g.classList.remove('active'); };
+    var mine = webLinks.filter(function(l){ return l.spokes.indexOf(i) >= 0; });
+    var on = function(){ c.g.classList.add('active'); mine.forEach(function(l){ l.path.classList.add('active'); }); };
+    var off = function(){ c.g.classList.remove('active'); mine.forEach(function(l){ l.path.classList.remove('active'); }); };
     sat.addEventListener('mouseenter', on);
     sat.addEventListener('mouseleave', off);
     sat.addEventListener('focus', on);
