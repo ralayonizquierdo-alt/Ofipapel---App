@@ -43,8 +43,8 @@ Datos reales: prácticamente ninguno (13 asientos de prueba, ejercicio 2026).
    reconocer las pantallas; con Luis y la asesoría donde haga falta. Rober no tiene que contestar dudas contables.
 
 ### Dónde está el material (nota 157 del tablón de coordinación, 13/11/2026)
-- **Datos**, en el servidor de la oficina: `\SERVER-OFIPAPEL\\Aplicaciones\\ARCHIVOS OFIPAPEL\\LISTADOS AUTOMATIZADOS`
-  (= `P:\\ARCHIVOS OFIPAPEL\\LISTADOS AUTOMATIZADOS`). Por cada «empresa» de CONTANET, cuatro CSV separados
+- **Datos**, en el servidor de la oficina: `\\SERVER-OFIPAPEL\Aplicaciones\ARCHIVOS OFIPAPEL\LISTADOS AUTOMATIZADOS`
+  (= `P:\ARCHIVOS OFIPAPEL\LISTADOS AUTOMATIZADOS`). Por cada «empresa» de CONTANET, cuatro CSV separados
   por tabulador (`PLAN_CONTABLE`, `DIARIO`, `DATOS_SUPLEMENTARIOS`, `IVA_IGIC`) y un balance de sumas y
   saldos en Excel. Además, las copias de seguridad originales de CONTANET (ZIP).
 - **Capturas** de menús y pantallas: cinco ZIP (menús y bloques 2 a 5) que Cowork entregó a Rober por su
