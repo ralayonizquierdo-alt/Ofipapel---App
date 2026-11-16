@@ -719,6 +719,105 @@ async function caso(etiqueta, mensaje, revisar, desde) {
   });
   escenario.historial = [];
 
+  // ———————————————————————————————————————————————————————————————
+  // EL NOMBRE CON UNA ERRATA (16/11/2026, 2:25 de la madrugada).
+  //
+  //   bot:     «Para confirmar que el pedido es tuyo, dime el nombre
+  //             comercial o el nombre y apellidos con los que se hizo.»
+  //   cliente: «Laszno bogar»
+  //   bot:     «No he podido confirmar que el pedido sea tuyo.»
+  //
+  // El pedido era suyo. Escribió su nombre entero con una letra cambiada — y
+  // decir solo «bogar» le habría valido, porque esa sí encajaba como
+  // subcadena. Otra vez: escribirlo mejor salía peor.
+  console.log('\n=== El nombre, cuando el cliente teclea regular\n');
+  escenario.pedido = {
+    id: 685025, status: 'processing', total: '42.90', date_created: '2026-11-14T10:00:00',
+    date_paid: '2026-11-14T10:00:00',
+    billing: { phone: '+34600111999', first_name: 'László', last_name: 'Bogár', company: '' },
+  };
+  escenario.fila = null;
+  const esperandoNombre = (intento) => [
+    { role: 'user', content: '685025' },
+    {
+      role: 'assistant',
+      content: `[PEDIDO:ESPERANDO_NOMBRE:685025${intento > 1 ? `:${intento}` : ''}]Dime el nombre comercial o el nombre y apellidos.`,
+    },
+  ];
+
+  escenario.historial = esperandoNombre(1);
+  await caso('«Laszno bogar» con el pedido a nombre de «László Bogár»', 'Laszno bogar', () => {
+    assert.ok(
+      texto('respuesta').includes('685025'),
+      `no dio el pedido por suyo: ${texto('respuesta') || texto('botones')}`
+    );
+  });
+
+  // Y lo que ya valía tiene que seguir valiendo.
+  escenario.historial = esperandoNombre(1);
+  await caso('solo el apellido sigue valiendo', 'bogar', () => {
+    assert.ok(texto('respuesta').includes('685025'), 'dejó de valer el apellido suelto');
+  });
+
+  // PERO UNA PALABRA QUE NO IDENTIFICA A NADIE NO ABRE NADA. Con «basta una
+  // palabra», lo que hay que vigilar es justo esto: que esa palabra diga quién
+  // eres. «Restaurante» o «Tenerife» las suelta cualquiera.
+  escenario.pedido.billing = { phone: '+34600111999', first_name: '', last_name: '', company: 'RESTAURANTE EL BOTE SL' };
+  for (const palabra of ['restaurante', 'sl', 'tenerife']) {
+    escenario.historial = esperandoNombre(1);
+    await caso(`«${palabra}» no verifica el pedido de «RESTAURANTE EL BOTE SL»`, palabra, () => {
+      assert.ok(!texto('respuesta').includes('42,90'), `«${palabra}» abrió el pedido de otro`);
+      assert.strictEqual(consultasAGestion.length, 0, 'consultó el estado sin verificar');
+    });
+  }
+
+  // …y la palabra que sí identifica, sí.
+  escenario.historial = esperandoNombre(1);
+  await caso('«el bote» sí verifica', 'somos el bote', () => {
+    assert.ok(texto('respuesta').includes('685025'), 'no reconoció la palabra que sí identifica');
+  });
+
+  // SEGUNDA OPORTUNIDAD ANTES DE CORTAR (decisión del propietario, 16/11/2026).
+  escenario.historial = esperandoNombre(1);
+  await caso('primer nombre que no cuadra: se le deja repetirlo', 'ferretería pepe', () => {
+    assert.ok(/escr[íi]bemelo otra vez/i.test(texto('respuesta')), 'cortó a la primera');
+    assert.ok(!tiene('botones'), 'escaló cuando aún quedaba un intento');
+    assert.ok(
+      (texto('guardado') || '').startsWith('[PEDIDO:ESPERANDO_NOMBRE:685025:2]'),
+      'no dejó apuntado que era el segundo intento'
+    );
+  });
+
+  escenario.historial = esperandoNombre(2);
+  await caso('segundo nombre que tampoco cuadra: ahora sí, una persona', 'ferretería pepe', () => {
+    assert.ok(tiene('botones'), 'no ofreció una persona tras el segundo intento');
+    assert.ok(/no he podido confirmar/i.test(texto('botones')), `texto raro: ${texto('botones')}`);
+  });
+
+  // Un pedido SIN ningún nombre no tiene segunda oportunidad: no hay respuesta
+  // que pueda acertar, así que pedirlo otra vez es marear al cliente.
+  escenario.pedido.billing = { phone: '+34600111999', first_name: '', last_name: '', company: '' };
+  escenario.historial = esperandoNombre(1);
+  await caso('pedido sin nombre: directo a una persona', 'ferretería pepe', () => {
+    assert.ok(tiene('botones'), 'le pidió otra vez un nombre que no puede comprobar');
+  });
+  escenario.pedido.billing = { phone: '+34600111999', first_name: 'László', last_name: 'Bogár', company: '' };
+
+  // Y SI LO QUE FALLA ES LA WEB, NO SE LE ACUSA DE NADA. Decirle «no he podido
+  // confirmar que el pedido sea tuyo» cuando la web no contestó es echarle la
+  // culpa al cliente de un tropezón nuestro.
+  escenario.historial = esperandoNombre(1);
+  escenario.fallaLaConsulta = true;
+  await caso('la web no contesta al verificar el nombre', 'Laszlo Bogar', () => {
+    assert.ok(/no me contesta/i.test(texto('botones')), `tenía que decir la verdad: ${texto('botones')}`);
+    assert.ok(
+      !/no he podido confirmar que el pedido sea tuyo/i.test(texto('botones')),
+      'le dijo que no se podía confirmar que fuera suyo, y lo que pasó es que la web se cayó'
+    );
+  });
+  escenario.fallaLaConsulta = false;
+  escenario.historial = [];
+
   console.log(fallos === 0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);
 })();
