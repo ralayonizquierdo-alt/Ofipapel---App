@@ -262,6 +262,10 @@ table.lista-pedidos .c-movil{display:none}
 </style>
 </head>
 <body>
+<div id="newVersionBar" style="display:none;position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:9999;width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;align-items:center;gap:10px;background:#FFF6BF;border:1px solid #D4B106;border-radius:8px;padding:5px 12px;font-size:.85rem;color:#333;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+  <span>Hay una versión nueva de la app. <small>(guarda antes lo que estés escribiendo)</small></span>
+  <button type="button" id="btnNewVersion" style="background:#1b5e20;color:#fff;border:0;border-radius:6px;padding:6px 14px;font-weight:bold;cursor:pointer">Actualizar</button>
+</div>
 <header>
   <h1><a href="inicio.html" class="hub no-imprimir" title="Volver al hub de Ofipapel">⬅ Hub</a>Control de Pedidos <button id="estadoNube" class="nube oculto" onclick="vista='datos';pedidoAbierto=null;pintar()" title="Ver el estado de la nube"></button>
     <button id="campana" class="campana no-imprimir" onclick="abrirAvisos()" title="Pedidos y campañas nuevos">🔔<span class="globo oculto" id="globoAvisos">0</span></button>
@@ -4567,6 +4571,39 @@ arrancar();
 // fresco desde la red (no deja la app atascada en una versión vieja) y basta
 // para que Android ofrezca instalarla como app.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// AVISO DE VERSIÓN NUEVA (16/11/2026, a petición del propietario, como en
+// Vacaciones y la ERP): cada minuto y al volver a la pestaña se compara la
+// huella (ETag, o la fecha si no hay) de los tres ficheros de la app —esta
+// página, su lógica y la de «PDF a Excel», que va en el iframe— con la de
+// cuando se abrió. Si alguno cambia, sale la franja amarilla «Actualizar».
+// No recarga sola, para no perder lo que se esté escribiendo.
+(() => {
+  const FICHEROS = [location.pathname, 'control-pedidos-logica.js', 'importacion-pedidos-proveedores.html'];
+  const huellas = {};
+  async function huella(url) {
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    if (!res.ok) return null;
+    const etag = res.headers.get('etag');
+    return etag ? etag.split('-ssl')[0] : res.headers.get('last-modified'); // Netlify añade "-ssl"/"-ssl-df" según la compresión
+  }
+  async function comprobarVersion() {
+    for (const f of FICHEROS) {
+      try {
+        const h = await huella(f);
+        if (!h) continue;
+        if (!huellas[f]) huellas[f] = h;
+        else if (h !== huellas[f]) { document.getElementById('newVersionBar').style.display = 'flex'; return; }
+      } catch (e) { /* sin conexión: se vuelve a mirar en la siguiente vuelta */ }
+    }
+  }
+  document.getElementById('btnNewVersion').onclick = () => location.reload();
+  if (/^https?:$/.test(location.protocol)) {
+    comprobarVersion();
+    setInterval(comprobarVersion, 60000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') comprobarVersion(); });
+  }
+})();
 </script>
 </body>
 </html>
