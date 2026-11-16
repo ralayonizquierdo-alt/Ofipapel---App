@@ -142,7 +142,7 @@ const yaInstalada = () =>
   typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true)
 const esIphone = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
-function Cabecera({ sub, derecha }: { sub?: string; derecha?: ReactNode }) {
+function Cabecera({ sub, derecha, oficina = false }: { sub?: string; derecha?: ReactNode; oficina?: boolean }) {
   const [ayuda, setAyuda] = useState(false)
   const [instalar, setInstalar] = useState(false)
   const [instalada, setInstalada] = useState(yaInstalada)
@@ -160,7 +160,7 @@ function Cabecera({ sub, derecha }: { sub?: string; derecha?: ReactNode }) {
     }
     setInstalar(true)
   }
-  const apartados = sub === 'OFICINA' ? OPERATIVA_OFICINA : OPERATIVA_REPARTIDOR
+  const apartados = oficina ? OPERATIVA_OFICINA : OPERATIVA_REPARTIDOR
   return (
     <div
       style={{
@@ -441,7 +441,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
     return (
       <>
         <Cabecera
-          sub="OFICINA"
+          sub={sesion.nombre.toUpperCase()} oficina
           derecha={
             <BotonCabecera
               onClick={() => {
@@ -490,7 +490,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
 
   return (
     <>
-      <Cabecera sub="OFICINA" derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
+      <Cabecera sub={sesion.nombre.toUpperCase()} oficina derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
       <Tarjeta>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Todas las rutas</div>
         <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Solo para mirar. Se actualiza sola{hora ? ` · ${hora}` : ''}.</div>
