@@ -69,6 +69,15 @@ const MOTIVOS: [string, string][] = [
 
 const normal = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
 const hora = (v: string | null) => (v ? new Date(v).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' }) : '')
+/** Número para WhatsApp (con el 34 delante) si el teléfono es un móvil español o ya trae prefijo; si es un fijo, nada. */
+const numeroWhatsApp = (tel: string | null | undefined): string | null => {
+  if (!tel) return null
+  let n = tel.replace(/\D/g, '')
+  if (tel.trim().startsWith('+')) return n.length >= 9 ? n : null
+  if (n.startsWith('00')) return n.length >= 11 ? n.slice(2) : null
+  if (n.length === 11 && n.startsWith('34')) n = n.slice(2)
+  return n.length === 9 && /^[67]/.test(n) ? '34' + n : null
+}
 const euros = (n: number | null | undefined) => (n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €')
 const base = import.meta.env.BASE_URL
 // Fichaje (/fichaje, en el ERP): el registro horario legal; lo gestiona gerencia en Archivo → Fichaje.
@@ -1329,6 +1338,16 @@ function Lista({
                   {l.telefono && (
                     <a href={`tel:${l.telefono.replace(/\s/g, '')}`} style={enlace}>
                       📞 Llamar
+                    </a>
+                  )}
+                  {numeroWhatsApp(l.telefono) && (
+                    <a
+                      href={`https://wa.me/${numeroWhatsApp(l.telefono)}?text=${encodeURIComponent('Hola, soy el repartidor de Ofipapel. ')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={enlace}
+                    >
+                      💬 WhatsApp
                     </a>
                   )}
                   {(l.direccion || l.poblacion) && (

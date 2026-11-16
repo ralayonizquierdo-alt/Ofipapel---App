@@ -32,7 +32,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     icono: '②',
     titulo: 'En la calle: repartir',
     pasos: [
-      'Toca un pedido para ver la dirección, llamar al cliente o abrir el mapa.',
+      'Toca un pedido para ver la dirección, llamar al cliente, escribirle por WhatsApp (si tiene móvil) o abrir el mapa.',
       '✅ Entregado: todo bien.',
       '⚠️ Incidencia: lo entregas, pero falta algo, devuelven algo o no corresponde.',
       '❌ No entregado: eliges el motivo. Si vuelves más tarde, apunta el 2.º intento.',
