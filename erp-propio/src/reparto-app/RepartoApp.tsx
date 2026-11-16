@@ -100,9 +100,18 @@ function useFuentesYManifiesto() {
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
     const color = meta?.content ?? null
     if (meta) meta.content = V.verde
+    // Icono propio de Reparto (aro turquesa con furgoneta) en la pestaña y al guardarla en el móvil;
+    // al salir de la app de reparto vuelve el del ERP.
+    const iconos = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]'))
+    const iconosAntes = iconos.map((l) => l.getAttribute('href'))
+    iconos.forEach((l) => {
+      const t = l.getAttribute('sizes')
+      l.setAttribute('href', `${base}reparto-icono/${l.rel === 'apple-touch-icon' ? 'apple-touch-icon.png' : t === '16x16' ? 'favicon-16x16.png' : t === '32x32' ? 'favicon-32x32.png' : 'icon-192.png'}`)
+    })
     const titulo = document.title
     document.title = 'Reparto · Ofipapel'
     return () => {
+      iconos.forEach((l, i) => iconosAntes[i] && l.setAttribute('href', iconosAntes[i]))
       if (man && antes) man.setAttribute('href', antes)
       if (meta && color) meta.content = color
       document.title = titulo
