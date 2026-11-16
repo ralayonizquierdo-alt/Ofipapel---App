@@ -708,8 +708,15 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
     // nombre — pasó de verdad: «Laszno bogar» por «Laszlo Bogar»— y hasta ahora
     // un dedazo le dejaba fuera a la primera, sin saber por qué. No abre
     // ninguna puerta: el número de pedido ya lo tiene quien esté escribiendo.
+    // …salvo que el pedido no tenga ningún nombre con el que comparar (los hay).
+    // Entonces no hay respuesta posible y pedírselo otra vez es marear a quien
+    // no puede acertar: directo a una persona.
+    const b = order?.billing || {};
+    const hayNombreQueComprobar = Boolean(
+      String(b.company || '').trim() || String(b.first_name || '').trim() || String(b.last_name || '').trim()
+    );
     const seLeAcabanLosIntentos = (paso.intento || 1) >= 2;
-    if (order && !seLeAcabanLosIntentos) {
+    if (order && hayNombreQueComprobar && !seLeAcabanLosIntentos) {
       const reply = idioma === 'en'
         ? `${greeting}That doesn't match the name I have for order ${paso.orderId}. If I got it wrong, write it to me again exactly as it was placed — the company name, or the first and last name.`
         : `${greeting}Eso no me cuadra con el nombre que tengo en el pedido ${paso.orderId}. Si lo he entendido mal, escríbemelo otra vez tal cual se hizo: el nombre comercial, o el nombre y los apellidos.`;

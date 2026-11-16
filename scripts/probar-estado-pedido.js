@@ -794,6 +794,15 @@ async function caso(etiqueta, mensaje, revisar, desde) {
     assert.ok(/no he podido confirmar/i.test(texto('botones')), `texto raro: ${texto('botones')}`);
   });
 
+  // Un pedido SIN ningún nombre no tiene segunda oportunidad: no hay respuesta
+  // que pueda acertar, así que pedirlo otra vez es marear al cliente.
+  escenario.pedido.billing = { phone: '+34600111999', first_name: '', last_name: '', company: '' };
+  escenario.historial = esperandoNombre(1);
+  await caso('pedido sin nombre: directo a una persona', 'ferretería pepe', () => {
+    assert.ok(tiene('botones'), 'le pidió otra vez un nombre que no puede comprobar');
+  });
+  escenario.pedido.billing = { phone: '+34600111999', first_name: 'László', last_name: 'Bogár', company: '' };
+
   // Y SI LO QUE FALLA ES LA WEB, NO SE LE ACUSA DE NADA. Decirle «no he podido
   // confirmar que el pedido sea tuyo» cuando la web no contestó es echarle la
   // culpa al cliente de un tropezón nuestro.
