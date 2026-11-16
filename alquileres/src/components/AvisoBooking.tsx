@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Tag, Bot } from 'lucide-react'
 import { ENLACE_CLAUDE, miradoEsteMes, usePreciosBooking } from '../lib/booking'
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
@@ -18,6 +18,7 @@ import { MONTH_NAMES_ES } from '../lib/dateUtils'
 export default function AvisoBooking({ esperar = false }: { esperar?: boolean }) {
   const consultas = usePreciosBooking()
   const [cerrado, setCerrado] = useState(false)
+  const navigate = useNavigate()
 
   // Solo en pruebas locales: `?probarAvisoBooking` lo enseña aunque este mes ya se haya mirado.
   const { search } = useLocation()
@@ -46,7 +47,9 @@ export default function AvisoBooking({ esperar = false }: { esperar?: boolean })
               className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">
               Ahora no
             </button>
-            <a href={ENLACE_CLAUDE} onClick={() => setCerrado(true)}
+            {/* Abre Claude y, en la app, baja a la comparativa para ver cómo
+                se van apuntando los precios (Luis, 16/11/2026). */}
+            <a href={ENLACE_CLAUDE} onClick={() => { setCerrado(true); navigate('/precios?ver=booking') }}
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
               <Bot size={16} /> Comprobar con Claude
             </a>
