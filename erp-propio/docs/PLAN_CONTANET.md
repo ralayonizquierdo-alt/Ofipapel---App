@@ -6,12 +6,10 @@ Rober, 16/11/2026. Borrador para revisar con Mónica (que es quien lleva CONTANE
 ERP propio, con las pantallas y los menús de CONTANET lo más fieles posible, con los colores y el
 estilo del ERP, y sumando las utilidades que el ERP ya tiene y CONTANET no.
 
-**Aviso sobre este borrador.** El material descargado de CONTANET (capturas, tablas, históricos de las
-empresas) todavía no ha llegado a este chat ni está cargado en el ERP, y no se sabe aquí dónde está
-guardado (se buscó en la base de datos del ERP, en el repositorio y en Google Drive, sin resultado): figura como tarea pendiente en el
-Registro de incidencias («datos/capturas de CONTANET»). Por eso este plan describe con detalle lo que
-el ERP ya tiene, y deja la parte de CONTANET para rellenar en la fase 1, en cuanto llegue el material.
-Nada de lo que aquí se dice de CONTANET está comprobado.
+**Estado (16/11/2026).** Hechas las fases 1 y 2 con las 68 capturas de CONTANET: el inventario de menús y
+la comparativa con el ERP están en `CONTANET_INVENTARIO.md`. Los menús están completos; de pantallas de
+trabajo solo hay 12, así que para calcar (fase 4) hacen falta más capturas, y los ficheros de datos todavía
+no han llegado a este chat. Falta que Mónica y Luis den por buena la comparativa.
 
 ---
 
@@ -73,11 +71,15 @@ Una tabla con tres columnas, pantalla por pantalla y función por función:
 - **Solo en CONTANET** → hay que construirlo.
 - **Solo en el ERP** → se conserva como utilidad añadida, colocada en el menú donde menos estorbe.
 
-Lo que previsiblemente es «solo del ERP» (a confirmar): asientos automáticos desde la gestión,
-conciliación con Norma 43, remesas SEPA, previsión de tesorería, firmas y control de integridad,
-resultados por tienda, VeriFactu. Lo que previsiblemente falta en el ERP (a confirmar): cartera de
-efectos y vencimientos tal como la lleve CONTANET, inmovilizado y amortizaciones, presupuestos
-contables, contabilidad analítica, punteo, asientos predefinidos y los listados oficiales propios.
+Hecha: ver `CONTANET_INVENTARIO.md`, punto 3. Lo más importante que salió:
+- **El cambio grande es la forma de meter asientos.** En CONTANET el diario es la pantalla principal y se
+  escribe línea a línea sin abrir nada. El ERP tiene una lista y un editor aparte.
+- Faltan en el ERP piezas pequeñas que se usan a diario: tipos de diario, canales, apuntes modelo,
+  conceptos, punteo y referencia.
+- Los módulos grandes (cartera, amortizaciones, centros de costo, retenciones, presupuestos) solo se
+  construyen si se usan, y eso se sabrá por los datos, sin preguntar a nadie.
+- Lo que el ERP tiene de más (asientos automáticos, 420 y 425, remesas, reglas de conciliación, firmas,
+  resultados por tienda) cabe en el menú de CONTANET sin estorbar.
 
 Esta fase termina con una reunión corta con Mónica y Luis para aprobar la tabla. Hasta entonces no se programa.
 
