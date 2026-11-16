@@ -101,7 +101,8 @@ export default function CompararBooking() {
             className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
             <ExternalLink size={15} /> Abrir Booking
           </a>
-          <button onClick={() => imprimeParaAgencia(porTemporada, nombre)}
+          <button onClick={() => imprimeParaAgencia(porTemporada, nombre,
+            (apt, entrada) => precioNuestro(prices, offerPrices, apt, entrada))}
             disabled={!consultas || consultas.length === 0}
             className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
             <Printer size={15} /> Imprimir para la agencia
@@ -250,21 +251,32 @@ const esc = (s: string) => s.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt
  * Abre el diálogo de imprimir solo con el listado, donde se elige la
  * impresora o «Guardar como PDF»; la pantalla de la app no se toca.
  */
-function imprimeParaAgencia(porTemporada: PorTemporada, nombre: (id: string) => string) {
+function imprimeParaAgencia(
+  porTemporada: PorTemporada, nombre: (id: string) => string,
+  nuestroDe: (apt: string, entrada: string) => PrecioNuestro | null,
+) {
   const hoy = formatDate(today())
   const paginas = porTemporada.map(({ season, grupos }) => {
-    const filas = grupos.flatMap(g => g.lineas.filter(l => l.fila?.nuestro).map(l => {
-      const n = l.fila!.nuestro!
-      const dif = diferencia(l.fila!.c.precio, n.total)
-      // El desglose desde el neto de la tarifa que se le manda a la agencia
-      // (Luis, 16/11/2026: «no se sabe precio base más cuánto de limpieza»).
-      return `<tr><td>${esc(g.tarifa.replace(/^(\S+) (\d+) \(aún no hay (\d+)\)$/, '$1 $3 (tarifa $2)'))}</td>`
-        + `<td>${esc(nombre(l.apt))}</td>`
-        + `<td class="n">${num(n.base, 2)} €</td><td class="n">${num(n.comision * 2, 2)} €</td>`
-        + `<td class="n">${num(n.limpieza, 2)} €</td><td class="n">${num(n.igic, 2)} €</td>`
-        + `<td class="n b">${num(n.total, 2)} €</td><td class="n b">${num(l.fila!.c.precio, 2)} €</td>`
-        + `<td class="n b">${dif.texto}<br>${dif.pct}</td></tr>`
-    }))
+    const filas = grupos.flatMap(g => {
+      // Para el que no sale en Booking (el Ático en invierno, 16/11/2026), lo
+      // nuestro se calcula con la misma semana que los demás de esa tarifa.
+      const semanaDelGrupo = g.lineas.find(l => l.fila)?.fila?.c.entrada
+      return g.lineas.map(l => {
+        const n = l.fila?.nuestro ?? (semanaDelGrupo ? nuestroDe(l.apt, semanaDelGrupo) : null)
+        if (!n) return ''
+        const booking = l.fila
+          ? `<td class="n b">${num(l.fila.c.precio, 2)} €</td>`
+            + `<td class="n b">${diferencia(l.fila.c.precio, n.total).texto}<br>${diferencia(l.fila.c.precio, n.total).pct}</td>`
+          : '<td class="n b">No aparece</td><td class="n">—</td>'
+        // El desglose desde el neto de la tarifa que se le manda a la agencia
+        // (Luis, 16/11/2026: «no se sabe precio base más cuánto de limpieza»).
+        return `<tr><td>${esc(g.tarifa.replace(/^(\S+) (\d+) \(aún no hay (\d+)\)$/, '$1 $3 (tarifa $2)'))}</td>`
+          + `<td>${esc(nombre(l.apt))}</td>`
+          + `<td class="n">${num(n.base, 2)} €</td><td class="n">${num(n.comision * 2, 2)} €</td>`
+          + `<td class="n">${num(n.limpieza, 2)} €</td><td class="n">${num(n.igic, 2)} €</td>`
+          + `<td class="n b">${num(n.total, 2)} €</td>${booking}</tr>`
+      }).filter(Boolean)
+    })
     if (filas.length === 0) return ''
     return `<section><h1>Comparativa de precios · ${season === 'VERANO' ? 'Verano (mayo a septiembre)' : 'Invierno (octubre a abril)'}</h1>`
       + `<p class="sub">Precio de 1 semana. Nuestro precio = precio neto + comisiones (15 % + 15 %) + limpieza + IGIC (7 %). Fecha: ${hoy}</p>`
