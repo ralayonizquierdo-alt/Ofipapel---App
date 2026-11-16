@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { MUNICIPIOS_TENERIFE } from './municipiosTenerife'
 
 // Panel de seguimiento de repartos: lo usan la pantalla del ERP (Ventas → Repartos → «Seguimiento de hoy», con cerrar y PIN; sin ranking)
 // y la pantalla de la TV del departamento de pedidos (/reparto-tv, sin ERP). Datos: reparto_privado.seguimiento()
@@ -33,6 +34,30 @@ export interface DatosSeg {
 }
 
 export const C = { verde: '#1A5C1A', verdeMed: '#237523', verdeCl: '#3DAF3D', lima: '#8DC41E', naranja: '#F5A623', rojo: '#C62828', gris: '#b9c4b9' }
+// Rótulos del mapa: nombre corto y, para los municipios pequeños del norte, dónde va el nombre (en el mar).
+const ROTULOS: Record<string, { corto?: string; en?: [number, number] }> = {
+  'San Cristóbal de La Laguna': { corto: 'La Laguna' },
+  'Santa Cruz de Tenerife': { corto: 'Santa Cruz' },
+  'Buenavista del Norte': { corto: 'Buenavista' },
+  'Granadilla de Abona': { corto: 'Granadilla' },
+  'San Miguel de Abona': { corto: 'San Miguel' },
+  'Vilaflor de Chasna': { corto: 'Vilaflor' },
+  'Icod de los Vinos': { corto: 'Icod' },
+  Tegueste: { en: [28.585, -16.4] },
+  Tacoronte: { en: [28.56, -16.45] },
+  'El Sauzal': { en: [28.538, -16.49] },
+  'La Matanza de Acentejo': { corto: 'La Matanza', en: [28.516, -16.53] },
+  'La Victoria de Acentejo': { corto: 'La Victoria', en: [28.494, -16.565] },
+  'Santa Úrsula': { en: [28.472, -16.6] },
+  'Puerto de la Cruz': { en: [28.452, -16.64] },
+  'San Juan de la Rambla': { corto: 'S. Juan de la Rambla', en: [28.43, -16.725] },
+  'La Guancha': { en: [28.472, -16.765] },
+  Garachico: { en: [28.447, -16.835] },
+  'El Tanque': { en: [28.245, -16.9] },
+  'Los Silos': { en: [28.418, -16.9] },
+}
+// Colores suaves del mapa político: los municipios vecinos nunca repiten color.
+const COLORES_MUNICIPIO = ['#f9d5a7', '#b8dfc4', '#f4b6c2', '#bcd4f0', '#e3d0f0', '#f6efa6', '#c9e8e4', '#e9c9b1']
 const COLORES_RUTA = ['#237523', '#1f6fb2', '#c2185b', '#ef6c00', '#6a1b9a', '#00838f', '#5d4037', '#827717', '#283593', '#ad1457']
 export const base = import.meta.env.BASE_URL
 export const n = (v: number) => v.toLocaleString('es-ES')
@@ -309,8 +334,54 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
 
   useEffect(() => {
     if (!caja.current || mapa.current) return
-    const m = L.map(caja.current, { zoomControl: !tv, attributionControl: true, zoomSnap: 0.25 }).fitBounds([[27.99, -16.93], [28.6, -16.1]])
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m)
+    // Mapa político de Tenerife: sin relieve; cada municipio con su color y su nombre, sobre el mar.
+    // Solo la isla: no se puede salir de ella ni alejar más. Al acercar (zoom 12+) salen debajo las calles.
+    const isla = L.latLngBounds([27.985, -16.935], [28.6, -16.105])
+    const m = L.map(caja.current, { zoomControl: !tv, attributionControl: true, zoomSnap: 0.25, maxBounds: isla.pad(0.12), maxBoundsViscosity: 1 }).fitBounds(isla)
+    m.setMinZoom(m.getZoom())
+    caja.current.style.background = '#cfe3f1'
+    const calles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' })
+    m.attributionControl.addAttribution('© OpenStreetMap')
+    m.createPane('municipios').style.zIndex = '350'
+    m.createPane('rotulos').style.zIndex = '380'
+    m.getPane('rotulos')!.style.pointerEvents = 'none'
+    const formas = MUNICIPIOS_TENERIFE.map((mu) =>
+      L.polygon(mu.g.map((pol) => pol.map((an) => an.map(([lng, lat]) => [lat, lng] as [number, number]))), {
+        pane: 'municipios',
+        color: '#5b6b7a',
+        weight: 1.2,
+        fillColor: COLORES_MUNICIPIO[mu.k % COLORES_MUNICIPIO.length],
+        fillOpacity: 1,
+        interactive: false,
+      }).addTo(m),
+    )
+    const nombres = L.layerGroup(
+      MUNICIPIOS_TENERIFE.flatMap((mu) => {
+        const r = ROTULOS[mu.n]
+        const donde = r?.en ?? mu.c
+        const rotulo = L.marker(donde, {
+          pane: 'rotulos',
+          interactive: false,
+          icon: L.divIcon({
+            className: '',
+            iconSize: [0, 0],
+            html: `<div style="transform:translate(-50%,-50%);width:max-content;max-width:${tv ? 112 : 90}px;text-align:center;font:700 ${tv ? 13 : 10.5}px/1.08 Inter,sans-serif;color:#22303c;text-transform:uppercase;letter-spacing:.2px;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff">${r?.corto ?? mu.n}</div>`,
+          }),
+        })
+        // Municipios pequeños de la costa norte: el nombre va en el mar, con una raya hasta el municipio.
+        return r?.en ? [L.polyline([r.en, mu.c], { pane: 'rotulos', color: '#22303c', weight: 1, opacity: 0.7, interactive: false }), rotulo] : [rotulo]
+      }),
+    )
+    const ajustar = () => {
+      const cerca = m.getZoom() >= 12
+      if (cerca && !m.hasLayer(calles)) calles.addTo(m)
+      if (!cerca && m.hasLayer(calles)) m.removeLayer(calles)
+      if (cerca && m.hasLayer(nombres)) m.removeLayer(nombres)
+      if (!cerca && !m.hasLayer(nombres)) nombres.addTo(m)
+      formas.forEach((f) => f.setStyle({ fillOpacity: cerca ? 0.28 : 1 }))
+    }
+    m.on('zoomend', ajustar)
+    ajustar()
     capa.current = L.layerGroup().addTo(m)
     mapa.current = m
     return () => {
