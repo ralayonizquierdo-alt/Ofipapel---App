@@ -128,11 +128,13 @@ function aBase64(texto: string): string {
 }
 
 /** Manda la copia por correo. Devuelve a quién, o lanza el error en castellano. */
-export async function enviaCopiaPorCorreo(nombre: string, texto: string, registros: number, token: string): Promise<string> {
+export async function enviaCopiaPorCorreo(
+  nombre: string, texto: string, registros: number, token: string, desde: string | null,
+): Promise<string> {
   const resp = await fetch(urlCorreo(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ nombre, contenido: aBase64(texto), registros }),
+    body: JSON.stringify({ nombre, contenido: aBase64(texto), registros, desde }),
   })
   const r = await resp.json().catch(() => ({})) as { error?: string; para?: string }
   if (!resp.ok) throw new Error(r.error || `El servidor ha contestado ${resp.status}.`)

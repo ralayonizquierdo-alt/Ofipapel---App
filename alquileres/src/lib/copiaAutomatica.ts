@@ -14,7 +14,7 @@ import {
  *
  * Si el correo falla, la copia sigue descargada y se dice por qué.
  */
-export async function haceCopia(datos: DatosCopia): Promise<{ nombre: string; correo: string; enviada: boolean }> {
+export async function haceCopia(datos: DatosCopia, desde: string | null = null): Promise<{ nombre: string; correo: string; enviada: boolean }> {
   const nombre = nombreCopia()
   const texto = JSON.stringify(construyeCopia(datos), null, 2)
   descargaTexto(nombre, texto)
@@ -24,7 +24,7 @@ export async function haceCopia(datos: DatosCopia): Promise<{ nombre: string; co
   try {
     const token = await auth.currentUser?.getIdToken()
     if (!token) throw new Error('No hay sesión abierta.')
-    const para = await enviaCopiaPorCorreo(nombre, texto, registrosDe(datos), token)
+    const para = await enviaCopiaPorCorreo(nombre, texto, registrosDe(datos), token, desde)
     correo = `enviada a ${para}`
     enviada = true
   } catch (e) {

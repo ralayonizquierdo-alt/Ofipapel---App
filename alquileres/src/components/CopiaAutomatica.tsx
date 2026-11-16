@@ -30,7 +30,7 @@ export default function CopiaAutomatica() {
     const dias = diasDesde(ultima)
     if (dias !== null && dias < DIAS_ENTRE_COPIAS) return
     hecha.current = true
-    haceCopia(datosDeCopia(datos)).then(r => {
+    haceCopia(datosDeCopia(datos), ultima).then(r => {
       setAviso({
         bien: r.enviada,
         texto: r.enviada

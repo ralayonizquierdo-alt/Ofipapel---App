@@ -123,6 +123,15 @@ exports.handler = async (event) => {
   if (!contenido || contenido.length > MAX_BASE64) return json(413, { error: 'La copia es demasiado grande para el correo.' });
   const registros = Number(cuerpo.registros) || 0;
   const quienLaHace = quien.email.replace(/@.*/, '') || 'la app';
+  // Asunto con la app y el periodo que cubre (Luis, 16/11/2026: «Alquileres:
+  // copia seguridad desde hasta»): desde la copia anterior hasta hoy.
+  const hasta = nombre.slice(17, 25).replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1');
+  const fechaDesde = new Date(String(cuerpo.desde || ''));
+  const desde = Number.isNaN(fechaDesde.getTime()) ? ''
+    : fechaDesde.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Atlantic/Canary' });
+  const asunto = desde
+    ? `Alquileres: copia de seguridad desde ${desde} hasta ${hasta}`
+    : `Alquileres: copia de seguridad hasta ${hasta} (la primera)`;
 
   try {
     const resp = await fetch('https://api.resend.com/emails', {
@@ -131,7 +140,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         from: DE,
         to: PARA,
-        subject: `Copia de seguridad de Alquileres · ${nombre.slice(17, 25).replace(/(\d{4})(\d{2})(\d{2})/, '$3/$2/$1')}`,
+        subject: asunto,
         text: `Copia de seguridad de Alquileres, hecha por ${quienLaHace}.\n\n`
           + `Fichero adjunto: ${nombre}${registros ? ` (${registros} registros)` : ''}.\n`
           + 'Guárdalo en la carpeta de copias. Se manda sola cada 15 días al abrir la aplicación.',

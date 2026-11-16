@@ -22,7 +22,7 @@ export default function CopiaSeguridad() {
 
   async function hacer() {
     setHaciendo(true)
-    const r = await haceCopia(datosDeCopia(datos))
+    const r = await haceCopia(datosDeCopia(datos), ultima)
     setResultado(`Descargado ${r.nombre}; ${r.correo}.`)
     setHaciendo(false)
   }
