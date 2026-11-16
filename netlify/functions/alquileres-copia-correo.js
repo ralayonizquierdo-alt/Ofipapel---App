@@ -14,7 +14,7 @@
 //
 // Variables de entorno (sitio `ofipapel`):
 //   RESEND_API_KEY          la misma que usa avisos-pedidos.mjs.
-//   ALQUILERES_COPIA_PARA   opcional, uno o varios separados por comas; si no está, ofipapelsl@ofipapelsl.com.
+//   ALQUILERES_COPIA_PARA   opcional, uno o varios separados por comas; si no está, ofipapelsl@ofipapelsl.com y compras@ofipapelsl.com.
 //   ALQUILERES_COPIA_DE     opcional; remitente verificado en Resend. Sin él se
 //                           usa el de pruebas de Resend, que SOLO entrega en el
 //                           correo con el que se abrió la cuenta de Resend.
@@ -25,7 +25,7 @@ const PROYECTO = 'ofipapelvv';
 const CERTS_URL =
   'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 /** Uno o varios correos, separados por comas (Luis, 16/11/2026: «puede ir a dos correos?»). */
-const PARA = (process.env.ALQUILERES_COPIA_PARA || 'ofipapelsl@ofipapelsl.com')
+const PARA = (process.env.ALQUILERES_COPIA_PARA || 'ofipapelsl@ofipapelsl.com,compras@ofipapelsl.com')
   .split(',').map((s) => s.trim()).filter(Boolean);
 const DE = process.env.ALQUILERES_COPIA_DE || 'Alquileres Ofipapel <onboarding@resend.dev>';
 /** Una función normal de Netlify no admite cuerpos de más de 6 MB. */

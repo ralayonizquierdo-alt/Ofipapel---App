@@ -181,7 +181,7 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     // components/CopiaAutomatica.tsx, lib/copiaAutomatica.ts
     que: 'Copia de seguridad',
     formula: 'se hace sola al abrir la app, a los 15 días de la última',
-    nota: 'Se guarda en **Descargas** y se manda **por correo a ofipapelsl@ofipapelsl.com**; sale un aviso abajo. '
+    nota: 'Se guarda en **Descargas** y se manda **por correo a ofipapelsl@ y compras@ofipapelsl.com**; sale un aviso abajo. '
       + 'Lo que se borra por error **no se puede recuperar** sin ella.',
   },
   {
