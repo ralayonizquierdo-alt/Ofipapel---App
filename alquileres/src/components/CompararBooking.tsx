@@ -6,7 +6,7 @@ import {
   APARTAMENTOS_BOOKING, NOCHES_BOOKING, TIPO_BOOKING, apuntaPrecioBooking, precioNuestro,
   quitaPrecioBooking, usePreciosBooking, type PrecioBooking,
 } from '../lib/booking'
-import { addDays, formatDate, formatDateShort, today } from '../lib/dateUtils'
+import { addDays, formatDate, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 
 /** El anuncio de la agencia en Booking. */
@@ -198,7 +198,8 @@ export default function CompararBooking() {
 
 /** «01/12 al 08/12/2026». */
 function semana(entrada: string): string {
-  return `${formatDateShort(entrada)} al ${formatDate(addDays(entrada, NOCHES_BOOKING))}`
+  // El día con su cero delante: «01/12», no «1/12».
+  return `${formatDate(entrada).slice(0, 5)} al ${formatDate(addDays(entrada, NOCHES_BOOKING))}`
 }
 
 /** Booking más caro que nosotros, en rojo; más barato, en azul. */
