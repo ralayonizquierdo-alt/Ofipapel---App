@@ -1397,7 +1397,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                             al 03/11 son 11 noches, no las 9 de octubre). Lo
                             que cae en este mes va debajo, en pequeño, igual
                             que el importe. */}
-                        <CeldaDesglose reserva={r} onClick={() => onCuadre(r)}
+                        <CeldaDesglose reserva={r} onClick={() => onCuadre(r)} desglose={false}
                           className={`${celda} text-right cursor-pointer hover:bg-blue-50 ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>
                           {r.nights}-N
                           <span className="block text-[10px] text-slate-400 font-normal">

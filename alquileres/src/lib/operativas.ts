@@ -379,7 +379,8 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
   {
     // components/CeldaDesglose.tsx, components/FichaCuadre.tsx
     que: 'Ver el cuadre de una estancia',
-    nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
+    nota: 'Pincha el **cuadradito «+»** delante del importe para verlo (se cierra con otro clic, fuera o con Esc; '
+      + '**pasar el ratón no abre nada**); **pincha** en la cifra o en el recuadro para '
       + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. Por correo, **el cuadro va '
       + 'copiado**: en el correo, clic **en el cuerpo** (no en «Para») y **Ctrl+V**. Por WhatsApp va **como imagen**: '
       + 'sale «Compartir», se elige **WhatsApp** y el contacto (si no sale, la imagen queda en **Descargas** y se '

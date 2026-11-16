@@ -15,56 +15,66 @@ const ANCHO = 580
  */
 const ESCALA = 0.75
 const MARGEN = 8
-/** Lo que espera el recuadro antes de cerrarse: da tiempo a llevar el ratón hasta él. */
-const ESPERA_CIERRE = 350
 
 /**
- * Una celda de la tabla de Cobros que, al pasar el ratón, enseña el cuadro de la
- * estancia con el formato del Excel del propietario, y al pincharla abre la ficha.
+ * Una celda de la tabla de Cobros. Pincharla abre la ficha de la estancia.
  *
- * Antes era un `title`, que solo admite texto suelto. Lleva su propio estado para
- * que pasar el ratón no vuelva a pintar la tabla entera, y el recuadro va en un
- * portal porque dentro de la tabla, que desplaza por dentro, saldría cortado.
+ * Con `desglose`, lleva delante un cuadradito «+» que abre el cuadro de la
+ * estancia (el formato del Excel del propietario) **al hacer clic**, y se cierra
+ * con otro clic en el cuadradito, fuera o con Esc. Hasta el 16/11/2026 se abría
+ * solo al pasar el ratón, y al moverse por la tabla salían recuadros por todas
+ * partes: «un medio caos» (Luis). Es el mismo sistema que «Comparar con Booking».
  *
- * El recuadro también se pincha (Luis, 06/11/2026: «no se queda quieto y no puedo
- * pinchar»): se cerraba al salir de la celda, y entre ella y el recuadro hay un
- * hueco. Ahora espera un momento antes de cerrarse, se queda abierto mientras el
- * ratón está encima, y pincharlo abre la ficha igual que la celda: el clic sube
- * por el portal hasta el `onClick` de la celda.
+ * El recuadro va en un portal porque dentro de la tabla, que desplaza por dentro,
+ * saldría cortado. Pincharlo abre la ficha igual que la celda: el clic sube por
+ * el portal hasta el `onClick` de la celda.
  */
-export default function CeldaDesglose({ reserva, onClick, className, children }: {
+export default function CeldaDesglose({ reserva, onClick, className, children, desglose = true }: {
   reserva: Reservation
   onClick: () => void
   className: string
   children: ReactNode
+  /** Sin él, la celda solo abre la ficha (la de las noches: un cuadradito por fila basta). */
+  desglose?: boolean
 }) {
   const [ancla, setAncla] = useState<DOMRect | null>(null)
-  const cierre = useRef<number | undefined>(undefined)
+  const boton = useRef<HTMLButtonElement>(null)
 
-  const abrir = (celda: HTMLElement) => {
-    window.clearTimeout(cierre.current)
-    setAncla(a => a ?? celda.getBoundingClientRect())
-  }
-  const cerrarEnUnMomento = () => {
-    window.clearTimeout(cierre.current)
-    cierre.current = window.setTimeout(() => setAncla(null), ESPERA_CIERRE)
-  }
-
-  // Al desplazar, la celda se va de debajo del ratón sin que salte mouseleave.
   useEffect(() => {
     if (!ancla) return
+    // El recuadro está en un portal: se reconoce por su marca `data-desglose`.
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Element
+      if (!t.closest?.('[data-desglose]') && !boton.current?.contains(t)) setAncla(null)
+    }
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') setAncla(null) }
+    // Al desplazar, la celda se va de su sitio y el recuadro se quedaría flotando.
     const cerrar = () => setAncla(null)
+    document.addEventListener('mousedown', fuera)
+    document.addEventListener('keydown', tecla)
     window.addEventListener('scroll', cerrar, true)
-    return () => window.removeEventListener('scroll', cerrar, true)
+    return () => {
+      document.removeEventListener('mousedown', fuera)
+      document.removeEventListener('keydown', tecla)
+      window.removeEventListener('scroll', cerrar, true)
+    }
   }, [ancla])
 
-  useEffect(() => () => window.clearTimeout(cierre.current), [])
-
   return (
-    <td className={className}
-      onClick={() => { window.clearTimeout(cierre.current); setAncla(null); onClick() }}
-      onMouseEnter={e => abrir(e.currentTarget)}
-      onMouseLeave={cerrarEnUnMomento}>
+    <td className={className} onClick={() => { setAncla(null); onClick() }}>
+      {desglose && (
+        <button ref={boton} type="button" aria-label="Ver el desglose" aria-expanded={!!ancla}
+          onClick={e => {
+            e.stopPropagation()
+            // La medida se toma ya: dentro de `setAncla(a => …)` el evento ya no tiene celda.
+            const celda = e.currentTarget.closest('td')!.getBoundingClientRect()
+            setAncla(a => a ? null : celda)
+          }}
+          className={`inline-flex items-center justify-center w-5 h-5 mr-2 align-middle rounded border text-xs font-bold leading-none print:hidden ${
+            ancla ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-500 text-blue-600 bg-white hover:bg-blue-50'}`}>
+          {ancla ? '−' : '+'}
+        </button>
+      )}
       {children}
       {ancla && createPortal(<Recuadro reserva={reserva} ancla={ancla} />, document.body)}
     </td>
@@ -92,7 +102,7 @@ function Recuadro({ reserva, ancla }: { reserva: Reservation; ancla: DOMRect }) 
   }, [ancla])
 
   return (
-    <div ref={caja} translate="no" style={{ top: 0, left: 0 }}
+    <div ref={caja} data-desglose translate="no" style={{ top: 0, left: 0 }}
       className="fixed z-[60] cursor-pointer bg-white rounded-lg border border-slate-300 shadow-xl hover:border-blue-400 print:hidden">
       <div style={{ width: ANCHO, zoom: ESCALA }} className="p-2 space-y-2">
         <CuadroEstancia cuadre={cuadre} compacto onTarifa={irATarifa} />
