@@ -125,6 +125,14 @@ header button.panel-on{background:#fff;color:var(--verde);}
 .yv-corner{display:flex;align-items:center;padding:0 2px;}
 .yv-toggle{background:#fff;border:1px solid var(--verde);color:var(--verde);border-radius:6px;font-size:.66rem;font-weight:600;padding:2px 3px;cursor:pointer;white-space:nowrap;}
 aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--texto2);margin-bottom:8px;}
+.copia-box{margin:0 0 12px;padding:10px 12px;border:1px solid var(--borde);border-radius:var(--rad);}
+.copia-box h2{font-size:.78rem;margin-bottom:2px;}
+#copiaAviso{position:fixed;left:16px;bottom:16px;z-index:3000;max-width:min(440px,calc(100vw - 32px));display:none;align-items:flex-start;gap:10px;
+  padding:10px 12px;border-radius:10px;border:1px solid;box-shadow:0 6px 20px rgba(0,0,0,.18);font-size:.8rem;line-height:1.35;}
+#copiaAviso.bien{display:flex;background:#EAF7EA;border-color:#9FD49F;color:#1A5C1A;}
+#copiaAviso.mal{display:flex;background:#FFF6E5;border-color:#F5C26B;color:#7A4B00;}
+#copiaAviso button{background:none;border:none;cursor:pointer;font-size:1rem;line-height:1;opacity:.6;padding:0 2px;color:inherit;}
+@media print{#copiaAviso{display:none !important;}}
 .onleave-box{background:#FFF6E5;border:1px solid #F5D68C;border-radius:var(--rad);padding:14px;}
 .onleave-box h2{color:#8a5a00;font-size:.78rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
 #onLeaveCount{background:#8a5a00;color:#fff;border-radius:10px;padding:1px 7px;font-size:.68rem;font-weight:700;}
@@ -442,6 +450,11 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
       <div class="rules-section">
         <button class="mini-btn" id="btnCambios" style="margin:0 0 8px;">📜 Registro de cambios</button>
+        <div class="copia-box">
+          <h2 id="operativaCopia">💾 Copia de seguridad</h2>
+          <div id="copiaEstado" class="hint" style="margin:4px 0 6px;">Última copia: —</div>
+          <button class="mini-btn" id="btnCopiaAhora">💾 Hacer copia ahora</button>
+        </div>
         <h2>⚙️ Reglas / Filtros</h2>
 
         <h3>Filtros de vista</h3>
@@ -519,6 +532,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     </main>
   </div>
 </div>
+
+<div id="copiaAviso" role="status"><span>💾</span><span id="copiaAvisoTexto" style="flex:1;"></span><button type="button" id="copiaAvisoCerrar" aria-label="Cerrar">✕</button></div>
 
 <div class="overlay" id="peticionesOverlay">
   <div class="modal" style="width:760px;max-height:88vh;display:flex;flex-direction:column;">
@@ -1445,6 +1460,139 @@ async function initCloudSync(){
   cloudSyncStarted = true;
   clearInterval(cloudPollTimer);
   cloudPollTimer = setInterval(pollCloud, FIRESTORE_POLL_MS);
+  comprobarCopiaAutomatica();
+}
+
+/* ═══════════════════ COPIA DE SEGURIDAD (Luis, 16/11/2026) ═══════════════════
+   Como en Alquileres: cada 15 días, al abrir la app con la sesión iniciada, se hace sola una copia de
+   todo el cuadrante (el mismo JSON que se guarda en la nube): se descarga en este equipo y se manda por
+   correo, como adjunto, a ofipapelsl@ y compras@ (netlify/functions/vacaciones-copia-correo.js, con el
+   token de la sesión). La fecha de la última copia va en Firestore (ofipapel_vacaciones/copia), así que
+   vale para todos los equipos. Si el correo falla, la copia sigue descargada y el aviso dice por qué. */
+const DIAS_ENTRE_COPIAS = 15;
+const COPIA_DOC_ID = 'copia';
+const COPIA_LOCAL_KEY = 'ofipapel_vacaciones_ultima_copia';
+const RUTA_COPIA_CORREO = '/.netlify/functions/vacaciones-copia-correo';
+let copiaEnCurso = false;
+let copiaAutomaticaHecha = false;
+
+function copiaDocUrl(){
+  return `${firestoreBaseUrl()}/${FIRESTORE_COLLECTION}/${COPIA_DOC_ID}?key=${FIREBASE_CONFIG.apiKey}`;
+}
+async function leerEstadoCopia(){
+  const res = await fetch(copiaDocUrl(), {headers: await authHeaders()});
+  if(res.status===404) return null;
+  if(!res.ok) throw new Error('Firestore GET '+res.status);
+  const f = (await res.json()).fields || {};
+  const v = k => (f[k] && f[k].stringValue) || '';
+  return {ultima: v('ultima'), por: v('por'), correo: v('correo')};
+}
+async function guardarEstadoCopia(est){
+  const fields = Object.fromEntries(Object.entries(est).map(([k,v])=>[k,{stringValue:String(v)}]));
+  const res = await fetch(copiaDocUrl(), {method:'PATCH', headers: await authHeaders(), body: JSON.stringify({fields})});
+  if(!res.ok) throw new Error('Firestore PATCH '+res.status);
+}
+function diasDesdeCopia(iso){
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return Number.isNaN(t) ? null : Math.floor((Date.now()-t)/86400000);
+}
+function nombreCopia(d = new Date()){
+  const p = n => String(n).padStart(2,'0');
+  return `vacaciones-copia-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
+}
+/* UTF-8 a base64 por trozos: btoa de una cadena larga con tildes no vale. */
+function aBase64(texto){
+  const bytes = new TextEncoder().encode(texto);
+  let bin = '';
+  for(let i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  return btoa(bin);
+}
+function descargarTexto(nombre, texto){
+  const url = URL.createObjectURL(new Blob([texto], {type:'application/json'}));
+  const a = Object.assign(document.createElement('a'), {href:url, download:nombre});
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+function usuarioDeSesion(){
+  return ((authSession && authSession.email) || '').replace(/@.*/,'');
+}
+function pintarEstadoCopia(est){
+  const el = document.getElementById('copiaEstado');
+  if(!el) return;
+  if(!est || !est.ultima){ el.textContent = 'Última copia: todavía ninguna.'; return; }
+  const d = new Date(est.ultima);
+  const dias = diasDesdeCopia(est.ultima);
+  const prox = Math.max(0, DIAS_ENTRE_COPIAS - (dias ?? DIAS_ENTRE_COPIAS));
+  el.innerHTML = `Última copia: <b>${d.toLocaleDateString('es-ES')}</b> a las ${d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}`
+    + (est.por ? ` (${escapeHtml(est.por)})` : '') + `. ${escapeHtml(est.correo || '')}`
+    + `<br>La siguiente, sola, ${prox===0 ? 'al volver a abrir la app' : `dentro de ${prox} día${prox===1?'':'s'}`}.`;
+}
+let copiaAvisoTimer = null;
+function avisoCopia(texto, bien){
+  const box = document.getElementById('copiaAviso');
+  document.getElementById('copiaAvisoTexto').textContent = texto;
+  box.className = bien ? 'bien' : 'mal';
+  clearTimeout(copiaAvisoTimer);
+  if(bien) copiaAvisoTimer = setTimeout(()=>{ box.className = ''; }, 15000);
+}
+document.getElementById('copiaAvisoCerrar').onclick = ()=>{ document.getElementById('copiaAviso').className = ''; };
+const enMinuscula = t => t.charAt(0).toLowerCase()+t.slice(1);
+
+async function hacerCopia(){
+  if(copiaEnCurso) return;
+  copiaEnCurso = true;
+  const btn = document.getElementById('btnCopiaAhora');
+  btn.disabled = true; btn.textContent = 'Haciendo copia…';
+  try{
+    const nombre = nombreCopia();
+    const texto = JSON.stringify({app:'vacaciones', hecha: new Date().toISOString(), por: usuarioDeSesion(), datos: state}, null, 2);
+    descargarTexto(nombre, texto);
+    const registros = Object.values(state).reduce((s,v)=>s+(Array.isArray(v)?v.length:0),0);
+    let correo, enviada = false;
+    try{
+      const token = await authGetValidIdToken();
+      if(!token) throw new Error('No hay sesión abierta.');
+      const url = location.hostname.endsWith('netlify.app') ? RUTA_COPIA_CORREO : 'https://ofipapel.netlify.app'+RUTA_COPIA_CORREO;
+      const resp = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},
+        body: JSON.stringify({nombre, contenido: aBase64(texto), registros}),
+      });
+      const r = await resp.json().catch(()=>({}));
+      if(!resp.ok) throw new Error(r.error || `El servidor ha contestado ${resp.status}.`);
+      correo = `Enviada a ${r.para || 'el correo de la oficina'}.`;
+      enviada = true;
+    }catch(e){
+      correo = `No enviada por correo: ${e.message || e}`;
+    }
+    const est = {ultima: new Date().toISOString(), por: usuarioDeSesion(), correo};
+    try{ localStorage.setItem(COPIA_LOCAL_KEY, est.ultima); }catch(e){}
+    await guardarEstadoCopia(est).catch(()=>{ /* sin red: queda en este navegador */ });
+    pintarEstadoCopia(est);
+    avisoCopia(`Copia de seguridad guardada en Descargas${enviada ? ' y ' : ', pero '}${enMinuscula(correo)}`, enviada);
+  }finally{
+    copiaEnCurso = false;
+    btn.disabled = false; btn.textContent = '💾 Hacer copia ahora';
+  }
+}
+document.getElementById('btnCopiaAhora').onclick = ()=>{
+  if(!cloudSyncStarted){ showToast('Inicia sesión para hacer la copia.'); return; }
+  hacerCopia();
+};
+
+async function comprobarCopiaAutomatica(){
+  let est = null;
+  try{ est = await leerEstadoCopia(); }catch(e){ return; }   // sin saber cuándo fue la última, no se repite
+  pintarEstadoCopia(est);
+  // En pruebas en local no se hace: apuntaría la fecha en los datos de verdad.
+  if(location.protocol==='file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
+  if(copiaAutomaticaHecha) return;
+  let ultima = est && est.ultima;
+  if(!ultima){ try{ ultima = localStorage.getItem(COPIA_LOCAL_KEY); }catch(e){} }
+  const dias = diasDesdeCopia(ultima);
+  if(dias!==null && dias < DIAS_ENTRE_COPIAS) return;
+  copiaAutomaticaHecha = true;
+  hacerCopia();
 }
 
 /* ═══════════════════ FECHAS ═══════════════════ */
@@ -5211,6 +5359,18 @@ const OPERATIVAS = {
       '<b>Nº Días</b> son los días del periodo y <b>Días Festivos</b>, los festivos que caen dentro. Al pasar el ratón por los festivos se ve cuáles. Se recalculan al cambiar las fechas y solo informan.',
       'Si las fechas no cumplen una regla, la ventana lo dice antes de guardar.',
       'Si habría más gente del grupo fuera que el máximo, «Guardar» se bloquea: cambia las fechas o marca <b>Guardar igualmente</b> si es una decisión tuya.',
+    ],
+  },
+  '#operativaCopia': {
+    pasos: [
+      'Cada <b>15 días</b>, al abrir la app, la copia se hace <b>sola</b>: se descarga un fichero <b>.json</b> con todo el cuadrante y se manda por correo a <b>ofipapelsl@</b> y <b>compras@ofipapelsl.com</b>.',
+      'Para hacerla en cualquier momento, pulsa <b>Hacer copia ahora</b>.',
+      'Guarda el fichero de Descargas, o el del correo, en la carpeta de copias.',
+    ],
+    notas: [
+      'Abajo a la izquierda sale un aviso: <b>verde</b> si todo ha ido bien y <b>ámbar</b> con el motivo si el correo no ha salido. En ese caso la copia <b>sí</b> está en Descargas.',
+      'La fecha de la última copia es la misma para todos los equipos: si ya la hizo otra persona, aquí no se repite.',
+      'Solo se hace con la sesión iniciada.',
     ],
   },
   '#operativaRotacion': {

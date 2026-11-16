@@ -260,6 +260,22 @@ Para que no cualquiera con el enlace pueda ver o cambiar los datos, ahora hace f
 - Si más adelante hace falta añadir a alguien más o cambiar una contraseña, se puede hacer sin tocar el
   código (se gestiona por fuera, en Firebase Authentication).
 
+## 13 bis. Copia de seguridad cada 15 días (Luis, 16/11/2026)
+
+Como en Alquileres: todas las apps del hub guardan copia de seguridad.
+
+- Cada **15 días**, al abrir la app con la sesión iniciada, la copia se hace **sola**: se descarga un
+  fichero `vacaciones-copia-AAAAMMDD-HHMM.json` con todo el cuadrante (empleados, periodos, reglas, festivos,
+  permisos…) y se manda por correo, como adjunto, a **ofipapelsl@ofipapelsl.com** y **compras@ofipapelsl.com**.
+- Abajo a la izquierda sale un aviso pequeño: **verde** si ha ido bien, **ámbar** con el motivo si el correo
+  ha fallado (la copia sigue descargada en ese caso).
+- La fecha de la última copia va en Firestore (`ofipapel_vacaciones/copia`), compartida: si ya la hizo otro
+  equipo, no se repite. En el panel «Reglas y filtros» se ve cuándo fue y quién la hizo.
+- Botón **💾 Hacer copia ahora** en ese mismo recuadro, para hacerla en cualquier momento.
+- El correo lo manda la función `netlify/functions/vacaciones-copia-correo.js` (Resend, `RESEND_API_KEY`
+  en el sitio `ofipapel`), solo con el token de una sesión de esta app (proyecto `ofipapelvv`, con
+  contraseña) y siempre a los mismos dos correos.
+
 ## Guía de la pantalla: qué hace cada parte
 
 Recorrido rápido de la interfaz, en el mismo orden en que aparece en pantalla, para que cualquiera pueda
