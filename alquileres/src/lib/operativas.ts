@@ -178,10 +178,11 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     nota: 'Solo avisan: **no cambian ninguna cifra** de la aplicación.',
   },
   {
-    // lib/copia.ts — DIAS_ENTRE_COPIAS
+    // components/CopiaAutomatica.tsx, lib/copiaAutomatica.ts
     que: 'Copia de seguridad',
-    formula: 'avisa a los 15 días de la última',
-    nota: 'Se descarga en Apartamentos. Lo que se borra por error **no se puede recuperar** sin ella.',
+    formula: 'se hace sola al abrir la app, a los 15 días de la última',
+    nota: 'Se guarda en **Descargas** y se manda **por correo a ofipapelsl@ofipapelsl.com**; sale un aviso abajo. '
+      + 'Lo que se borra por error **no se puede recuperar** sin ella.',
   },
   {
     // pages/Dashboard.tsx — isPriceRenewalMonth
@@ -617,9 +618,10 @@ export const OPERATIVA_APARTAMENTOS: ReglaOperativa[] = [
     nota: 'Deja de salir en las listas, pero **su dinero sigue viéndose** en Cobros si tiene movimientos ese año.',
   },
   {
-    // lib/copia.ts
+    // lib/copia.ts, lib/copiaAutomatica.ts, components/CopiaAutomatica.tsx
     que: 'Copia de seguridad',
-    nota: 'Hazla cada **15 días**. Lo que se borra por error desaparece y no hay papelera.',
+    nota: '**Cada 15 días se hace sola** al abrir la app: se guarda en **Descargas** y se manda **por correo** a la oficina. '
+      + '«Hacer copia ahora» hace lo mismo cuando quieras. Lo que se borra por error desaparece y no hay papelera.',
   },
 ]
 
