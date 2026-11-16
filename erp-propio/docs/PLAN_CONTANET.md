@@ -1,13 +1,14 @@
 # Plan: llevar CONTANET dentro del ERP propio
 
-Rober, 16/11/2026. Borrador para revisar con Luis y con la asesoría.
+Rober, 16/11/2026. Borrador para revisar con Mónica (que es quien lleva CONTANET), con Luis y con la asesoría.
 
 **Objetivo.** Que la contabilidad que hoy se lleva en CONTANET (más de 20 años) se lleve dentro del
 ERP propio, con las pantallas y los menús de CONTANET lo más fieles posible, con los colores y el
 estilo del ERP, y sumando las utilidades que el ERP ya tiene y CONTANET no.
 
 **Aviso sobre este borrador.** El material descargado de CONTANET (capturas, tablas, históricos de las
-empresas) todavía no ha llegado a este chat ni está cargado en el ERP: figura como tarea pendiente en el
+empresas) todavía no ha llegado a este chat ni está cargado en el ERP, y no se sabe aquí dónde está
+guardado (se buscó en la base de datos del ERP, en el repositorio y en Google Drive, sin resultado): figura como tarea pendiente en el
 Registro de incidencias («datos/capturas de CONTANET»). Por eso este plan describe con detalle lo que
 el ERP ya tiene, y deja la parte de CONTANET para rellenar en la fase 1, en cuanto llegue el material.
 Nada de lo que aquí se dice de CONTANET está comprobado.
@@ -38,8 +39,8 @@ Datos reales: prácticamente ninguno (13 asientos de prueba, ejercicio 2026).
 1. **El material de CONTANET**, igual que se hizo con GeminisWin: los ZIP de capturas de pantalla, las
    tablas o ficheros de datos y los históricos de cada empresa. Se pasan a este chat; no van al
    repositorio (llevan datos reales).
-2. **Una persona que sepa contabilidad** (Luis o la asesoría) para unas pocas decisiones, que se listan
-   en el punto 5. Rober no tiene que contestar dudas contables.
+2. **Mónica**, que es quien usa CONTANET cada día, para unas pocas decisiones (punto 5) y para
+   reconocer las pantallas; con Luis y la asesoría donde haga falta. Rober no tiene que contestar dudas contables.
 
 ## 3. Las fases
 
@@ -59,7 +60,7 @@ resultados por tienda, VeriFactu. Lo que previsiblemente falta en el ERP (a conf
 efectos y vencimientos tal como la lleve CONTANET, inmovilizado y amortizaciones, presupuestos
 contables, contabilidad analítica, punteo, asientos predefinidos y los listados oficiales propios.
 
-Esta fase termina con una reunión corta con Luis para aprobar la tabla. Hasta entonces no se programa.
+Esta fase termina con una reunión corta con Mónica y Luis para aprobar la tabla. Hasta entonces no se programa.
 
 ### Fase 3 — Menú y aspecto
 El área Contabilidad del ERP pasa a tener el árbol de menús de CONTANET, con sus mismos nombres y
@@ -96,12 +97,12 @@ Un trimestre llevando la contabilidad en los dos sitios. Se comparan sumas y sal
 Cuando coinciden, se deja CONTANET solo para consulta.
 
 ## 4. Cómo se sabrá que cada fase está bien
-- Fase 1 y 2: Luis da por buena la lista y la tabla.
+- Fase 1 y 2: Mónica y Luis dan por buena la lista y la tabla.
 - Fase 3 y 4: quien usa CONTANET cada día reconoce cada pantalla sin explicación.
 - Fase 5: sumas y saldos idénticos por empresa y año.
 - Fase 7: un trimestre entero con los mismos resultados en los dos programas.
 
-## 5. Decisiones que no son de programación (Luis y asesoría)
+## 5. Decisiones que no son de programación (Mónica, Luis y asesoría)
 1. Qué empresas del grupo se traen y desde qué año.
 2. Si el plan de cuentas del ERP se sustituye por el de CONTANET tal cual (lo recomendable).
 3. Qué hacer con los asientos de prueba que hay hoy en el ERP (lo recomendable: empezar limpio).
