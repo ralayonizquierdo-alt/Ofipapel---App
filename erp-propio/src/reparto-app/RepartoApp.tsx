@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as PEvent, type ReactNode } from 'react'
 import {
-  cambiarRuta,
+  cancelarTraspaso,
+  proponerTraspaso,
+  responderTraspaso,
+  traspasos,
+  type TraspasoRecibido,
+  type TraspasoRespuesta,
   cola,
   encolar,
   enviarCola,
@@ -643,6 +648,7 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
   return (
     <>
       <Cabecera sub={sesion.nombre.toUpperCase()} derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
+      <AvisosTraspaso sesion={sesion} />
       <Tarjeta>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde, marginBottom: 10 }}>Elige tu ruta de hoy</div>
         {!lista && !error && <div style={{ color: V.gris }}>Cargando…</div>}
@@ -804,8 +810,8 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         intento1: l.estado === 'no_entregado' && !l.intento2 ? null : l.intento1,
       })
     encolar('fn_app_rep_marcar', {
-      p_tienda: reparto.tienda,
-      p_numero: reparto.numero,
+      p_tienda: l.rt ?? reparto.tienda,
+      p_numero: l.rn ?? reparto.numero,
       p_vt: l.vt,
       p_vn: l.vn,
       p_accion: tipo,
@@ -823,7 +829,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
 
   const comprobar = (l: LineaApp) => {
     cambiarLocal(clave(l), { comprobado: !l.comprobado })
-    encolar('fn_app_rep_comprobar', { p_tienda: reparto.tienda, p_numero: reparto.numero, p_vt: l.vt, p_vn: l.vn, p_ok: !l.comprobado })
+    encolar('fn_app_rep_comprobar', { p_tienda: l.rt ?? reparto.tienda, p_numero: l.rn ?? reparto.numero, p_vt: l.vt, p_vn: l.vn, p_ok: !l.comprobado })
     setPendientesCola(cola().length)
     void enviar()
   }
@@ -833,7 +839,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     const nuevo = { ...datos, lineas: nuevas }
     setDatos(nuevo)
     guardarCache(reparto.tienda, reparto.numero, nuevo)
-    encolar('fn_app_rep_orden', { p_tienda: reparto.tienda, p_numero: reparto.numero, p_orden: nuevas.map((l) => ({ vt: l.vt, vn: l.vn })) })
+    encolar('fn_app_rep_orden', { p_tienda: reparto.tienda, p_numero: reparto.numero, p_orden: nuevas.filter((l) => !l.viene_de).map((l) => ({ vt: l.vt, vn: l.vn })) })
     setPendientesCola(cola().length)
     void enviar()
   }
@@ -843,8 +849,17 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     guardar(`reparto.modo.${reparto.tienda}-${reparto.numero}`, m)
   }
 
+  const alCambiarTraspaso = useCallback(() => void recargar(), [recargar])
+  const retirar = (l: LineaApp) => {
+    if (!l.traspaso) return
+    cancelarTraspaso(sesion.token, l.traspaso.id)
+      .then(() => setAviso('Ofrecimiento retirado: el pedido sigue siendo tuyo.'))
+      .catch((e: Error) => setAviso(e.message))
+      .finally(() => void recargar())
+  }
+
   const comprobados = ls.filter((l) => l.comprobado).length
-  const hechos = ls.filter((l) => !['pendiente', 'viene_anterior'].includes(l.estado)).length
+  const hechos = ls.filter((l) => !['pendiente', 'viene_anterior'].includes(l.estado) || l.traspaso?.estado === 'aceptado').length
 
   return (
     <>
@@ -945,6 +960,8 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         </Tarjeta>
       )}
 
+      <AvisosTraspaso sesion={sesion} onCambio={alCambiarTraspaso} />
+
       {!datos ? (
         <Tarjeta>Cargando…</Tarjeta>
       ) : (
@@ -957,7 +974,8 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           onComprobar={comprobar}
           onAccion={accion}
           onHoja={setHoja}
-          puedeCambiarRuta={sesion.puede_cambiar_ruta}
+          puedeCambiarRuta
+          onRetirar={retirar}
           bloqueado={!puedeEntregar}
         />
       )}
@@ -986,11 +1004,102 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           onCerrar={() => setHoja(null)}
           onHecho={() => {
             setHoja(null)
-            setAviso('Pedido cambiado de ruta.')
+            setAviso('Ofrecido. Sigue siendo tuyo hasta que el otro repartidor lo acepte.')
             void recargar()
           }}
         />
       )}
+    </>
+  )
+}
+
+// ------------------------------------------------------------------ Pedidos que me ofrecen otros repartidores
+function AvisosTraspaso({ sesion, onCambio }: { sesion: Sesion; onCambio?: () => void }) {
+  const [recibidos, setRecibidos] = useState<TraspasoRecibido[]>([])
+  const [respuestas, setRespuestas] = useState<TraspasoRespuesta[]>([])
+  const [vistas, setVistas] = useState<number[]>(() => leer<number[]>('reparto.traspasos.vistos') ?? [])
+  const [error, setError] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+  const antes = useRef<string>('')
+
+  const mirar = useCallback(async () => {
+    try {
+      const r = await traspasos(sesion.token)
+      setRecibidos(r.recibidos)
+      setRespuestas(r.respuestas)
+      // Si otro ha aceptado o rechazado algo mío, se refresca la lista de la ruta.
+      const firma = r.respuestas.map((x) => `${x.id}${x.estado}`).join(',')
+      if (antes.current !== firma) {
+        if (antes.current !== '' || firma !== '') onCambio?.()
+        antes.current = firma
+      }
+    } catch {
+      /* sin conexión o sesión caducada: ya lo avisa la pantalla principal */
+    }
+  }, [sesion.token, onCambio])
+  useEffect(() => {
+    void mirar()
+    const t = setInterval(() => void mirar(), 30_000)
+    return () => clearInterval(t)
+  }, [mirar])
+
+  const responder = async (t: TraspasoRecibido, aceptar: boolean) => {
+    setOcupado(true)
+    setError(null)
+    try {
+      await responderTraspaso(sesion.token, t.id, aceptar)
+      onCambio?.()
+    } catch (e) {
+      setError((e as ErrorApp).red ? 'Sin conexión: inténtalo con cobertura.' : (e as Error).message)
+    } finally {
+      setOcupado(false)
+      void mirar()
+    }
+  }
+  const visto = (id: number) => {
+    const v = [...vistas, id].slice(-50)
+    setVistas(v)
+    guardar('reparto.traspasos.vistos', v)
+  }
+  const nuevas = respuestas.filter((r) => !vistas.includes(r.id))
+  if (!recibidos.length && !nuevas.length && !error) return null
+  return (
+    <>
+      {recibidos.map((t) => (
+        <Tarjeta key={t.id} style={{ borderTopColor: '#1f6fb2' }}>
+          <div style={{ fontWeight: 700, color: '#1f6fb2', fontSize: 16 }}>📦 {t.de} te pasa un pedido</div>
+          <div style={{ fontWeight: 700, fontSize: 16, marginTop: 4 }}>{t.cliente}</div>
+          <div style={{ fontSize: 14, color: V.gris }}>
+            {[t.direccion, t.poblacion].filter(Boolean).join(' · ') || 'Sin dirección'}
+            {t.ruta_origen ? ` · de la ruta ${t.ruta_origen}` : ''}
+          </div>
+          {t.motivo && <div style={{ fontSize: 14, marginTop: 2 }}>«{t.motivo}»</div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <Boton disabled={ocupado} claro color={V.rojo} onClick={() => responder(t, false)} style={{ flex: 1 }}>
+              Rechazar
+            </Boton>
+            <Boton disabled={ocupado} onClick={() => responder(t, true)} style={{ flex: 2 }}>
+              ✅ Aceptar
+            </Boton>
+          </div>
+        </Tarjeta>
+      ))}
+      {nuevas.map((r) => (
+        <Tarjeta key={r.id} style={{ borderTopColor: r.estado === 'aceptado' ? V.verdeMed : V.rojo, padding: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, fontSize: 14 }}>
+              <b style={{ color: r.estado === 'aceptado' ? V.verdeMed : V.rojo }}>
+                {r.a} {r.estado === 'aceptado' ? 'ha ACEPTADO' : 'ha RECHAZADO'}
+              </b>{' '}
+              el pedido de {r.cliente}.{r.estado === 'rechazado' ? ' Sigue siendo tuyo.' : ''}
+            </div>
+            <Boton claro color={V.gris} onClick={() => visto(r.id)} style={{ fontSize: 13, padding: '8px 12px' }}>
+              Vale
+            </Boton>
+          </div>
+        </Tarjeta>
+      ))}
+      {error && <Tarjeta style={{ borderTopColor: V.rojo, color: V.rojo }}>{error}</Tarjeta>}
     </>
   )
 }
@@ -1006,6 +1115,7 @@ function Lista({
   onAccion,
   onHoja,
   puedeCambiarRuta,
+  onRetirar,
   bloqueado,
 }: {
   lineas: LineaApp[]
@@ -1017,6 +1127,7 @@ function Lista({
   onAccion: (l: LineaApp, t: 'entregado' | 'deshacer') => void
   onHoja: (h: Hoja) => void
   puedeCambiarRuta: boolean
+  onRetirar: (l: LineaApp) => void
   bloqueado: boolean
 }) {
   const [orden, setOrden] = useState<LineaApp[]>(lineas)
@@ -1130,6 +1241,9 @@ function Lista({
                   {l.prioritario && '↻ '}
                   {l.cliente}
                 </div>
+                {l.viene_de && <div style={{ fontSize: 12, color: '#1f6fb2', fontWeight: 700 }}>📦 Te lo pasa: {l.viene_de}</div>}
+                {l.traspaso?.estado === 'propuesto' && <div style={{ fontSize: 12, color: V.naranja, fontWeight: 700 }}>⏳ Ofrecido a {l.traspaso.a}: esperando respuesta</div>}
+                {l.traspaso?.estado === 'aceptado' && <div style={{ fontSize: 12, color: V.gris, fontWeight: 700 }}>➡ Lo lleva {l.traspaso.a}</div>}
                 {marcado && (
                   <div style={{ fontSize: 12, color }}>
                     {l.estado === 'no_entregado'
@@ -1185,13 +1299,24 @@ function Lista({
                       🗺️ Mapa
                     </a>
                   )}
-                  {puedeCambiarRuta && (
+                  {puedeCambiarRuta && !marcado && !l.traspaso && !l.viene_de && (
                     <button type="button" onClick={() => onHoja({ tipo: 'ruta', linea: l })} style={{ ...enlace, background: '#fff' }}>
-                      🔀 Otra ruta
+                      🔀 Pasar a otro
+                    </button>
+                  )}
+                  {l.traspaso?.estado === 'propuesto' && (
+                    <button type="button" onClick={() => onRetirar(l)} style={{ ...enlace, background: '#fff', borderColor: V.naranja, color: V.naranja }}>
+                      ✖ Retirar oferta
                     </button>
                   )}
                 </div>
+                {l.traspaso?.estado === 'aceptado' && (
+                  <div style={{ marginTop: 10, background: '#f1f4f1', borderRadius: 10, padding: '8px 10px', fontSize: 14, color: V.gris }}>
+                    Este pedido lo lleva ahora <b>{l.traspaso.a}</b>: lo marcará él.
+                  </div>
+                )}
                 {modo === 'repartir' &&
+                  l.traspaso?.estado !== 'aceptado' &&
                   (marcado ? (
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       {l.estado === 'no_entregado' && !l.intento2 && (
@@ -1314,16 +1439,16 @@ function HojaCambioRuta({ sesion, reparto, linea, onCerrar, onHecho }: { sesion:
   const hacer = async () => {
     if (!destino) return
     try {
-      await cambiarRuta(sesion.token, reparto.tienda, reparto.numero, linea.vt, linea.vn, destino.tienda, destino.numero, motivo.trim())
+      await proponerTraspaso(sesion.token, reparto.tienda, reparto.numero, linea.vt, linea.vn, destino.tienda, destino.numero, motivo.trim())
       onHecho()
     } catch (e) {
       setError((e as Error).message)
     }
   }
   return (
-    <Hoja titulo={`Cambiar de ruta: ${linea.cliente}`} onCerrar={onCerrar}>
+    <Hoja titulo={`Pasar a otro repartidor: ${linea.cliente}`} onCerrar={onCerrar}>
       {!rutas && !error && <div style={{ color: V.gris }}>Cargando…</div>}
-      {!!rutas?.length && <div style={{ fontWeight: 700, color: V.verde, marginBottom: 6 }}>¿A qué ruta pasa este pedido? Toca una:</div>}
+      {!!rutas?.length && <div style={{ fontWeight: 700, color: V.verde, marginBottom: 6 }}>¿A qué ruta se lo ofreces? Toca una. El otro repartidor tendrá que aceptarlo:</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '35vh', overflow: 'auto' }}>
         {rutas?.map((r) => {
           // Puede haber dos repartos abiertos de la misma ruta: se distinguen por la fecha y el número.
@@ -1342,12 +1467,12 @@ function HojaCambioRuta({ sesion, reparto, linea, onCerrar, onHecho }: { sesion:
             </Boton>
           )
         })}
-        {rutas && !rutas.length && <div style={{ color: V.gris }}>No hay otras rutas abiertas hoy.</div>}
+        {rutas && !rutas.length && <div style={{ color: V.gris }}>No hay otras rutas abiertas hoy con repartidor.</div>}
       </div>
       <textarea
         value={motivo}
         onChange={(e) => setMotivo(e.target.value)}
-        placeholder="¿Por qué se cambia? (obligatorio)"
+        placeholder="¿Por qué? (opcional)"
         rows={2}
         style={{ width: '100%', border: '2px solid #cfe0cf', borderRadius: 12, padding: 10, fontSize: 16, marginTop: 10 }}
       />
@@ -1356,8 +1481,8 @@ function HojaCambioRuta({ sesion, reparto, linea, onCerrar, onHecho }: { sesion:
         <Boton claro color={V.gris} onClick={onCerrar} style={{ flex: 1 }}>
           Cancelar
         </Boton>
-        <Boton disabled={!destino || !motivo.trim()} onClick={hacer} style={{ flex: 2 }}>
-          Cambiar
+        <Boton disabled={!destino} onClick={hacer} style={{ flex: 2 }}>
+          Ofrecer
         </Boton>
       </div>
     </Hoja>

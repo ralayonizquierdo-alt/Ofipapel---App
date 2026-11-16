@@ -55,6 +55,13 @@ export interface LineaApp {
   intento2: string | null
   entregado_en: string | null
   comprobado: boolean
+  /** Reparto al que pertenece de verdad el pedido (distinto del abierto si me lo han pasado). */
+  rt?: string
+  rn?: number
+  /** Me lo han pasado desde otra ruta: «Ruta X · Repartidor». */
+  viene_de?: string | null
+  /** Pedido mío que he ofrecido (propuesto) o que ya lleva otro (aceptado). */
+  traspaso?: { id: number; estado: 'propuesto' | 'aceptado'; a: string } | null
 }
 
 const K_SESION = 'reparto.sesion'
@@ -163,6 +170,42 @@ export const cambiarRuta = (token: string, tienda: string, numero: number, vt: s
     p_dest_numero: destNumero,
     p_motivo: motivo,
   })
+
+// ------------------------------------------------------------ Pasar un pedido a otro repartidor
+export interface TraspasoRecibido {
+  id: number
+  de: string
+  ruta_origen: string | null
+  ruta_destino: string | null
+  cliente: string
+  direccion: string | null
+  poblacion: string | null
+  motivo: string | null
+}
+export interface TraspasoRespuesta {
+  id: number
+  estado: 'aceptado' | 'rechazado'
+  a: string
+  cliente: string
+  respuesta: string | null
+}
+export const proponerTraspaso = (token: string, tienda: string, numero: number, vt: string, vn: number, destTienda: string, destNumero: number, motivo: string) =>
+  rpc<{ ok: boolean }>('fn_app_rep_traspaso_proponer', {
+    p_token: token,
+    p_tienda: tienda,
+    p_numero: numero,
+    p_vt: vt,
+    p_vn: vn,
+    p_dest_tienda: destTienda,
+    p_dest_numero: destNumero,
+    p_motivo: motivo || null,
+  })
+export const traspasos = (token: string) => rpc<{ recibidos: TraspasoRecibido[]; respuestas: TraspasoRespuesta[] }>('fn_app_rep_traspasos', { p_token: token })
+export async function responderTraspaso(token: string, id: number, aceptar: boolean) {
+  const r = await rpc<{ ok: boolean; error?: string }>('fn_app_rep_traspaso_responder', { p_token: token, p_id: id, p_aceptar: aceptar, p_nota: null })
+  if (!r.ok) throw new ErrorApp(r.error ?? 'No se pudo responder.')
+}
+export const cancelarTraspaso = (token: string, id: number) => rpc<{ ok: boolean }>('fn_app_rep_traspaso_cancelar', { p_token: token, p_id: id })
 
 // ------------------------------------------------------------ Oficina: todas las rutas (solo lectura)
 export interface RutaOficina {

@@ -22,6 +22,13 @@ la app de móvil (`/repartidor`). Se empieza con **una sola ruta**, supervisada.
 
 Probado con ficheros DBF inventados (estructura del LEEME) y un servidor de pega: filtro por ruta y fecha, registros borrados y a medias, ventas con el mismo número en otra oficina, venta antigua, cierre del reparto y partes. **Falta la prueba con los ficheros reales** (`--prueba`, que no envía nada).
 
+## Pasar un pedido a otro repartidor
+Un repartidor ofrece un pedido suyo sin entregar a otra ruta abierta («🔀 Pasar a otro»); al otro le sale
+el aviso y lo acepta o lo rechaza (tabla `reparto_traspaso`, migración
+`20261116_reparto_traspaso_entre_repartidores.sql`). El pedido **no cambia de reparto**: sigue en el de
+origen —así el puente no lo deshace y GeminisWin no se toca— y lo marca quien lo aceptó. En el parte y en
+la vista OFICINA el pedido sigue saliendo en su ruta de origen.
+
 ## Parte B — de la app a GeminisWin (pendiente, la hará Cowork)
 
 `python puente_reparto.py --partes` deja en `partes\` un fichero por reparto abierto con lo que marcó
