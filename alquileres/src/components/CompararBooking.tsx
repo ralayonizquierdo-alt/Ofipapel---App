@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import {
@@ -41,6 +42,20 @@ export default function CompararBooking() {
   const consultas = usePreciosBooking()
   const [abierto, setAbierto] = useState(false)
   const [verTodas, setVerTodas] = useState(false)
+
+  /**
+   * Desde el aviso mensual se llega con `?ver=booking`: se baja hasta aquí. Con
+   * un respiro, porque las tablas de arriba (ofertas) llegan de la nube después
+   * y empujan la sección hacia abajo.
+   */
+  const [params] = useSearchParams()
+  const irAqui = params.get('ver') === 'booking'
+  const cargado = consultas !== null && prices.length > 0
+  useEffect(() => {
+    if (!irAqui || !cargado) return
+    const t = setTimeout(() => document.getElementById('booking')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 400)
+    return () => clearTimeout(t)
+  }, [irAqui, cargado])
 
   const nombre = (id: string) => apartments.find(a => a.id === id)?.name ?? `Apartamento ${id}`
 

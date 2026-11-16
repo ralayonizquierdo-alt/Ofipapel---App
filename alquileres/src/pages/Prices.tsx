@@ -114,9 +114,7 @@ export default function Prices() {
 
   // La tarifa marcada se pone a la vista en cuanto está pintada (los precios
   // llegan de la nube después del primer pintado).
-  // `?ver=booking` (el aviso mensual de Booking) baja hasta «Comparar con Booking».
-  const marcada = tarifaMarcada ? `tarifa-${tarifaMarcada}` : ofertaMarcada ? `oferta-${ofertaMarcada}`
-    : params.get('ver') === 'booking' ? 'booking' : ''
+  const marcada = tarifaMarcada ? `tarifa-${tarifaMarcada}` : ofertaMarcada ? `oferta-${ofertaMarcada}` : ''
   const hayMarcada = !!marcada && (prices.length > 0 || offerPrices.length > 0)
   useEffect(() => {
     if (!hayMarcada) return
