@@ -176,6 +176,26 @@ export const cambiarRuta = (token: string, tienda: string, numero: number, vt: s
     p_motivo: motivo,
   })
 
+// ------------------------------------------------------------ Fichar desde la app de reparto
+export type TipoFichaje = 'entrada' | 'pausa_inicio' | 'pausa_fin' | 'salida'
+export interface FichajeHoy {
+  estado: 'trabajando' | 'pausa' | 'sin_fichar' | 'salida' | 'sin_vinculo'
+  hoy: { tipo: TipoFichaje; en: string }[]
+}
+export const fichajeHoy = (token: string) => rpc<FichajeHoy>('fn_app_rep_fichaje_hoy', { p_token: token })
+export async function fichar(token: string, tipo: TipoFichaje, pos: { lat: number; lng: number; precision: number | null } | null): Promise<FichajeHoy> {
+  const r = await rpc<{ ok: boolean; error?: string } & FichajeHoy>('fn_app_rep_fichar', {
+    p_token: token,
+    p_tipo: tipo,
+    p_lat: pos?.lat ?? null,
+    p_lng: pos?.lng ?? null,
+    p_precision: pos?.precision ?? null,
+    p_dispositivo: navigator.userAgent.slice(0, 150),
+  })
+  if (!r.ok) throw new ErrorApp(r.error ?? 'No se pudo fichar.')
+  return r
+}
+
 /** «No es mi ruta»: la deja libre para que la coja otro repartidor. */
 export const soltarRuta = (token: string, tienda: string, numero: number) => rpc<{ ok: boolean }>('fn_app_rep_soltar', { p_token: token, p_tienda: tienda, p_numero: numero })
 

@@ -13,6 +13,10 @@ import {
   enviarCola,
   entrar,
   entrarDesdeFichaje,
+  fichajeHoy,
+  fichar,
+  type FichajeHoy,
+  type TipoFichaje,
   ErrorApp,
   avisoUbicacion,
   lineasOficina,
@@ -83,7 +87,6 @@ const numeroWhatsApp = (tel: string | null | undefined): string | null => {
 const euros = (n: number | null | undefined) => (n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €')
 const base = import.meta.env.BASE_URL
 // Fichaje (/fichaje, en el ERP): el registro horario legal; lo gestiona gerencia en Archivo → Fichaje.
-const FICHAJE_URL = `${base}fichaje`
 
 function useFuentesYManifiesto() {
   useEffect(() => {
@@ -775,6 +778,7 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
   return (
     <>
       <Cabecera sub={sesion.nombre.toUpperCase()} derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
+      <CajaFichaje sesion={sesion} />
       <AvisosTraspaso sesion={sesion} />
       <Tarjeta>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Elige tu ruta de hoy</div>
@@ -914,7 +918,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   const accion = (l: LineaApp, tipo: 'entregado' | 'incidencia' | 'no_entregado' | 'deshacer', detalle?: string, nota?: string) => {
     if (tipo !== 'deshacer' && !puedeEntregar) {
       setHoja(null)
-      setAviso('Primero ficha la entrada en Fichaje: hasta entonces puedes ver, comprobar y ordenar la ruta, pero no entregar.')
+      setAviso('Primero ficha la entrada (botón «Fichar entrada», arriba): hasta entonces puedes ver, comprobar y ordenar la ruta, pero no entregar.')
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
@@ -1027,29 +1031,14 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         </Tarjeta>
       )}
 
-      {!puedeEntregar && (
-        <Tarjeta style={{ borderTopColor: V.naranja }}>
-          <div style={{ fontWeight: 800, fontSize: 18, color: V.rojo }}>🕒 {fichaje === 'pausa' ? 'Estás en pausa' : fichaje === 'salida' ? 'Ya has fichado la salida' : 'Lo primero: fichar'}</div>
-          <div style={{ fontSize: 14, color: V.gris, margin: '6px 0 10px' }}>
-            {fichaje === 'comprobando'
-                ? 'Comprobando tu fichaje…'
-                : fichaje === 'sin_conexion'
-                  ? 'Sin cobertura no puedo comprobar tu fichaje. En cuanto vuelva la señal lo miro otra vez.'
-                  : fichaje === 'pausa'
-                    ? 'Ficha el fin de pausa en Fichaje para seguir entregando.'
-                    : fichaje === 'salida'
-                      ? 'Tu jornada de hoy está cerrada en Fichaje. Si sigues trabajando, ficha la entrada otra vez.'
-                      : 'Aún no has fichado la entrada hoy. Ficha en Fichaje y vuelve: hasta entonces puedes ver, comprobar y ordenar la ruta, pero no entregar.'}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <a href={FICHAJE_URL} style={{ ...enlace, display: 'block', background: V.verdeMed, color: '#fff' }}>
-              🕒 Ir a Fichaje
-            </a>
-            <button type="button" onClick={() => void mirarFichaje()} style={{ ...enlace, background: '#fff' }}>
-              Ya he fichado
-            </button>
-          </div>
-        </Tarjeta>
+      <CajaFichaje sesion={sesion} onCambio={() => void mirarFichaje()} />
+      {fichaje === 'sin_conexion' && (
+        <Tarjeta style={{ borderTopColor: V.naranja, fontSize: 14, color: V.gris }}>Sin cobertura no puedo comprobar tu fichaje. En cuanto vuelva la señal lo miro otra vez.</Tarjeta>
+      )}
+      {(fichaje === 'sin_fichar' || fichaje === 'pausa' || fichaje === 'salida') && (
+        <div style={{ color: '#fff', fontSize: 13, textAlign: 'center', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
+          {fichaje === 'pausa' ? 'En pausa no se puede entregar.' : 'Sin fichar la entrada puedes ver, comprobar y ordenar la ruta, pero no entregar.'}
+        </div>
       )}
 
       <div style={{ display: 'flex', background: 'rgba(255,255,255,.9)', borderRadius: 16, padding: 4, gap: 4 }}>
@@ -1091,11 +1080,8 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         <Tarjeta>
           <div style={{ fontWeight: 800, fontSize: 18, color: V.verde }}>✔ Ruta terminada</div>
           <div style={{ fontSize: 14, color: V.gris, margin: '6px 0 10px' }}>
-            Pasa por Ofipapel a entregar los cobros y cargar la furgoneta para mañana. Tu jornada termina al guardar la furgoneta en la nave: ficha la salida allí, en Fichaje.
+            Pasa por Ofipapel a entregar los cobros y cargar la furgoneta para mañana. Tu jornada termina al guardar la furgoneta en la nave: ficha la salida entonces, con el botón «Fichar salida» de arriba.
           </div>
-          <a href={FICHAJE_URL} style={{ ...enlace, display: 'block' }}>
-            🕒 Ir a Fichaje
-          </a>
         </Tarjeta>
       )}
 
@@ -1180,6 +1166,101 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         />
       )}
     </>
+  )
+}
+
+// ------------------------------------------------------------------ Fichar (entrada, pausa y salida) sin salir de la app
+const posicionAhora = (): Promise<{ lat: number; lng: number; precision: number | null } | null> =>
+  new Promise((ok) => {
+    if (leer<string>('reparto.gps') !== 'si' || !('geolocation' in navigator)) return ok(null)
+    navigator.geolocation.getCurrentPosition(
+      (p) => ok({ lat: p.coords.latitude, lng: p.coords.longitude, precision: p.coords.accuracy }),
+      () => ok(null),
+      { timeout: 5000, maximumAge: 60_000 },
+    )
+  })
+
+function CajaFichaje({ sesion, onCambio }: { sesion: Sesion; onCambio?: () => void }) {
+  const [f, setF] = useState<FichajeHoy | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+  const mirar = useCallback(async () => {
+    try {
+      setF(await fichajeHoy(sesion.token))
+    } catch {
+      /* sin conexión o sesión caducada: lo avisa la pantalla principal */
+    }
+  }, [sesion.token])
+  useEffect(() => {
+    void mirar()
+    const t = setInterval(() => void mirar(), 60_000)
+    return () => clearInterval(t)
+  }, [mirar])
+
+  const pulsar = async (tipo: TipoFichaje) => {
+    if (tipo === 'salida' && !window.confirm('¿Fichas la SALIDA? Tu jornada de hoy quedará terminada.')) return
+    setOcupado(true)
+    setError(null)
+    try {
+      setF(await fichar(sesion.token, tipo, await posicionAhora()))
+      onCambio?.()
+    } catch (e) {
+      setError((e as ErrorApp).red ? 'Sin conexión: para fichar hace falta cobertura.' : (e as Error).message)
+      void mirar()
+    } finally {
+      setOcupado(false)
+    }
+  }
+  if (!f || f.estado === 'sin_vinculo') return null
+  const h = (tipo: TipoFichaje) => {
+    const e = [...f.hoy].reverse().find((x) => x.tipo === tipo)
+    return e ? hora(e.en) : ''
+  }
+  const primera = f.hoy.find((x) => x.tipo === 'entrada')
+  const peq: CSSProperties = { fontSize: 14, padding: '10px 6px', flex: 1 }
+  return (
+    <Tarjeta style={{ padding: 12, borderTopColor: f.estado === 'trabajando' ? V.verdeCl : f.estado === 'pausa' ? V.naranja : V.rojo }}>
+      {f.estado === 'sin_fichar' && (
+        <>
+          <div style={{ fontWeight: 700, color: V.rojo, marginBottom: 8 }}>🕒 Aún no has fichado la entrada</div>
+          <Boton disabled={ocupado} onClick={() => void pulsar('entrada')} style={{ width: '100%', fontSize: 18 }}>
+            ▶ Fichar entrada
+          </Boton>
+        </>
+      )}
+      {f.estado === 'trabajando' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 130px', fontWeight: 700, color: V.verde, fontSize: 14 }}>🟢 Trabajando{primera ? ` · entrada ${hora(primera.en)}` : ''}</div>
+          <div style={{ display: 'flex', gap: 8, flex: '1 1 200px' }}>
+            <Boton claro color={V.naranja} disabled={ocupado} onClick={() => void pulsar('pausa_inicio')} style={peq}>
+              ⏸ Pausa
+            </Boton>
+            <Boton claro color={V.rojo} disabled={ocupado} onClick={() => void pulsar('salida')} style={peq}>
+              ■ Fichar salida
+            </Boton>
+          </div>
+        </div>
+      )}
+      {f.estado === 'pausa' && (
+        <>
+          <div style={{ fontWeight: 700, color: V.naranja, marginBottom: 8 }}>⏸ En pausa desde las {h('pausa_inicio')}</div>
+          <Boton disabled={ocupado} onClick={() => void pulsar('pausa_fin')} style={{ width: '100%' }}>
+            ▶ Terminar pausa
+          </Boton>
+        </>
+      )}
+      {f.estado === 'salida' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 150px', fontWeight: 700, color: V.gris, fontSize: 14 }}>
+            ■ Jornada terminada{primera ? ` · ${hora(primera.en)}–${h('salida')}` : ''}
+          </div>
+          <Boton claro color={V.gris} disabled={ocupado} onClick={() => void pulsar('entrada')} style={{ fontSize: 13, padding: '8px 10px' }}>
+            Fichar entrada otra vez
+          </Boton>
+        </div>
+      )}
+      {error && <div style={{ color: V.rojo, marginTop: 8, fontSize: 14 }}>{error}</div>}
+    </Tarjeta>
   )
 }
 

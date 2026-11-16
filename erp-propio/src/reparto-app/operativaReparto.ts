@@ -28,6 +28,15 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     ],
   },
   {
+    icono: '🕒',
+    titulo: 'Fichar',
+    pasos: [
+      'Se ficha aquí mismo, sin ir a otra app: «Fichar entrada» al empezar.',
+      'Durante el día: «Pausa» y «Terminar pausa». En pausa no se puede entregar.',
+      'Al acabar, con la furgoneta ya guardada en la nave: «Fichar salida».',
+    ],
+  },
+  {
     icono: '①',
     titulo: 'Antes de salir: comprobar',
     pasos: [
@@ -45,7 +54,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
       '⚠️ Incidencia: lo entregas, pero falta algo, devuelven algo o no corresponde.',
       '❌ No entregado: eliges el motivo. Si vuelves más tarde, apunta el 2.º intento.',
       '¿Te has equivocado? Abre el pedido y pulsa «Deshacer».',
-      'Para entregar tienes que haber fichado la entrada en Fichaje.',
+      'Para entregar tienes que haber fichado la entrada.',
     ],
   },
   {
