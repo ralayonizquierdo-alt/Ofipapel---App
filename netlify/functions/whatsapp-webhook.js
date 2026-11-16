@@ -94,6 +94,8 @@ const {
   llamaPorSuNombreInfo,
   medidasSinRespaldo,
   prometeMirarloLuego,
+  condicionSinRespaldo,
+  sinDatoCondicion,
   confirmaLoQueNoHay,
   noConstaInfo,
   respuestaConEnlace,
@@ -1775,6 +1777,25 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       || PRODUCTO_NO_VERIFICADO_INFO;
   }
 
+  // UNA CONDICIÓN DE VENTA QUE NO TENEMOS ESCRITA EN NINGÚN SITIO.
+  //
+  // Visto en real el 14/11/2026: el cliente preguntó «Hay pedido mínimo» y el
+  // bot contestó que sí, que algunos productos lo tienen, y después que «si
+  // ese bloc tiene pedido mínimo de varias cajas, no podríamos venderte solo
+  // una». En el bot no hay ni un dato de pedido mínimo: se lo inventó entero,
+  // y le dijo a un cliente que a lo mejor no podíamos venderle lo que pedía.
+  //
+  // Aquí no hay enlace que valga —esto no se resuelve con el catálogo—, así
+  // que se le dice lo único cierto y se le ofrece una persona. En cuanto haya
+  // una nota del panel con el dato real, la nota manda y esta red no salta.
+  if (condicionSinRespaldo(respuesta, buildAiSystemPrompt(unirContexto(contextoConsumibles, datosDeCatalogo), fichaCliente, notas, text))) {
+    const prefijo = `${greeting}${sinDatoCondicion(idioma)}`;
+    console.error('whatsapp: respuesta descartada (condición de venta sin ningún dato detrás).');
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
+    return;
+  }
+
   const medidasInventadas = medidasSinRespaldo(respuesta, respaldoDeMedidas);
   if (medidasInventadas.length > 0 || prometeMirarloLuego(respuesta)) {
     const conEnlace = respuestaConEnlace(enlaceBusqueda, idioma);
@@ -1789,12 +1810,23 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     }
     // Sin enlace que dar (la búsqueda no encontró nada), no se improvisa: se
     // ofrece una persona, que es lo que de verdad resuelve.
-    await sendEscalateButtons(message.from, `${greeting}No quiero decirte una medida por otra. `, idioma);
-    await appendToHistory(
-      message.from,
-      text,
-      `${greeting}No quiero decirte una medida por otra. ${escalateQuestion(idioma)}`
-    );
+    //
+    // Y SE DICE LO QUE PASA, NO SIEMPRE LO DE LAS MEDIDAS (14/11/2026). Esta
+    // rama salta por dos motivos distintos y soltaba el mismo texto para los
+    // dos: a «¿se puede pagar con tarjeta?» se le contestaba «no quiero
+    // decirte una medida por otra», que no viene a cuento de nada. Salió al
+    // dejar de mandar enlaces de búsqueda que no eran del artículo — antes
+    // ese enlace tapaba el texto malo.
+    const porMedidas = medidasInventadas.length > 0;
+    const prefijo = porMedidas
+      ? idioma === 'en'
+        ? `${greeting}I don't want to give you the wrong size. `
+        : `${greeting}No quiero decirte una medida por otra. `
+      : idioma === 'en'
+        ? `${greeting}I'd rather not promise you something I can't confirm. `
+        : `${greeting}Prefiero no prometerte algo que no te puedo confirmar. `;
+    await sendEscalateButtons(message.from, prefijo, idioma);
+    await appendToHistory(message.from, text, `${prefijo}${escalateQuestion(idioma)}`);
     return;
   }
 

@@ -815,7 +815,7 @@ const ARTICULOS = [
   'resma', 'resmas', 'bloc', 'blocs', 'cuaderno', 'cuadernos', 'libreta', 'libretas',
   'agenda', 'agendas', 'calendario', 'calendarios', 'planning', 'cuadriculado',
   // Archivo
-  'archivador', 'archivadores', 'carpeta', 'carpetas', 'subcarpeta', 'subcarpetas',
+  'archivador', 'archivadores', 'archivadora', 'archivadoras', 'carpeta', 'carpetas', 'subcarpeta', 'subcarpetas',
   'funda', 'fundas', 'clasificador', 'clasificadores', 'revistero', 'revisteros',
   'caja', 'cajas', 'cajonera', 'cajoneras', 'separador', 'separadores', 'portafolios',
   // Escritura
@@ -877,6 +877,42 @@ const RE_ARTICULOS = new RegExp(
 
 function nombraUnArticulo(texto) {
   return RE_ARTICULOS.test(sinAcentos(texto));
+}
+
+// UN ENVASE NO ES UN ARTÍCULO.
+//
+// «Caja» está en el vocabulario, y con razón: una caja archivadora es un
+// producto. Pero en «quiero una caja», «no sé cuántas pack viene en una caja»
+// o «cuántas cajas tengo que pedir», la caja es el ENVASE de lo que se pidió
+// antes, no lo que se pide.
+//
+// Visto en real el 14/11/2026 (propietario: «si analizas el link que pone no
+// tiene nada que ver con lo que el cliente pide»). El cliente pidió «una caja
+// de bloc de nota blanca A7 para el bar Bojangles» y, tres mensajes después,
+// el bot le mandó esto diciendo que eran «todos los blocs A7 que vendemos»:
+//
+//   ofipapel.net/?s=pack+viene+caja     ← de «No sé cuántas pack viene en una caja»
+//
+// Cada mensaje de seguimiento armaba su propia búsqueda con sus propias
+// palabras. «Hay pedido mínimo» llegó a dar «?s=pedido+minimo».
+//
+// Esta función dice si lo único «de producto» que hay en el mensaje es el
+// envase. Cuando es así, el mensaje NO trae artículo nuevo: habla del de
+// antes, y hay que mirar el hilo (ver consultaDelHilo en whatsapp-catalogo.js).
+const ENVASES = [
+  'caja', 'cajas', 'cajita', 'cajitas',
+  'pack', 'packs', 'paquete', 'paquetes',
+  'unidad', 'unidades', 'ud', 'uds',
+  'blister', 'bolsa', 'bolsas', 'bote', 'botes', 'juego', 'juegos', 'lote', 'lotes',
+];
+const RE_SOLO_ENVASE = new RegExp(`(?<![a-z0-9])(${ENVASES.join('|')})(?![a-z0-9])`, 'gi');
+
+function soloNombraEnvase(texto) {
+  const limpio = sinAcentos(String(texto || ''));
+  if (!RE_ARTICULOS.test(limpio)) return false;
+  // Se quitan los envases y se vuelve a mirar: si ya no queda ningún artículo,
+  // es que el envase era lo único que había.
+  return !RE_ARTICULOS.test(limpio.replace(RE_SOLO_ENVASE, ' '));
 }
 
 function isUnverifiedConfirmation(text) {
@@ -1111,6 +1147,55 @@ const MIRARLO_LUEGO_PATTERNS = [
   // Inglés, por el mismo camino.
   /\b(?:let\s+me\s+(?:check|confirm|ask)|i'?ll\s+(?:check|confirm|get\s+back|let\s+you\s+know)|i\s+will\s+check)\b/i,
 ];
+
+// CONDICIONES DE VENTA QUE NO TENEMOS ESCRITAS EN NINGÚN SITIO.
+//
+// Visto en real el 14/11/2026 (propietario: «no sé por qué dice que el pedido
+// mínimo son varias cajas, no sé de dónde saca eso»):
+//
+//   cliente: «Hay pedido mínimo»
+//   bot:     «Sí, algunos productos tienen pedido mínimo…»
+//   cliente: «Quiero una caja»
+//   bot:     «si ese bloc tiene pedido mínimo de varias cajas, no podríamos
+//             venderte solo una»
+//
+// En el bot NO HAY ni un solo dato de pedido mínimo: ni FAQ, ni nota, ni nada
+// que venga del catálogo. Se lo inventó entero, y encima con consecuencias —
+// le dijo a un cliente que a lo mejor no podíamos venderle lo que pedía.
+//
+// Es la misma familia que los precios, las medidas y el stock: una afirmación
+// sobre el negocio que no sale de ningún dato. La diferencia es que aquí no
+// hay nada con qué contrastarla, así que la regla es simple: si no hay una
+// nota del panel que hable de ello, el bot no opina.
+//
+// LO QUE DE VERDAD LO CIERRA es que el dato exista. En cuanto se escriba en
+// «Aprendizaje del bot» («el pedido mínimo es X», «no hay pedido mínimo»), esa
+// nota viaja en el prompt, manda sobre lo que la IA crea saber, y esta red
+// deja de saltar sola.
+const CONDICIONES_SIN_DATO = [
+  /\bpedidos?\s+m[ií]nimos?\b/i,
+  /\b(cantidad|compra|importe|unidades)\s+m[ií]nim[ao]s?\b/i,
+  /\bm[ií]nimo\s+de\s+(pedido|compra|unidades|cajas)\b/i,
+  /\bminimum\s+(order|purchase|quantity)\b/i,
+];
+
+// `datos` es todo lo que el bot tenía delante al contestar (catálogo, notas,
+// ficha del cliente): si el tema sale ahí, la IA puede hablar de ello.
+function condicionSinRespaldo(respuesta, datos = '') {
+  const t = String(respuesta || '');
+  if (!CONDICIONES_SIN_DATO.some((p) => p.test(t))) return false;
+  return !CONDICIONES_SIN_DATO.some((p) => p.test(String(datos || '')));
+}
+
+// Lo que se dice en su lugar: lo único cierto.
+const SIN_DATO_CONDICION =
+  'Eso no lo tengo yo: el pedido mínimo lo confirma el equipo. ';
+const SIN_DATO_CONDICION_EN =
+  "I don't have that here — the team confirms minimum orders. ";
+
+function sinDatoCondicion(idioma = 'es') {
+  return idioma === 'en' ? SIN_DATO_CONDICION_EN : SIN_DATO_CONDICION;
+}
 
 function prometeMirarloLuego(texto) {
   const t = String(texto || '');
@@ -2122,6 +2207,8 @@ module.exports = {
   medidasDe,
   medidasSinRespaldo,
   prometeMirarloLuego,
+  condicionSinRespaldo,
+  sinDatoCondicion,
   confirmaLoQueNoHay,
   afirmaTenerAlgo,
   noConstaInfo,
@@ -2144,5 +2231,6 @@ module.exports = {
   palabrasPropias,
   nombraAlgoConcreto,
   nombraUnArticulo,
+  soloNombraEnvase,
   buildAiSystemPrompt,
 };

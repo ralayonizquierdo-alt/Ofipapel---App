@@ -11,7 +11,7 @@
 const woocommerce = require('./woocommerce-client');
 const conversationStore = require('./conversation-store');
 const consumibles = require('./whatsapp-consumibles');
-const { pareceConsultaDeProducto, nombraUnArticulo } = require('./whatsapp-agent-config');
+const { pareceConsultaDeProducto, nombraUnArticulo, soloNombraEnvase } = require('./whatsapp-agent-config');
 
 // Las formas con las que se pregunta por un ARTÍCULO, para no ir al catálogo
 // cuando la pregunta va de horarios, plazos o facturas.
@@ -90,6 +90,63 @@ function buscarImpresoraEnConversacion(text, history = []) {
   return [];
 }
 
+// DE QUÉ ARTÍCULO ESTAMOS HABLANDO, MIRANDO EL HILO.
+//
+// Mismo razonamiento que `buscarImpresoraEnConversacion` de aquí arriba: el
+// artículo se dice UNA vez y después se da por sabido. Lo que cambió el
+// 14/11/2026 es que ahora se nota, porque de la consulta salen el enlace que
+// se le manda al cliente y lo que se busca en la web.
+//
+// Caso real (propietario: «si analizas el link que pone no tiene nada que ver
+// con lo que el cliente pide»):
+//
+//   cliente: «Quería pedir una caja de bloc de nota blanca A7 para el bar…»
+//   cliente: «No sé cuántas pack viene en una caja»
+//   bot:     «la búsqueda completa con todos los blocs A7 que vendemos:
+//             ofipapel.net/?s=pack+viene+caja»
+//
+// Ese enlace no enseña ningún bloc. Cada mensaje de seguimiento se trataba
+// como una consulta nueva y armaba su propia búsqueda con sus propias
+// palabras; «Hay pedido mínimo» llegó a dar «?s=pedido+minimo».
+//
+// Ya había dos mecanismos para esto —juntar con el anterior si el mensaje es
+// muy corto, y reintentar si la búsqueda vuelve VACÍA—, y los dos se quedaron
+// fuera: el mensaje tenía 7 palabras y la búsqueda devolvió cosas (cajas de
+// cualquier artículo). Otra vez lo mismo: tener resultados no es tener EL
+// resultado.
+const MENSAJES_QUE_RECUERDAN_EL_ARTICULO = 6;
+
+function consultaDelHilo(text, history = []) {
+  // El mensaje trae un artículo de verdad (no solo el envase): manda él.
+  if (nombraUnArticulo(text) && !soloNombraEnvase(text)) return text;
+
+  const anteriores = history
+    .filter((m) => m.role === 'user')
+    .slice(-MENSAJES_QUE_RECUERDAN_EL_ARTICULO)
+    .reverse();
+
+  for (const m of anteriores) {
+    const previo = String(m.content || '');
+    if (nombraUnArticulo(previo) && !soloNombraEnvase(previo)) {
+      // Se juntan los dos: el artículo lo pone el mensaje viejo y los matices
+      // («blanca», «A7») pueden estar en cualquiera de los dos.
+      return `${previo} ${text}`.trim();
+    }
+  }
+  return text;
+}
+
+// EL ENLACE SOLO SE MANDA SI ES DE UN ARTÍCULO.
+//
+// Un enlace se ve y se pulsa: uno que no devuelve nada es tan malo como un
+// precio inventado, y encima la IA lo presenta como «aquí está todo lo que
+// tenemos de eso». Si en la consulta no hay ni una palabra de artículo, no
+// hay enlace que mandar.
+function enlaceSiEsDeProducto(consulta) {
+  if (!nombraUnArticulo(consulta) || soloNombraEnvase(consulta)) return null;
+  return woocommerce.urlDeBusqueda(consulta);
+}
+
 async function construirContextoCatalogo({ from, text, history, forzar = false }) {
   // El índice de consumibles viaja con el bot, así que responde aunque la web
   // esté caída. Se mira siempre, no solo cuando el cliente pregunta "qué
@@ -150,7 +207,9 @@ async function construirContextoCatalogo({ from, text, history, forzar = false }
   // cualquier cosa en A4).
   const esRespuestaCorta = text.trim().split(/\s+/).filter(Boolean).length <= 3;
   const mensajeAnterior = [...history].reverse().find((m) => m.role === 'user');
-  const searchQuery = esRespuestaCorta && mensajeAnterior ? `${mensajeAnterior.content} ${text}` : text;
+  const searchQuery = esRespuestaCorta && mensajeAnterior
+    ? `${mensajeAnterior.content} ${text}`
+    : consultaDelHilo(text, history);
 
   // Si sabemos qué impresora tiene, su referencia es MEJOR consulta que la frase
   // que ha escrito: nadie escribe "TN-248", escribe "tóner para mi Brother" o
@@ -232,7 +291,11 @@ async function construirContextoCatalogo({ from, text, history, forzar = false }
   // colores y precios. Cuando el cliente pregunta por una variante que no está
   // en esos 8 —«¿lo hay de 70x100?», «¿lo hay en blanco?»—, lo honesto es
   // darle esta página, no inventarse la respuesta.
-  const enlaceBusqueda = productos.length > 0 ? woocommerce.urlDeBusqueda(text) : null;
+  // Con `consultaPrincipal`, que es lo que el bot MIRÓ de verdad, no con el
+  // mensaje suelto — que es lo que daba «?s=pack+viene+caja». Lo dice el propio
+  // comentario de `urlDeBusqueda`: «el enlace enseña exactamente lo que el bot
+  // miró»; hasta hoy se le pasaba otra cosa.
+  const enlaceBusqueda = productos.length > 0 ? enlaceSiEsDeProducto(consultaPrincipal) : null;
   if (enlaceBusqueda) {
     bloques.push(
       `BÚSQUEDA COMPLETA EN LA WEB de lo que ha preguntado: ${enlaceBusqueda}\n` +

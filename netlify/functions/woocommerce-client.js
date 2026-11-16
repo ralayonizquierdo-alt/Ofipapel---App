@@ -1085,6 +1085,13 @@ function categoryUrl(slug) {
 //
 // El formato es el que usa el buscador de ofipapel.net (`dgwt_wcas`), tal cual
 // lo pasó el propietario.
+// Palabras que son el ENVASE y no el artículo. Van fuera del enlace: lo que el
+// cliente quiere ver al pulsarlo es el bloc, no las cajas del catálogo.
+const ENVASE_EN_ENLACE = new Set([
+  'caja', 'cajas', 'cajita', 'cajitas', 'pack', 'packs', 'paquete', 'paquetes',
+  'unidad', 'unidades', 'blister', 'bote', 'botes', 'lote', 'lotes',
+]);
+
 function urlDeBusqueda(texto) {
   // EL ENLACE LLEVA LO QUE BUSCA, NO EL MENSAJE ENTERO.
   //
@@ -1094,8 +1101,22 @@ function urlDeBusqueda(texto) {
   //
   // Se usa el mismo núcleo con el que se busca en el catálogo, así que el
   // enlace enseña exactamente lo que el bot miró.
-  const palabras = sanitizeWords(texto);
-  const limpio = palabras.length > 6 ? (paresDePalabras(palabras)[0] || palabras.slice(0, 2).join(' ')) : sanitizeQuery(texto);
+  // Y LA MEDIDA NO SE PIERDE (14/11/2026).
+  //
+  // «una caja de bloc de nota blanca A7 para el bar Bojangles Los Cristianos»
+  // daba «?s=caja+bloc»: el envase delante y el A7 —que es lo que distingue un
+  // bloc de otro— fuera. El enlace enseñaba blocs de cualquier tamaño.
+  //
+  // Se quita el envase, y si entre lo que queda hay una medida o referencia
+  // (una palabra con dígitos: «A7», «305XL», «80gr») se añade al término: es
+  // lo que de verdad acota la búsqueda.
+  const palabras = sanitizeWords(texto).filter((w) => !ENVASE_EN_ENLACE.has(w));
+  if (palabras.length === 0) return null;
+  let limpio = palabras.length > 6
+    ? (paresDePalabras(palabras)[0] || palabras.slice(0, 2).join(' '))
+    : palabras.join(' ');
+  const medida = palabras.find((w) => /\d/.test(w));
+  if (medida && !limpio.split(' ').includes(medida)) limpio = `${limpio} ${medida}`;
   if (!limpio) return null;
   const params = new URLSearchParams({ s: limpio, post_type: 'product', dgwt_wcas: '1' });
   return `https://ofipapel.net/?${params.toString()}`;
