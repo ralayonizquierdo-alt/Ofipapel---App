@@ -120,8 +120,39 @@ function useFuentesYManifiesto() {
 }
 
 // ------------------------------------------------------------------ Piezas de estilo
+// ------------------------------------------------------------------ Instalar en el móvil
+// Android (Chrome) avisa con «beforeinstallprompt» de que se puede instalar; se guarda para lanzarlo desde el botón.
+// El iPhone no tiene nada parecido: ahí solo se pueden dar las instrucciones de «Añadir a pantalla de inicio».
+type AvisoInstalar = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
+let avisoInstalar: AvisoInstalar | null = null
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    avisoInstalar = e as AvisoInstalar
+  })
+}
+const yaInstalada = () =>
+  typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true)
+const esIphone = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
 function Cabecera({ sub, derecha }: { sub?: string; derecha?: ReactNode }) {
   const [ayuda, setAyuda] = useState(false)
+  const [instalar, setInstalar] = useState(false)
+  const [instalada, setInstalada] = useState(yaInstalada)
+  const pulsarInstalar = async () => {
+    if (avisoInstalar) {
+      try {
+        await avisoInstalar.prompt()
+        const r = await avisoInstalar.userChoice
+        if (r.outcome === 'accepted') setInstalada(true)
+        avisoInstalar = null
+        return
+      } catch {
+        /* si falla, se enseñan las instrucciones */
+      }
+    }
+    setInstalar(true)
+  }
   const apartados = sub === 'OFICINA' ? OPERATIVA_OFICINA : OPERATIVA_REPARTIDOR
   return (
     <div
@@ -142,6 +173,39 @@ function Cabecera({ sub, derecha }: { sub?: string; derecha?: ReactNode }) {
           {sub ?? 'OFIPAPEL'}
         </div>
       </div>
+      {!instalada && (
+        <button
+          type="button"
+          onClick={() => void pulsarInstalar()}
+          aria-label="Instalar la app en el móvil"
+          title="Instalar en el móvil"
+          style={{ width: 32, height: 32, borderRadius: 16, border: '1.5px solid rgba(255,255,255,.55)', background: 'rgba(255,255,255,.08)', color: '#fff', fontSize: 15, flexShrink: 0, padding: 0 }}
+        >
+          📲
+        </button>
+      )}
+      {instalar && (
+        <div onClick={() => setInstalar(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 60, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: '#fff', width: '100%', maxWidth: 560, borderRadius: '22px 22px 0 0', borderTop: `5px solid ${V.lima}`, padding: 16, paddingBottom: 28, color: V.texto }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 19, color: V.verde, marginBottom: 10 }}>📲 Poner Reparto en tu móvil</div>
+            {(esIphone()
+              ? ['Abre esta página con Safari (no con Chrome).', 'Pulsa el botón Compartir: el cuadrado con una flecha hacia arriba.', 'Baja y pulsa «Añadir a pantalla de inicio».', 'Pulsa «Añadir». Te queda el icono de Reparto como una app más.']
+              : ['Pulsa los tres puntos ⋮ de arriba a la derecha del navegador.', 'Pulsa «Instalar aplicación» o «Añadir a pantalla de inicio».', 'Pulsa «Instalar». Te queda el icono de Reparto como una app más.']
+            ).map((t, i) => (
+              <div key={t} style={{ display: 'flex', gap: 10, fontSize: 16, lineHeight: 1.4, marginBottom: 8 }}>
+                <span style={{ width: 26, height: 26, borderRadius: 13, background: V.verdeMed, color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
+                <span>{t}</span>
+              </div>
+            ))}
+            <Boton onClick={() => setInstalar(false)} style={{ width: '100%', marginTop: 8 }}>
+              Entendido
+            </Boton>
+          </div>
+        </div>
+      )}
       {/* Operativa: discreta, en todas las pantallas. */}
       <button
         type="button"

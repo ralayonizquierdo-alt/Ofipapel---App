@@ -13,6 +13,11 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     ],
   },
   {
+    icono: '📲',
+    titulo: 'Tenerla como una app',
+    pasos: ['Pulsa el botón 📲 de arriba para guardar Reparto en la pantalla de inicio del móvil. Así entras con un toque, sin buscar el enlace.'],
+  },
+  {
     icono: '🚚',
     titulo: 'Tu ruta',
     pasos: [
