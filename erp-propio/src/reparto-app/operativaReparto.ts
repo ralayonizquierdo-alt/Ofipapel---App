@@ -33,7 +33,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     titulo: 'En la calle: repartir',
     pasos: [
       'Toca un pedido para ver la dirección, llamar al cliente, escribirle por WhatsApp (si tiene móvil) o abrir el mapa.',
-      'Si el teléfono no es el bueno, pulsa «No es este: poner otro» y escribe el correcto. Vale para esa entrega.',
+      'Si el teléfono no es el bueno, pulsa «No es este: poner otro» y escribe el correcto. La app lo recordará para las próximas entregas a ese cliente.',
       '✅ Entregado: todo bien.',
       '⚠️ Incidencia: lo entregas, pero falta algo, devuelven algo o no corresponde.',
       '❌ No entregado: eliges el motivo. Si vuelves más tarde, apunta el 2.º intento.',

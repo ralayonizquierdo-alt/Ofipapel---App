@@ -1351,7 +1351,7 @@ function Lista({
                 <div style={{ fontSize: 13, color: V.gris, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span>
                     📞 {l.telefono || 'Sin teléfono'}
-                    {l.telefono_cambiado ? ' (puesto por ti)' : ''}
+                    {l.telefono_recordado ? ' (guardado de otra entrega)' : l.telefono_cambiado ? ' (corregido)' : ''}
                   </span>
                   <button type="button" onClick={() => onHoja({ tipo: 'telefono', linea: l })} style={{ background: 'none', border: 'none', color: V.verdeMed, textDecoration: 'underline', fontSize: 13, padding: 4 }}>
                     {l.telefono ? 'No es este: poner otro' : 'Poner un teléfono'}
@@ -1528,7 +1528,7 @@ function HojaTelefono({ sesion, reparto, linea, onCerrar, onHecho }: { sesion: S
   return (
     <Hoja titulo={`Teléfono de ${linea.cliente}`} onCerrar={onCerrar}>
       <div style={{ fontSize: 14, color: V.gris, marginBottom: 8 }}>
-        Escribe el número bueno. Vale solo para esta entrega; la oficina lo verá para corregir la ficha.
+        Escribe el número bueno. Se recordará para las próximas entregas a este cliente, y la oficina lo verá para corregir la ficha.
         {linea.telefono_original ? ` El que venía: ${linea.telefono_original}.` : ''}
       </div>
       <input

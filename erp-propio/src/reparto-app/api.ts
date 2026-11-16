@@ -57,6 +57,8 @@ export interface LineaApp {
   comprobado: boolean
   /** El repartidor ha puesto otro teléfono para esta entrega (telefono_original es el que venía). */
   telefono_cambiado?: boolean
+  /** El teléfono no es de esta entrega: se guardó para este cliente en una entrega anterior. */
+  telefono_recordado?: boolean
   telefono_original?: string | null
   /** Reparto al que pertenece de verdad el pedido (distinto del abierto si me lo han pasado). */
   rt?: string
