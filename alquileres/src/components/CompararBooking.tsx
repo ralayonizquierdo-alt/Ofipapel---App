@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import type { Season } from '../types'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
@@ -6,7 +7,7 @@ import {
   APARTAMENTOS_BOOKING, NOCHES_BOOKING, TIPO_BOOKING, apuntaPrecioBooking, precioNuestro,
   quitaPrecioBooking, usePreciosBooking, type PrecioBooking,
 } from '../lib/booking'
-import { addDays, formatDate, today } from '../lib/dateUtils'
+import { addDays, formatDate, getSeason, today } from '../lib/dateUtils'
 import { num } from '../lib/formato'
 
 /** El anuncio de la agencia en Booking. */
@@ -66,25 +67,30 @@ export default function CompararBooking() {
   })), [consultas, prices, offerPrices])
 
   /**
-   * La última de cada apartamento y tarifa: Invierno, Verano y cada oferta
-   * se vigilan por separado. Un apartamento sin ninguna sale igual, vacío,
-   * para que se vea que falta.
+   * Por temporadas, como las tablas de Precios (Luis, 16/11/2026): primero
+   * Invierno y luego Verano, y dentro de cada una la tarifa general y después
+   * cada oferta de un mes de esa temporada. En cada tarifa, la última consulta
+   * de cada apartamento; en la general salen todos, aunque falten, para que se
+   * vea qué queda por mirar.
    */
-  const ultimas = useMemo(() => {
-    const salida: { apt: string; fila?: (typeof filas)[number] }[] = []
-    for (const apt of APARTAMENTOS_BOOKING) {
-      const suyas = filas.filter(f => f.c.apartmentId === apt)
-      if (suyas.length === 0) { salida.push({ apt }); continue }
-      const vistas = new Set<string>()
-      for (const f of suyas) {
-        const clave = f.nuestro?.tarifa ?? '?'
-        if (vistas.has(clave)) continue
-        vistas.add(clave)
-        salida.push({ apt, fila: f })
-      }
-    }
-    return salida
-  }, [filas])
+  const porTemporada = useMemo(() => (['INVIERNO', 'VERANO'] as Season[]).map(season => {
+    const suyas = filas.filter(f => getSeason(f.c.entrada) === season)
+    const tarifaDe = (f: (typeof filas)[number]) => f.nuestro?.tarifa ?? 'Sin tarifa'
+    const primera = (t: string) => suyas.filter(f => tarifaDe(f) === t).map(f => f.c.entrada).sort()[0]
+    const tarifas = [...new Set(suyas.map(tarifaDe))].sort((a, b) =>
+      Number(a.startsWith('Oferta')) - Number(b.startsWith('Oferta'))
+      || primera(a).localeCompare(primera(b)))
+    const grupos = tarifas.map(tarifa => {
+      const oferta = tarifa.startsWith('Oferta')
+      // `filas` va de la más reciente a la más antigua: la primera es la última.
+      const deEsta = suyas.filter(f => tarifaDe(f) === tarifa)
+      const lineas = APARTAMENTOS_BOOKING
+        .map(apt => ({ apt, fila: deEsta.find(f => f.c.apartmentId === apt) }))
+        .filter(x => x.fila || !oferta)
+      return { tarifa, oferta, lineas }
+    })
+    return { season, grupos }
+  }), [filas])
 
   return (
     <section id="booking" className="mt-10 print:hidden">
@@ -114,7 +120,6 @@ export default function CompararBooking() {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
                 <th className="text-left py-2.5 px-4 font-medium">Apartamento</th>
-                <th className="text-left py-2.5 px-4 font-medium">Tarifa</th>
                 <th className="text-left py-2.5 px-4 font-medium whitespace-nowrap">Semana consultada</th>
                 <th className="text-right py-2.5 px-4 font-medium text-green-700 whitespace-nowrap">Nuestro (web + limpieza + IGIC)</th>
                 <th className="text-right py-2.5 px-4 font-medium text-blue-700">Booking</th>
@@ -124,17 +129,42 @@ export default function CompararBooking() {
             </thead>
             <tbody>
               {consultas === null ? (
-                <tr><td colSpan={7} className="py-4 px-4 text-slate-400">Cargando…</td></tr>
-              ) : ultimas.map(({ apt, fila }) => (
-                <tr key={`${apt}-${fila?.c.id ?? 'nada'}`} className="border-b border-slate-50">
-                  <td className="py-3 px-4">
-                    <p className="font-medium text-slate-700 whitespace-nowrap">{nombre(apt)}</p>
-                    <p className="text-xs text-slate-400 whitespace-nowrap">{TIPO_BOOKING[apt]}</p>
-                  </td>
-                  {fila ? <Celdas fila={fila} /> : (
-                    <td colSpan={6} className="py-3 px-4 text-slate-400 italic">Sin consultar todavía</td>
+                <tr><td colSpan={6} className="py-4 px-4 text-slate-400">Cargando…</td></tr>
+              ) : porTemporada.map(({ season, grupos }) => (
+                <Fragment key={season}>
+                  <tr className="border-t-2 border-slate-200">
+                    <td colSpan={6} className="pt-4 pb-2 px-4">
+                      <span className={`text-sm font-bold px-3 py-1 rounded-full ${season === 'VERANO'
+                        ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {season === 'VERANO' ? 'VERANO (May–Sep)' : 'INVIERNO (Oct–Abr)'}
+                      </span>
+                    </td>
+                  </tr>
+                  {grupos.length === 0 && (
+                    <tr><td colSpan={6} className="py-3 px-4 text-slate-400 italic">Sin consultas de esta temporada todavía</td></tr>
                   )}
-                </tr>
+                  {grupos.map(g => (
+                    <Fragment key={g.tarifa}>
+                      <tr className={g.oferta ? 'bg-amber-50' : 'bg-slate-50'}>
+                        <td colSpan={6} className={`py-1.5 px-4 text-xs font-bold ${g.oferta ? 'text-amber-800' : 'text-slate-600'}`}>
+                          {g.oferta && <span className="mr-2 px-1.5 py-0.5 rounded bg-amber-500 text-white">TARIFA OFERTA</span>}
+                          {g.tarifa}
+                        </td>
+                      </tr>
+                      {g.lineas.map(({ apt, fila }) => (
+                        <tr key={`${apt}-${fila?.c.id ?? 'nada'}`} className="border-b border-slate-50">
+                          <td className="py-3 px-4">
+                            <p className="font-medium text-slate-700 whitespace-nowrap">{nombre(apt)}</p>
+                            <p className="text-xs text-slate-400 whitespace-nowrap">{TIPO_BOOKING[apt]}</p>
+                          </td>
+                          {fila ? <Celdas fila={fila} /> : (
+                            <td colSpan={5} className="py-3 px-4 text-slate-400 italic">Sin consultar todavía</td>
+                          )}
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -214,7 +244,6 @@ function Celdas({ fila }: { fila: { c: PrecioBooking; nuestro: ReturnType<typeof
   const dif = nuestro ? diferencia(c.precio, nuestro.total) : null
   return (
     <>
-      <td className="py-3 px-4 whitespace-nowrap text-slate-600">{nuestro?.tarifa ?? 'Sin tarifa'}</td>
       <td className="py-3 px-4 whitespace-nowrap text-slate-600">{semana(c.entrada)}</td>
       <td className="py-3 px-4 text-right whitespace-nowrap font-semibold text-green-700">
         {nuestro ? `${num(nuestro.total, 2)} €` : '—'}
