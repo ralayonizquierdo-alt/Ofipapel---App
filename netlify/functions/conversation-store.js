@@ -845,7 +845,7 @@ async function tomarTurno(phone, { esperaMs = TURNO_ESPERA_MS } = {}) {
     // que se distingue preguntando por la clave: si se puede leer y hay algo,
     // el turno está cogido de verdad y toca esperar; si no, se sigue adelante.
     const quien = await redisCommand(['GET', key]);
-    if (quien === null) return null;
+    if (quien == null) return null; // null o undefined: no se bloquea a nadie
 
     if (Date.now() >= hasta) {
       // El turno de delante se está eternizando (una web lenta, un arranque en

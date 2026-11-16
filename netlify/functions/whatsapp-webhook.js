@@ -445,10 +445,13 @@ function yaSePidioAclaracion(history) {
 // marcador al principio. Si el cliente se va por otro lado, el flujo se abandona
 // solo (la última respuesta del bot ya no será la del marcador).
 const PEDIDO_MARCA_ESPERANDO_NUMERO = '[PEDIDO:ESPERANDO_NUMERO]';
-const PEDIDO_MARCA_ESPERANDO_NOMBRE_RE = /^\[PEDIDO:ESPERANDO_NOMBRE:(\d+)\]/;
+// El segundo número es el intento: sin él, el primero.
+const PEDIDO_MARCA_ESPERANDO_NOMBRE_RE = /^\[PEDIDO:ESPERANDO_NOMBRE:(\d+)(?::(\d+))?\]/;
 
-function marcaEsperandoNombre(orderId) {
-  return `[PEDIDO:ESPERANDO_NOMBRE:${orderId}]`;
+function marcaEsperandoNombre(orderId, intento = 1) {
+  return intento > 1
+    ? `[PEDIDO:ESPERANDO_NOMBRE:${orderId}:${intento}]`
+    : `[PEDIDO:ESPERANDO_NOMBRE:${orderId}]`;
 }
 
 // «FIGURA COMO ENTREGADO» Y EL CLIENTE DICE QUE NO LO HA RECIBIDO.
@@ -504,7 +507,7 @@ function detectarPasoPedido(history) {
     if (contenido.startsWith(MARCA_PEDIDO_ENTREGADO) || contenido.startsWith(MARCA_PEDIDO_CONTESTADO)) return null;
     if (contenido.startsWith(PEDIDO_MARCA_ESPERANDO_NUMERO)) return { paso: 'numero' };
     const conNombre = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(contenido);
-    if (conNombre) return { paso: 'nombre', orderId: conNombre[1] };
+    if (conNombre) return { paso: 'nombre', orderId: conNombre[1], intento: Number(conNombre[2] || 1) };
   }
   return null;
 }
@@ -687,16 +690,42 @@ async function continuarBusquedaPedido(from, text, paso, greeting, idioma = 'es'
   }
 
   if (paso.paso === 'nombre') {
-    const order = await woocommerce.getOrder(paso.orderId);
+    // Con `getOrderConMotivo` y no `getOrder`: así reintenta si la web tropieza
+    // y, sobre todo, se distingue «el nombre no cuadra» de «no he podido
+    // mirarlo». Decirle a alguien que no se puede confirmar que el pedido es
+    // suyo, cuando lo que pasa es que la web no contestó, es acusarle de algo
+    // que no ha hecho.
+    const { order, motivo } = await woocommerce.getOrderConMotivo(paso.orderId);
+
     if (order && !woocommerce.isSpamOrder(order) && woocommerce.nombreCoincide(text, order)) {
       await conversationStore.registrarPedidoVerificado(from, order);
       await contestarElEstado(from, text, order, greeting, idioma);
       return true;
     }
 
-    const prefix = idioma === 'en'
-      ? `${greeting}I haven't been able to confirm the order is yours. `
-      : `${greeting}No he podido confirmar que el pedido sea tuyo. `;
+    // UNA SEGUNDA OPORTUNIDAD ANTES DE CORTAR (16/11/2026, decisión del
+    // propietario). El cliente puede haberse equivocado tecleando su propio
+    // nombre — pasó de verdad: «Laszno bogar» por «Laszlo Bogar»— y hasta ahora
+    // un dedazo le dejaba fuera a la primera, sin saber por qué. No abre
+    // ninguna puerta: el número de pedido ya lo tiene quien esté escribiendo.
+    const seLeAcabanLosIntentos = (paso.intento || 1) >= 2;
+    if (order && !seLeAcabanLosIntentos) {
+      const reply = idioma === 'en'
+        ? `${greeting}That doesn't match the name I have for order ${paso.orderId}. If I got it wrong, write it to me again exactly as it was placed — the company name, or the first and last name.`
+        : `${greeting}Eso no me cuadra con el nombre que tengo en el pedido ${paso.orderId}. Si lo he entendido mal, escríbemelo otra vez tal cual se hizo: el nombre comercial, o el nombre y los apellidos.`;
+      await appendToHistory(from, text, `${marcaEsperandoNombre(paso.orderId, 2)}${reply}`);
+      await sendWhatsappMessage(from, reply);
+      return true;
+    }
+
+    const noSePudo = !order && motivo === woocommerce.MOTIVO.NO_SE_PUDO;
+    const prefix = noSePudo
+      ? idioma === 'en'
+        ? `${greeting}I can't check your order right now — our website isn't responding. That doesn't mean anything is wrong with it. `
+        : `${greeting}Ahora mismo no puedo comprobar tu pedido: nuestra web no me contesta. Eso no quiere decir que pase nada con él. `
+      : idioma === 'en'
+        ? `${greeting}I haven't been able to confirm the order is yours. `
+        : `${greeting}No he podido confirmar que el pedido sea tuyo. `;
     await sendEscalateButtons(from, prefix, idioma);
     await appendToHistory(from, text, `[Se ofreció escalar a una persona] ${prefix}${escalateQuestion(idioma)}`);
     return true;
