@@ -96,8 +96,16 @@ export function ControlRepartosHoy({
         <button type="button" className="gw-btn h-[24px]" onClick={() => setPines(true)}>
           PIN de la app
         </button>
-        <button type="button" className="gw-btn h-[24px]" onClick={() => setTv(true)}>
-          📺 Pantalla de la TV
+        <button
+          type="button"
+          className="gw-btn h-[24px]"
+          title="Abre aquí mismo la pantalla grande de repartos (rutas, mapa y ranking), sin crear ningún enlace"
+          onClick={() => window.open(`${import.meta.env.BASE_URL}reparto-pantalla`, '_blank')}
+        >
+          🖥️ Ver la pantalla
+        </button>
+        <button type="button" className="gw-btn h-[24px]" title="Crea el enlace para ponerla en una TV que no tiene usuario del ERP" onClick={() => setTv(true)}>
+          📺 Enlace para la TV
         </button>
       </div>
       {!plegado && (

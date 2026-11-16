@@ -152,6 +152,8 @@ function App() {
           <Route path="/repartidor" element={<RepartoApp />} />
           {/* Pantalla de la TV de pedidos: sin ERP, con el código del enlace — src/reparto-app/RepartoTv.tsx */}
           <Route path="/reparto-tv" element={<RepartoTv />} />
+          {/* La misma pantalla abierta desde el ERP (Control de Repartos → «Ver la pantalla»): con la sesión del empleado, sin enlace. */}
+          <Route path="/reparto-pantalla" element={<RepartoTv interna />} />
           {/* Pantalla de fichar: pública (nombre + PIN), sin cuenta del ERP — la gestión está en Archivo → Fichaje */}
           <Route path="/fichaje" element={<FichajeApp />} />
           <Route element={<ProtectedArea />}>

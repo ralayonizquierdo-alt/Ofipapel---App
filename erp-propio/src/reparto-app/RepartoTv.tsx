@@ -21,10 +21,15 @@ function claveInicial(): string | null {
   }
 }
 
-export function RepartoTv() {
-  const [clave] = useState(claveInicial)
+/**
+ * La pantalla de repartos. Dos formas de abrirla:
+ *  · /reparto-tv?k=<código> — para la TV: sin usuario, con el código del enlace.
+ *  · /reparto-pantalla (interna) — desde el ERP, con la sesión del empleado que ya ha entrado: sin enlace ni código.
+ */
+export function RepartoTv({ interna = false }: { interna?: boolean }) {
+  const [clave] = useState(() => (interna ? null : claveInicial()))
   const [datos, setDatos] = useState<DatosSeg | null>(null)
-  const [error, setError] = useState<string | null>(clave ? null : 'Falta el enlace de la pantalla: créalo en el ERP (Ventas → Seguimiento de Repartos → Enlace para la TV) y ábrelo aquí.')
+  const [error, setError] = useState<string | null>(clave || interna ? null : 'Falta el enlace de la pantalla: créalo en el ERP (Ventas → Seguimiento de Repartos → Enlace para la TV) y ábrelo aquí.')
   const [vista, setVista] = useState<'rutas' | 'mapa'>('rutas')
   const [hora, setHora] = useState(() => new Date())
 
@@ -44,6 +49,15 @@ export function RepartoTv() {
   }, [])
 
   const cargar = useCallback(async () => {
+    if (interna) {
+      const { data, error: e } = await supabase.rpc('fn_reparto_seguimiento', { p_fecha: null })
+      if (e) setError(/permiso|42501|JWT|sesi/i.test(e.message + (e.code ?? '')) ? 'Para ver esta pantalla entra primero en el ERP con un usuario que tenga permiso de Repartos.' : 'Sin conexión: se reintenta solo.')
+      else {
+        setDatos(data as DatosSeg)
+        setError(null)
+      }
+      return
+    }
     if (!clave) return
     const { data, error: e } = await supabase.rpc('fn_reparto_tv', { p_clave: clave })
     if (e) setError(/clave_tv/.test(e.message) ? (e.hint ?? 'Este enlace ya no vale: crea uno nuevo en el ERP.') : 'Sin conexión: se reintenta solo.')
@@ -51,7 +65,7 @@ export function RepartoTv() {
       setDatos(data as DatosSeg)
       setError(null)
     }
-  }, [clave])
+  }, [clave, interna])
 
   useEffect(() => {
     void cargar()
@@ -84,6 +98,7 @@ export function RepartoTv() {
               {hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })}
             </div>
             <BotonClaro onClick={pantallaCompleta}>⛶</BotonClaro>
+            {interna && <BotonClaro onClick={() => (history.length > 1 ? history.back() : window.close())}>✕</BotonClaro>}
           </>
         }
         avisos={
