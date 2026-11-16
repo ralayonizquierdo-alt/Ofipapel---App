@@ -63,6 +63,7 @@ body{
 /* Maraña: hilos finos entre los nodos pequeños de rayos distintos */
 .connector-svg path.cweb{stroke-width:.3;opacity:.62;filter:url(#boltGlow);}
 .connector-svg path.cweb.active{opacity:1;stroke-width:.42;}
+.connector-svg path.cweb.zap{opacity:1;stroke-width:.45;transition:none;}
 
 .orbit{position:relative;width:100%;height:100%;}
 
@@ -563,17 +564,24 @@ body{
       grad.appendChild(s);
     });
     defs.appendChild(grad);
-    // curva suave: punto de control desplazado en perpendicular
-    var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    var ddx = b.x - a.x, ddy = b.y - a.y, dl = Math.hypot(ddx, ddy) || 1;
-    var bend = (Math.random() - .5) * dl * .35;
-    var cxp = mx - ddy / dl * bend, cyp = my + ddx / dl * bend;
     var path = document.createElementNS(NS, 'path');
     path.setAttribute('class', 'cweb');
-    path.setAttribute('d', 'M' + a.x.toFixed(2) + ',' + a.y.toFixed(2) + ' Q' + cxp.toFixed(2) + ',' + cyp.toFixed(2) + ' ' + b.x.toFixed(2) + ',' + b.y.toFixed(2));
+    path.setAttribute('d', boltPath(a, b));
     path.setAttribute('stroke', 'url(#' + gid + ')');
     webGroup.appendChild(path);
-    webLinks.push({ path: path, spokes: [a.spoke, b.spoke] });
+    webLinks.push({ path: path, a: a, b: b, spokes: [a.spoke, b.spoke] });
+  }
+  // Trazo quebrado tipo rayo, como los conectores principales: tramos con
+  // salto perpendicular aleatorio, que se anula en los dos extremos para que
+  // el hilo siga anclado en sus nodos aunque cambie de forma.
+  function boltPath(a, b){
+    var ddx = b.x - a.x, ddy = b.y - a.y, dl = Math.hypot(ddx, ddy) || 1;
+    var px = -ddy / dl, py = ddx / dl, segs = 4, out = 'M' + a.x.toFixed(2) + ',' + a.y.toFixed(2);
+    for (var s = 1; s < segs; s++){
+      var t = s / segs, j = (Math.random() - .5) * Math.min(4, dl * .28) * Math.sin(Math.PI * t);
+      out += ' L' + (a.x + ddx * t + px * j).toFixed(2) + ',' + (a.y + ddy * t + py * j).toFixed(2);
+    }
+    return out + ' L' + b.x.toFixed(2) + ',' + b.y.toFixed(2);
   }
   var mids = webNodes.filter(function(n){ return !n.tip; }).sort(function(a, b){ return a.ang - b.ang; });
   mids.forEach(function(n, k){ addLink(n, mids[(k + 1) % mids.length]); });
@@ -615,7 +623,34 @@ body{
       l.path.style.transition = 'stroke-dashoffset .9s cubic-bezier(.4,0,.2,1) ' + delay + 's';
       l.path.style.strokeDashoffset = '0';
     });
+    // ya dibujado, se quita el guion: si no, al cambiar de forma (y de
+    // longitud) en el chisporroteo se vería cortado
+    setTimeout(function(){
+      l.path.style.transition = '';
+      l.path.style.strokeDasharray = 'none';
+      l.path.style.strokeDashoffset = '';
+    }, (delay + 1) * 1000);
   });
+  // Chisporroteo eléctrico: cada poco, un par de hilos al azar cambian de
+  // forma de golpe y dan un fogonazo, como corriente viva. Arranca cuando
+  // la red ya está dibujada; se para con la pestaña oculta y no se activa si
+  // el sistema pide reducir movimiento.
+  var webReady = (0.25 + sats.length * 0.16 + 0.7 + webLinks.length * 0.03 + 1) * 1000;
+  if (!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    setTimeout(function(){
+      setInterval(function(){
+        if (document.hidden || !webLinks.length) return;
+        for (var n = 0; n < 2; n++){
+          var l = webLinks[Math.floor(Math.random() * webLinks.length)];
+          l.path.setAttribute('d', boltPath(l.a, l.b));
+          if (Math.random() < .35) {
+            l.path.classList.add('zap');
+            (function(p){ setTimeout(function(){ p.classList.remove('zap'); }, 110 + Math.random() * 90); })(l.path);
+          }
+        }
+      }, 140);
+    }, webReady);
+  }
 
   // Dibuja cada trazo (longitud real vía getTotalLength) con retardo
   // escalonado por satélite — la "animación de conexión de nodos".
