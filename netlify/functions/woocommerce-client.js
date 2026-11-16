@@ -1209,8 +1209,8 @@ function normalizeNombre(s) {
 // al azar. Las de menos de 4 letras ya quedan fuera por longitud («bar», «el»).
 const NO_IDENTIFICA = new Set([
   // forma jurídica
-  'slu', 'sau', 'sll', 'srl', 'scp', 'ltd', 'inc', 'sociedad', 'limitada',
-  'sociedad', 'cooperativa', 'comunidad', 'bienes',
+  'slu', 'sau', 'sll', 'srl', 'scp', 'ltd', 'inc',
+  'sociedad', 'limitada', 'cooperativa', 'comunidad', 'bienes',
   // el oficio
   'restaurante', 'cafeteria', 'cafe', 'pizzeria', 'hotel', 'hostal', 'kiosco',
   'panaderia', 'pasteleria', 'farmacia', 'peluqueria', 'supermercado', 'super',
