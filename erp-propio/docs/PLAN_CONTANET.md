@@ -1,0 +1,119 @@
+# Plan: llevar CONTANET dentro del ERP propio
+
+Rober, 16/11/2026. Borrador para revisar con Luis y con la asesoría.
+
+**Objetivo.** Que la contabilidad que hoy se lleva en CONTANET (más de 20 años) se lleve dentro del
+ERP propio, con las pantallas y los menús de CONTANET lo más fieles posible, con los colores y el
+estilo del ERP, y sumando las utilidades que el ERP ya tiene y CONTANET no.
+
+**Aviso sobre este borrador.** El material descargado de CONTANET (capturas, tablas, históricos de las
+empresas) todavía no ha llegado a este chat ni está cargado en el ERP: figura como tarea pendiente en el
+Registro de incidencias («datos/capturas de CONTANET»). Por eso este plan describe con detalle lo que
+el ERP ya tiene, y deja la parte de CONTANET para rellenar en la fase 1, en cuanto llegue el material.
+Nada de lo que aquí se dice de CONTANET está comprobado.
+
+---
+
+## 1. De dónde partimos: lo que el ERP ya tiene
+
+La contabilidad del ERP no está vacía. Luis montó un módulo completo (área «Contabilidad»):
+
+| Bloque | Qué hay hoy en el ERP |
+|---|---|
+| Empresas | Varias empresas del grupo, cada una con su plan, sus asientos y sus ejercicios. Hoy solo está dada de alta Ofipapel |
+| Ejercicios | Año contable abierto o cerrado; cierre con regularización y asiento de apertura; un año cerrado es solo consulta |
+| Plan de cuentas | PGC PYMES con subcuentas (184 cuentas cargadas) |
+| Asientos | Diario con alta y edición manual; asientos pendientes o con errores |
+| Asientos automáticos | Los genera el propio ERP desde ventas, facturas, cobros, pagos y caja |
+| Consultas | Mayor / extracto, Sumas y saldos, Pérdidas y ganancias, Balance de situación |
+| Impuestos | Libros registro de IGIC, modelos 420, 425 y 347 |
+| Bancos | Conciliación con extractos Norma 43, remesas SEPA, previsión de tesorería |
+| Control | Firmas de asientos, cierre de meses, comprobación de que nadie ha tocado un asiento |
+| Otros | Resultados por tienda, exportar a gestoría, registros VeriFactu |
+
+Datos reales: prácticamente ninguno (13 asientos de prueba, ejercicio 2026).
+
+## 2. Lo que hace falta para empezar
+
+1. **El material de CONTANET**, igual que se hizo con GeminisWin: los ZIP de capturas de pantalla, las
+   tablas o ficheros de datos y los históricos de cada empresa. Se pasan a este chat; no van al
+   repositorio (llevan datos reales).
+2. **Una persona que sepa contabilidad** (Luis o la asesoría) para unas pocas decisiones, que se listan
+   en el punto 5. Rober no tiene que contestar dudas contables.
+
+## 3. Las fases
+
+### Fase 1 — Inventario de CONTANET (solo mirar)
+Con el material: lista de todos los menús y pantallas de CONTANET, de sus listados, de sus tablas y de
+qué empresas y qué años hay. Resultado: un índice numerado, como el de las capturas de GeminisWin.
+
+### Fase 2 — Comparativa CONTANET ↔ ERP
+Una tabla con tres columnas, pantalla por pantalla y función por función:
+- **Está en los dos** → se queda el motor del ERP, con el aspecto y el orden de CONTANET.
+- **Solo en CONTANET** → hay que construirlo.
+- **Solo en el ERP** → se conserva como utilidad añadida, colocada en el menú donde menos estorbe.
+
+Lo que previsiblemente es «solo del ERP» (a confirmar): asientos automáticos desde la gestión,
+conciliación con Norma 43, remesas SEPA, previsión de tesorería, firmas y control de integridad,
+resultados por tienda, VeriFactu. Lo que previsiblemente falta en el ERP (a confirmar): cartera de
+efectos y vencimientos tal como la lleve CONTANET, inmovilizado y amortizaciones, presupuestos
+contables, contabilidad analítica, punteo, asientos predefinidos y los listados oficiales propios.
+
+Esta fase termina con una reunión corta con Luis para aprobar la tabla. Hasta entonces no se programa.
+
+### Fase 3 — Menú y aspecto
+El área Contabilidad del ERP pasa a tener el árbol de menús de CONTANET, con sus mismos nombres y
+orden, y con los colores, tipos de letra y ventanas del ERP. Las utilidades propias del ERP se
+integran en ese árbol.
+
+### Fase 4 — Calcar las pantallas, por tandas
+Mismo método que con GeminisWin: tandas de capturas, varias pantallas en paralelo, revisión y
+publicación en la web de prueba. Orden propuesto:
+1. Empresas, ejercicios y plan de cuentas.
+2. Introducción de asientos y diario (lo que más se usa cada día).
+3. Extractos, mayor y punteo.
+4. Balances y cuentas anuales.
+5. IGIC: libros y modelos.
+6. Cartera, vencimientos y bancos.
+7. Inmovilizado y amortizaciones.
+8. Cierre y apertura de ejercicio.
+9. Listados y utilidades.
+
+Cada pantalla lleva su apartado «Operativa», como el resto del ERP.
+
+### Fase 5 — Cargar los datos de CONTANET
+Empresas del grupo, planes de cuentas y asientos de todos los años descargados. La prueba de que la
+carga está bien es objetiva: **el balance de sumas y saldos de cada empresa y cada año tiene que dar
+lo mismo en el ERP que en CONTANET**, al céntimo. Si no cuadra, no se da por cargado.
+
+### Fase 6 — Unir con la gestión
+Los asientos automáticos del ERP (ventas, compras, cobros, pagos, caja, abonos de roturas) pasan a
+usar las cuentas reales de CONTANET. Mientras se siga con GeminisWin, se mantiene la forma actual de
+pasar los datos a contabilidad.
+
+### Fase 7 — Trabajar en paralelo y cambiar
+Un trimestre llevando la contabilidad en los dos sitios. Se comparan sumas y saldos y el modelo 420.
+Cuando coinciden, se deja CONTANET solo para consulta.
+
+## 4. Cómo se sabrá que cada fase está bien
+- Fase 1 y 2: Luis da por buena la lista y la tabla.
+- Fase 3 y 4: quien usa CONTANET cada día reconoce cada pantalla sin explicación.
+- Fase 5: sumas y saldos idénticos por empresa y año.
+- Fase 7: un trimestre entero con los mismos resultados en los dos programas.
+
+## 5. Decisiones que no son de programación (Luis y asesoría)
+1. Qué empresas del grupo se traen y desde qué año.
+2. Si el plan de cuentas del ERP se sustituye por el de CONTANET tal cual (lo recomendable).
+3. Qué hacer con los asientos de prueba que hay hoy en el ERP (lo recomendable: empezar limpio).
+4. Si la asesoría necesita seguir recibiendo algo en un formato concreto.
+5. Quién firma que una carga cuadra.
+
+## 6. Riesgos conocidos
+- **Tamaño de los datos.** La base de datos del ERP está en el plan gratuito (500 MB, 185 MB usados).
+  Seis o más años de asientos de varias empresas pueden no caber: habría que pasar al plan de pago
+  antes de la fase 5. Se sabrá con certeza al medir el material en la fase 1.
+- **Datos reales.** El material de CONTANET no se sube al repositorio, que es público.
+- **Fidelidad sin conocer el programa.** Las capturas enseñan cómo es una pantalla, no siempre qué
+  hace cada botón. Donde no esté claro, se pregunta a quien lo usa, no se inventa.
+- **Trabajo ya hecho por Luis.** El módulo actual es suyo: los cambios de la fase 3 en adelante se
+  coordinan con él, como marcan las Condiciones de Programación.
