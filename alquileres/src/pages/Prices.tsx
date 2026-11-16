@@ -9,6 +9,7 @@ import { Pencil, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-re
 import { MONTH_NAMES_ES } from '../lib/dateUtils'
 import { num, numSuelto } from '../lib/formato'
 import AplicarOferta from '../components/AplicarOferta'
+import CompararBooking from '../components/CompararBooking'
 import Operativa from '../components/Operativa'
 import { OPERATIVA_PRECIOS } from '../lib/operativas'
 
@@ -113,7 +114,9 @@ export default function Prices() {
 
   // La tarifa marcada se pone a la vista en cuanto está pintada (los precios
   // llegan de la nube después del primer pintado).
-  const marcada = tarifaMarcada ? `tarifa-${tarifaMarcada}` : ofertaMarcada ? `oferta-${ofertaMarcada}` : ''
+  // `?ver=booking` (el aviso mensual de Booking) baja hasta «Comparar con Booking».
+  const marcada = tarifaMarcada ? `tarifa-${tarifaMarcada}` : ofertaMarcada ? `oferta-${ofertaMarcada}`
+    : params.get('ver') === 'booking' ? 'booking' : ''
   const hayMarcada = !!marcada && (prices.length > 0 || offerPrices.length > 0)
   useEffect(() => {
     if (!hayMarcada) return
@@ -318,6 +321,9 @@ export default function Prices() {
           </div>
         )}
       </div>
+
+      {/* Vigilar lo que publica la agencia en Booking (Luis, 16/11/2026). */}
+      {!soloOferta && <CompararBooking />}
 
       {editing && (
         <PriceEditModal entry={editing} onClose={() => setEditing(null)} />

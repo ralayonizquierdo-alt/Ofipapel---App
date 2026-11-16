@@ -296,6 +296,13 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
     nota: 'La comisión es **solo sobre la base**, nunca sobre la limpieza. La web lleva las dos: inmobiliaria y reserva.',
   },
   {
+    // lib/booking.ts — precioNuestro(), components/CompararBooking.tsx, components/AvisoBooking.tsx
+    que: 'Comparar con Booking',
+    formula: 'diferencia = precio de Booking − (web de 1 semana + limpieza)',
+    nota: '**Siempre 7 noches**, con la tarifa de esas fechas (oferta incluida). El precio de Booking **se apunta a mano**. '
+      + '**Una vez al mes**: si en el mes no hay ninguno apuntado, sale el aviso al entrar. El Piso 3 y el Arenal no están en Booking.',
+  },
+  {
     que: 'Directo / VIP-B',
     formula: 'precio de 1 mes − 10 %',
     nota: 'El descuento es **con pago al contado** (desde el 14/04/26). **No se publican en la web.**',

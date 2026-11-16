@@ -11,6 +11,7 @@ import ChangePasswordModal from './components/ChangePasswordModal'
 import PreguntarApp from './components/PreguntarApp'
 import AvisoSolapes from './components/AvisoSolapes'
 import AvisoConformidades from './components/AvisoConformidades'
+import AvisoBooking from './components/AvisoBooking'
 import AvisoVersion from './components/AvisoVersion'
 import BotonVolver from './components/BotonVolver'
 import { solapes } from './lib/solapes'
@@ -318,6 +319,8 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false)
   // La ventana de conformidades espera a que se cierre la de reservas pisadas.
   const [solapesVistos, setSolapesVistos] = useState(false)
+  // Y la de Booking, a que se cierren las dos.
+  const [conformidadesVistas, setConformidadesVistas] = useState(false)
 
   const alertCount = useMemo(() => {
     const today = new Date()
@@ -416,7 +419,12 @@ export default function App() {
           {rol === 'gestion' && <AvisoSolapes onCerrar={() => setSolapesVistos(true)} />}
           {/* Las conformidades por enviar, igual: salta al entrar y «Ahora no»
               la calla hasta la próxima vez. Después de la de pisadas. */}
-          {rol === 'gestion' && <AvisoConformidades esperar={!solapesVistos && solapes(reservations).length > 0} />}
+          {rol === 'gestion' && <AvisoConformidades esperar={!solapesVistos && solapes(reservations).length > 0}
+            onCerrar={() => setConformidadesVistas(true)} />}
+          {/* Una vez al mes, apuntar lo que publica Booking. La última. */}
+          {rol === 'gestion' && <AvisoBooking esperar={
+            (!solapesVistos && solapes(reservations).length > 0)
+            || (!conformidadesVistas && conformidadesPorEnviar(reservations).length > 0)} />}
           {/* «← Volver a …» en todas las pantallas, en cuanto hay a dónde volver. */}
           <BotonVolver />
           <main className="flex-1 min-h-0 overflow-auto print:overflow-visible">

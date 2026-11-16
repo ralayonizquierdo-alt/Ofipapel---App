@@ -19,9 +19,14 @@ import { useNavigate } from 'react-router-dom'
  * Espera a que se cierre la de reservas pisadas (`esperar`): una encima de
  * otra no se leen.
  */
-export default function AvisoConformidades({ esperar = false }: { esperar?: boolean }) {
+export default function AvisoConformidades({ esperar = false, onCerrar }: {
+  esperar?: boolean
+  /** Para que la de Booking sepa que ya puede salir. */
+  onCerrar?: () => void
+}) {
   const { reservations, apartments } = useData()
-  const [cerrado, setCerrado] = useState(false)
+  const [cerrado, setCerradoSolo] = useState(false)
+  const setCerrado = (v: boolean) => { setCerradoSolo(v); if (v) onCerrar?.() }
   const navigate = useNavigate()
   // Se mira cada minuto: si la app está abierta cuando se cumplen las horas,
   // sale a su hora sin recargar.
