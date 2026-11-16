@@ -256,14 +256,21 @@ function imprimeParaAgencia(porTemporada: PorTemporada, nombre: (id: string) => 
     const filas = grupos.flatMap(g => g.lineas.filter(l => l.fila?.nuestro).map(l => {
       const n = l.fila!.nuestro!
       const dif = diferencia(l.fila!.c.precio, n.total)
-      return `<tr><td>${esc(g.tarifa.replace(/^(\S+) (\d+) \(aún no hay (\d+)\)$/, '$1 $3 (tarifa $2)'))}</td><td>${esc(nombre(l.apt))}</td>`
-        + `<td class="n">${num(n.total, 2)} €</td><td class="n">${num(l.fila!.c.precio, 2)} €</td>`
-        + `<td class="n">${dif.texto} (${dif.pct})</td></tr>`
+      // El desglose desde el neto de la tarifa que se le manda a la agencia
+      // (Luis, 16/11/2026: «no se sabe precio base más cuánto de limpieza»).
+      return `<tr><td>${esc(g.tarifa.replace(/^(\S+) (\d+) \(aún no hay (\d+)\)$/, '$1 $3 (tarifa $2)'))}</td>`
+        + `<td>${esc(nombre(l.apt))}</td>`
+        + `<td class="n">${num(n.base, 2)} €</td><td class="n">${num(n.comision * 2, 2)} €</td>`
+        + `<td class="n">${num(n.limpieza, 2)} €</td><td class="n">${num(n.igic, 2)} €</td>`
+        + `<td class="n b">${num(n.total, 2)} €</td><td class="n b">${num(l.fila!.c.precio, 2)} €</td>`
+        + `<td class="n b">${dif.texto}<br>${dif.pct}</td></tr>`
     }))
     if (filas.length === 0) return ''
     return `<section><h1>Comparativa de precios · ${season === 'VERANO' ? 'Verano (mayo a septiembre)' : 'Invierno (octubre a abril)'}</h1>`
-      + `<p class="sub">Precio de 1 semana. Nuestro precio = web + limpieza + IGIC (7 %). Fecha: ${hoy}</p>`
-      + '<table><thead><tr><th>Temporada / tarifa</th><th>Apartamento</th><th class="n">Nuestro precio</th>'
+      + `<p class="sub">Precio de 1 semana. Nuestro precio = precio neto + comisiones (15 % + 15 %) + limpieza + IGIC (7 %). Fecha: ${hoy}</p>`
+      + '<table><thead><tr><th>Temporada / tarifa</th><th>Apartamento</th>'
+      + '<th class="n">Precio neto</th><th class="n">Comisiones<br>15 % + 15 %</th><th class="n">Limpieza</th>'
+      + '<th class="n">IGIC 7 %</th><th class="n">Nuestro precio</th>'
       + '<th class="n">Booking</th><th class="n">Diferencia</th></tr></thead>'
       + `<tbody>${filas.join('')}</tbody></table></section>`
   }).filter(Boolean)
@@ -276,11 +283,12 @@ function imprimeParaAgencia(porTemporada: PorTemporada, nombre: (id: string) => 
   section:last-child { page-break-after: auto; break-after: auto; }
   h1 { font-size: 18pt; margin: 0 0 4pt; }
   .sub { font-size: 10pt; margin: 0 0 12pt; }
-  table { width: 100%; border-collapse: collapse; font-size: 12pt; }
-  th, td { border: 1px solid #000; padding: 6pt 8pt; text-align: left; }
-  th { font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+  th, td { border: 1px solid #000; padding: 5pt 6pt; text-align: left; vertical-align: middle; }
+  th { font-weight: bold; font-size: 10pt; }
   .n { text-align: right; white-space: nowrap; }
-  @page { size: A4; margin: 10mm; }
+  .b { font-weight: bold; }
+  @page { size: A4 landscape; margin: 10mm; }
 </style></head><body>${paginas.join('')}</body></html>`
 
   // Un marco escondido dentro de la página, y no una ventana nueva: las
