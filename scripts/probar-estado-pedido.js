@@ -636,6 +636,50 @@ async function caso(etiqueta, mensaje, revisar, desde) {
   });
   escenario.lecturaDeLaFoto = null;
 
+  // LA VERIFICACIÓN NO SE PIERDE PORQUE EL BOT DIGA OTRA COSA (16/11/2026).
+  //
+  // Caso real (propietario: «aquí da la respuesta estándar como si no hubiera
+  // encontrado el pedido, no entiendo qué está pasando»). El bot había pedido
+  // el nombre del pedido #684824, pero entre medias mandó los botones de
+  // escalado — y eso borraba el paso, porque solo se miraba el ÚLTIMO mensaje
+  // del bot. A partir de ahí la IA llevó la conversación («el pedido no
+  // aparece a nombre de Donataco…», texto que no existe en el código) y el
+  // siguiente mensaje del cliente se fue a buscar al CATÁLOGO.
+  //
+  // Lo más sangrante: la comprobación habría dicho que sí. El pedido está a
+  // nombre de «DONATACO SLU» y el cliente escribió «Donataco».
+  escenario.pedido = {
+    id: 684824, status: 'processing', total: '171.68', date_created: '2026-11-12T09:00:00',
+    date_paid: '2026-11-12T09:00:00',
+    billing: { phone: '+34600111999', first_name: '', last_name: '', company: 'DONATACO SLU' },
+  };
+  escenario.fila = null;
+
+  escenario.historial = [
+    { role: 'user', content: 'estado de mi pedido 684824' },
+    { role: 'assistant', content: '[PEDIDO:ESPERANDO_NOMBRE:684824]Para confirmar que el pedido es tuyo, dime el nombre comercial.' },
+    // El bot dice otra cosa en medio: ESTO es lo que mataba el flujo.
+    { role: 'assistant', content: '[Se ofreció escalar a una persona] ¿Quieres que te pongamos en contacto?' },
+  ];
+  await caso('«Donataco» después de los botones de escalado', 'Donataco', () => {
+    assert.ok(
+      texto('respuesta').includes('684824'),
+      `se perdió la verificación y no contestó el pedido: ${texto('respuesta') || texto('botones')}`
+    );
+    assert.ok(/171[.,]68/.test(texto('respuesta')), 'tiene que dar el total real del pedido');
+  });
+
+  // Y una verificación YA TERMINADA no se reabre: si el estado se contestó, el
+  // siguiente mensaje del cliente es otra cosa.
+  escenario.historial = [
+    { role: 'assistant', content: '[PEDIDO:ESPERANDO_NOMBRE:684824]Dime el nombre comercial.' },
+    { role: 'assistant', content: '[PEDIDO:CONTESTADO]El pedido #684824 está pagado y en preparación.' },
+  ];
+  await caso('una verificación ya contestada no se reabre', 'gracias, otra cosa: ¿tenéis folios?', () => {
+    assert.deepStrictEqual(consultasAGestion, [], 'volvió a consultar el pedido cuando ya estaba contestado');
+  });
+  escenario.historial = [];
+
   console.log(fallos === 0 ? '✔ Sin fallos' : `✗ ${fallos} fallos`);
   process.exit(fallos === 0 ? 0 : 1);
 })();

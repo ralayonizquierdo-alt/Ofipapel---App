@@ -469,12 +469,42 @@ function negacionDeEntrega(history, text) {
   return NIEGA_LA_ENTREGA_RE.test(String(text || ''));
 }
 
+// UNA VERIFICACIÓN A MEDIAS NO SE PIERDE PORQUE EL BOT DIGA OTRA COSA.
+//
+// Esto miraba SOLO el último mensaje del bot, así que cualquier cosa que el
+// bot dijera en medio —los botones de «¿quieres hablar con una persona?», el
+// «un segundo, estoy consultando el catálogo»— borraba el flujo del pedido.
+//
+// Visto en real el 16/11/2026 (propietario: «aquí da la respuesta estándar
+// como si no hubiera encontrado el pedido, no entiendo qué está pasando»):
+//
+//   bot:     [botones de escalado]              ← esto mató el paso
+//   cliente: «Donataco»
+//   bot:     «El pedido #684824 no aparece a nombre de "Donataco"…»  ← LA IA
+//   cliente: «DONATACO SLU B38069928»
+//   bot:     «Un segundo, estoy consultando el catálogo»  ← en un hilo de pedido
+//
+// Y lo más sangrante: la comprobación habría dicho que SÍ. El pedido está a
+// nombre de «DONATACO SLU» y `nombreCoincide('Donataco', …)` da true. El dato
+// estaba, el flujo no.
+//
+// Ahora se mira un poco hacia atrás. La ventana es corta a propósito —tres
+// mensajes del bot— y se corta en seco si por el camino aparece una respuesta
+// de estado ya dada: eso significa que aquella verificación terminó y
+// resucitarla sería peor que perderla.
+const MENSAJES_QUE_AGUANTA_LA_VERIFICACION = 3;
+
 function detectarPasoPedido(history) {
-  const ultimoBot = [...history].reverse().find((m) => m.role === 'assistant');
-  if (!ultimoBot) return null;
-  if (ultimoBot.content.startsWith(PEDIDO_MARCA_ESPERANDO_NUMERO)) return { paso: 'numero' };
-  const m = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(ultimoBot.content);
-  if (m) return { paso: 'nombre', orderId: m[1] };
+  const delBot = [...history].filter((m) => m.role === 'assistant').reverse();
+
+  for (const m of delBot.slice(0, MENSAJES_QUE_AGUANTA_LA_VERIFICACION)) {
+    const contenido = String(m.content || '');
+    // Una verificación que ya acabó (se contestó el estado) no se reabre.
+    if (contenido.startsWith(MARCA_PEDIDO_ENTREGADO) || contenido.startsWith(MARCA_PEDIDO_CONTESTADO)) return null;
+    if (contenido.startsWith(PEDIDO_MARCA_ESPERANDO_NUMERO)) return { paso: 'numero' };
+    const conNombre = PEDIDO_MARCA_ESPERANDO_NOMBRE_RE.exec(contenido);
+    if (conNombre) return { paso: 'nombre', orderId: conNombre[1] };
+  }
   return null;
 }
 
@@ -489,6 +519,10 @@ function detectarPasoPedido(history) {
 // pedido, si el dato está caducado o si Supabase no contesta, se cae al estado
 // de WooCommerce de siempre — nunca se deja a un cliente sin respuesta.
 const MARCA_PEDIDO_ENTREGADO = '[PEDIDO:ENTREGADO]';
+// Se pone cuando el estado YA se le ha dado al cliente. Sirve para que una
+// verificación terminada no se reabra sola (ver detectarPasoPedido). Como las
+// demás marcas, solo va al historial: al cliente no se le manda.
+const MARCA_PEDIDO_CONTESTADO = '[PEDIDO:CONTESTADO]';
 
 async function respuestaDeEstado(order, idioma) {
   const porDefecto = { texto: woocommerce.formatOrderStatus(order, idioma), ofrecerPersona: false };
@@ -535,7 +569,7 @@ async function contestarElEstado(from, text, order, greeting, idioma) {
   const reply = greeting + texto;
   // La marca solo sirve para reconocer el turno siguiente: si el cliente
   // contesta que no lo ha recibido, eso no es una duda, es un problema.
-  await appendToHistory(from, text, `${entregado ? MARCA_PEDIDO_ENTREGADO : ''}${reply}`);
+  await appendToHistory(from, text, `${entregado ? MARCA_PEDIDO_ENTREGADO : MARCA_PEDIDO_CONTESTADO}${reply}`);
   await sendWhatsappMessage(from, reply);
 }
 
