@@ -71,6 +71,52 @@ const respuesta = (fn) => {
   ok(r.motivo === wc.MOTIVO.NO_SE_PUDO, `sin claves → ${r.motivo}`);
   process.env.WOOCOMMERCE_CONSUMER_KEY = k;
 
+  // ———————————————————————————————————————————————————————————————
+  // UN TROPEZÓN DE LA WEB NO ES UNA RESPUESTA (16/11/2026).
+  //
+  // Conversación real de esa madrugada: el mismo «685025», con 35 segundos de
+  // diferencia, se contestó primero con «nuestra web no me contesta» y después
+  // con el pedido encontrado. La primera consulta se pasó del tiempo; la
+  // segunda fue bien. El cliente tuvo que escribir el número dos veces para
+  // obtener la respuesta que debió darse a la primera.
+  console.log('\n=== Si la web tropieza, se le pregunta otra vez');
+  let intentos = 0;
+  global.fetch = async () => {
+    intentos++;
+    if (intentos === 1) { const e = new Error('timeout'); e.name = 'TimeoutError'; throw e; }
+    return {
+      ok: true,
+      status: 200,
+      headers: new Map([['content-type', 'application/json']]),
+      json: async () => ({ id: 685025, number: '685025', status: 'processing' }),
+    };
+  };
+  r = await wc.getOrderConMotivo('685025');
+  ok(intentos === 2, `se reintentó (${intentos} intentos)`);
+  ok(r.motivo === wc.MOTIVO.OK && r.order?.number === '685025', 'y el pedido se encuentra a la segunda');
+
+  console.log('\n--- pero un 404 NO se reintenta: la web ya ha contestado');
+  intentos = 0;
+  global.fetch = async () => {
+    intentos++;
+    return { ok: false, status: 404, text: async () => 'No encontrado', headers: new Map() };
+  };
+  r = await wc.getOrderConMotivo('999999');
+  ok(intentos === 1, `un solo intento (${intentos})`);
+  ok(r.motivo === wc.MOTIVO.NO_EXISTE, 'y sigue diciendo que no existe');
+
+  console.log('\n--- y si falla las dos veces, se dice la verdad de siempre');
+  intentos = 0;
+  global.fetch = async () => {
+    intentos++;
+    const e = new Error('timeout');
+    e.name = 'TimeoutError';
+    throw e;
+  };
+  r = await wc.getOrderConMotivo('685025');
+  ok(intentos === 2, `se intentó dos veces (${intentos})`);
+  ok(r.motivo === wc.MOTIVO.NO_SE_PUDO, 'y el motivo sigue siendo «no se pudo», no «no existe»');
+
   console.log('\n=== Y cuando el pedido SÍ está, llega entero');
   r = await respuesta(async () => ({
     ok: true,
