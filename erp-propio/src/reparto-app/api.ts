@@ -176,6 +176,9 @@ export const cambiarRuta = (token: string, tienda: string, numero: number, vt: s
     p_motivo: motivo,
   })
 
+/** «No es mi ruta»: la deja libre para que la coja otro repartidor. */
+export const soltarRuta = (token: string, tienda: string, numero: number) => rpc<{ ok: boolean }>('fn_app_rep_soltar', { p_token: token, p_tienda: tienda, p_numero: numero })
+
 /** Pone (o quita, con '') otro teléfono para esta entrega. Hace falta cobertura. */
 export async function cambiarTelefono(token: string, tienda: string, numero: number, vt: string, vn: number, telefono: string) {
   const r = await rpc<{ ok: boolean; error?: string; telefono: string | null }>('fn_app_rep_telefono', { p_token: token, p_tienda: tienda, p_numero: numero, p_vt: vt, p_vn: vn, p_telefono: telefono })

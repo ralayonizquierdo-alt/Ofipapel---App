@@ -4,6 +4,7 @@ import {
   cancelarTraspaso,
   proponerTraspaso,
   responderTraspaso,
+  soltarRuta,
   traspasos,
   type TraspasoRecibido,
   type TraspasoRespuesta,
@@ -776,7 +777,8 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
       <Cabecera sub={sesion.nombre.toUpperCase()} derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
       <AvisosTraspaso sesion={sesion} />
       <Tarjeta>
-        <div style={{ fontWeight: 700, fontSize: 18, color: V.verde, marginBottom: 10 }}>Elige tu ruta de hoy</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Elige tu ruta de hoy</div>
+        <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Toca la ruta que vas a repartir. Al cogerla pasa a ser tuya y los demás dejan de verla.</div>
         {!lista && !error && <div style={{ color: V.gris }}>Cargando…</div>}
         {lista && !lista.length && <div style={{ color: V.gris }}>No hay rutas abiertas para ti. Si esperabas una, avisa en la oficina.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -784,13 +786,16 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
             <button
               key={`${r.tienda}-${r.numero}`}
               type="button"
-              onClick={() => onElegir(r)}
+              onClick={() => {
+                if (!r.mio && !window.confirm(`¿Coges la ruta ${r.ruta_nombre ?? ''}${r.manana ? ' (mañana)' : ''}? Será tuya. Si te equivocas, dentro puedes soltarla.`)) return
+                onElegir(r)
+              }}
               style={{ textAlign: 'left', background: r.mio ? V.pale : '#fff', border: `2px solid ${r.mio ? V.verdeMed : '#cfe0cf'}`, borderRadius: 16, padding: 14 }}
             >
               <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>🚚 {r.ruta_nombre ?? 'Sin ruta'}</div>
               <div style={{ color: V.gris, fontSize: 14 }}>
                 {r.manana ? 'Mañana · ' : ''}
-                {r.pedidos} pedidos · {r.pendientes} por entregar{r.mio ? ' · tuya' : ' · sin repartidor'}
+                {r.pedidos} pedidos · {r.pendientes} por entregar{r.mio ? ' · TUYA' : ' · libre'}
               </div>
             </button>
           ))}
@@ -978,6 +983,12 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   }
 
   const alCambiarTraspaso = useCallback(() => void recargar(), [recargar])
+  const soltar = () => {
+    if (!window.confirm('¿Seguro que esta NO es tu ruta? Quedará libre para que la coja otro repartidor.')) return
+    soltarRuta(sesion.token, reparto.tienda, reparto.numero)
+      .then(() => onVolver())
+      .catch((e: Error) => setAviso(e.message))
+  }
   const retirar = (l: LineaApp) => {
     if (!l.traspaso) return
     cancelarTraspaso(sesion.token, l.traspaso.id)
@@ -1117,6 +1128,14 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
             </div>
           ))}
         </Tarjeta>
+      )}
+
+      {hechos === 0 && comprobados === 0 && (
+        <div style={{ textAlign: 'center' }}>
+          <button type="button" onClick={soltar} style={{ background: 'rgba(255,255,255,.85)', border: 'none', borderRadius: 12, color: V.rojo, fontSize: 14, textDecoration: 'underline', padding: '8px 14px' }}>
+            No es mi ruta: soltarla
+          </button>
+        </div>
       )}
 
       {hoja?.tipo === 'incidencia' && (

@@ -22,6 +22,8 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     titulo: 'Tu ruta',
     pasos: [
       'Elige tu ruta. Si pone «Mañana», es la del día siguiente: puedes mirarla, pero aún no toca.',
+      'Toca la ruta que vas a repartir: al cogerla es tuya y los demás dejan de verla.',
+      'Si te equivocas de ruta, ábrela y pulsa abajo «No es mi ruta: soltarla» (solo antes de empezar a marcar).',
       'Las rutas salen solas cuando la oficina las prepara. Si no ves la tuya, avisa en la oficina.',
     ],
   },
