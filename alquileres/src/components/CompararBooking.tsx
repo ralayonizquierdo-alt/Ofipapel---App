@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Season } from '../types'
 import { useSearchParams } from 'react-router-dom'
-import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, ExternalLink, Printer } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import {
   APARTAMENTOS_BOOKING, NOCHES_BOOKING, TIPO_BOOKING, apuntaPrecioBooking, precioNuestro,
@@ -101,6 +101,11 @@ export default function CompararBooking() {
             className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
             <ExternalLink size={15} /> Abrir Booking
           </a>
+          <button onClick={() => imprimeParaAgencia(porTemporada, nombre)}
+            disabled={!consultas || consultas.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            <Printer size={15} /> Imprimir para la agencia
+          </button>
           <button onClick={() => setAbierto(a => !a)}
             className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
             <Plus size={15} /> Apuntar precio de Booking
@@ -227,6 +232,69 @@ export default function CompararBooking() {
       )}
     </section>
   )
+}
+
+type PorTemporada = {
+  season: Season
+  grupos: { tarifa: string; oferta: boolean; lineas: { apt: string; fila?: { c: PrecioBooking; nuestro: PrecioNuestro | null } }[] }[]
+}[]
+
+const esc = (s: string) => s.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!)
+
+/**
+ * El listado para mandar a la agencia (Luis, 16/11/2026): en negro, como un
+ * borrador, una temporada por hoja, y solo tarifa, apartamento, lo nuestro,
+ * Booking y la diferencia. Sin la semana consultada ni el día en que se miró:
+ * no interesa que se vea que se ha entrado en Booking.
+ *
+ * Abre el diálogo de imprimir solo con el listado, donde se elige la
+ * impresora o «Guardar como PDF»; la pantalla de la app no se toca.
+ */
+function imprimeParaAgencia(porTemporada: PorTemporada, nombre: (id: string) => string) {
+  const hoy = formatDate(today())
+  const paginas = porTemporada.map(({ season, grupos }) => {
+    const filas = grupos.flatMap(g => g.lineas.filter(l => l.fila?.nuestro).map(l => {
+      const n = l.fila!.nuestro!
+      const dif = diferencia(l.fila!.c.precio, n.total)
+      return `<tr><td>${esc(g.tarifa.replace(/^(\S+) (\d+) \(aún no hay (\d+)\)$/, '$1 $3 (tarifa $2)'))}</td><td>${esc(nombre(l.apt))}</td>`
+        + `<td class="n">${num(n.total, 2)} €</td><td class="n">${num(l.fila!.c.precio, 2)} €</td>`
+        + `<td class="n">${dif.texto} (${dif.pct})</td></tr>`
+    }))
+    if (filas.length === 0) return ''
+    return `<section><h1>Comparativa de precios · ${season === 'VERANO' ? 'Verano (mayo a septiembre)' : 'Invierno (octubre a abril)'}</h1>`
+      + `<p class="sub">Precio de 1 semana. Nuestro precio = web + limpieza + IGIC (7 %). Fecha: ${hoy}</p>`
+      + '<table><thead><tr><th>Temporada / tarifa</th><th>Apartamento</th><th class="n">Nuestro precio</th>'
+      + '<th class="n">Booking</th><th class="n">Diferencia</th></tr></thead>'
+      + `<tbody>${filas.join('')}</tbody></table></section>`
+  }).filter(Boolean)
+
+  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Comparativa de precios ${hoy}</title>
+<style>
+  * { color: #000 !important; background: #fff !important; }
+  body { font-family: Arial, Helvetica, sans-serif; margin: 0; }
+  section { padding: 12mm 10mm; page-break-after: always; break-after: page; }
+  section:last-child { page-break-after: auto; break-after: auto; }
+  h1 { font-size: 18pt; margin: 0 0 4pt; }
+  .sub { font-size: 10pt; margin: 0 0 12pt; }
+  table { width: 100%; border-collapse: collapse; font-size: 12pt; }
+  th, td { border: 1px solid #000; padding: 6pt 8pt; text-align: left; }
+  th { font-weight: bold; }
+  .n { text-align: right; white-space: nowrap; }
+  @page { size: A4; margin: 10mm; }
+</style></head><body>${paginas.join('')}</body></html>`
+
+  // Un marco escondido dentro de la página, y no una ventana nueva: las
+  // ventanas emergentes las bloquea el navegador (y en la app instalada no hay).
+  document.getElementById('imprimir-agencia')?.remove()
+  const marco = document.createElement('iframe')
+  marco.id = 'imprimir-agencia'
+  marco.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+  document.body.appendChild(marco)
+  const doc = marco.contentDocument!
+  doc.open()
+  doc.write(html)
+  doc.close()
+  setTimeout(() => { marco.contentWindow!.focus(); marco.contentWindow!.print() }, 300)
 }
 
 /** «01/12 al 08/12/2026». */
