@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MUNICIPIOS_TENERIFE } from './municipiosTenerife'
@@ -331,13 +331,22 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
   const caja = useRef<HTMLDivElement>(null)
   const mapa = useRef<L.Map | null>(null)
   const capa = useRef<L.LayerGroup | null>(null)
+  // Al pinchar en un furgón el mapa se acerca al callejero y lo sigue; «Ver toda la isla» vuelve atrás.
+  const [seguido, setSeguido] = useState<string | null>(null)
+  const seguidoRef = useRef<string | null>(null)
+  const isla = useRef<L.LatLngBounds | null>(null)
+  const verIsla = () => {
+    seguidoRef.current = null
+    setSeguido(null)
+    if (mapa.current && isla.current) mapa.current.flyToBounds(isla.current, { duration: 0.8 })
+  }
 
   useEffect(() => {
     if (!caja.current || mapa.current) return
     // Mapa político de Tenerife: sin relieve; cada municipio con su color y su nombre, sobre el mar.
     // Solo la isla: no se puede salir de ella ni alejar más. Al acercar (zoom 12+) salen debajo las calles.
-    const isla = L.latLngBounds([27.985, -16.935], [28.6, -16.105])
-    const m = L.map(caja.current, { zoomControl: !tv, attributionControl: true, zoomSnap: 0.25, maxBounds: isla.pad(0.12), maxBoundsViscosity: 1 }).fitBounds(isla)
+    const isla0 = L.latLngBounds([27.985, -16.935], [28.6, -16.105])
+    const m = L.map(caja.current, { zoomControl: !tv, attributionControl: true, zoomSnap: 0.25, maxBounds: isla0.pad(0.12), maxBoundsViscosity: 1 }).fitBounds(isla0)
     m.setMinZoom(m.getZoom())
     caja.current.style.background = '#cfe3f1'
     const calles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' })
@@ -384,6 +393,7 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
     ajustar()
     capa.current = L.layerGroup().addTo(m)
     mapa.current = m
+    isla.current = isla0
     return () => {
       m.remove()
       mapa.current = null
@@ -409,7 +419,17 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
                    <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${color}"></div>
                  </div>`,
         })
-        L.marker([r.posicion.lat, r.posicion.lng], { icon: icono }).addTo(g)
+        const clave = `${r.tienda}-${r.numero}`
+        const pos: [number, number] = [r.posicion.lat, r.posicion.lng]
+        L.marker(pos, { icon: icono, title: 'Pincha para acercar el mapa a este furgón' })
+          .on('click', () => {
+            seguidoRef.current = clave
+            setSeguido(clave)
+            mapa.current?.flyTo(pos, 16, { duration: 0.8 })
+          })
+          .addTo(g)
+        // Si se está siguiendo a este furgón, el mapa se mueve con él en cada refresco.
+        if (seguidoRef.current === clave && mapa.current && mapa.current.getZoom() >= 12) mapa.current.panTo(pos)
       }
     })
   }, [rutas, tv])
@@ -418,6 +438,16 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
   return (
     <div style={{ position: 'relative', height: tv ? 'calc(100vh - 180px)' : 520, borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,.25)' }}>
       <div ref={caja} style={{ position: 'absolute', inset: 0 }} />
+      {seguido && (
+        <div style={{ position: 'absolute', right: 10, top: 10, zIndex: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ background: 'rgba(255,255,255,.94)', borderRadius: 10, padding: '6px 10px', fontSize: tv ? 15 : 12, fontWeight: 700 }}>
+            🚚 Siguiendo a {rutas.find((r) => `${r.tienda}-${r.numero}` === seguido)?.repartidor_nombre ?? 'este furgón'}
+          </span>
+          <button type="button" onClick={verIsla} style={{ background: C.verde, color: '#fff', border: 'none', borderRadius: 10, padding: '7px 12px', fontSize: tv ? 15 : 13, fontWeight: 700, cursor: 'pointer' }}>
+            ⤢ Ver toda la isla
+          </button>
+        </div>
+      )}
       {sinPosicion.length > 0 && (
         <div style={{ position: 'absolute', left: 10, bottom: 24, zIndex: 500, background: 'rgba(255,255,255,.92)', borderRadius: 10, padding: '6px 10px', fontSize: tv ? 15 : 12 }}>
           Sin ubicación: {sinPosicion.map((r) => r.repartidor_nombre ?? r.ruta_nombre).join(', ')}
