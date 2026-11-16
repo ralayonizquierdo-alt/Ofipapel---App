@@ -189,10 +189,11 @@ export default function Prices() {
 
       {/* Price tables — both seasons */}
       <div className={`space-y-8 ${soloOferta ? 'hidden' : ''}`}>
-        {(['VERANO', 'INVIERNO'] as Season[]).map(season => {
+        {(['VERANO', 'INVIERNO'] as Season[]).map((season, i) => {
           const filtered = pricesBySeason(season)
           return (
-            <div key={season}>
+            // Al imprimir, cada temporada en su hoja (index.css, `hoja-nueva`).
+            <div key={season} className={i > 0 ? 'hoja-nueva' : ''}>
               <div className="flex items-center gap-2 mb-4 px-1">
                 <span className={`text-sm font-bold px-3 py-1 rounded-full ${season === 'VERANO' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
                   {season === 'VERANO' ? 'VERANO (May–Sep)' : 'INVIERNO (Oct–Abr)'}
@@ -229,8 +230,8 @@ export default function Prices() {
         })}
       </div>
 
-      {/* Offer Prices section */}
-      <div className="mt-8">
+      {/* Offer Prices section — al imprimir, en hoja aparte */}
+      <div className={`mt-8 ${soloOferta ? '' : 'hoja-nueva'}`}>
         <div className={`flex items-center justify-between mb-4 ${soloOferta ? 'hidden' : ''}`}>
           <h2 className="text-lg font-semibold text-slate-800">Tarifas de Oferta</h2>
           <button
@@ -246,11 +247,13 @@ export default function Prices() {
           </div>
         ) : (
           <div className="space-y-3">
-            {offerPrices.map(op => {
+            {offerPrices.map((op, i) => {
               const plegada = plegadas.includes(op.id)
               return (
+              // Al imprimir la pantalla entera, cada oferta en su hoja (la
+              // primera ya empieza hoja con el título «Tarifas de Oferta»).
               <div key={op.id} id={`oferta-${op.id}`}
-                className={`bg-white rounded-xl border-2 border-amber-300 ${
+                className={`bg-white rounded-xl border-2 border-amber-300 ${soloOferta || i === 0 ? '' : 'hoja-nueva'} ${
                   op.id === ofertaMarcada ? 'ring-4 ring-blue-400 ring-offset-2' : ''} ${
                   soloOferta && soloOferta !== op.id ? 'hidden' : ''}`}>
                <div className="p-4 flex items-start justify-between gap-3 bg-amber-50 rounded-t-lg">

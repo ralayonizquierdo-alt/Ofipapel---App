@@ -284,6 +284,11 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
 ]
 
 export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
+  {
+    // index.css (hoja-nueva), pages/Prices.tsx
+    que: 'Imprimir / PDF',
+    nota: '**Cada temporada en su hoja** (verano e invierno) y **cada oferta en otra**. Nunca se parte una tabla entre dos hojas.',
+  },
   PRECIO,
   TRAMO,
   OFERTA,
@@ -328,6 +333,11 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
 ]
 
 export const OPERATIVA_COBROS: ReglaOperativa[] = [
+  {
+    // index.css (hoja-nueva), pages/Collections.tsx
+    que: 'Imprimir / PDF',
+    nota: 'En «Trimestres» sale **cada trimestre en su hoja**. Nunca se parte una fila entre dos hojas.',
+  },
   {
     // lib/recordado.ts — useVuelveALaAltura
     que: 'Al volver',
