@@ -795,6 +795,77 @@ async function claimMessage(messageId, ttlSeconds = 600) {
   return false;
 }
 
+// UN CLIENTE, UNA CONVERSACIÓN A LA VEZ (16/11/2026).
+//
+// La gente escribe en dos globos: primero «Hola quería preguntarles por un
+// pedido» y, un segundo después, el número. Meta manda cada globo en su propia
+// petición, y Netlify las atiende en DOS instancias distintas a la vez. Cada
+// una contestaba por su cuenta, sin saber de la otra. Visto en real esa
+// madrugada (los tiempos salen de los registros de Netlify):
+//
+//   02:25:12,6  «Hola quería preguntarles por un pedido»   → tardó 19,0 s
+//   02:25:13,9  «685025»                                   → tardó  8,5 s
+//
+// Así que al cliente le llegó primero la respuesta al SEGUNDO mensaje y nueve
+// segundos después la del primero:
+//
+//   bot: «Ahora mismo no puedo comprobar tu pedido...»
+//   bot: «¡Hola! Claro, ¿cuál es el número de pedido?»
+//
+// Un sinsentido: le pide el número que acababa de darle, y en ese orden. Y hay
+// un daño peor que el desorden — el turno del número corrió ANTES de que el bot
+// hubiera preguntado nada, así que no era la respuesta a ninguna pregunta y se
+// perdió el hilo del pedido.
+//
+// El turno se toma y se suelta. Quien llega segundo espera a que el primero
+// termine, y entonces trabaja con la conversación ya actualizada.
+//
+// TODO ESTO FALLA ABIERTO, a propósito: sin Upstash, si Redis no contesta, o si
+// la espera se agota, se sigue adelante como hasta ahora. Dejar a un cliente
+// sin respuesta es peor que contestarle a destiempo, que es lo que pasaba.
+const TURNO_TTL_S = 30;          // si una instancia muere, el turno se libera solo
+const TURNO_ESPERA_MS = 8000;    // lo que como mucho espera el que llega segundo
+const TURNO_SONDEO_MS = 400;
+
+async function tomarTurno(phone, { esperaMs = TURNO_ESPERA_MS } = {}) {
+  if (!isConfigured()) return null;
+
+  const key = `turno:${phone}`;
+  const token = crypto.randomUUID();
+  const hasta = Date.now() + esperaMs;
+
+  for (;;) {
+    const res = await redisCommand(['SET', key, token, 'NX', 'EX', String(TURNO_TTL_S)]);
+    if (res === 'OK') return token;
+
+    // «SET ... NX» devuelve null por DOS motivos opuestos: porque el turno ya
+    // estaba cogido y porque Redis no ha contestado. Es la misma trampa que
+    // documenta `claimMessage` unas líneas más arriba, y ahí se esquivó con un
+    // contador. Aquí hace falta el token para no soltar el turno de otro, así
+    // que se distingue preguntando por la clave: si se puede leer y hay algo,
+    // el turno está cogido de verdad y toca esperar; si no, se sigue adelante.
+    const quien = await redisCommand(['GET', key]);
+    if (quien === null) return null;
+
+    if (Date.now() >= hasta) {
+      // El turno de delante se está eternizando (una web lenta, un arranque en
+      // frío). Se sigue igual: se vuelve al comportamiento de siempre.
+      console.error(`El turno de ${phone} sigue ocupado tras ${esperaMs} ms; se contesta igualmente.`);
+      return null;
+    }
+    await new Promise((r) => setTimeout(r, TURNO_SONDEO_MS));
+  }
+}
+
+async function soltarTurno(phone, token) {
+  if (!token) return;
+  const key = `turno:${phone}`;
+  // Solo se suelta el turno propio: si el nuestro ya había caducado y otro lo
+  // tomó, borrarlo lo dejaría trabajando sin turno.
+  const actual = await redisCommand(['GET', key]);
+  if (actual === token) await redisCommand(['DEL', key]);
+}
+
 // Prueba de escritura + lectura contra Upstash, devolviendo el error real (código HTTP
 // y cuerpo de la respuesta) tal cual lo manda Upstash, para poder mostrarlo en el panel
 // sin tener que ir a mirar los logs de Netlify ni la consola de Upstash a mano.
@@ -886,6 +957,8 @@ module.exports = {
   marcarEntrega,
   getEstadoEntrega,
   claimMessage,
+  tomarTurno,
+  soltarTurno,
   getCachedSearch,
   setCachedSearch,
   getAliasesBusqueda,

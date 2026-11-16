@@ -2039,7 +2039,22 @@ exports.handler = async (event) => {
         const messages = change.value?.messages || [];
         for (const message of messages) {
           if (await alreadyProcessed(message.id)) continue;
-          await handleIncomingMessage(event, message, nombres.get(message.from));
+
+          // DE UNO EN UNO POR CLIENTE.
+          //
+          // Los globos seguidos («Hola, quería preguntar por un pedido» + el
+          // número) llegan en peticiones distintas que Netlify atiende a la vez,
+          // y las respuestas se cruzaban (ver `tomarTurno`). Esperar a que
+          // termine el turno anterior cuesta unos segundos al segundo mensaje y
+          // a cambio lo contesta con la conversación ya al día — que es,
+          // además, lo que hace que el número se entienda como la respuesta a
+          // la pregunta que el bot acaba de hacer.
+          const turno = await conversationStore.tomarTurno(message.from);
+          try {
+            await handleIncomingMessage(event, message, nombres.get(message.from));
+          } finally {
+            await conversationStore.soltarTurno(message.from, turno);
+          }
         }
       }
     } catch (err) {

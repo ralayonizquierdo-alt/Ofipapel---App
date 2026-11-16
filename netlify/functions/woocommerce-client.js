@@ -1061,8 +1061,41 @@ async function getOrder(orderId) {
 // cliente: `{ order, motivo }` con motivo 'ok', 'no-existe' o 'no-se-pudo'.
 // Decirle «no existe» a quien tiene el pedido delante es peor que decirle que
 // ahora mismo no se puede comprobar.
+// CUANDO LA WEB NO CONTESTA, SE LE PREGUNTA OTRA VEZ (16/11/2026).
+//
+// Conversación real de esa madrugada:
+//
+//   cliente: «685025»
+//   bot:     «Ahora mismo no puedo comprobar tu pedido: nuestra web no me
+//             contesta...»
+//   cliente: «685025»          (35 segundos después)
+//   bot:     «Para confirmar que el pedido es tuyo, dime el nombre...»
+//
+// El mismo número, la misma web, dos respuestas distintas. La primera consulta
+// se pasó de los 6 segundos y la segunda contestó sin problema: un tropezón de
+// la web, no un pedido que no estuviera. Pero el cliente ya había recibido un
+// «no puedo comprobarlo» — y, encima, tuvo que escribir el número dos veces.
+//
+// Un reintento lo tapa. Se hace SOLO aquí (no en `wcRequest`, que la usan
+// veintitantos sitios, muchos dentro del turno con la IA y el catálogo, donde
+// duplicar la espera sí se nota): esta consulta es un camino corto —sin IA y
+// sin búsqueda de productos— así que caben holgadamente dos intentos.
+//
+// Y NUNCA se reintenta un 404: ahí la web ha contestado perfectamente, y lo que
+// ha dicho es que ese pedido no está. Preguntárselo otra vez no cambia nada y
+// retrasa la respuesta.
+const ESPERA_ANTES_DE_REINTENTAR_MS = 300;
+
 async function getOrderConMotivo(orderId) {
-  const { data, motivo } = await wcRequestDetallado(`/orders/${encodeURIComponent(orderId)}`);
+  const ruta = `/orders/${encodeURIComponent(orderId)}`;
+  let { data, motivo } = await wcRequestDetallado(ruta);
+
+  if (motivo === MOTIVO.NO_SE_PUDO && isConfigured()) {
+    console.error(`WooCommerce no contestó por el pedido ${orderId}; se reintenta una vez.`);
+    await new Promise((r) => setTimeout(r, ESPERA_ANTES_DE_REINTENTAR_MS));
+    ({ data, motivo } = await wcRequestDetallado(ruta));
+  }
+
   return { order: data, motivo };
 }
 
