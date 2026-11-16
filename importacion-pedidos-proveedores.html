@@ -811,6 +811,56 @@ function parseCarlosWendel(lineas){
   return filas;
 }
 
+// DRAEGER IBERICA (Hallmark): la factura trae primero el detalle por
+// artículo (páginas 1-2) y después, tras "Denominación recap.", el RESUMEN
+// por código de precio (páginas 3-4): "Precio EAN, Código aduanero,
+// CODE <familia> <código> FA, Cantidad, Precio bruto, Desc., Precio neto,
+// Importe neto". Lo que se homologa es ese resumen (decisión del propietario,
+// 16/11/2026), porque Géminis tiene Draeger por código de precio con la
+// referencia "<código>-x" ("745-x", "190-x"): la referencia es el número de
+// 3 cifras de la línea ("CODE CR 12X17 FA 474" → 474-x) o, si no lo hay, la
+// palabra que va tras la familia ("CODE CPR KJ FA" → KJ-x, "CODE TTA C
+// CAMPAÑA" → C-x), y el EAN es el Precio EAN. Las líneas del mismo código
+// que la factura da por separado (780: 24, 6 y 12) siguen separadas. Los
+// regalos ("CODE GRA ARTICULO SIN CARGO", sin precio) se dejan fuera. El
+// código aduanero puede faltar o venir como "********". Calibrado con la
+// factura 090236208 de 24/10/2026: 15 líneas que suman 592,96 € = base
+// imponible. OJO: el importe de cada línea es la suma de los importes ya
+// redondeados de sus artículos, así que en 11 líneas Cantidad × Precio ×
+// (1 − 15 %) no da exacto (24 × 2,750 − 15 % = 56,10 y la factura pone
+// 56,12): se deja el importe y el 15 % de la factura. Recalculadas línea a
+// línea (redondeo al céntimo hacia arriba) suman también 592,96 €, porque
+// las diferencias se compensan. El precio no se toca.
+function parseDraeger(lineas){
+  const filas = [];
+  const RE = /^(\d{13})\s+(?:(?:\d{8}|\*{8})\s+)?(CODE\s+.+?)\s+(\d{1,3}(?:\.\d{3})*)\s+(\d+,\d{3})\s+(\d+,\d{2})\s+(\d+,\d{3})\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/;
+  lineas.forEach(l=>{
+    const m = l.trim().match(RE);
+    if(!m) return;
+    const [,ean,descripcion,cant,precio,dto,,importe] = m;
+    const pal = descripcion.split(/\s+/);
+    const cod = pal.slice(1).find(t => /^\d{3}$/.test(t)) || pal[2] || '';
+    filas.push(fila_({codigo: cod ? cod + '-x' : '', descripcion, cantidad:parseInt(cant.replace(/\./g,''),10),
+      precioUnitario:parseDecComa(precio), dto1:parseDecComa(dto), importe:parseDecComa(importe), ean}));
+  });
+  return filas;
+}
+// Base imponible de Draeger: en el cuadro "Código Base Tasa Importe IVA/IGIC"
+// la base y la tasa salen en líneas distintas ("3 592,96" y "7,00 41,51") y
+// "1 10,00" es un código con su tasa, no una base. Por eso se calcula como
+// "Total :" menos la suma de las cuotas de impuesto (líneas "tasa cuota").
+function totalDraeger(texto){
+  const mt = texto.match(/Total\s*:\s*(\d{1,3}(?:\.\d{3})*,\d{2})\s*EUR/i);
+  const idx = texto.search(/Importe\s+IVA\/IGIC/i);
+  if(!mt || idx < 0) return null;
+  let cuotas = 0;
+  texto.slice(idx).split('\n').forEach(l=>{
+    const c = l.trim().match(/^(\d{1,2},\d{2})\s+(\d{1,3}(?:\.\d{3})*,\d{2})$/);
+    if(c) cuotas += parseDecComa(c[2]);
+  });
+  return round2_(parseDecComa(mt[1]) - cuotas);
+}
+
 // PRYSE: dos formatos distintos según el tipo de documento del mismo proveedor.
 // a) Factura: "[CODIGO] DESCRIPCION CANTIDAD,000 PRECIO,00000 DTO,00 No sujeto IMPORTE,00 €"
 // b) Presupuesto/Orden de venta: "CODIGO DESCRIPCION Pend,000 Entregada,000
@@ -1718,7 +1768,9 @@ const PERFILES_PROVEEDOR = [
   { id:'carloswendel', nombre:'CARLOS WENDEL S.L.', detectar: t => /Carlos Wendel|B28044204/i.test(t), parser: parseCarlosWendel,
     total: t => totalSimple(t, /EXENTO\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) ?? totalSimple(t, /Fecha Vencimiento:\s*\S+\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) },
   { id:'grupoerik', nombre:'GRUPO ERIK EDITORES S.L.', detectar: t => /Grupo\s+Erik\s+Editores|ESB18454090/i.test(t), parser: l => { const a = parseGrupoErik(l); return a.length ? a : parseGrupoErikAlbaran(l); },
-    total: t => totalGrupoErik(t) ?? totalSimple(t, /Total B\.I\.\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) }
+    total: t => totalGrupoErik(t) ?? totalSimple(t, /Total B\.I\.\s+(\d{1,3}(?:\.\d{3})*,\d{2})/) },
+  { id:'draeger', nombre:'DRAEGER IBERICA, S.A.U. (Hallmark)', detectar: t => /DRAEGER\s+IBERICA|ESA08993735/i.test(t), parser: parseDraeger,
+    total: t => totalDraeger(t) }
 ];
 
 function detectarProveedor(lineas){
