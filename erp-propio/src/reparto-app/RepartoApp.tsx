@@ -70,6 +70,7 @@ const MOTIVOS: [string, string][] = [
   ['direccion', 'La dirección no coincide'],
   ['ausente', 'Cliente ausente'],
   ['cerrado', 'Cerrado'],
+  ['sin_tiempo', 'No me dio tiempo'],
   ['otro', 'Otro'],
 ]
 
