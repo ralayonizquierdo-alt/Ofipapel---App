@@ -49,6 +49,20 @@ PC de la oficina que no se apague, con acceso de lectura a la carpeta de Geminis
 - Una pantalla de control dice cuándo fue la última lectura de cada fichero y si algo no cuadra. Si el
   puente lleva un rato sin leer, avisa.
 
+### Lo construido (17/11/2026)
+- **Plan de pago contratado** y decidido el equipo: se arranca en el PC de Mónica, junto al puente de reparto.
+- **En el servidor** (`20261117_espejo_geminiswin.sql` y la función `espejo-gw-ingesta`): recibe por lotes las
+  filas que han cambiado, las guarda en `carga_dbf` y las pasa a las tablas del ERP con las `fn_carga_gw_*`
+  de siempre. Usa la misma clave del puente de reparto. Cada pasada queda anotada en `espejo_gw_pasada`.
+- **El programa** (`scripts/geminiswin/espejo_geminiswin.py`): lee los 24 ficheros de maestros con todos sus
+  campos; si un fichero no ha cambiado de tamaño ni de fecha, no lo lee; guarda una huella de cada registro
+  y manda solo lo nuevo o cambiado; si el ERP falla al cargar, lo reintenta en la pasada siguiente.
+- **Probado** con ficheros inventados y un servidor falso (tipos de campo, textos largos, acentos, registros
+  borrados, reintentos) y la entrada del servidor contra la base real (clave, tabla no admitida, lote vacío).
+  **Sin probar contra los ficheros reales de GeminisWin.**
+- **Falta**: la primera medida en el PC de Mónica (`--medir`, que no envía nada) para confirmar nombres de
+  fichero y campos; detectar lo que GeminisWin borra; la pantalla de control; las tandas 2 a 5.
+
 ## 4. Las tandas
 
 Cada tanda se puede usar en cuanto termina; no hay que esperar a la siguiente.

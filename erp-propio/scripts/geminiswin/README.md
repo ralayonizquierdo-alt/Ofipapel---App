@@ -30,3 +30,10 @@ Lleva a la app de repartidores los repartos abiertos de GeminisWin (solo lectura
 instalar nada en el servidor). Qué hace, cómo se configura y cómo se quita:
 `docs/REPARTO_PUENTE_GEMINISWIN.md`. Los ficheros que crea al lado (`.clave`, `.json`, `.estado`,
 `.log`, `partes/`) no se versionan.
+
+## Espejo de GeminisWin (`espejo_geminiswin.py`)
+
+Mantiene el ERP al día con los maestros de GeminisWin (artículos, clientes, proveedores, tarifas, stock):
+lee los DBF, solo lectura, y manda lo que cambia. Plan y estado: `docs/PLAN_ESPEJO_GEMINISWIN.md`. Va en la
+misma carpeta que el puente de reparto y usa su clave. Los ficheros que crea al lado (`.json`, `.estado`,
+`.log`, `.cerrojo`, `espejo_medida.txt`) no se versionan.
