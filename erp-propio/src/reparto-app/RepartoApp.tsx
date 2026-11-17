@@ -125,17 +125,22 @@ function tipoPago(forma?: string | null): 'banco' | 'pagada' | 'mano' {
   if (/remesa|transfer|confirming|pagar[eé]|cr[eé]dito|efecto/.test(f)) return 'banco'
   return 'mano'
 }
-function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null }): [string, string] | null {
+function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null; no_cobro?: string | null }): [string, string] | null {
   if (l.estado === 'liquidado') return ['Liquidada', AZUL]
   const tipo = tipoPago(l.forma_pago)
   if (tipo === 'pagada') return ['Solo revisar · Pagado', V.verdeMed]
   if (l.contado === false || tipo === 'banco') return ['Revisar y firmar', AZUL]
   if (l.total == null) return null
-  if (l.pagado != null && l.total - l.pagado > 0.005) return ['Revisar y cobrar', V.rojo]
+  if (l.pagado != null && l.total - l.pagado > 0.005) {
+    // Ya entregada: deja de ser una orden («cobrar») y pasa a decir cómo quedó.
+    if (l.estado === 'entregado') return l.no_cobro ? ['Sin cobrar', V.naranja] : ['Cobrado', V.verdeMed]
+    return ['Revisar y cobrar', V.rojo]
+  }
   return ['Solo revisar · Pagado', V.verdeMed]
 }
-/** ¿Hay que cobrarla en la entrega? Lo mismo que decide el rótulo rojo «Revisar y cobrar». */
-const hayQueCobrar = (l: Parameters<typeof queHacer>[0]) => queHacer(l)?.[0] === 'Revisar y cobrar'
+/** ¿Es de cobrar en mano? Contado o contra reembolso con importe pendiente, esté o no entregada todavía. */
+const hayQueCobrar = (l: Parameters<typeof queHacer>[0]) =>
+  l.estado !== 'liquidado' && l.contado !== false && tipoPago(l.forma_pago) === 'mano' && l.total != null && l.pagado != null && l.total - l.pagado > 0.005
 /**
  * Importe a la derecha del nombre, en su misma línea, sin ensanchar la casilla. La indicación va justo
  * debajo, en pequeño: en un móvil de 360 px, con las tres cosas en una línea el nombre no se leía.
@@ -149,7 +154,7 @@ function Importe({ l }: { l: { total: number | null } }) {
  * una factura puede ir marcada como contado y pagarse por remesa o transferencia, y sin ese dato no se
  * entiende por qué el repartidor no la cobró.
  */
-function QueHacer({ l }: { l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null } }) {
+function QueHacer({ l }: { l: Parameters<typeof queHacer>[0] }) {
   const q = queHacer(l)
   const forma = l.forma_pago?.trim()
   if (!q && !forma) return null
