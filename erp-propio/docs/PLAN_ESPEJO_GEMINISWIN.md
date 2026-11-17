@@ -90,6 +90,25 @@ Reparto (ya hecho), roturas, presupuestos y pedidos de clientes, y lo que aparez
 El paso 4 va todo junto y de una vez, en un fin de semana: una venta baja stock y usa cliente y artículo,
 así que no se puede partir. Ese día el dueño de todo pasa a ser el ERP y el puente se apaga.
 
+### Las compras mientras conviven (Rober, 17/11/2026)
+Decidir y preparar en el ERP; recibir y liquidar en GeminisWin. Se teclea una sola vez.
+
+| Paso | Dónde |
+|---|---|
+| 1. Qué hay que pedir: lo propone el Gestor de Pedidos a Proveedores (`COMPRAS_NEXA.md`) y lo revisa Rober | ERP |
+| 2. Enviar la propuesta al proveedor, comparar con su respuesta y aceptar | ERP |
+| 3. Pasar el pedido aceptado a GeminisWin: el ERP genera el Excel y se importa allí | Excel → GeminisWin |
+| 4. Liquidar el pedido | GeminisWin, administración |
+| 5. Con la liquidación, almacén coloca, etiqueta y sube a la venta | GeminisWin, almacén |
+| 6. El ERP se entera de lo recibido | Solo, por el espejo |
+
+Confirmado por Rober: en GeminisWin lo importado **entra como pedido** y se liquida después en
+administración. La importación por Excel que hoy se usa para informática (UFP, EXADI, INFORPOR) se puede
+adaptar a cualquier proveedor. Sin comprobar todavía: el formato exacto del Excel que acepta GeminisWin.
+
+Arranque con un piloto: un proveedor, unas semanas comparando la propuesta del ERP con el método de
+siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
+
 ## 6. Por qué es más seguro
 
 - **Se ensaya con datos reales** durante semanas, comparando los dos programas cada noche.
