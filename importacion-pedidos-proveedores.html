@@ -2568,7 +2568,30 @@ function generarExcel(){
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
   const nombreArchivo = nombreExcel(proveedor, pedido, fecha);
-  XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
+  escribirBiff5(wb, nombreArchivo, aoaSinAcentos);
+}
+
+// SheetJS, al escribir el Excel 5.0/95, cambia por «_» todo lo que no es ASCII:
+// la marca «TALEN´S» llegaba a Géminis como «TALEN_S» (17/11/2026). Se escribe
+// el fichero y luego se pone a mano el byte Windows-1252 de cada letra perdida,
+// solo en los textos de la hoja que la llevan (con su longitud delante, para no
+// tocar otra cosa). Las tildes y la Ñ siguen saliendo sin tilde (quitarAcentos).
+function escribirBiff5(wb, nombre, aoa){
+  const bytes = new Uint8Array(XLSX.write(wb, {bookType:'biff5', type:'array'}));
+  const textos = new Set();
+  aoa.forEach(f => f.forEach(v => { if(typeof v === 'string' && /[ -ÿ]/.test(v) && v.length < 256) textos.add(v); }));
+  textos.forEach(t => {
+    const bueno = [t.length & 255, t.length >> 8, ...[...t].map(c => c.charCodeAt(0) <= 255 ? c.charCodeAt(0) : 95)];
+    const malo = [t.length & 255, t.length >> 8, ...[...t].map(c => c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 95)];
+    for(let i = 0; i + malo.length <= bytes.length; i++){
+      let k = 0; while(k < malo.length && bytes[i+k] === malo[k]) k++;
+      if(k === malo.length){ bytes.set(bueno, i); i += malo.length - 1; }
+    }
+  });
+  const url = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.ms-excel'}));
+  const a = document.createElement('a'); a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 // Nombre del Excel (17/11/2026, propietario: «así es como tenemos el resto»):
@@ -2626,7 +2649,7 @@ function generarExcelRober(){
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
   const nombreArchivo = nombreExcel(proveedor, pedido, fechaIso);
-  XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
+  escribirBiff5(wb, nombreArchivo, aoaSinAcentos);
 }
 
 poblarSelectorProveedores();
