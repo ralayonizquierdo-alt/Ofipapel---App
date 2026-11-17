@@ -261,3 +261,24 @@ Diez ZIP con las exportaciones de CONTANET, 491 MB sin comprimir. No están en e
 - IVA_IGIC: cuenta del tercero, nombre, factura, base, tipo, asiento, cuenta de IGIC, libro (letra),
   fecha, número de orden, porcentaje, total, cuota y referencia.
 - DATOS_SUPLEMENTARIOS: la ficha de cada cuenta de tercero (nombre, NIF, dirección, país).
+
+## 7. Carga de prueba (17/11/2026)
+
+Ofipapel 2026, tal como estaba en CONTANET el 17/11, está cargado en la **empresa de contabilidad 2,
+«OFIPAPEL 2026 - PRUEBA CONTANET»**. La empresa 1 no se ha tocado.
+
+| | CONTANET | ERP, empresa 2 |
+|---|---|---|
+| Asientos | 75.019 | 75.019 |
+| Líneas | 228.195 | 228.195 |
+| Debe = Haber | 26.813.805,28 € | 26.813.805,28 € |
+| Asientos descuadrados | 0 | 0 |
+
+- El plan de cuentas (16.297) es el del día 5; el diario, el del 17. Para la carga definitiva se exportará
+  todo el mismo día.
+- No se han cargado todavía: el libro de IGIC, las fichas de terceros ni el canal de cada línea (solo el
+  del asiento). Dieciséis asientos tienen líneas con dos fechas en CONTANET; aquí llevan la primera.
+- Se cargó sin disparadores (ni auditoría ni cadena de huellas): «Comprobar integridad» dirá, en la
+  empresa 2, que esos asientos no tienen huella. Es lo esperado en una copia de prueba.
+- La puerta de carga (`fn_contanet_carga_tmp`) ya no la puede usar nadie desde fuera; falta borrarla.
+- La base de datos pasó de 217 a 285 MB (tope del plan gratuito: 500).

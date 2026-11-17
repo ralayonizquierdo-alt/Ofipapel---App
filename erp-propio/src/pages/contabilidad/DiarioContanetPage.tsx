@@ -10,17 +10,16 @@
 //
 // Lo que TODAVÍA NO hace (no hay dónde guardarlo; va en la siguiente tanda, con migración):
 // tipo de diario, canal por apunte, punteo, apuntes modelo y centros de costo. Se ven en gris.
-// OJO: lee el ejercicio entero. Vale con los datos de hoy; al cargar los de CONTANET (decenas de miles
-// de asientos al año) hay que paginar y pedir los totales al servidor.
+// Enseña los últimos asientos del diario; los totales los calcula el servidor.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BadgeMinus, BadgePlus, BookOpenCheck, Briefcase, Calculator, Check, ClipboardPaste, Copy, FilePlus2, FileSearch, FolderOpen, PieChart, Printer,
   RefreshCw, Replace, Save, Scale, Scissors, ShieldCheck, StickyNote, Table2, Undo2, Wallet, Wrench, type LucideIcon,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { cargarAsientosConApuntes, cargarDescripciones, ejercicioContable, finAnio, hoy, inicioAnio, r2 } from './contabModel'
+import { cargarDescripciones, ejercicioContable, hoy, r2 } from './contabModel'
 import { Aviso } from './ui'
 
 interface Fila {
@@ -58,6 +57,8 @@ const numero = (txt: string) => {
 // Conceptos Contables (F7) de la captura 74. Cuando lleguen los datos de CONTANET se cargan los reales.
 const CONCEPTOS = ['FRA. Nº', 'PAGO FRA. Nº', 'VENTA S/.FRA.', 'COMPRA S/.FRA.', 'INGRESO BANCO Nº', 'PAGO ALQUILER', 'CGO. BCO. S.S. MES', 'CGO. SEGURO AUTÓNOMO', 'SUELDO MES', 'PGO. CUOTAS', 'PAGO ABASTEC. AGUA MES']
 const TIPOS_DIARIO = ['Diario de Ventas', 'Diario de Compras', 'Diario de Gastos', 'Diario de Bancos', 'Diario de Caja']
+/** Asientos que se enseñan al abrir: los últimos del diario. */
+const ULTIMOS = 60
 const TIPOS_IGIC = [0, 1, 3, 5, 7, 9.5, 15, 20]
 
 export function DiarioContanetPage() {
@@ -80,19 +81,34 @@ export function DiarioContanetPage() {
   const rCuenta = useRef<HTMLInputElement>(null)
   const rFin = useRef<HTMLDivElement>(null)
 
+  // Solo se traen los últimos asientos (como CONTANET, que abre por el final del diario); los totales
+  // del año los da el servidor. Un año real son más de 200.000 líneas.
+  const [total, setTotal] = useState({ debe: 0, haber: 0 })
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
-      const { asientos, porAsiento } = await cargarAsientosConApuntes(inicioAnio(anio), finAnio(anio), ['correcto'])
+      const { data: res, error: e1 } = await supabase.rpc('fn_contab_diario_resumen', { p_anio: anio })
+      if (e1) throw new Error(e1.message)
+      const r = res as { debe: number; haber: number; siguiente: number }
+      setTotal({ debe: Number(r.debe), haber: Number(r.haber) })
+      setSiguiente(Number(r.siguiente))
+      const { data: asientos, error: e2 } = await supabase
+        .from('asiento')
+        .select('id, numero, fecha, concepto, origen_tienda_codigo')
+        .eq('ejercicio', anio)
+        .eq('estado', 'correcto')
+        .order('numero', { ascending: false, nullsFirst: false })
+        .order('id', { ascending: false })
+        .limit(ULTIMOS)
+      if (e2) throw new Error(e2.message)
+      const lista = (asientos ?? []).reverse()
+      const { data: aps, error: e3 } = await supabase.from('apunte').select('asiento_id, linea, cuenta, debe, haber, concepto, documento').in('asiento_id', lista.map((a) => a.id)).order('linea').limit(5000)
+      if (e3) throw new Error(e3.message)
       const out: Fila[] = []
-      let max = 0
-      for (const a of asientos) {
-        max = Math.max(max, a.numero ?? 0)
-        for (const p of porAsiento.get(a.id) ?? [])
+      for (const a of lista)
+        for (const p of (aps ?? []).filter((x) => x.asiento_id === a.id))
           out.push({ cuenta: p.cuenta ?? '', fecha: a.fecha, asiento: a.numero, descripcion: p.concepto ?? a.concepto, ref: p.documento ?? '', canal: a.origen_tienda_codigo ?? '', importe: r2(Number(p.debe) - Number(p.haber)) })
-      }
       setFilas(out)
-      setSiguiente(max + 1)
       setTitulos(new Map([...(await cargarDescripciones(out.map((f) => f.cuenta)))].map(([c, v]) => [c, v.descripcion])))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -106,20 +122,24 @@ export function DiarioContanetPage() {
     rFin.current?.scrollIntoView({ block: 'end' })
   }, [filas.length, enCurso.length])
 
-  // Título de la cuenta que se está tecleando
+  // Título y acumulados de la cuenta que se está tecleando
   const [tituloCuenta, setTituloCuenta] = useState('')
+  const [deCuenta, setDeCuenta] = useState({ debe: 0, haber: 0 })
   useEffect(() => {
-    if (!/^\d{3,}$/.test(cuenta)) return setTituloCuenta('')
+    if (!/^\d{3,}$/.test(cuenta)) {
+      setTituloCuenta('')
+      setDeCuenta({ debe: 0, haber: 0 })
+      return
+    }
     let vivo = true
     supabase.from('cuenta_contable').select('descripcion').eq('codigo', cuenta).maybeSingle().then(({ data }) => vivo && setTituloCuenta(data?.descripcion ?? '*** No existe en el Plan ***'))
+    supabase.rpc('fn_contab_cuenta_totales', { p_cuenta: cuenta, p_anio: anio }).then(({ data }) => vivo && data && setDeCuenta({ debe: Number((data as { debe: number }).debe), haber: Number((data as { haber: number }).haber) }))
     return () => {
       vivo = false
     }
-  }, [cuenta])
+  }, [cuenta, anio])
 
   const suma = (fs: Fila[]) => ({ debe: r2(fs.reduce((s, f) => s + (f.importe > 0 ? f.importe : 0), 0)), haber: r2(fs.reduce((s, f) => s + (f.importe < 0 ? -f.importe : 0), 0)) })
-  const total = useMemo(() => suma(filas), [filas])
-  const deCuenta = useMemo(() => suma(filas.filter((f) => f.cuenta === cuenta)), [filas, cuenta])
   const delAsiento = suma(enCurso)
   const descuadre = r2(delAsiento.debe - delAsiento.haber)
 
