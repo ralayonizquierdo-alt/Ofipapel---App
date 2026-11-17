@@ -643,6 +643,81 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
 }
 
 /**
+ * La caja del repartidor (Rober, 17/11/2026): lo mismo que ve administración en su Caja, pero de su ruta.
+ * Qué facturas ha cobrado y cuánto dinero tiene que entregar arriba, sin tener que sumarlo a mano. Sale de
+ * lo que él mismo ha ido marcando, así que funciona también sin cobertura.
+ */
+function CajaRepartidor({ lineas }: { lineas: LineaApp[] }) {
+  const pend = (l: LineaApp) => Math.max(0, (l.total ?? 0) - (l.pagado ?? 0))
+  const suma = (ls: LineaApp[]) => ls.reduce((t, l) => t + pend(l), 0)
+  const entregadas = lineas.filter((l) => l.estado === 'entregado')
+  const cobradas = entregadas.filter((l) => !l.no_cobro && hayQueCobrar(l))
+  const sinCobrar = entregadas.filter((l) => !!l.no_cobro)
+  const liquidadas = lineas.filter((l) => l.estado === 'liquidado')
+  const porRepartir = lineas.filter((l) => ['pendiente', 'viene_anterior'].includes(l.estado) && hayQueCobrar(l))
+  const fila = (l: LineaApp, extra?: ReactNode) => (
+    <div key={`${l.vt}-${l.vn}`} style={{ background: '#fff', border: '1px solid #d6dfd6', borderRadius: 12, padding: '8px 10px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.cliente}</span>
+        <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 16, whiteSpace: 'nowrap' }}>{euros(pend(l))}</span>
+      </div>
+      <div style={{ fontSize: 12, color: V.gris }}>
+        {l.factura ? `Factura ${l.factura}` : `Albarán ${l.vt}/${l.vn}`}
+        {l.forma_pago ? ` · ${l.forma_pago}` : ''}
+        {l.entregado_en ? ` · ${hora(l.entregado_en)}` : ''}
+      </div>
+      {extra}
+    </div>
+  )
+  return (
+    <Tarjeta style={{ borderTopColor: AZUL }}>
+      <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Tu caja</div>
+      <div style={{ color: V.gris, fontSize: 13 }}>Lo que has cobrado en mano en esta ruta y tienes que entregar en administración.</div>
+      <div style={{ background: V.verde, color: '#fff', borderRadius: 16, padding: '12px 14px', margin: '10px 0', textAlign: 'center' }}>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>TIENES QUE ENTREGAR</div>
+        <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 40, lineHeight: 1.1 }}>{euros(suma(cobradas))}</div>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>
+          {cobradas.length} factura{cobradas.length === 1 ? '' : 's'} cobrada{cobradas.length === 1 ? '' : 's'}
+        </div>
+      </div>
+      {!cobradas.length && <div style={{ color: V.gris, fontSize: 14 }}>Todavía no has cobrado ninguna factura en mano.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{cobradas.map((l) => fila(l))}</div>
+
+      {sinCobrar.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 14, borderBottom: `2px solid ${V.rojo}`, paddingBottom: 2 }}>
+            <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: V.rojo }}>Entregadas sin cobrar ({sinCobrar.length})</span>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>{euros(suma(sinCobrar))}</span>
+          </div>
+          <div style={{ fontSize: 12, color: V.gris, margin: '2px 0 6px' }}>De estas no tienes que entregar dinero: pasan a administración.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {sinCobrar.map((l) => fila(l, <div style={{ fontSize: 12, fontWeight: 700, color: V.rojo }}>{[textoDe(NO_COBRO, l.no_cobro), l.nota].filter(Boolean).join(' · ')}</div>))}
+          </div>
+        </>
+      )}
+
+      {(porRepartir.length > 0 || liquidadas.length > 0) && (
+        <div style={{ fontSize: 13, color: V.texto, marginTop: 14, background: '#eef5fc', borderRadius: 12, padding: '8px 10px' }}>
+          {porRepartir.length > 0 && (
+            <div>
+              Te quedan por repartir <b>{porRepartir.length}</b> factura{porRepartir.length === 1 ? '' : 's'} de cobro: <b>{euros(suma(porRepartir))}</b>
+            </div>
+          )}
+          {liquidadas.length > 0 && (
+            <div>
+              Ya liquidadas en administración: <b>{liquidadas.length}</b>
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{ fontSize: 12, color: V.gris, marginTop: 10 }}>
+        Sale de lo que vas marcando al entregar. Si ves algo mal, abre el pedido en «Repartir» y corrígelo.
+      </div>
+    </Tarjeta>
+  )
+}
+
+/**
  * Caja (Rober, 17/11/2026): para quien recibe en administración el dinero de los repartidores. Por cada ruta,
  * las facturas de contado que el repartidor entregó y dice que cobró, y en grande el total que tiene que
  * entregar. Lo que NO cobró no sale aquí: eso es de la vista de rutas («Por cobrar»). Es una ayuda para
@@ -1269,6 +1344,8 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   const [hoja, setHoja] = useState<Hoja>(null)
   const [pendientesCola, setPendientesCola] = useState(() => cola().length)
   const [modo, setModo] = useState<'comprobar' | 'repartir'>(() => (leer<string>(`reparto.modo.${reparto.tienda}-${reparto.numero}`) as 'comprobar' | 'repartir') ?? 'comprobar')
+  // Tercera pestaña (Rober, 17/11/2026): la caja del repartidor, qué ha cobrado y cuánto tiene que entregar.
+  const [caja, setCaja] = useState(false)
   const [gps, setGps] = useState<'si' | 'no' | null>(() => leer<'si' | 'no'>('reparto.gps'))
   // Fichaje: sin la entrada fichada hoy no se puede entregar (sí ver, comprobar, ordenar y cambiar de ruta).
   const [fichaje, setFichaje] = useState<EstadoFichaje | 'comprobando' | 'sin_conexion'>(() => estadoGuardado(sesion.repartidor) ?? 'comprobando')
@@ -1497,20 +1574,31 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           <button
             key={m}
             type="button"
-            onClick={() => cambiarModo(m)}
+            onClick={() => {
+              setCaja(false)
+              cambiarModo(m)
+            }}
             style={{
               flex: 1,
               borderRadius: 12,
-              padding: '10px 6px',
+              padding: '10px 4px',
               fontWeight: 700,
+              fontSize: 14,
               border: 'none',
-              background: modo === m ? V.verdeMed : 'transparent',
-              color: modo === m ? '#fff' : V.verde,
+              background: !caja && modo === m ? V.verdeMed : 'transparent',
+              color: !caja && modo === m ? '#fff' : V.verde,
             }}
           >
             {m === 'comprobar' ? `① Comprobar ${comprobados}/${ls.length}` : `② Repartir ${hechos}/${ls.length}`}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setCaja(true)}
+          style={{ flex: 0.7, borderRadius: 12, padding: '10px 4px', fontWeight: 700, fontSize: 14, border: 'none', background: caja ? AZUL : 'transparent', color: caja ? '#fff' : AZUL }}
+        >
+          ③ Caja
+        </button>
       </div>
 
       {(aviso || pendientesCola > 0) && (
@@ -1521,13 +1609,15 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
       )}
       {error && <div style={{ background: '#fdecea', borderRadius: 12, padding: '8px 12px', color: V.rojo }}>{error}</div>}
 
-      {modo === 'comprobar' && (
+      {caja && <CajaRepartidor lineas={ls} />}
+
+      {!caja && modo === 'comprobar' && (
         <div style={{ color: '#fff', fontSize: 13, textShadow: '0 1px 2px rgba(0,0,0,.6)', padding: '0 4px' }}>
           Antes de salir: marca cada pedido cuyo albarán llevas. Si alguno no es de tu ruta, tócalo para cambiarlo o avisa en la oficina.
         </div>
       )}
 
-      {modo === 'repartir' && ls.length > 0 && hechos === ls.length && (
+      {!caja && modo === 'repartir' && ls.length > 0 && hechos === ls.length && (
         <Tarjeta>
           <div style={{ fontWeight: 800, fontSize: 18, color: V.verde }}>✔ Ruta terminada</div>
           <div style={{ fontSize: 14, color: V.gris, margin: '6px 0 10px' }}>
@@ -1538,7 +1628,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
 
       <AvisosTraspaso sesion={sesion} onCambio={alCambiarTraspaso} />
 
-      {!datos ? (
+      {caja ? null : !datos ? (
         <Tarjeta>Cargando…</Tarjeta>
       ) : (
         <Lista

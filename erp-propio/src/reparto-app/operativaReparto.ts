@@ -73,6 +73,17 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     ],
   },
   {
+    icono: '🧾',
+    titulo: 'Tu caja',
+    pasos: [
+      'Arriba, la tercera pestaña: «③ Caja».',
+      'En grande, el dinero que tienes que entregar en administración, y debajo cada factura que has cobrado, con su cliente e importe.',
+      'Más abajo, las que entregaste sin cobrar (con el motivo que pusiste): de esas no entregas dinero.',
+      'Y cuánto te queda todavía por cobrar en la ruta.',
+      'Se calcula con lo que vas marcando, así que funciona también sin cobertura. Si algo está mal, corrígelo en «Repartir».',
+    ],
+  },
+  {
     icono: '🔀',
     titulo: 'Pasar un pedido a un compañero',
     pasos: [
