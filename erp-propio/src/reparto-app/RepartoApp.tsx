@@ -89,6 +89,29 @@ const nombreRuta = (ruta: string | null | undefined, nombre: string | null | und
   [ruta ? `RUTA ${/^\d+$/.test(ruta) ? Number(ruta) : ruta}` : null, nombre || (ruta ? null : 'Sin ruta')].filter(Boolean).join(' · ')
 const euros = (n: number | null | undefined) => (n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €')
 const base = import.meta.env.BASE_URL
+
+/**
+ * Qué hay que hacer con el albarán, a la vista en la lista sin abrir el pedido (Rober, 17/11/2026):
+ * crédito → revisar y firmar; contado ya pagado → solo revisar; contado sin pagar → revisar y cobrar.
+ */
+function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null }): [string, string] | null {
+  if (l.contado === false) return ['Revisar y firmar', '#1f6fb2']
+  if (l.total == null) return null
+  if (l.pagado != null && l.total - l.pagado > 0.005) return ['Revisar y cobrar', V.rojo]
+  return ['Solo revisar · Pagado', V.verdeMed]
+}
+/**
+ * Importe a la derecha del nombre, en su misma línea, sin ensanchar la casilla. La indicación va justo
+ * debajo, en pequeño: en un móvil de 360 px, con las tres cosas en una línea el nombre no se leía.
+ */
+function Importe({ l }: { l: { total: number | null } }) {
+  if (l.total == null) return null
+  return <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 14, color: V.texto, whiteSpace: 'nowrap' }}>{euros(l.total)}</span>
+}
+function QueHacer({ l }: { l: { total: number | null; pagado: number | null; contado?: boolean | null } }) {
+  const q = queHacer(l)
+  return q ? <div style={{ fontSize: 12, fontWeight: 700, color: q[1] }}>{q[0]}</div> : null
+}
 // Fichaje (/fichaje, en el ERP): el registro horario legal; lo gestiona gerencia en Archivo → Fichaje.
 
 function useFuentesYManifiesto() {
@@ -466,10 +489,13 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
               const detalle = [textoDe(MOTIVOS, l.motivo), textoDe(INCIDENCIAS, l.incidencia), l.nota].filter(Boolean).join(' · ')
               return (
                 <div key={`${l.vt}-${l.vn}`} style={{ borderLeft: `6px solid ${ec}`, background: '#f7faf7', borderRadius: 10, padding: '8px 10px' }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{l.cliente}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.cliente}</span>
+                    <Importe l={l} />
+                  </div>
+                  <QueHacer l={l} />
                   <div style={{ fontSize: 13, color: V.gris }}>
-                    {l.factura ? `Factura ${l.factura}` : `Albarán ${l.vt}/${l.vn}`} · {euros(l.total)}
-                    {l.contado ? (l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? ' · CONTADO sin pagar' : ' · contado, pagado') : ''}
+                    {l.factura ? `Factura ${l.factura}` : `Albarán ${l.vt}/${l.vn}`}
                     {l.poblacion ? ` · ${l.poblacion}` : ''}
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: ec, marginTop: 2 }}>
@@ -1486,19 +1512,25 @@ function Lista({
                 </button>
               )}
               <button type="button" onClick={() => onAbrir(kk)} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: '8px 10px 8px 0' }}>
-                <div
-                  style={{
-                    fontWeight: l.prioritario ? 800 : 600,
-                    color: l.prioritario ? V.rojo : V.texto,
-                    fontSize: 15,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {l.prioritario && '↻ '}
-                  {l.cliente}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontWeight: l.prioritario ? 800 : 600,
+                      color: l.prioritario ? V.rojo : V.texto,
+                      fontSize: 15,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {l.prioritario && '↻ '}
+                    {l.cliente}
+                  </span>
+                  <Importe l={l} />
                 </div>
+                <QueHacer l={l} />
                 {l.viene_de && <div style={{ fontSize: 12, color: '#1f6fb2', fontWeight: 700 }}>📦 Te lo pasa: {l.viene_de}</div>}
                 {l.traspaso?.estado === 'propuesto' && <div style={{ fontSize: 12, color: V.naranja, fontWeight: 700 }}>⏳ Ofrecido a {l.traspaso.a}: esperando respuesta</div>}
                 {l.traspaso?.estado === 'aceptado' && <div style={{ fontSize: 12, color: V.gris, fontWeight: 700 }}>➡ Lo lleva {l.traspaso.a}</div>}
