@@ -3593,6 +3593,9 @@ function generatePlan(){
     }
     const ids = new Set(targets.map(e=>e.id));
     state.periods = state.periods.filter(p=> !(ids.has(p.employeeId) && p.start.startsWith(y+'-')));
+    // Sus peticiones aprobadas de ese año se han borrado con lo demás: hay que volver a colocarlas (17/11/2026:
+    // al regenerar 2027 se perdieron las de María y Herminia porque seguían marcadas como ya colocadas).
+    for(const pet of (state.peticiones||[])) if(ids.has(pet.employeeId) && pet.start.startsWith(y+'-')) pet.applied = false;
   } else {
     targets = targets.filter(e=> !periodsOfYear(e.id, y).length);
   }
