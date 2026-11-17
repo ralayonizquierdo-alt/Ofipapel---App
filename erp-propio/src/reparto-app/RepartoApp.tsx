@@ -461,7 +461,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
   const [verCobros, setVerCobros] = useState(false)
   // Dos vistas: las rutas (David) y la caja (Cande). Cada móvil recuerda en cuál se quedó.
-  // Quien entra por «PAGOS» solo tiene la caja: ni rutas ni botones para cambiar.
+  // Quien entra por «CAJA» solo tiene la caja: ni rutas ni botones para cambiar.
   const soloCaja = sesion.solo_caja === true && !sesion.supervisor
   const [vista, setVista] = useState<'rutas' | 'caja'>(() => (soloCaja || leer<string>('reparto.oficina.vista') === 'caja' ? 'caja' : 'rutas'))
   const cambiarVista = (v: 'rutas' | 'caja') => {

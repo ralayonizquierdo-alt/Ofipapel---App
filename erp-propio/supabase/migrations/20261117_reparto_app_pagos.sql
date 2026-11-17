@@ -1,4 +1,4 @@
--- App de reparto: entrada «PAGOS», la caja de administración (Rober, 17/11/2026).
+-- App de reparto: entrada «CAJA», la caja de administración (Rober, 17/11/2026).
 --
 -- Quien recibe en administración el dinero de los repartidores entra con su propio usuario y PIN, como los
 -- demás, y va directo a la Caja: por cada ruta, las facturas de contado que el repartidor dice que cobró y
@@ -13,8 +13,10 @@
 --    como sin cobrar: lo demás no se le envía.
 alter table public.repartidor_pin add column if not exists solo_caja boolean not null default false;
 
-insert into public.repartidor (codigo, nombre, nombre_corto) values ('PAG', 'PAGOS (caja de administración)', 'PAGOS')
-on conflict (codigo) do nothing;
+-- El usuario se llama «CAJA» en la pantalla de entrada (Rober, 17/11/2026; al principio se llamó «PAGOS»).
+-- El código interno sigue siendo PAG: no se ve en ningún sitio.
+insert into public.repartidor (codigo, nombre, nombre_corto) values ('PAG', 'CAJA (administración)', 'CAJA')
+on conflict (codigo) do update set nombre = excluded.nombre, nombre_corto = excluded.nombre_corto;
 
 do $$
 declare v text; f regprocedure; par text[]; cambios text[][] := array[

@@ -134,7 +134,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
     icono: '💶',
     titulo: 'Caja: cobrar a los repartidores',
     pasos: [
-      'Quien entra por «PAGOS» va directo a la Caja y solo ve la Caja. Quien entra por «OFICINA» tiene arriba dos botones, «Rutas» y «Caja»; el móvil recuerda en cuál se quedó.',
+      'Quien entra por «CAJA» va directo a la Caja y solo ve la Caja. Quien entra por «OFICINA» tiene arriba dos botones, «Rutas» y «Caja»; el móvil recuerda en cuál se quedó.',
       'En un ordenador: abajo del todo está «Abrir WhatsApp Web». Se vincula una vez con el móvil de administración (WhatsApp → Dispositivos vinculados) y los justificantes salen de ese número.',
       'En «Caja» sale cada ruta con el total que ese repartidor tiene que entregar: las facturas de contado que entregó y dice que cobró.',
       'Toca una ruta: verás el total en grande y, debajo, cada factura con cliente, número e importe. Ve tocándolas según las cuentas.',

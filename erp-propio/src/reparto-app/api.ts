@@ -11,7 +11,7 @@ export interface Sesion {
   puede_cambiar_ruta: boolean
   /** Entrada «OFICINA»: ve todas las rutas, solo lectura. */
   supervisor?: boolean
-  /** Entrada «PAGOS»: la caja de administración. Solo ve lo que cada repartidor tiene que entregar. */
+  /** Entrada «CAJA»: la caja de administración. Solo ve lo que cada repartidor tiene que entregar. */
   solo_caja?: boolean
   caduca: number
 }
