@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, CircleHelp, PackageX, RefreshCw, Send, TrendingDown, Truck, X } from 'lucide-react'
+import { AlarmClock, CircleHelp, PackageX, RefreshCw, Send, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
 
@@ -21,6 +21,7 @@ interface Resumen {
   proveedor_nombre: string | null
   articulos: number
   agotados: number
+  con_peticion: number
   unidades: number
   importe: number
   compra_minima: number | null
@@ -38,6 +39,7 @@ interface Linea {
   pendiente_recibir: number
   stock_minimo: number
   stock_maximo: number
+  peticiones: number
   cantidad_sugerida: number
   unidades_por_caja: number | null
   coste: number
@@ -58,7 +60,7 @@ const OPERATIVA: BloqueOperativa[] = [
   {
     titulo: 'Pedidos de la semana',
     pasos: [
-      'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo.',
+      'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo, y lo que hace falta para servir las peticiones de clientes.',
       'Arriba salen primero los que tienen artículos agotados. La barra dice si la propuesta llega al pedido mínimo del proveedor.',
       '«Revisar y enviar»: abre la propuesta. Quita lo que no quieras, cambia cantidades y pulsa «Crear pedido». El pedido nace pendiente, igual que los del Gestor de siempre.',
       '«Aguantar»: lo quita de la lista una o dos semanas. Cuando vuelve trae lo que se haya sumado.',
@@ -68,8 +70,9 @@ const OPERATIVA: BloqueOperativa[] = [
     titulo: 'Bueno es saber',
     notas: [
       'El aviso «más barato en…» compara el precio neto por unidad con el de los otros proveedores dados de alta en la ficha del artículo.',
+      'Peticiones de clientes: siguen pendientes mientras el pedido es una propuesta. Pasan solas a «tramitada» cuando el pedido se acepta, y a «resuelta» cuando se liquida, igual que con el Gestor de siempre.',
       'El pedido creado se ve y se cambia en Compras › Pedidos a Proveedores y en el Gestor de Pedidos a Proveedores.',
-      'Los mínimos y máximos se ponen en la ficha del artículo. Sin mínimo, el artículo no se propone.',
+      'Los mínimos y máximos se ponen en la ficha del artículo. Sin mínimo, el artículo solo se propone si lo ha pedido un cliente.',
       'Las campañas (vuelta al cole, Navidad) no van por aquí: se piden comparando con el año anterior.',
     ],
   },
@@ -82,11 +85,13 @@ export function GestorSemanalPage() {
   const [vista, setVista] = useState<'decidir' | 'aplazados'>('decidir')
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
+  const [sinProveedor, setSinProveedor] = useState(0)
 
   const cargar = useCallback(async () => {
     setError(null)
-    const { data, error: e } = await supabase.rpc('fn_compras2_resumen')
+    const { data, error: e } = await supabase.rpc('fn_compras_semanal_resumen')
     if (e) return setError(e.message)
+    supabase.rpc('fn_compras_semanal_sin_proveedor').then(({ data: n }) => setSinProveedor(Number(n ?? 0)))
     setDatos(
       ((data ?? []) as Resumen[])
         .map((r) => ({ ...r, importe: num(r.importe), unidades: num(r.unidades), compra_minima: r.compra_minima == null ? null : num(r.compra_minima) }))
@@ -157,6 +162,14 @@ export function GestorSemanalPage() {
         )}
       </div>
 
+      {sinProveedor > 0 && (
+        <p className="rounded-xl border border-[#f1d58a] bg-[#fff8e1] px-4 py-2 text-[14px] text-[#6b4a00]">
+          Hay <b>{sinProveedor}</b> {sinProveedor === 1 ? 'petición de cliente que no sale' : 'peticiones de clientes que no salen'} en ninguna propuesta: ni la petición ni el artículo tienen proveedor.{' '}
+          <Link to="/peticiones" className="font-semibold underline">
+            Ver peticiones
+          </Link>
+        </p>
+      )}
       {datos === null && !error && <p className="text-[15px] text-[#5b6680]">Calculando las propuestas…</p>}
       {datos !== null && !lista.length && (
         <p className="rounded-2xl border border-dashed border-[#c9d3e8] bg-white p-8 text-center text-[15px] text-[#5b6680]">
@@ -234,6 +247,11 @@ function Ficha({ r, onAbrir, onAplazar }: { r: Resumen; onAbrir: () => void; onA
             <PackageX size={13} /> {r.agotados} sin stock
           </Chip>
         )}
+        {r.con_peticion > 0 && (
+          <Chip color="azul">
+            <UserRound size={13} /> {r.con_peticion} con petición de cliente
+          </Chip>
+        )}
         {r.mas_baratos_en_otro > 0 && (
           <Chip color="ambar">
             <TrendingDown size={13} /> {r.mas_baratos_en_otro} más {r.mas_baratos_en_otro === 1 ? 'barato' : 'baratos'} en otro
@@ -285,8 +303,8 @@ function Ficha({ r, onAbrir, onAplazar }: { r: Resumen; onAbrir: () => void; onA
   )
 }
 
-function Chip({ children, color }: { children: React.ReactNode; color?: 'rojo' | 'ambar' }) {
-  const c = color === 'rojo' ? 'bg-[#fdecea] text-[#b3261e]' : color === 'ambar' ? 'bg-[#fff4d6] text-[#7a5200]' : 'bg-[#eef2fb] text-[#33415f]'
+function Chip({ children, color }: { children: React.ReactNode; color?: 'rojo' | 'ambar' | 'azul' }) {
+  const c = color === 'rojo' ? 'bg-[#fdecea] text-[#b3261e]' : color === 'azul' ? 'bg-[#dfe9ff] text-[#16306f]' : color === 'ambar' ? 'bg-[#fff4d6] text-[#7a5200]' : 'bg-[#eef2fb] text-[#33415f]'
   return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-semibold ${c}`}>{children}</span>
 }
 
@@ -315,9 +333,9 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
   const [creando, setCreando] = useState(false)
 
   useEffect(() => {
-    supabase.rpc('fn_compras2_lineas', { p_proveedor: r.proveedor_codigo }).then(({ data, error: e }) => {
+    supabase.rpc('fn_compras_semanal_lineas', { p_proveedor: r.proveedor_codigo }).then(({ data, error: e }) => {
       if (e) return setError(e.message)
-      const ls = ((data ?? []) as Linea[]).map((l) => ({ ...l, stock_actual: num(l.stock_actual), pendiente_recibir: num(l.pendiente_recibir), stock_minimo: num(l.stock_minimo), stock_maximo: num(l.stock_maximo), cantidad_sugerida: num(l.cantidad_sugerida), coste: num(l.coste), importe: num(l.importe), mejor_coste: l.mejor_coste == null ? null : num(l.mejor_coste) }))
+      const ls = ((data ?? []) as Linea[]).map((l) => ({ ...l, stock_actual: num(l.stock_actual), pendiente_recibir: num(l.pendiente_recibir), stock_minimo: num(l.stock_minimo), stock_maximo: num(l.stock_maximo), peticiones: num(l.peticiones), cantidad_sugerida: num(l.cantidad_sugerida), coste: num(l.coste), importe: num(l.importe), mejor_coste: l.mejor_coste == null ? null : num(l.mejor_coste) }))
       ls.sort((a, b) => a.stock_actual - b.stock_actual || a.descripcion.localeCompare(b.descripcion))
       setLineas(ls)
       setCant(Object.fromEntries(ls.map((l) => [l.articulo_codigo, l.cantidad_sugerida])))
@@ -389,6 +407,11 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
                         {l.referencia_compra ? ` · ref. ${l.referencia_compra}` : ''}
                         {l.unidades_por_caja && l.unidades_por_caja > 1 ? ` · caja de ${uds(l.unidades_por_caja)}` : ''}
                       </div>
+                      {l.peticiones > 0 && (
+                        <div className="mr-1 mt-0.5 inline-flex items-center gap-1 rounded-full bg-[#dfe9ff] px-2 py-0.5 text-[12px] font-semibold text-[#16306f]">
+                          <UserRound size={12} /> {uds(l.peticiones)} {l.peticiones === 1 ? 'pedida por un cliente' : 'pedidas por clientes'}
+                        </div>
+                      )}
                       {l.mejor_proveedor && l.mejor_coste != null && (
                         <div className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-[#fff4d6] px-2 py-0.5 text-[12px] font-semibold text-[#7a5200]">
                           <TrendingDown size={12} /> Más barato en {l.mejor_proveedor_nombre ?? l.mejor_proveedor}: {eur(l.mejor_coste)} ({Math.round((1 - l.mejor_coste / l.coste) * 100)} % menos)
