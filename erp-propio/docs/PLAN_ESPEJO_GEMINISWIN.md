@@ -104,7 +104,14 @@ Decidir y preparar en el ERP; recibir y liquidar en GeminisWin. Se teclea una so
 
 Confirmado por Rober: en GeminisWin lo importado **entra como pedido** y se liquida después en
 administración. La importación por Excel que hoy se usa para informática (UFP, EXADI, INFORPOR) se puede
-adaptar a cualquier proveedor. Sin comprobar todavía: el formato exacto del Excel que acepta GeminisWin.
+adaptar a cualquier proveedor. El formato del Excel ya está en este repositorio: lo genera `importacion-pedidos-proveedores.html`
+(función `generarExcel`), que hoy convierte la factura PDF de un proveedor en ese mismo fichero.
+- Excel 5.0/95 de verdad (`.xls`, BIFF5), una hoja llamada «fichero», sin tildes ni Ñ.
+- Filas 1 a 11: cabecera en celdas fijas (Almacén, Proveedor, N.º Pedido, Fecha) y el recordatorio de familias.
+- Fila 12: títulos. Desde la 13, una línea por artículo: Código ISBN/EAN · Marca/Editorial · Rfcia.
+  Proveedor · Descripción · Caja · Ud./Caja · Udes · Precio U. · Dcto · Igic · Importe · (vacía) · Cód. Familia.
+- Al final, la fila del TOTAL. Un solo descuento por línea: si hay varios encadenados, se funden en uno.
+El ERP sacará ese mismo fichero desde el pedido aceptado. Sin probar todavía contra GeminisWin.
 
 Arranque con un piloto: un proveedor, unas semanas comparando la propuesta del ERP con el método de
 siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
