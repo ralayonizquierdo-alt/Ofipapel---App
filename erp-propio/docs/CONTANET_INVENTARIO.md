@@ -219,3 +219,45 @@ tiene cada exportación de la empresa de 2026) y decide el alcance de la fase 4.
 
 Lo único que sí se ve ya en las capturas: se usan canales (hay tres), tipos de diario, apuntes modelo,
 centros de costo (al menos uno definido) y punteo.
+
+---
+
+## 6. Los datos (llegaron el 17/11/2026)
+
+Diez ZIP con las exportaciones de CONTANET, 491 MB sin comprimir. No están en el repositorio.
+
+| | Ofipapel | Luis Alayón |
+|---|---|---|
+| Años | 2018 a 2026 | 2018 a 2026 |
+| Líneas de diario al año | entre 228.000 y 318.000 | entre 113 y 5.200 |
+| Total de líneas | unos 2,6 millones | unas 8.000 |
+
+**Comprobado**
+- Todos los diarios cuadran (debe = haber), salvo la copia vieja «03 Ofipapel 2019», por 10 céntimos.
+- Ofipapel 2026: 227.761 líneas, 74.838 asientos, 5.037 cuentas con movimiento, ninguno descuadrado.
+  Total 26.187.653,30 €, el mismo que enseña CONTANET en pantalla.
+- Ofipapel 2018 vino entero (318.538 líneas): ya no falta.
+
+**Lo que dicen los datos**
+- **El 94 % de las líneas de 2026 no las teclea nadie: vienen de GeminisWin.** Lo que se mete a mano son
+  unas 13.600 líneas al año: bancos, nóminas, seguros, impuestos.
+- **La contabilidad va con retraso.** 2026 está al día hasta septiembre; de octubre hay 354 líneas y de
+  noviembre 9.
+- **No se usan** la cartera de efectos (vacía) ni los presupuestos (vacíos). No se construyen.
+- **Canales:** casi todo va al 001; el 000 y el 002 a 004 se usan muy poco.
+- **Luis Alayón** tiene datos de verdad, no de demostración, pero es una contabilidad casi parada: poco
+  más de cien líneas al año desde 2021.
+- **Años repetidos, resueltos por tamaño:** de 2019 la buena es la «10» (314.795 líneas; la «03» tiene
+  40.128 y la «04», 26). De 2020 la buena es la «09 Reparada» (238.174; la «06» tiene 574).
+  A confirmar con Mónica, pero no hay duda razonable.
+- **No caben todos en la base de datos actual.** El plan gratuito da 500 MB y hay 185 ocupados. Un año
+  de Ofipapel ocupa unos 60 MB: cabe 2026 y poco más. Para los nueve años hace falta el plan de pago.
+
+**Formato de los ficheros** (sin cabeceras, separados por tabulador)
+- DIARIO, 28 columnas: 1 fecha · 2 cuenta · 3 origen (98 = traspasado, 00 = a mano) · 5 clase
+  (A = apertura) · 6 asiento · 7 descripción · 9 importe con signo · 15 canal · 19 fecha de grabación ·
+  20 referencia. El resto, vacías o restos de la peseta.
+- PLAN_CONTABLE: código, título, nivel y los saldos de cada mes.
+- IVA_IGIC: cuenta del tercero, nombre, factura, base, tipo, asiento, cuenta de IGIC, libro (letra),
+  fecha, número de orden, porcentaje, total, cuota y referencia.
+- DATOS_SUPLEMENTARIOS: la ficha de cada cuenta de tercero (nombre, NIF, dirección, país).

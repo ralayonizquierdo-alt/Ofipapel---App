@@ -6,10 +6,11 @@ Rober, 16/11/2026. Borrador para revisar con Mónica (que es quien lleva CONTANE
 ERP propio, con las pantallas y los menús de CONTANET lo más fieles posible, con los colores y el
 estilo del ERP, y sumando las utilidades que el ERP ya tiene y CONTANET no.
 
-**Estado (16/11/2026).** Hechas las fases 1 y 2 con las 68 capturas de CONTANET: el inventario de menús y
-la comparativa con el ERP están en `CONTANET_INVENTARIO.md`. Los menús están completos; de pantallas de
-trabajo solo hay 12, así que para calcar (fase 4) hacen falta más capturas, y los ficheros de datos todavía
-no han llegado a este chat. Falta que Mónica y Luis den por buena la comparativa.
+**Estado (17/11/2026).** Hechas las fases 1 y 2 (ver `CONTANET_INVENTARIO.md`). Han llegado las capturas
+(86) y los datos de los nueve años. Publicada una primera prueba del diario con la forma de trabajar de
+CONTANET (Contabilidad › Diario como en CONTANET), todavía sin los datos reales cargados. Siguiente paso:
+cargar Ofipapel 2026 y que Mónica pruebe. Decisión pendiente de Rober: el plan de pago de la base de
+datos, sin el que no caben los nueve años.
 
 ---
 
