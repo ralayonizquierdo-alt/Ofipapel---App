@@ -644,18 +644,42 @@ function parseRoymart(lineas){
   return filas;
 }
 
-// TALENS: "LINEA,000 [ARTICULO] DESC CANT.PEDIDA CANT.ENTREGADA PRECIO.BRUTO [%DTO] PRECIO.NETO IMPORTE IVA%"
+// TALENS: "LINEA,NNN [ARTICULO] DESC CANT.PEDIDA CANT.ENTREGADA PRECIO.BRUTO [%DTO] PRECIO.NETO IMPORTE IVA%"
+// El nº de línea no siempre termina en ",000" (alguna tanda lo manda con
+// ",001"). Cantidad Pedida y Entregada son siempre el mismo número en esta
+// factura — exigir que coincidan evita confundir con la cantidad un número
+// suelto que a veces trae la propia descripción (p.ej. "RSP TIERRA SOMBRA
+// NAT 10" o "GSP ESTUCHE STARTER 12", donde el "10"/"12" no es cantidad).
+// La cola de precios varía: con descuento explícito trae Bruto, %Dto, Neto;
+// sin descuento, Bruto y Neto directamente; y en algún artículo sin ningún
+// descuento, un único precio (Bruto = Neto, sin repetirlo). Precio U. es
+// siempre el Precio Bruto (precio de tarifa, nunca el neto ya descontado) —
+// la misma regla que en APLI: el precio nunca se toca, el descuento sí se
+// puede recalcular. Pequeños descuadres de 1-2 céntimos por línea (y un
+// pequeño residuo en el total) son del propio redondeo de la factura, no
+// del lector — Talens no imprime el % exacto en todas las líneas.
 function parseTalens(lineas){
   const filas = [];
-  const RE = /^\d+,000\s+(?:([A-Z0-9]{4,12})\s+)?(.*?)\s+(\d+)\s+(\d+)\s+(\d+,\d{2})\s+(?:(\d+,\d)\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+,\d{2}$/;
+  const RE = /^\d+,\d{3}\s+(?:([A-Z0-9]{4,12})\s+)?(.*?)\s+(\d+)\s+\3\s+([\d.,\s]+)$/;
   lineas.forEach(l=>{
-    const m = l.match(RE);
+    const m = l.trim().match(RE);
     if(!m) return;
-    const [,codigo,desc,,cantEnt,precioBruto,pct,precioNeto,importe] = m;
-    const bruto = parseDecComa(precioBruto), neto = parseDecComa(precioNeto);
-    const dto = pct ? parseDecComa(pct) : (bruto>0 ? round2_((1-neto/bruto)*100) : 0);
+    const [,codigo,desc,cantEnt,cola] = m;
+    const nums = cola.trim().split(/\s+/);
+    if(nums.length < 3 || nums.length > 5) return;
+    const importe = parseDecComa(nums[nums.length-2]);
+    let bruto, dto;
+    if(nums.length === 3){
+      bruto = parseDecComa(nums[0]); dto = 0;
+    } else if(nums.length === 4){
+      bruto = parseDecComa(nums[0]);
+      const neto = parseDecComa(nums[1]);
+      dto = bruto>0 ? round2_((1-neto/bruto)*100) : 0;
+    } else {
+      bruto = parseDecComa(nums[0]); dto = parseDecComa(nums[1]);
+    }
     filas.push(fila_({codigo:codigo||'', descripcion:desc.trim(), cantidad:parseInt(cantEnt,10),
-      precioUnitario:neto, dto1:dto, importe:parseDecComa(importe)}));
+      precioUnitario:bruto, dto1:dto, importe}));
   });
   return filas;
 }
