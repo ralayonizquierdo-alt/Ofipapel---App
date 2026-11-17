@@ -107,7 +107,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
       '«Preparado, sin salir»: el reparto está generado y nadie ha marcado nada todavía.',
       '«En reparto · quedan 3»: el repartidor va marcando; faltan esos pedidos.',
       '«✔ Listo para cerrar»: no queda ningún pedido pendiente. Ya se puede cerrar en GeminisWin.',
-      '«Cerrado»: ya se cerró en GeminisWin. Las rutas cerradas de hoy bajan al final de la lista y desaparecen al día siguiente.',
+      '«Cerrado»: ya se cerró en GeminisWin. Baja al final de la lista y desaparece en cuanto se genera el reparto nuevo de esa ruta.',
       'Toca una ruta para ver el detalle factura por factura: entregada, no entregada y por qué, y la hora.',
       '«Liquidada» en azul: el repartidor ya pagó esa factura en administración y en GeminisWin está liquidada.',
       'Al lado va la forma de pago de la factura (remesa, transferencia, contado…): así se ve por qué una factura no se cobró en la entrega.',
