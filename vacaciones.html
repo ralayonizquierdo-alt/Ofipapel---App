@@ -317,6 +317,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 #pvTip{ position:fixed; z-index:5000; display:none; pointer-events:none; max-width:min(360px,calc(100vw - 16px)); padding:4px 8px; border-radius:6px;
   background:#1A2E1A; color:#fff; font-size:.75rem; line-height:1.3; box-shadow:0 3px 10px rgba(0,0,0,.25); }
 #pvTip b{ font-size:.8rem; }
+#pvTip{ text-align:center; }
 .p-block[data-tip]{ cursor:help; }
 @media print{ #pvTip{ display:none !important; } }
 .p-blocked{ position:absolute; top:0; height:5mm; opacity:.7;
@@ -4445,9 +4446,11 @@ function printBlock(p, turno, y, n, pos, emp){
     : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
   if(emp){
     const dias = Math.round((new Date(p.end+'T00:00:00Z') - new Date(p.start+'T00:00:00Z'))/86400000) + 1;
-    const f = iso=> new Date(iso+'T00:00:00Z').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',timeZone:'UTC'});
+    const f = iso=> new Date(iso+'T00:00:00Z').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit',timeZone:'UTC'});
     blk.dataset.nombre = empLabel(emp);
-    blk.dataset.fechas = `Del ${f(p.start)} al ${f(p.end)} · ${dias} día${dias===1?'':'s'}`;
+    blk.dataset.fechas = `del ${f(p.start)} al ${f(p.end)} ${dias}-d`;
+    const tipo = tipoDeFecha(emp, p, y);
+    if(tipo) blk.dataset.extra = tipo;
     blk.dataset.tip = '1';
   } else blk.title = fmtRange(p.start,p.end);
   return blk;
@@ -4477,6 +4480,12 @@ function buildEscalaRows(grid, emps, y, n, pos){
   }
 }
 /* En la Escala, las peticiones aprobadas y las fechas fijas van en rojo, aparte de la escalera (Luis, 10/11/2026). */
+/* Para el aviso de la barra (Luis, 17/11/2026): «Petición» si está en Peticiones, la chincheta si es fecha fija. */
+function tipoDeFecha(emp, p, y){
+  if((state.peticiones||[]).some(x=>x.employeeId===emp.id && x.status==='aprobada' && x.start===p.start && x.end===p.end)) return 'Petición';
+  if(hasFixedPref(emp.id) && parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y).some(r=>r.start===p.start && r.end===p.end)) return '📌';
+  return '';
+}
 function esPeticionOFija(emp, p, y){
   if((state.peticiones||[]).some(x=>x.employeeId===emp.id && x.status==='aprobada' && x.start===p.start && x.end===p.end)) return true;
   return hasFixedPref(emp.id) && parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y).some(r=>r.start===p.start && r.end===p.end);
@@ -4535,7 +4544,7 @@ function printEscala(titulo, emps, y, n, pos){
       if(hasFixedPref(it.emp.id)) nom.style.color = '#E74C3C';
       track.appendChild(nom);
       const blk = printBlock(it.p, it.turno, y, n, pos, it.emp);
-      if(esPeticionOFija(it.emp, it.p, y)){ blk.style.background = '#C62828'; blk.dataset.extra = 'Petición o fecha fija'; }
+      if(esPeticionOFija(it.emp, it.p, y)){ blk.style.background = '#C62828'; }
       track.appendChild(blk);
       if(it.festivo){
         const m = document.createElement('div'); m.className = 'p-festivo';
@@ -5551,7 +5560,7 @@ const OPERATIVAS = {
       'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
     ],
     notas: [
-      'Pasa el ratón por encima de una barra (en el móvil, tócala) y sale el alias de la persona y sus fechas: <b>del … al …</b> y los días. En los dos plannings.',
+      'Pasa el ratón por encima de una barra (en el móvil, tócala) y sale el alias, <b>del … al …</b> con los días y, debajo, «Petición» o 📌 si es fecha fija. En los dos plannings.',
       'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
       '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. Las peticiones y fechas fijas van <b>en rojo</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
       'Si una barra choca con otra de su fila, pasa a la siguiente fila libre: por eso la escalera puede no salir perfecta.',
