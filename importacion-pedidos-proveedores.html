@@ -1734,7 +1734,7 @@ const PERFILES_PROVEEDOR = [
   { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens,
     total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT'),
     // 17/11/2026, propietario: en Talens la marca, el IGIC y la familia son siempre estos.
-    porDefecto: { marca:'TALEN´S', igic:'3', familia:'151020' },
+    porDefecto: { marca:'TALEN´S', igic:3, familia:151020 }, // números, como en los Excel que Géminis ya ha aceptado
     cabecera: t => { const m = t.match(/No\.\s*(\d{6,})\s+Pagina\s+\d+\/\d+\s+Fecha\s+(\d{2})-(\d{2})-(\d{2})/i);
       return m ? { numero:m[1], fecha:'20'+m[4]+'-'+m[3]+'-'+m[2] } : null; } },
   { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor,
@@ -2573,15 +2573,15 @@ function generarExcel(){
 
 // SheetJS, al escribir el Excel 5.0/95, cambia por «_» todo lo que no es ASCII:
 // la marca «TALEN´S» llegaba a Géminis como «TALEN_S» (17/11/2026). Se escribe
-// el fichero y luego se pone a mano el byte Windows-1252 de cada letra perdida,
-// solo en los textos de la hoja que la llevan (con su longitud delante, para no
+// el fichero y luego se pone a mano el byte Windows-1252 del «´» (solo ese:
+// lo demás sale igual que antes), en los textos que lo llevan (con su longitud delante, para no
 // tocar otra cosa). Las tildes y la Ñ siguen saliendo sin tilde (quitarAcentos).
 function escribirBiff5(wb, nombre, aoa){
   const bytes = new Uint8Array(XLSX.write(wb, {bookType:'biff5', type:'array'}));
   const textos = new Set();
-  aoa.forEach(f => f.forEach(v => { if(typeof v === 'string' && /[ -ÿ]/.test(v) && v.length < 256) textos.add(v); }));
+  aoa.forEach(f => f.forEach(v => { if(typeof v === 'string' && v.includes('´') && v.length < 256) textos.add(v); }));
   textos.forEach(t => {
-    const bueno = [t.length & 255, t.length >> 8, ...[...t].map(c => c.charCodeAt(0) <= 255 ? c.charCodeAt(0) : 95)];
+    const bueno = [t.length & 255, t.length >> 8, ...[...t].map(c => c === '´' ? 0xB4 : (c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 95))];
     const malo = [t.length & 255, t.length >> 8, ...[...t].map(c => c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 95)];
     for(let i = 0; i + malo.length <= bytes.length; i++){
       let k = 0; while(k < malo.length && bytes[i+k] === malo[k]) k++;
