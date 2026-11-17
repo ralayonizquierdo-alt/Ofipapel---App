@@ -49,7 +49,8 @@ function ContabilidadPantallas({ onEmpresa }: { onEmpresa: () => void }) {
       <Route path="generar" element={<GenerarAsientosPage />} />
       <Route path="pendientes" element={<DiarioPage key="errores" modo="errores" />} />
       <Route path="diario" element={<DiarioPage key="diario" />} />
-      <Route path="diario-contanet" element={<DiarioContanetPage />} />
+      <Route path="diario/entrada" element={<DiarioContanetPage />} />
+      <Route path="diario-contanet" element={<Navigate to="/contabilidad/diario/entrada" replace />} />
       <Route path="empresas" element={<EmpresasContablesPage onCambio={onEmpresa} />} />
       <Route path="plan-cuentas" element={<PlanCuentasPage />} />
       <Route path="mayor" element={<MayorPage />} />
@@ -67,7 +68,7 @@ function ContabilidadPantallas({ onEmpresa }: { onEmpresa: () => void }) {
       <Route path="exportar" element={<ExportarGestoriaPage />} />
       <Route path="configuracion" element={<ConfiguracionContablePage />} />
       <Route path="control" element={<ControlContablePage />} />
-      <Route path="*" element={<Navigate to="/contabilidad/diario" replace />} />
+      <Route path="*" element={<Navigate to="/contabilidad/diario/entrada" replace />} />
     </Routes>
   )
 }

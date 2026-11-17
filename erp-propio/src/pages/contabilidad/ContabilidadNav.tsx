@@ -23,6 +23,8 @@ export function ContabilidadNav() {
   const { puedeOpcion } = usePermisos()
   const [plegado, setPlegado] = useState(leerPlegado)
   const entradas = MENUS.find((m) => m.label === 'Contabilidad')?.items ?? []
+  // Los grupos del menú se enseñan desplegados: la cabecera y, debajo, sus opciones.
+  const lista = entradas.flatMap((e) => (e !== 'sep' && e.children ? [e, ...e.children] : [e]))
 
   const plegar = (v: boolean) => {
     setPlegado(v)
@@ -47,9 +49,18 @@ export function ContabilidadNav() {
         {plegado ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
         {!plegado && <span>CONTABILIDAD</span>}
       </button>
-      {entradas.map((e, i) => {
+      {lista.map((e, i) => {
         if (e === 'sep') return <div key={i} className="mx-2 my-1 border-t border-[#c9d7ee]" />
         const it = e as MenuItem
+        // Cabecera de grupo (Archivo, Plan, Asientos… como la barra de CONTANET): no se pulsa.
+        if (it.children)
+          return plegado ? (
+            <div key={i} className="mx-1 my-1 border-t border-[#c9d7ee]" />
+          ) : (
+            <div key={i} className="mt-1.5 px-2 text-[11px] font-bold uppercase tracking-wide text-[#1d3a8a]">
+              {it.label}
+            </div>
+          )
         const ok = isEnabled(it) && Boolean(it.to) && puedeOpcion(it)
         const Icono = it.icono
         const contenido = (
@@ -80,6 +91,7 @@ export function ContabilidadNav() {
           <NavLink
             key={i}
             to={it.to!}
+            end
             title={it.description ?? it.label}
             className={({ isActive }) =>
               `flex h-[24px] items-center gap-2 px-2 ${isActive ? 'border-l-[3px] border-[#1d3a8a] bg-[#91c9f7] pl-[5px] font-bold' : 'hover:bg-[#dce6f5]'}`

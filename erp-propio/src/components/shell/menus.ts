@@ -235,38 +235,61 @@ export const MENUS: TopMenu[] = [
   },
   {
     label: 'Contabilidad',
-    // Menú nuevo, no existe en GeminisWin (petición de Rober, 27/10/2026). En gris: Retenciones,
-    // Remesas SEPA y Cierre de ejercicio (pendientes).
+    // Menú propio del ERP (Rober, 27/10/2026), ordenado desde el 17/11/2026 como la barra de CONTANET
+    // (Archivo · Plan · Diario · Balances · IVA/IGIC · Retenciones · Módulos): Rober quiere UNA sola
+    // contabilidad con la forma de CONTANET, no la de CONTANET añadida al lado de la que había.
+    // Cada pantalla sale una sola vez. Ver docs/CONTANET_INVENTARIO.md.
     items: [
-      // Diario el primero (Luis, 31/10/2026).
-      item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual', icono: BookOpenText, colorIcono: '#1d3a8a' }),
-      item('Diario como en CONTANET (prueba)', { to: '/contabilidad/diario-contanet', description: 'Prueba para Mónica: el diario con la forma de trabajar de CONTANET', icono: BookOpenText, colorIcono: '#c2410c' }),
-      item('Generar Asientos Automáticos', { to: '/contabilidad/generar', description: 'Genera los asientos de ventas, facturas, cobros, pagos y caja' }),
-      item('Asientos Pendientes / con Errores', { to: '/contabilidad/pendientes', description: 'Asientos que no cuadran o sin cuenta contable' }),
+      // La pantalla principal, como en CONTANET: se entra y ya se está en el diario.
+      item('Diario', { to: '/contabilidad/diario/entrada', description: 'El diario: los últimos asientos y la línea para meter los nuevos, como en CONTANET', icono: BookOpenText, colorIcono: '#1d3a8a' }),
       'sep',
-      item('Empresas de la Contabilidad', { to: '/contabilidad/empresas', description: 'Empresas del grupo con contabilidad: elegir con cuál se trabaja y dar de alta otras' }),
-      item('Plan de Cuentas', { to: '/contabilidad/plan-cuentas', description: 'Plan de cuentas (PGC PYMES) y subcuentas' }),
-      item('Mayor / Extracto de Cuenta', { to: '/contabilidad/mayor', description: 'Mayor de una cuenta con saldo acumulado' }),
-      item('Sumas y Saldos', { to: '/contabilidad/sumas-saldos', description: 'Balance de sumas y saldos' }),
-      item('Pérdidas y Ganancias', { to: '/contabilidad/perdidas-ganancias', description: 'Cuenta de pérdidas y ganancias (grupos 6 y 7)' }),
-      item('Resultados por Tienda', { to: '/contabilidad/resultados-tiendas', description: 'Ingresos, gastos y resultado de cada tienda' }),
-      item('Balance de Situación', { to: '/contabilidad/balance-situacion', description: 'Activo, patrimonio neto y pasivo (PGC PYMES), del año y del anterior' }),
-      item('Libros Registro de IGIC', { to: '/contabilidad/libros-igic', description: 'Libros registro de facturas emitidas y recibidas' }),
-      'sep',
-      item('Modelo 420 (IGIC Trimestral)', { to: '/contabilidad/modelo-420', description: 'Autoliquidación trimestral de IGIC' }),
-      item('Modelo 425 (IGIC Anual)', { to: '/contabilidad/modelo-425', description: 'Resumen anual de IGIC' }),
-      item('Modelo 347', { to: '/contabilidad/modelo-347', description: 'Operaciones con terceros de más de 3.005,06 €' }),
-      ...off(['Retenciones 111 / 115']),
-      item('Verifactu (Registro y Envío)', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados', icono: ShieldCheck, colorIcono: '#127a12' }),
-      'sep',
-      item('Conciliación Bancaria', { to: '/contabilidad/conciliacion', description: 'Importar extractos Norma 43 y casarlos con la contabilidad', icono: Landmark, colorIcono: '#b07d0a' }),
-      item('Remesas SEPA', { to: '/contabilidad/remesas', description: 'Cobrar recibos domiciliados: fichero SEPA para el banco, abonos y devoluciones' }),
-      item('Previsión de Tesorería', { to: '/contabilidad/tesoreria', description: 'Cobros y pagos pendientes por vencimiento' }),
-      'sep',
-      ...off(['Cierre y Apertura de Ejercicio']),
-      item('Exportar a Gestoría', { to: '/contabilidad/exportar', description: 'Diario y libros de IGIC en CSV para la gestoría', icono: FileDown, colorIcono: '#2b5ea8' }),
-      item('Configuración Contable', { to: '/contabilidad/configuracion', description: 'Cuentas por defecto de los asientos automáticos' }),
-      item('Control y Firmas', { to: '/contabilidad/control', description: 'Asientos por firmar, cierre de meses y comprobación de que nadie ha tocado los asientos' }),
+      item('Archivo', {
+        children: [
+          item('Empresas de la Contabilidad', { to: '/contabilidad/empresas', description: 'Empresas del grupo con contabilidad: elegir con cuál se trabaja y dar de alta otras' }),
+          item('Exportar a Gestoría', { to: '/contabilidad/exportar', description: 'Diario y libros de IGIC en CSV para la gestoría', icono: FileDown, colorIcono: '#2b5ea8' }),
+          item('Configuración Contable', { to: '/contabilidad/configuracion', description: 'Cuentas por defecto de los asientos automáticos' }),
+        ],
+      }),
+      item('Plan', {
+        children: [
+          item('Plan de Cuentas', { to: '/contabilidad/plan-cuentas', description: 'Plan de cuentas y subcuentas' }),
+          item('Extractos Contables', { to: '/contabilidad/mayor', description: 'Extracto (mayor) de una cuenta con saldo acumulado' }),
+        ],
+      }),
+      item('Asientos', {
+        children: [
+          item('Consultar y Modificar Asientos', { to: '/contabilidad/diario', description: 'Buscar asientos por fechas, modificarlos, anularlos y renumerar' }),
+          item('Generar Asientos Automáticos', { to: '/contabilidad/generar', description: 'Genera los asientos de ventas, facturas, cobros, pagos y caja' }),
+          item('Asientos Pendientes / con Errores', { to: '/contabilidad/pendientes', description: 'Asientos que no cuadran o sin cuenta contable' }),
+          ...off(['Cierre y Apertura de Ejercicio']),
+        ],
+      }),
+      item('Balances', {
+        children: [
+          item('Balance de Sumas y Saldos', { to: '/contabilidad/sumas-saldos', description: 'Balance de sumas y saldos' }),
+          item('Balance de Situación', { to: '/contabilidad/balance-situacion', description: 'Activo, patrimonio neto y pasivo, del año y del anterior' }),
+          item('Pérdidas y Ganancias', { to: '/contabilidad/perdidas-ganancias', description: 'Cuenta de pérdidas y ganancias (grupos 6 y 7)' }),
+          item('Resultados por Tienda', { to: '/contabilidad/resultados-tiendas', description: 'Ingresos, gastos y resultado de cada tienda' }),
+        ],
+      }),
+      item('IVA/IGIC', {
+        children: [
+          item('Libros Registro de IGIC', { to: '/contabilidad/libros-igic', description: 'Libros registro de facturas emitidas y recibidas' }),
+          item('Modelo 420 (IGIC Trimestral)', { to: '/contabilidad/modelo-420', description: 'Autoliquidación trimestral de IGIC' }),
+          item('Modelo 425 (IGIC Anual)', { to: '/contabilidad/modelo-425', description: 'Resumen anual de IGIC' }),
+          item('Verifactu (Registro y Envío)', { to: '/registros-verifactu', description: 'Registros de facturación VeriFactu encadenados', icono: ShieldCheck, colorIcono: '#127a12' }),
+        ],
+      }),
+      item('Retenciones', { children: [...off(['Retenciones 111 / 115'])] }),
+      item('Módulos', {
+        children: [
+          item('Conciliación Bancaria', { to: '/contabilidad/conciliacion', description: 'Importar extractos Norma 43 y casarlos con la contabilidad', icono: Landmark, colorIcono: '#b07d0a' }),
+          item('Remesas SEPA', { to: '/contabilidad/remesas', description: 'Cobrar recibos domiciliados: fichero SEPA para el banco, abonos y devoluciones' }),
+          item('Previsión de Liquidez', { to: '/contabilidad/tesoreria', description: 'Cobros y pagos pendientes por vencimiento' }),
+          item('Módulo 347', { to: '/contabilidad/modelo-347', description: 'Operaciones con terceros de más de 3.005,06 €' }),
+          item('Control y Firmas', { to: '/contabilidad/control', description: 'Asientos por firmar, cierre de meses y comprobación de que nadie ha tocado los asientos' }),
+        ],
+      }),
     ],
   },
   {

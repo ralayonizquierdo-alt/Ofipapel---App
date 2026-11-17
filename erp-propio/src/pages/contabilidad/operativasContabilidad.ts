@@ -6,6 +6,27 @@
 import type { BloqueOperativa } from '../../components/gw/GwOperativa'
 
 export const OPERATIVAS_CONTABILIDAD: Record<string, BloqueOperativa[]> = {
+  'diario-entrada': [
+    {
+      titulo: 'Diario (como en CONTANET)',
+      pasos: [
+        'Se ven los últimos asientos del ejercicio. Debajo está la línea para meter los nuevos.',
+        'Escribe la cuenta, la fecha (día/mes), la descripción, la referencia y el importe, y pulsa «Debe» o «Haber». La línea queda en amarillo, sin guardar.',
+        'Sigue con las demás líneas del asiento. Cuando el Debe y el Haber coinciden, el asiento se guarda solo y pasa al número siguiente.',
+        'F8: factura de venta con su IGIC. F9: factura de compra con su IGIC. F7: conceptos ya escritos. F5: extracto de una cuenta. F4 y F6: plan de cuentas.',
+        'La flecha de deshacer de la barra quita la última línea que aún no se ha guardado.',
+      ],
+    },
+    {
+      titulo: 'Bueno es saber',
+      notas: [
+        'Abajo a la izquierda: los totales de la cuenta que estás tecleando, del asiento en curso y del ejercicio entero.',
+        'Para buscar, modificar o anular un asiento ya guardado: Contabilidad › Asientos › Consultar y Modificar Asientos.',
+        'Un asiento de 3.000 € o más queda pendiente de la segunda firma (Módulos › Control y Firmas).',
+        'Tipo de diario, canal, punteo y apuntes modelo todavía no están: se ven en gris.',
+      ],
+    },
+  ],
   diario: [
     {
       titulo: 'Diario de Asientos',
@@ -212,4 +233,4 @@ export const OPERATIVAS_CONTABILIDAD: Record<string, BloqueOperativa[]> = {
 }
 
 /** Clave de la pantalla a partir de la ruta (/contabilidad/plan-cuentas → plan-cuentas). */
-export const claveContabilidad = (pathname: string) => pathname.split('/')[2] ?? ''
+export const claveContabilidad = (pathname: string) => (pathname.startsWith('/contabilidad/diario/entrada') ? 'diario-entrada' : (pathname.split('/')[2] ?? ''))

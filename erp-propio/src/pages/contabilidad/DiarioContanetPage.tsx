@@ -1,4 +1,6 @@
-// Diario «como en CONTANET» (Rober, 16/11/2026): PRIMERA PRUEBA para que la vea Mónica.
+// El Diario de Contabilidad, con la forma de CONTANET (Rober, 16/11/2026). Desde el 17/11/2026 es la
+// pantalla principal del área (Contabilidad › Diario); buscar, modificar y anular asientos sigue en
+// «Consultar y Modificar Asientos» (DiarioPage, de Luis).
 //
 // Calco de la pantalla principal de ContaNet 6.0 (capturas 01-86, que no están en el repositorio): el
 // diario ES la pantalla; una rejilla de apuntes con letra grande, la línea de entrada debajo, los botones
@@ -226,7 +228,7 @@ export function DiarioContanetPage() {
         <Boton icono={Scale} color="#b45309" titulo="Balance de Sumas y Saldos" onClick={() => ir('/contabilidad/sumas-saldos')} />
         <Boton icono={ShieldCheck} color="#1e6fc2" titulo="Auditoría y Recálculo: Control y firmas" onClick={() => ir('/contabilidad/control')} />
         <Boton icono={Calculator} color="#7c3aed" titulo="Conceptos Contables (F7)" onClick={() => setVentana('conceptos')} />
-        <span className="ml-2 text-[12px] text-[#555]">Prueba del diario como en CONTANET · ejercicio {anio}</span>
+        <span className="ml-2 text-[12px] text-[#555]">Ejercicio {anio}</span>
       </div>
 
       {/* Rejilla del diario */}
