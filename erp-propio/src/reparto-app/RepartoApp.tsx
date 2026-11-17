@@ -589,7 +589,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
           Caja
         </Boton>
       </div>
-      {vista === 'caja' && <Caja cobros={cobros} hora={hora} error={error} />}
+      {vista === 'caja' && <Caja cobros={cobros} hora={hora} error={error} quien={sesion.nombre} />}
       <Tarjeta style={vista === 'caja' ? { display: 'none' } : undefined}>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Todas las rutas</div>
         <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Solo para mirar. Se actualiza sola{hora ? ` · ${hora}` : ''}.</div>
@@ -635,7 +635,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
  * entregar. Lo que NO cobró no sale aquí: eso es de la vista de rutas («Por cobrar»). Es una ayuda para
  * contar: la liquidación se sigue apuntando en GeminisWin, y al hacerlo la factura sale de la lista.
  */
-function Caja({ cobros, hora, error }: { cobros: PorCobrar[] | null; hora: string | null; error: string | null }) {
+function Caja({ cobros, hora, error, quien }: { cobros: PorCobrar[] | null; hora: string | null; error: string | null; quien: string }) {
   const [abierta, setAbierta] = useState<string | null>(null)
   const [contadas, setContadas] = useState<Record<string, boolean>>({})
   const [entrega, setEntrega] = useState('')
@@ -657,6 +657,26 @@ function Caja({ cobros, hora, error }: { cobros: PorCobrar[] | null; hora: strin
     const recibido = Number(entrega.replace(/\./g, '').replace(',', '.'))
     const hayEntrega = entrega.trim() !== '' && Number.isFinite(recibido)
     const dif = hayEntrega ? Math.round((recibido - total) * 100) / 100 : 0
+    // El mismo justificante, por WhatsApp (Rober, 17/11/2026: ahorra papel). No lleva firma ni sello: lo que
+    // vale es que sale del WhatsApp de administración, con el importe recibido y quién lo recibe. No se pone
+    // número: se abre WhatsApp y quien envía elige el contacto del repartidor.
+    const enviarWhatsApp = () => {
+      const ahora = new Date().toLocaleString('es-ES', { timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      const texto = [
+        '*OFIPAPEL · Justificante de entrega de cobros*',
+        `${nombreRuta(sel.filas[0])}${sel.filas[0].repartidor ? ` · Repartidor: ${sel.filas[0].repartidor}` : ''}`,
+        ahora,
+        '',
+        ...sel.filas.map((c) => `• ${c.cliente} — ${c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`} — ${euros(c.pendiente)}`),
+        '',
+        `Total a entregar: *${euros(total)}*`,
+        `Entregado: *${euros(recibido)}*${dif === 0 ? ' ✅ Cuadra' : dif < 0 ? ` · Faltan ${euros(-dif)}` : ` · Sobran ${euros(dif)}`}`,
+        '',
+        `Recibido en administración por ${quien}.`,
+        '_Acredita la entrega del dinero. Las facturas se liquidan después en el programa._',
+      ].join('\n')
+      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
+    }
     return (
       <Tarjeta style={{ borderTopColor: AZUL }}>
         <button type="button" onClick={() => abrir(null)} style={{ background: 'none', border: 'none', color: AZUL, fontSize: 14, fontWeight: 700, padding: '0 0 6px' }}>
@@ -716,11 +736,17 @@ function Caja({ cobros, hora, error }: { cobros: PorCobrar[] | null; hora: strin
             {dif === 0 ? '✔ Cuadra' : dif < 0 ? `Faltan ${euros(-dif)}` : `Sobran ${euros(dif)}`}
           </div>
         )}
-        <Boton color={AZUL} onClick={() => window.print()} style={{ width: '100%', marginTop: 12 }}>
-          🖨 Imprimir justificante
-        </Boton>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <Boton color="#1fa855" disabled={!hayEntrega} onClick={enviarWhatsApp} style={{ flex: 1, padding: '12px 6px', fontSize: 15 }}>
+            WhatsApp
+          </Boton>
+          <Boton color={AZUL} onClick={() => window.print()} style={{ flex: 1, padding: '12px 6px', fontSize: 15 }}>
+            🖨 Imprimir
+          </Boton>
+        </div>
         <div style={{ fontSize: 12, color: V.gris, marginTop: 6 }}>
-          Salen dos copias en la misma hoja: una para el repartidor, con tu firma y sello, y otra para ti, con la suya. Así deja el dinero y se va.
+          Justificante para que el repartidor deje el dinero y se vaya. <b>WhatsApp</b>: escribe antes lo que te entrega; se abre WhatsApp con el recibo ya escrito y eliges a quién mandarlo.{' '}
+          <b>Imprimir</b>: dos copias en una hoja, la suya con tu firma y sello y la tuya con su firma.
         </div>
         <div style={{ fontSize: 12, color: V.gris, marginTop: 10 }}>
           Es una ayuda para contar: no guarda nada. Liquida las facturas en GeminisWin como siempre; al hacerlo salen de esta lista.
