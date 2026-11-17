@@ -104,6 +104,16 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 .del-btn{ background:none; border:none; color:var(--rojo); cursor:pointer; font-size:14px; }
 .empty-state{ text-align:center; padding:40px 20px; color:var(--texto2); }
 .tabla-wrap{ overflow-x:auto; }
+/* 17/11/2026 (propietario: «aún se esconde el importe»): Importe, Familia y la
+   papelera quedan fijas a la derecha; lo que se desliza es el resto. */
+@media (min-width:701px){
+  table.tabla thead th:nth-child(n+14), table.tabla tbody td:nth-child(n+14){ position:sticky; z-index:1; background:#fff; }
+  table.tabla thead th:nth-child(n+14){ background:var(--verde-claro, #e8f5e9); }
+  table.tabla tbody tr:hover td:nth-child(n+14){ background:#f7fcf8; }
+  table.tabla thead th:nth-child(16), table.tabla tbody td:nth-child(16){ right:0; width:34px; min-width:34px; max-width:34px; }
+  table.tabla thead th:nth-child(15), table.tabla tbody td:nth-child(15){ right:34px; width:76px; min-width:76px; max-width:76px; }
+  table.tabla thead th:nth-child(14), table.tabla tbody td:nth-child(14){ right:110px; width:84px; min-width:84px; max-width:84px; box-shadow:-6px 0 6px -4px rgba(0,0,0,.18); }
+}
 .footer-note{ font-size:11.5px; color:var(--texto2); margin-top:10px; line-height:1.5; }
 
 .modal-overlay{
