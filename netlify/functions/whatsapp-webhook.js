@@ -68,6 +68,7 @@ const {
   pidioHablarConAlguien,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
+  mensajeIncidencia,
   preguntaSiEsNuestroCorreo,
   avisaQueEscribioA,
   mensajeSobreElCorreo,
@@ -1555,6 +1556,33 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
       presentacion: greeting,
     });
     await appendToHistory(message.from, text, enviado);
+    return;
+  }
+
+  // UNA INCIDENCIA VA A UNA PERSONA, NO A LA IA (17/11/2026, decisión del
+  // propietario, con su coste asumido: más mensajes para el equipo).
+  //
+  // Algo roto, algo que no llegó, una devolución. El bot no tiene NI UN DATO
+  // sobre garantías, plazos ni quién paga el porte, así que cada vez que
+  // contestaba estaba la IA inventándose una condición de venta — y son las
+  // conversaciones que más caro salen.
+  //
+  // Va DESPUÉS de todo el flujo de pedidos (con número, el estado real se lo
+  // damos nosotros y eso sí ayuda), después del escalado explícito y después
+  // de las fotos en espera (una foto de lo roto sigue su camino, que ya acaba
+  // en una persona cuando no puede confirmar nada).
+  if (text && pareceUnaIncidencia(text)) {
+    const reply = greeting + mensajeIncidencia(idioma);
+    await sendWhatsappMessage(message.from, reply);
+    await appendToHistory(message.from, text, `[Incidencia — pasada a una persona] ${reply}`);
+    await pauseBot(message.from, 24);
+    await notifyOwner({
+      channel: 'Meta',
+      from: message.from,
+      customerMessage: `📦 INCIDENCIA (mercancía rota, no llegada o devolución): ${text}`,
+      botReply: reply,
+    });
+    await notifyOwnerByWhatsapp(message.from, `📦 Incidencia: ${text}`);
     return;
   }
 
