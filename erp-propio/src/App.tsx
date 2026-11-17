@@ -34,6 +34,7 @@ import { GestorCobrosClientePage } from './pages/facturacion/cobros/GestorCobros
 import { CobroClienteFichaPage } from './pages/facturacion/cobros/CobroClienteFichaPage'
 import { FacturaProveedorFichaPage } from './pages/compras/facturas/FacturaProveedorFichaPage'
 import { GestorPedidosProveedorPage } from './pages/compras/gestor/GestorPedidosProveedorPage'
+import { GestorSemanalPage } from './pages/compras/gestor2/GestorSemanalPage'
 import { TransportistaFichaPage } from './pages/compras/transportistas/TransportistaFichaPage'
 import { PeticionFichaPage } from './pages/compras/peticiones/PeticionFichaPage'
 import { GenerarPeticionHost } from './pages/compras/peticiones/GenerarPeticionDialog'
@@ -201,6 +202,7 @@ function App() {
             <Route path="/pagos-proveedor/*" element={<PagoProveedorFichaPage />} />
             <Route path="/gestor-pagos-proveedor" element={<GestorPagosProveedorPage />} />
             <Route path="/facturas-proveedor/*" element={<FacturaProveedorFichaPage />} />
+            <Route path="/gestor-pedidos-proveedor/semanal" element={<GestorSemanalPage />} />
             <Route path="/gestor-pedidos-proveedor" element={<GestorPedidosProveedorPage />} />
             <Route path="/transportistas/*" element={<TransportistaFichaPage />} />
             <Route path="/peticiones/*" element={<PeticionFichaPage />} />

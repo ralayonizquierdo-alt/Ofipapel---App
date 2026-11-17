@@ -289,6 +289,8 @@ export const MENUS: TopMenu[] = [
       item('Transportistas', { to: '/transportistas', description: 'Ficha de Transportistas' }),
       'sep',
       item('Gestor Pedidos a Proveedores', { to: '/gestor-pedidos-proveedor', description: 'Gestor de Pedidos a Proveedores' }),
+      // Nuevo, no existe en GeminisWin (Rober, 17/11/2026): propuesta semanal por mínimos y máximos.
+      item('Gestor de Pedidos 2.0 (semanal)', { to: '/gestor-pedidos-proveedor/semanal', description: 'Pedidos de la semana: lo que el programa propone pedir a cada proveedor' }),
       // SIN CAPTURA de GeminisWin: ficha y alta rápida hechas sobre PETICION/PETIDETA.
       item('Peticiones de Artículos', { to: '/peticiones', description: 'Peticiones de Artículos: encargos internos que se tramitan como pedido a proveedor' }),
       // El atajo CTRL+P lo recoge GenerarPeticionHost (abre el alta rápida encima de la ventana actual).
@@ -522,6 +524,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/pagos-proveedor', title: 'Pagos de Gastos, pagos a proveedores, pagos a transportistas, etc' },
   { prefix: '/gestor-pagos-proveedor', title: 'Gestor de Pagos' },
   { prefix: '/facturas-proveedor', title: 'Facturas de Proveedores' },
+  { prefix: '/gestor-pedidos-proveedor/semanal', title: 'Gestor de Pedidos 2.0' },
   { prefix: '/gestor-pedidos-proveedor', title: 'Gestor de Pedidos a Proveedores' },
   { prefix: '/transportistas', title: 'Transportistas' },
   { prefix: '/peticiones', title: 'Peticiones de Artículos' },
