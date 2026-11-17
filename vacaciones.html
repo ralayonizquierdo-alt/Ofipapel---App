@@ -4446,7 +4446,8 @@ function printBlock(p, turno, y, n, pos, emp){
     : `${dStart.getUTCDate()}/${dStart.getUTCMonth()+1}–${dEnd.getUTCDate()}/${dEnd.getUTCMonth()+1}`;
   if(emp){
     blk.dataset.nombre = empLabel(emp);
-    blk.dataset.fechas = fechasCortas(p.start, p.end);
+    const dias = Math.round((new Date(p.end+'T00:00:00Z') - new Date(p.start+'T00:00:00Z'))/86400000) + 1;
+    blk.dataset.fechas = `${fechasCortas(p.start, p.end)} = ${dias}-d`;
     const tipo = tipoDeFecha(emp, p, y);
     if(tipo) blk.dataset.extra = tipo;
     blk.dataset.tip = '1';
@@ -5568,7 +5569,7 @@ const OPERATIVAS = {
       'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
     ],
     notas: [
-      'Pasa el ratón por encima de una barra (en el móvil, tócala) y sale el alias, las fechas en corto (<b>del 01 al 15 May-26</b>) y, debajo, «Petición» o 📌 si es fecha fija. En los dos plannings.',
+      'Pasa el ratón por encima de una barra (en el móvil, tócala) y sale el alias, las fechas en corto con los días (<b>del 01 al 15 May-26 = 15-d</b>) y, debajo, «Petición» o 📌 si es fecha fija. En los dos plannings.',
       'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
       '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. Las peticiones y fechas fijas van <b>en rojo</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
       'Si una barra choca con otra de su fila, pasa a la siguiente fila libre: por eso la escalera puede no salir perfecta.',
