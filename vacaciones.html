@@ -314,9 +314,9 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
   display:flex; align-items:center; justify-content:center; overflow:hidden;
   font-size:5pt; font-weight:700; color:#fff; white-space:nowrap; }
 /* Aviso al pasar el ratón por una barra de la Vista previa (Luis, 17/11/2026): nombre y desde–hasta. */
-#pvTip{ position:fixed; z-index:5000; display:none; pointer-events:none; max-width:min(360px,calc(100vw - 16px)); padding:8px 12px; border-radius:8px;
-  background:#1A2E1A; color:#fff; font-size:.95rem; line-height:1.35; box-shadow:0 6px 18px rgba(0,0,0,.25); }
-#pvTip b{ font-size:1.02rem; }
+#pvTip{ position:fixed; z-index:5000; display:none; pointer-events:none; max-width:min(360px,calc(100vw - 16px)); padding:4px 8px; border-radius:6px;
+  background:#1A2E1A; color:#fff; font-size:.75rem; line-height:1.3; box-shadow:0 3px 10px rgba(0,0,0,.25); }
+#pvTip b{ font-size:.8rem; }
 .p-block[data-tip]{ cursor:help; }
 @media print{ #pvTip{ display:none !important; } }
 .p-blocked{ position:absolute; top:0; height:5mm; opacity:.7;
@@ -4446,7 +4446,7 @@ function printBlock(p, turno, y, n, pos, emp){
   if(emp){
     const dias = Math.round((new Date(p.end+'T00:00:00Z') - new Date(p.start+'T00:00:00Z'))/86400000) + 1;
     const f = iso=> new Date(iso+'T00:00:00Z').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',timeZone:'UTC'});
-    blk.dataset.nombre = emp.name;
+    blk.dataset.nombre = empLabel(emp);
     blk.dataset.fechas = `Del ${f(p.start)} al ${f(p.end)} · ${dias} día${dias===1?'':'s'}`;
     blk.dataset.tip = '1';
   } else blk.title = fmtRange(p.start,p.end);
@@ -5551,7 +5551,7 @@ const OPERATIVAS = {
       'Pulsa <b>Imprimir</b>, o <b>Guardar como PDF</b> y elige ese destino en el cuadro que se abre.',
     ],
     notas: [
-      'Pasa el ratón por encima de una barra (en el móvil, tócala) y sale de quién es y sus fechas: <b>del … al …</b> y los días. En los dos plannings.',
+      'Pasa el ratón por encima de una barra (en el móvil, tócala) y sale el alias de la persona y sus fechas: <b>del … al …</b> y los días. En los dos plannings.',
       'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
       '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. Las peticiones y fechas fijas van <b>en rojo</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
       'Si una barra choca con otra de su fila, pasa a la siguiente fila libre: por eso la escalera puede no salir perfecta.',
