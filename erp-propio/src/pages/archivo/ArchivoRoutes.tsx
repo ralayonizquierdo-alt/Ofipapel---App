@@ -10,6 +10,7 @@ import { UsoOperarioPage } from './UsoOperarioPage'
 import { AcuerdosPage } from './AcuerdosPage'
 import { DiccionarioTextosPage } from './DiccionarioTextosPage'
 import { TraspasoContabilidadPage } from './TraspasoContabilidadPage'
+import { EspejoGeminiswinPage } from './EspejoGeminiswinPage'
 
 /** Ventanas de Archivo sin captura bajo /archivo/…: Parámetros, Zonas de servicio, Carga Cotización, Importar, Auditoría y Textos legales. */
 export function ArchivoRoutes() {
@@ -26,6 +27,7 @@ export function ArchivoRoutes() {
       <Route path="acuerdos" element={<AcuerdosPage />} />
       <Route path="diccionario" element={<DiccionarioTextosPage />} />
       <Route path="traspaso-contabilidad" element={<TraspasoContabilidadPage />} />
+      <Route path="espejo" element={<EspejoGeminiswinPage />} />
       <Route path="*" element={<Navigate to="/archivo/parametros" replace />} />
     </Routes>
   )

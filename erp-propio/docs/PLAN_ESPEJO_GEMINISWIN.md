@@ -213,3 +213,20 @@ siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
 1. El plan de pago de la base de datos.
 2. Qué ordenador hará de puente.
 3. Si se empieza ya por las tandas 1 y 2, o después de la prueba de contabilidad con Mónica.
+
+## 9. Diario de la puesta en marcha
+
+**17/11/2026 — tanda 1, PC de Mónica.**
+
+- Las 18 tablas pequeñas están cargadas, clientes incluidos (13.607 fichas).
+- **Fallo encontrado y corregido:** la primera tabla mediana se cargaba de una vez, pasaba del minuto y la
+  conexión se cortaba (error 520) sin dejar nada. Ahora el ERP carga **por tandas de unos 5.000 registros**
+  y avisa si queda más; el programa del PC repite hasta acabar. Medido: 11 segundos por tanda de clientes,
+  unos 14 por tanda de artículos, 1 a 3 las de stock, códigos de barras y proveedores.
+- **Las copias del espejo no se apuntan en la Auditoría:** no son cambios de una persona en el ERP, y con
+  1,5 millones de registros la habrían llenado de ruido.
+- **Pantalla de control:** Archivo → Espejo de GeminisWin (solo super administradores). Enseña, fichero por
+  fichero, qué ha llegado, qué falta por pasar al ERP, cuándo llegó algo por última vez y el último fallo;
+  y desde ahí se abren y cierran las áreas de solo consulta.
+- Pendiente: las cinco tablas grandes (fuera de horario), comprobar totales, cerrar las áreas en solo
+  consulta y dejar la tarea automática cada 10 minutos.

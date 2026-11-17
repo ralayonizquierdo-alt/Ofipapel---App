@@ -69,6 +69,12 @@ export const MENUS: TopMenu[] = [
         soloSuperAdmin: true,
         description: 'Entradas, minutos de uso, pantallas, descargas, teletrabajo y redes de las tiendas (solo super administradores)',
       }),
+      // Propio del ERP (Rober, 17/11/2026): control de la copia continua desde GeminisWin y áreas de solo consulta.
+      item('Espejo de GeminisWin', {
+        to: '/archivo/espejo',
+        soloSuperAdmin: true,
+        description: 'Qué ha llegado de GeminisWin, qué falta y qué áreas son de solo consulta (solo super administradores)',
+      }),
       item('Textos legales', {
         to: '/archivo/textos-legales',
         soloSuperAdmin: true,
@@ -606,6 +612,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/contabilidad/resultados-tiendas', title: 'Resultados por Tienda' },
   { prefix: '/archivo/incidencias', title: 'Registro de incidencias' },
   { prefix: '/archivo/uso', title: 'Uso por Operario' },
+  { prefix: '/archivo/espejo', title: 'Espejo de GeminisWin' },
   { prefix: '/archivo/acuerdos', title: 'Acuerdos de Dirección' },
   { prefix: '/archivo/diccionario', title: 'Diccionario de textos' },
   { prefix: '/contabilidad/control', title: 'Control y Firmas' },

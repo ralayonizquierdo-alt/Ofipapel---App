@@ -147,6 +147,7 @@ const ICONOS: Record<string, Icono> = {
   'Textos legales': Scale,
   'Registro de incidencias': Bug,
   'Uso por Operario': Activity,
+  'Espejo de GeminisWin': RefreshCw,
   'Acuerdos de Dirección': Handshake,
   'Diccionario de textos': SpellCheck,
   'Control y Firmas': Stamp,
