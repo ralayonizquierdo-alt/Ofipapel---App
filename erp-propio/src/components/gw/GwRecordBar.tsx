@@ -43,6 +43,7 @@ export function GwRecordBar({
   onCancel,
   onExit,
   grande = false,
+  soloConsulta = null,
 }: {
   mode: 'consulta' | 'edicion' | 'alta'
   canNavigate: boolean
@@ -62,8 +63,16 @@ export function GwRecordBar({
   onExit?: () => void
   /** Botones altos que ocupan todo el ancho de la ventana (Caja, Aperturas y Cierres de GeminisWin). */
   grande?: boolean
+  /** Si el área es de GeminisWin (lib/areaDueno.ts): el aviso que se enseña; Nuevo, Modificar y Eliminar quedan apagados. */
+  soloConsulta?: string | null
 }) {
   const consulta = mode === 'consulta'
+  if (soloConsulta && consulta) {
+    onNew = undefined
+    onEdit = undefined
+    onDelete = undefined
+  }
+  const apagado = Boolean(soloConsulta) && consulta
   // Archivo → Presentación preliminar: en una ficha es su «Imprimir» (el navegador enseña la vista
   // previa antes de imprimir). Solo si la ficha tiene botón Imprimir.
   const imprimir = useRef(onPrint)
@@ -92,6 +101,12 @@ export function GwRecordBar({
     },
   })
   return (
+    <>
+      {soloConsulta && (
+        <p role="note" className="mt-1.5 border border-[#e2c275] bg-[#fff8e1] px-2 py-1 text-[13px] text-[#6b4a00] print:hidden">
+          🔒 {soloConsulta}
+        </p>
+      )}
     <div ref={raiz} className={`mt-1.5 flex gap-[2px] border border-[var(--gw-border)] bg-[var(--gw-face)] p-[3px] ${grande ? 'gw-barra-grande' : ''}`}>
       <Btn title={conTecla('Primero', 'primero')} onClick={onFirst} disabled={!canNavigate}>
         <GwPrimero />
@@ -114,15 +129,15 @@ export function GwRecordBar({
       <Btn title="Imprimir" onClick={onPrint} disabled={!consulta}>
         <GwImprimir />
       </Btn>
-      <Btn title={conTecla('Nuevo', 'nuevo')} onClick={onNew} disabled={!consulta}>
+      <Btn title={conTecla('Nuevo', 'nuevo')} onClick={onNew} disabled={!consulta || apagado}>
         <GwNuevo />
       </Btn>
       {consulta ? (
         <>
-          <Btn title={conTecla('Modificar', 'modificar')} onClick={onEdit}>
+          <Btn title={conTecla('Modificar', 'modificar')} onClick={onEdit} disabled={apagado}>
             <GwModificar />
           </Btn>
-          <Btn title="Eliminar" onClick={onDelete}>
+          <Btn title="Eliminar" onClick={onDelete} disabled={apagado}>
             <GwEliminar />
           </Btn>
         </>
@@ -142,6 +157,7 @@ export function GwRecordBar({
       {/* Generador de listados de esta pantalla (aparte, con fondo gris). */}
       <BotonListados className="ml-3" />
     </div>
+    </>
   )
 }
 

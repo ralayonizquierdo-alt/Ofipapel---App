@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { siguienteCodigoServidor, textoRegistro, useNavRegistro, type NavDir } from '../../components/gw/useNavRegistro'
 import { GwDate, GwField, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
+import { useSoloConsulta } from '../../lib/areaDueno'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { gwBuscarPorInicio, useListaOrdenada } from '../../components/gw/GwListaOrdenada'
@@ -53,6 +54,8 @@ function FechaInput({ value, onChange, disabled, title }: { value: string | null
 export function ClienteFichaPage() {
   const { codigo } = useParams<{ codigo: string }>()
   const navigate = useNavigate()
+  // Mientras mande GeminisWin en esta área, la ficha es solo de consulta (lib/areaDueno.ts).
+  const soloConsulta = useSoloConsulta('clientes')
   const isNew = codigo === 'nuevo'
 
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>(isNew ? 'alta' : 'consulta')
@@ -322,6 +325,7 @@ export function ClienteFichaPage() {
       </div>
 
       <GwRecordBar
+        soloConsulta={soloConsulta}
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}

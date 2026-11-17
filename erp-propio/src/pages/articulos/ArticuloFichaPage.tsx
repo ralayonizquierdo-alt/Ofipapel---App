@@ -7,6 +7,7 @@ import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
 import { gwBuscarPorInicio, gwConCeros, useListaOrdenada, type GwListaColumna, type GwListaOrdenadaDef } from '../../components/gw/GwListaOrdenada'
 import { ArticulosDe } from '../almacen/piezas'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
+import { useSoloConsulta } from '../../lib/areaDueno'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { type Articulo, type ArticuloPrecioNivel, emptyArticulo, NIVELES_TARIFA } from './types'
 import { COSTE_FIELDS, aplicarCambioNivel, costeBase, recalcularTodos, type NivelPatch } from './pricing'
@@ -141,6 +142,8 @@ type Lookup = 'marca' | 'proveedor' | 'familia' | 'buscar' | 'compra' | 'barras'
 export function ArticuloFichaPage() {
   const { codigo } = useParams<{ codigo: string }>()
   const navigate = useNavigate()
+  // Mientras mande GeminisWin en esta área, la ficha es solo de consulta (lib/areaDueno.ts).
+  const soloConsulta = useSoloConsulta('articulos')
   const isNew = codigo === 'nuevo'
 
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>(isNew ? 'alta' : 'consulta')
@@ -651,6 +654,7 @@ export function ArticuloFichaPage() {
       </div>
 
       <GwRecordBar
+        soloConsulta={soloConsulta}
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}

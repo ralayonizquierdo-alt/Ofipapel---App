@@ -63,6 +63,39 @@ PC de la oficina que no se apague, con acceso de lectura a la carpeta de Geminis
 - **Falta**: la primera medida en el PC de Mónica (`--medir`, que no envía nada) para confirmar nombres de
   fichero y campos; detectar lo que GeminisWin borra; la pantalla de control; las tandas 2 a 5.
 
+### La medida real (17/11/2026, PC de Mónica)
+`--ping` y `--medir` funcionaron: 22 de 24 ficheros encontrados, todos con sus campos de clave. Dos se
+llamaban distinto (`provincias.dbf`, `repartidor.dbf`), ya corregido.
+
+| Fichero | Registros |
+|---|---|
+| ARTICALM (stock por almacén) | 381.022 |
+| ARTPROV (referencias de proveedor) | 243.196 |
+| ARTDPROV (datos de compra por proveedor) | 200.825 |
+| ARTBARRA (códigos de barras) | 185.014 |
+| ARTICULO | 142.670 |
+| CLIENTES | 13.609 |
+| CLIENART (precios especiales cliente-artículo) | 6.587.281 |
+
+Consecuencias, ya hechas:
+- **Cargar solo lo que cambia** (`20261117_espejo_incremental.sql`): las cargas de las tablas grandes leen
+  solo las filas llegadas desde la última vez. Medido con la muestra: 9 s por cada 2.000 artículos la
+  primera vez; 0,2 s cuando no hay cambios.
+- **El programa envía según lee** y pide la carga cada 4.000 registros: ni llena la memoria del PC ni hay
+  cargas largas. Si se corta, sigue donde se quedó.
+- **CLIENART queda fuera** por ahora: 6,5 millones de registros (881 MB). Habrá que traer solo los precios
+  vigentes.
+- **Pendiente de vigilar:** cada cambio de stock en GeminisWin entra en el ERP como un movimiento de ajuste.
+  Con el stock actualizándose cada pocos minutos serán muchos movimientos al año; se revisa en la tanda 3.
+
+### Áreas de solo consulta (`20261117_areas_solo_consulta.sql`)
+Mientras GeminisWin sea el dueño de un área, en el ERP se consulta pero no se cambia: lo rechaza la base de
+datos y la ficha lo avisa y apaga Nuevo, Modificar y Eliminar. Áreas: artículos, clientes, proveedores y
+stock (ventas, cobros y caja, con la tanda 2). Siguen editables los campos propios del ERP: stock mínimo y
+máximo del artículo, pedido mínimo y días de entrega del proveedor; la carga ya no los pisa si el ERP tiene
+valor. **Empiezan abiertas** y se cierran al terminar la primera carga; después se irán abriendo una a una
+(`fn_area_poner`), con su fecha.
+
 ## 4. Las tandas
 
 Cada tanda se puede usar en cuanto termina; no hay que esperar a la siguiente.

@@ -47,14 +47,14 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 # El orden es el de dependencias: primero lo que otros necesitan.
 TABLAS = [
     ('PAISES', 'PAISES', ['CODIGO']),
-    ('PROVINCIAS', 'PROVINCI', ['CODIGO']),
+    ('PROVINCIAS', 'PROVINCIAS', ['CODIGO']),
     ('FOMA', 'FOMA', ['FORMA_COD']),
     ('ALMACEN', 'ALMACEN', ['CODALMAC']),
     ('OFICINA', 'OFICINA', ['OFICINA']),
     ('ZONATERR', 'ZONATERR', ['ZONATERRIT']),
     ('RUTAS', 'RUTAS', ['IDRUTA']),
     ('RUTAZONA', 'RUTAZONA', ['IDRUTA', 'IDZONA']),
-    ('REPARTIDOR', 'REPARTID', ['IDREPARTID']),
+    ('REPARTIDOR', 'REPARTIDOR', ['IDREPARTID']),
     ('RUTAREPA', 'RUTAREPA', ['IDRUTA', 'IDREPARTID']),
     ('VENDEDOR', 'VENDEDOR', ['IDVENDEDOR']),
     ('TRANSPOR', 'TRANSPOR', ['CODIGO']),
@@ -77,12 +77,14 @@ POR_DEFECTO = {
     # Se busca cada fichero en estas carpetas, por orden.
     'carpetas': [r'\\SERVER-OFIPAPEL\GEMINISW\GW002024', r'\\SERVER-OFIPAPEL\GEMINISW'],
     'url': 'https://sufxvpiwcncnyltrvoun.supabase.co/functions/v1/espejo-gw-ingesta',
-    'lote_filas': 400,            # registros por envío
-    'lote_bytes': 1500000,        # y tope de tamaño de cada envío
-    'max_registros': 400000,      # un maestro con más registros que esto no se lee (algo va mal)
+    'lote_filas': 3000,           # registros por envío, como mucho…
+    'lote_bytes': 1200000,        # …y tope de tamaño de cada envío (manda el que se alcance antes)
+    'cargar_cada': 4000,          # cada cuántos registros enviados se pide al ERP que los pase a sus tablas
+    'max_registros': 600000,      # un maestro con más registros que esto no se lee (algo va mal)
     'ficheros': {},               # para corregir un nombre de fichero: {"PROVINCIAS": "PROVINCIAS"}
     'claves': {},                 # para corregir los campos de la clave: {"FOMA": ["FORMA_COD"]}
-    'saltar': [],                 # tablas que no se quieren traer
+    # CLIENART (precios especiales por cliente y artículo) tiene 6,5 millones de registros: no se trae así.
+    'saltar': ['CLIENART'],       # tablas que no se quieren traer
 }
 
 
@@ -344,42 +346,64 @@ def pasada(cfg, clave, todo=False, solo=None):
                 resumen.append(f'{tabla}: {d.n} registros, más de los esperados: no se lee')
                 continue
             conocidas = dict(con.execute('select clave, huella from registro where tabla = ?', (tabla,)))
-            cambios, nuevas_huellas, vistos = [], [], 0
-            for reg in d.registros():
-                vistos += 1
-                k = clave_de(reg, campos_clave)
-                h = hashlib.md5(json.dumps(reg, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
-                if conocidas.get(k) != h:
-                    cambios.append({'c': k, 'd': reg})
-                    nuevas_huellas.append((tabla, k, h))
-            enviados, fallo = 0, None
-            i = 0
-            while i < len(cambios):
-                lote, peso = [], 0
-                while i < len(cambios) and len(lote) < cfg['lote_filas'] and peso < cfg['lote_bytes']:
-                    lote.append(cambios[i])
-                    peso += len(json.dumps(cambios[i], ensure_ascii=False))
-                    i += 1
-                r = llamar(cfg, clave, {'tabla': tabla, 'filas': lote, 'equipo': equipo})
-                if not r.get('ok'):
-                    fallo = r.get('error', 'error desconocido')
-                    break
-                enviados += len(lote)
-                # La huella se guarda solo de lo que el ERP ha confirmado: si se corta, se reenvía el resto.
-                con.executemany('insert or replace into registro (tabla, clave, huella) values (?, ?, ?)', nuevas_huellas[enviados - len(lote):enviados])
-                con.commit()
-            if fallo:
-                resumen.append(f'{tabla}: {enviados} de {len(cambios)} enviados; se cortó: {fallo}')
-                continue
-            if cambios or por_cargar:
+            # Se va enviando según se lee (un fichero grande no cabe entero en memoria) y, cada cierto número
+            # de registros, se pide al ERP que los pase a sus tablas: así ninguna carga es larga.
+            vistos = enviados = sin_cargar = 0
+            lote, huellas, peso, fallo = [], [], 0, None
+
+            def cargar():
                 con.execute('insert or ignore into pendiente (tabla) values (?)', (tabla,))
                 con.commit()
                 r = llamar(cfg, clave, {'procesar': tabla, 'equipo': equipo}, espera=600)
                 if not r.get('ok'):
-                    resumen.append(f'{tabla}: {len(cambios)} enviados, pero el ERP no pudo cargarlos (se reintenta en la siguiente pasada): {r.get("error")}')
-                    continue
+                    return r.get('error', 'error desconocido')
                 con.execute('delete from pendiente where tabla = ?', (tabla,))
-                resumen.append(f'{tabla}: {vistos} registros, {len(cambios)} nuevos o cambiados')
+                con.commit()
+                return None
+
+            def enviar():
+                r = llamar(cfg, clave, {'tabla': tabla, 'filas': lote, 'equipo': equipo})
+                if not r.get('ok'):
+                    return r.get('error', 'error desconocido')
+                # La huella se guarda solo de lo que el ERP ha confirmado: si se corta, se reenvía el resto.
+                con.executemany('insert or replace into registro (tabla, clave, huella) values (?, ?, ?)', huellas)
+                con.execute('insert or ignore into pendiente (tabla) values (?)', (tabla,))
+                con.commit()
+                return None
+
+            for reg in d.registros():
+                vistos += 1
+                k = clave_de(reg, campos_clave)
+                texto = json.dumps(reg, sort_keys=True, ensure_ascii=False)
+                h = hashlib.md5(texto.encode('utf-8')).hexdigest()
+                if conocidas.get(k) == h:
+                    continue
+                lote.append({'c': k, 'd': reg})
+                huellas.append((tabla, k, h))
+                peso += len(texto)
+                if len(lote) >= cfg['lote_filas'] or peso >= cfg['lote_bytes']:
+                    fallo = enviar()
+                    if fallo:
+                        break
+                    enviados += len(lote)
+                    sin_cargar += len(lote)
+                    lote, huellas, peso = [], [], 0
+                    if sin_cargar >= cfg['cargar_cada']:
+                        fallo = cargar()
+                        if fallo:
+                            break
+                        sin_cargar = 0
+            if not fallo and lote:
+                fallo = enviar()
+                if not fallo:
+                    enviados += len(lote)
+            if not fallo and (enviados or por_cargar):
+                fallo = cargar()
+            if fallo:
+                resumen.append(f'{tabla}: {enviados} enviados de {vistos} leídos; se cortó (sigue en la siguiente pasada): {fallo}')
+                continue
+            if enviados:
+                resumen.append(f'{tabla}: {vistos} registros, {enviados} nuevos o cambiados')
             con.execute('insert or replace into fichero (tabla, tamano, fecha) values (?, ?, ?)', (tabla, d.tamano, d.fecha))
             con.commit()
         finally:

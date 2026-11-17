@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { textoRegistro, useNavRegistro, type NavDir, type NavFiltro } from '../../components/gw/useNavRegistro'
 import { GwField, GwInput, GwTabs, type GwTabDef } from '../../components/gw'
 import { GwRecordBar } from '../../components/gw/GwRecordBar'
+import { useSoloConsulta } from '../../lib/areaDueno'
 import { GwLookupDialog } from '../../components/gw/GwLookupDialog'
 import { GwOperativa, type BloqueOperativa } from '../../components/gw/GwOperativa'
 import { GwCampoBusqueda } from '../../components/gw/GwCampoBusqueda'
@@ -109,6 +110,8 @@ export function ProveedorFichaPage() {
   const base = '/proveedores'
   const { codigo } = useParams<{ codigo: string }>()
   const navigate = useNavigate()
+  // Mientras mande GeminisWin en esta área, la ficha es solo de consulta (lib/areaDueno.ts).
+  const soloConsulta = useSoloConsulta('proveedores')
   const isNew = codigo === 'nuevo'
 
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>(isNew ? 'alta' : 'consulta')
@@ -395,6 +398,7 @@ export function ProveedorFichaPage() {
       </div>
 
       <GwRecordBar
+        soloConsulta={soloConsulta}
         mode={mode}
         canNavigate={canNavigate}
         saving={saving}
