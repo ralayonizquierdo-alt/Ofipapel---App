@@ -95,12 +95,27 @@ const base = import.meta.env.BASE_URL
  * Qué hay que hacer con el albarán, a la vista en la lista sin abrir el pedido (Rober, 17/11/2026):
  * crédito → revisar y firmar; contado ya pagado → solo revisar; contado sin pagar → revisar y cobrar.
  * Cuando el repartidor ya ha pagado la factura en administración y GeminisWin la da por liquidada, no
- * queda nada que hacer: pone «Liquidado» (Rober, 17/11/2026).
+ * queda nada que hacer: pone «Liquidada» (Rober, 17/11/2026).
+ * Manda la forma de pago, no solo la marca de contado (Rober y David, 17/11/2026): una venta puede ir
+ * como contado en GeminisWin y pagarse por el banco.
  */
 const AZUL = '#1f6fb2'
-function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string }): [string, string] | null {
-  if (l.estado === 'liquidado') return ['Liquidado', AZUL]
-  if (l.contado === false) return ['Revisar y firmar', AZUL]
+/**
+ * Cómo se paga, por el texto de la forma de pago de GeminisWin: remesa y transferencia (y confirming,
+ * pagaré o crédito) las paga el cliente por el banco y no se cobran en la entrega; Bizum es que ya está
+ * pagada; lo demás (contado, contra reembolso…) se cobra en mano si queda algo pendiente.
+ */
+function tipoPago(forma?: string | null): 'banco' | 'pagada' | 'mano' {
+  const f = (forma ?? '').toLowerCase()
+  if (f.includes('bizum')) return 'pagada'
+  if (/remesa|transfer|confirming|pagar[eé]|cr[eé]dito|efecto/.test(f)) return 'banco'
+  return 'mano'
+}
+function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null }): [string, string] | null {
+  if (l.estado === 'liquidado') return ['Liquidada', AZUL]
+  const tipo = tipoPago(l.forma_pago)
+  if (tipo === 'pagada') return ['Solo revisar · Pagado', V.verdeMed]
+  if (l.contado === false || tipo === 'banco') return ['Revisar y firmar', AZUL]
   if (l.total == null) return null
   if (l.pagado != null && l.total - l.pagado > 0.005) return ['Revisar y cobrar', V.rojo]
   return ['Solo revisar · Pagado', V.verdeMed]
@@ -412,7 +427,7 @@ export function RepartoApp() {
 // ------------------------------------------------------------------ Oficina: todas las rutas (solo lectura)
 const ESTADO_OFI: Record<LineaOficina['estado'], [string, string]> = {
   entregado: ['Entregado', V.verdeMed],
-  liquidado: ['Liquidado', AZUL],
+  liquidado: ['Liquidada', AZUL],
   incidencia: ['Entregado con incidencia', V.naranja],
   no_entregado: ['NO entregado', V.rojo],
   pendiente: ['Pendiente', V.gris],
@@ -1555,7 +1570,7 @@ function Lista({
                 {marcado && (
                   <div style={{ fontSize: 12, color }}>
                     {l.estado === 'liquidado'
-                      ? `Liquidado en administración${l.entregado_en ? ' · entregado ' + hora(l.entregado_en) : ''}`
+                      ? `Liquidada en administración${l.entregado_en ? ' · entregado ' + hora(l.entregado_en) : ''}`
                       : l.estado === 'no_entregado'
                       ? `No entregado${l.intento1 ? ' · ' + hora(l.intento1) : ''}${l.intento2 ? ' y ' + hora(l.intento2) : ''}`
                       : `${l.incidencia ? 'Con incidencia' : 'Entregado'}${l.entregado_en ? ' · ' + hora(l.entregado_en) : ''}`}
@@ -1579,10 +1594,15 @@ function Lista({
                   {l.factura ? `Factura ${l.factura} · ` : `Albarán ${l.vt}/${l.vn} · `}
                   {euros(l.total)}
                   {l.estado === 'liquidado' ? (
-                    ' · liquidado'
+                    ' · liquidada'
+                  ) : tipoPago(l.forma_pago) === 'pagada' ? (
+                    ' · pagado por Bizum'
                   ) : l.contado === false ? (
                     // GeminisWin, venta a crédito: no se cobra en la entrega, solo se firma el albarán.
                     ' · crédito: solo firmar'
+                  ) : tipoPago(l.forma_pago) === 'banco' ? (
+                    // Marcada como contado, pero la paga el cliente por el banco (remesa, transferencia…).
+                    ` · ${l.forma_pago}: no se cobra, solo firmar`
                   ) : l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? (
                     <b style={{ color: l.contado ? V.rojo : undefined }}>
                       {' · '}
