@@ -275,6 +275,8 @@ Como en Alquileres: todas las apps del hub guardan copia de seguridad.
 - El correo lo manda la función `netlify/functions/vacaciones-copia-correo.js` (Resend, `RESEND_API_KEY`
   en el sitio `ofipapel`), solo con el token de una sesión de esta app (proyecto `ofipapelvv`, con
   contraseña) y siempre a los mismos dos correos.
+- El sitio `ofipapel` de Netlify no tiene `RESEND_API_KEY` (comprobado el 17/11/2026: la copia se descargaba y el correo
+  no llegaba). Si la función contesta eso, la app la manda por `spontaneous-lebkuchen-60fa41.netlify.app`, que sí la tiene.
 
 ## Guía de la pantalla: qué hace cada parte
 
