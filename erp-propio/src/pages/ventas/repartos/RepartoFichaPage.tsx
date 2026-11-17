@@ -174,9 +174,7 @@ async function cargarLineas(tienda: string, numero: number): Promise<Linea[]> {
     .select('*')
     .eq('tienda_terminal_codigo', tienda)
     .eq('numero', numero)
-    // Mismo orden que ve el repartidor en su app (Rober, 17/11/2026): primero lo que viene de un reparto
-    // anterior, después el orden de entrega y, a igualdad, población y dirección.
-    .order('reparto_anterior_numero', { ascending: true, nullsFirst: false })
+    // El orden del repartidor manda en todas las pantallas (Rober, 17/11/2026): solo «orden».
     .order('orden', { ascending: true, nullsFirst: false })
     .order('poblacion')
     .order('direccion')

@@ -22,7 +22,8 @@ export interface RutaSeg {
   pendientes: number
   comprobados: number
   posicion: { lat: number; lng: number; en: string } | null
-  puntos: { lat: number; lng: number; estado: string }[]
+  /** Dónde estaba el repartidor al marcar cada pedido, con el cliente y la hora. */
+  puntos: { lat: number; lng: number; estado: string; cliente?: string | null; hora?: string | null }[]
   /** Un elemento por pedido (marcados por hora y luego los que quedan): estado y hora de entrega o del intento. */
   pedidos?: { e: 'entregado' | 'incidencia' | 'no_entregado' | 'pendiente'; h: string | null }[]
 }
@@ -408,7 +409,17 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
       const color = COLORES_RUTA[i % COLORES_RUTA.length]
       for (const p of r.puntos) {
         const c = p.estado === 'no_entregado' ? C.rojo : p.estado === 'incidencia' ? C.naranja : C.verdeCl
-        L.circleMarker([p.lat, p.lng], { radius: tv ? 7 : 5, color: '#fff', weight: 1.5, fillColor: c, fillOpacity: 0.95 }).addTo(g)
+        // Al pulsar el punto: qué pedido se marcó ahí, cómo quedó y a qué hora (Rober, 17/11/2026).
+        const que = p.estado === 'no_entregado' ? 'No entregado' : p.estado === 'incidencia' ? 'Entregado con incidencia' : 'Entregado'
+        const caja = document.createElement('div')
+        caja.style.cssText = 'font:14px Inter,sans-serif;line-height:1.35'
+        const nombre = document.createElement('b')
+        nombre.textContent = p.cliente ?? 'Pedido'
+        const detalle = document.createElement('div')
+        detalle.style.color = c === C.verdeCl ? '#1f7a1f' : c
+        detalle.textContent = `${que}${p.hora ? ' · ' + p.hora : ''} · ${r.repartidor_nombre ?? ''}`
+        caja.append(nombre, detalle)
+        L.circleMarker([p.lat, p.lng], { radius: tv ? 7 : 6, color: '#fff', weight: 1.5, fillColor: c, fillOpacity: 0.95 }).bindPopup(caja).addTo(g)
       }
       if (r.posicion && r.estado === 2) {
         const icono = L.divIcon({
