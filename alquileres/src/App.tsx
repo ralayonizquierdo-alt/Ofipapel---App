@@ -12,6 +12,7 @@ import PreguntarApp from './components/PreguntarApp'
 import AvisoSolapes from './components/AvisoSolapes'
 import AvisoConformidades from './components/AvisoConformidades'
 import AvisoBooking from './components/AvisoBooking'
+import CopiaAutomatica from './components/CopiaAutomatica'
 import AvisoVersion from './components/AvisoVersion'
 import BotonVolver from './components/BotonVolver'
 import { solapes } from './lib/solapes'
@@ -421,6 +422,8 @@ export default function App() {
               la calla hasta la próxima vez. Después de la de pisadas. */}
           {rol === 'gestion' && <AvisoConformidades esperar={!solapesVistos && solapes(reservations).length > 0}
             onCerrar={() => setConformidadesVistas(true)} />}
+          {/* Cada 15 días, la copia de seguridad sola: Descargas y correo. */}
+          {rol === 'gestion' && <CopiaAutomatica />}
           {/* Una vez al mes, apuntar lo que publica Booking. La última. */}
           {rol === 'gestion' && <AvisoBooking esperar={
             (!solapesVistos && solapes(reservations).length > 0)

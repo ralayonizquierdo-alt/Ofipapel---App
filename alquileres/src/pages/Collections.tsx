@@ -629,7 +629,9 @@ export default function Collections() {
           const qTransf = Math.round((qTotal - qEfectivo) * 100) / 100
           const qIGIC = calcIGIC(qTotal)
           return (
-            <div key={key} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full">
+            // Al imprimir, cada trimestre en su hoja (index.css, `hoja-nueva`).
+            <div key={key} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-clip w-max min-w-full ${
+              key === bloques[0].key ? '' : 'hoja-nueva'}`}>
               <div className="flex items-center justify-between px-5 py-3 bg-slate-700">
                 <h3 className="font-semibold text-white">{label}</h3>
                 <div className="text-right">
@@ -1397,7 +1399,7 @@ function CobrosPorReserva({ year, filterApt, apartments, reservations, payments,
                             al 03/11 son 11 noches, no las 9 de octubre). Lo
                             que cae en este mes va debajo, en pequeño, igual
                             que el importe. */}
-                        <CeldaDesglose reserva={r} onClick={() => onCuadre(r)}
+                        <CeldaDesglose reserva={r} onClick={() => onCuadre(r)} desglose={false}
                           className={`${celda} text-right cursor-pointer hover:bg-blue-50 ${l.vieneDeAntes ? 'text-slate-400' : 'text-slate-600'}`}>
                           {r.nights}-N
                           <span className="block text-[10px] text-slate-400 font-normal">

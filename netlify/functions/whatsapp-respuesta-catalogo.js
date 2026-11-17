@@ -297,6 +297,11 @@ const ES_UNA_INCIDENCIA = [
   /\brot[oa]s?\b/, /\bda[nñ]ad/, /\bdeteriorad/, /\bdefectuos/, /\bmojad[oa]s?\b/, /\bgolpead/,
   /\bvino mal\b/, /\bviene mal\b/, /\bvinieron mal\b/, /\best[aá] mal\b/, /\best[aá]n mal\b/,
   /\bequivocad/, /\bno es lo que\b/, /\bno era lo que\b/,
+  // Lo que llegó bien y se estropeó o no va: «la plastificadora que compré no
+  // funciona» (17/11/2026, salió al escribir probar-limite-ia.js). No pisa al
+  // fallo de la web —«la web no me deja pagar» se comprueba antes y tiene su
+  // propio camino—, y es el mismo caso: lo ve una persona.
+  /\bno funciona\b/, /\bdej[oó] de funcionar\b/, /\bno va\b/,
   // Mercancía que no llegó
   /\bno (?:me )?(?:ha|han) llegado\b/, /\bno (?:me )?lleg[oó]\b/, /\bsin llegar\b/,
   /\bno (?:lo |la |los |las )?he recibido\b/, /\bno recib[ií]\b/,

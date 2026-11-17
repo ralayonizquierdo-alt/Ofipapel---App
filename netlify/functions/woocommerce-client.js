@@ -1061,8 +1061,41 @@ async function getOrder(orderId) {
 // cliente: `{ order, motivo }` con motivo 'ok', 'no-existe' o 'no-se-pudo'.
 // Decirle «no existe» a quien tiene el pedido delante es peor que decirle que
 // ahora mismo no se puede comprobar.
+// CUANDO LA WEB NO CONTESTA, SE LE PREGUNTA OTRA VEZ (16/11/2026).
+//
+// Conversación real de esa madrugada:
+//
+//   cliente: «685025»
+//   bot:     «Ahora mismo no puedo comprobar tu pedido: nuestra web no me
+//             contesta...»
+//   cliente: «685025»          (35 segundos después)
+//   bot:     «Para confirmar que el pedido es tuyo, dime el nombre...»
+//
+// El mismo número, la misma web, dos respuestas distintas. La primera consulta
+// se pasó de los 6 segundos y la segunda contestó sin problema: un tropezón de
+// la web, no un pedido que no estuviera. Pero el cliente ya había recibido un
+// «no puedo comprobarlo» — y, encima, tuvo que escribir el número dos veces.
+//
+// Un reintento lo tapa. Se hace SOLO aquí (no en `wcRequest`, que la usan
+// veintitantos sitios, muchos dentro del turno con la IA y el catálogo, donde
+// duplicar la espera sí se nota): esta consulta es un camino corto —sin IA y
+// sin búsqueda de productos— así que caben holgadamente dos intentos.
+//
+// Y NUNCA se reintenta un 404: ahí la web ha contestado perfectamente, y lo que
+// ha dicho es que ese pedido no está. Preguntárselo otra vez no cambia nada y
+// retrasa la respuesta.
+const ESPERA_ANTES_DE_REINTENTAR_MS = 300;
+
 async function getOrderConMotivo(orderId) {
-  const { data, motivo } = await wcRequestDetallado(`/orders/${encodeURIComponent(orderId)}`);
+  const ruta = `/orders/${encodeURIComponent(orderId)}`;
+  let { data, motivo } = await wcRequestDetallado(ruta);
+
+  if (motivo === MOTIVO.NO_SE_PUDO && isConfigured()) {
+    console.error(`WooCommerce no contestó por el pedido ${orderId}; se reintenta una vez.`);
+    await new Promise((r) => setTimeout(r, ESPERA_ANTES_DE_REINTENTAR_MS));
+    ({ data, motivo } = await wcRequestDetallado(ruta));
+  }
+
   return { order: data, motivo };
 }
 
@@ -1168,8 +1201,26 @@ function normalizeNombre(s) {
     .trim();
 }
 
-// La forma jurídica no identifica a nadie: media Canarias es «SL».
-const FORMA_JURIDICA = new Set(['sl', 'slu', 'sa', 'sau', 'sl', 'sll', 'srl', 'scp', 'sc', 'cb', 'ltd', 'inc', 'sociedad', 'limitada']);
+// Palabras que, ellas solas, no identifican a nadie.
+//
+// La forma jurídica es el caso evidente: media Canarias es «SL». Pero con la
+// regla de abajo —basta UNA palabra del nombre— hay más: decir «restaurante» o
+// «tenerife» no dice quién eres, y son justo las palabras que alguien soltaría
+// al azar. Las de menos de 4 letras ya quedan fuera por longitud («bar», «el»).
+const NO_IDENTIFICA = new Set([
+  // forma jurídica
+  'slu', 'sau', 'sll', 'srl', 'scp', 'ltd', 'inc',
+  'sociedad', 'limitada', 'cooperativa', 'comunidad', 'bienes',
+  // el oficio
+  'restaurante', 'cafeteria', 'cafe', 'pizzeria', 'hotel', 'hostal', 'kiosco',
+  'panaderia', 'pasteleria', 'farmacia', 'peluqueria', 'supermercado', 'super',
+  'tienda', 'taller', 'clinica', 'colegio', 'escuela', 'academia', 'guarderia',
+  'asesoria', 'gestoria', 'despacho', 'oficina', 'centro', 'grupo', 'comercial',
+  'servicios', 'suministros', 'distribuciones', 'construcciones', 'hermanos',
+  // dónde está
+  'canarias', 'tenerife', 'gomera', 'palma', 'palmas', 'hierro', 'lanzarote',
+  'fuerteventura', 'laguna', 'cruz', 'santa', 'puerto', 'playa', 'isla', 'islas',
+]);
 
 function nombreCoincide(input, order) {
   const normInput = normalizeNombre(input);
@@ -1180,7 +1231,16 @@ function nombreCoincide(input, order) {
   ]
     .map(normalizeNombre)
     .filter(Boolean);
-  if (candidatos.some((c) => c.includes(normInput) || normInput.includes(c))) return true;
+  // El cliente dice el nombre ENTERO (puede ir dentro de una frase): es la
+  // comprobación más fuerte y pasa directa.
+  //
+  // Lo que había aquí también y se ha quitado: `c.includes(normInput)`, o sea
+  // que valía CUALQUIER trozo del nombre del pedido. Con «RESTAURANTE EL BOTE
+  // SL» verificaban «restaurante», «el», «sl»... palabras que no dicen quién
+  // eres. Se vio al escribir las pruebas del 16/11/2026, y era el agujero de
+  // verdad: lo sustituye la regla de abajo, que mira palabras enteras y exige
+  // que la palabra identifique.
+  if (candidatos.some((c) => normInput.includes(c))) return true;
 
   // EL NOMBRE PUEDE VENIR DENTRO DE UNA FRASE (16/11/2026).
   //
@@ -1197,14 +1257,29 @@ function nombreCoincide(input, order) {
   // que el bot le pidió el dato que acababa de darle — y de ahí en adelante la
   // conversación se torció entera.
   //
-  // Se comparan PALABRAS. Tienen que estar TODAS las que identifican de verdad
-  // (las de 4 letras o más, sin la forma jurídica): con «Juan García» no basta
-  // con decir «garcía». Esto no afloja la verificación, la hace entender al
-  // cliente que contesta como contesta la gente.
+  // Se comparan PALABRAS, y basta con UNA que identifique de verdad (4 letras o
+  // más y que no sea de las que no dicen nada: ver NO_IDENTIFICA).
+  //
+  // ESCRIBIR DE MÁS NO PUEDE SALIR PEOR QUE ESCRIBIR DE MENOS (16/11/2026).
+  //
+  // La primera versión exigía TODAS las palabras, y con eso la regla se
+  // contradecía a sí misma. Con un pedido a nombre de «László Bogár»:
+  //
+  //   «bogar»         → valía      (lo deja pasar el `includes` de arriba)
+  //   «Laszno bogar»  → NO valía   (el nombre entero, con una letra cambiada)
+  //
+  // Visto en real esa madrugada: el cliente escribió su nombre completo, con
+  // una errata, y se quedó sin su pedido — cuando decir solo el apellido le
+  // habría servido. Es la misma forma del fallo de las referencias («TN247»
+  // buscaba mejor que «TN-247»): cuanto mejor lo haces, peor te va.
+  //
+  // Así que la comprobación es la que ya había de hecho —una palabra suya— pero
+  // aplicada igual siempre, en vez de depender de si la frase encaja entera
+  // como subcadena. Decisión del propietario, 16/11/2026.
   const palabrasDelMensaje = new Set(normInput.split(' '));
   return candidatos.some((c) => {
-    const propias = c.split(' ').filter((w) => w.length >= 4 && !FORMA_JURIDICA.has(w));
-    return propias.length > 0 && propias.every((w) => palabrasDelMensaje.has(w));
+    const propias = c.split(' ').filter((w) => w.length >= 4 && !NO_IDENTIFICA.has(w));
+    return propias.some((w) => palabrasDelMensaje.has(w));
   });
 }
 

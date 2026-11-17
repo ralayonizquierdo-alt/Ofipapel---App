@@ -18,6 +18,16 @@
   main, section, div, table { overflow: visible !important; max-height: none !important; }
 
   /*
+   * Cada listado por hojas, no uno detrás de otro (Luis, 16/11/2026: «que no
+   * salgan los listados consecutivos sino cada página en una hoja de A4»).
+   * `hoja-nueva` empieza una hoja: cada temporada y cada oferta en Precios, cada
+   * trimestre en Cobros. Y nunca se parte una fila ni un recuadro entre dos
+   * hojas (la oferta de octubre salía con el título en una y la tabla en otra).
+   */
+  .hoja-nueva { break-before: page; page-break-before: always; }
+  tr, .rounded-xl, .rounded-lg { break-inside: avoid; page-break-inside: avoid; }
+
+  /*
    * Una ficha que se imprime sola.
    *
    * La ficha de cuadre de una estancia se manda a la agencia como recibo

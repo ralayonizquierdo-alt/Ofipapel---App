@@ -307,6 +307,29 @@ function mensajeFalloDeLaWeb(idioma = 'es') {
   return idioma === 'en' ? FALLO_WEB_INFO_EN : FALLO_WEB_INFO;
 }
 
+// UNA INCIDENCIA NO LA CONTESTA EL BOT (17/11/2026, decisión del propietario).
+//
+// Mercancía que ya tiene el cliente y vino rota, no llegó, o quiere devolver.
+// Hasta ahora lo redactaba la IA: de las 10 preguntas de esta clase que hace el
+// sondeo, las 10. Y es justo donde no tenemos el dato —no hay en el bot ni una
+// línea sobre garantías, plazos de devolución o quién paga el porte—, así que
+// cada respuesta era la IA improvisando una condición de venta.
+//
+// Mismo trato que el fallo de la web, que es el caso hermano: se le dice la
+// verdad, se le pide lo único que de verdad ayuda a quien lo vaya a mirar, y se
+// avisa al equipo. Sin botones: no hay nada que preguntarle, esto va a una
+// persona sí o sí.
+const INCIDENCIA_INFO =
+  'Siento el problema. Esto no lo resuelvo yo desde aquí: se lo paso a una persona del equipo con lo que me cuentas. ' +
+  'Si puedes, dime el número de pedido y mándame una foto de lo que te ha llegado — así lo ven enseguida y no te lo preguntan otra vez.';
+const INCIDENCIA_INFO_EN =
+  "I'm sorry about that. I can't sort this out from here: I'm passing it to someone on the team with what you've told me. " +
+  'If you can, send me your order number and a photo of what arrived — that way they can see it straight away and won\'t have to ask you again.';
+
+function mensajeIncidencia(idioma = 'es') {
+  return idioma === 'en' ? INCIDENCIA_INFO_EN : INCIDENCIA_INFO;
+}
+
 // «¿ES CORRECTA ESTA DIRECCIÓN?» — UNA PREGUNTA QUE EL BOT SABE CONTESTAR.
 //
 // Visto en real el 4/11/2026. Fabiana escribió:
@@ -2258,6 +2281,7 @@ module.exports = {
   pidioHablarConAlguien,
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
+  mensajeIncidencia,
   preguntaSiEsNuestroCorreo,
   avisaQueEscribioA,
   mensajeSobreElCorreo,

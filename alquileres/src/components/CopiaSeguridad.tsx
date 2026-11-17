@@ -1,40 +1,31 @@
 import { useState } from 'react'
 import { Download, ShieldCheck, AlertTriangle } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
-import { descargaCopia, diasDesde, ultimaCopia, apuntaCopia, DIAS_ENTRE_COPIAS } from '../lib/copia'
+import { diasDesde, ultimaCopia, DIAS_ENTRE_COPIAS, registrosDe } from '../lib/copia'
+import { datosDeCopia, haceCopia, useEstadoCopia } from '../lib/copiaAutomatica'
 import { numSuelto } from '../lib/formato'
 
+/**
+ * La copia de seguridad en Apartamentos. Cada 15 días se hace sola al abrir la
+ * app (components/CopiaAutomatica.tsx); este botón la hace cuando se quiera.
+ * Las dos cosas hacen lo mismo: descargarla y mandarla por correo.
+ */
 export default function CopiaSeguridad() {
   const datos = useData()
-  const [ultima, setUltima] = useState<string | null>(ultimaCopia())
-  const [nombre, setNombre] = useState('')
+  const estado = useEstadoCopia()
+  const [haciendo, setHaciendo] = useState(false)
+  const [resultado, setResultado] = useState('')
 
+  const ultima = estado?.ultima ?? ultimaCopia()
   const dias = diasDesde(ultima)
   const toca = dias === null || dias >= DIAS_ENTRE_COPIAS
 
-  function descargar() {
-    const n = descargaCopia({
-      apartments: datos.apartments,
-      prices: datos.prices,
-      reservations: datos.reservations,
-      payments: datos.payments,
-      repairs: datos.repairs,
-      deletedRepairs: datos.deletedRepairs,
-      expenses: datos.expenses,
-      offerPrices: datos.offerPrices,
-      incomes: datos.incomes,
-      occupancies: datos.occupancies,
-      repairTotals: datos.repairTotals,
-      importLogs: datos.importLogs,
-    })
-    const ahora = new Date().toISOString()
-    apuntaCopia(ahora)
-    setUltima(ahora)
-    setNombre(n)
+  async function hacer() {
+    setHaciendo(true)
+    const r = await haceCopia(datosDeCopia(datos), ultima)
+    setResultado(`Descargado ${r.nombre}; ${r.correo}.`)
+    setHaciendo(false)
   }
-
-  const total = datos.reservations.length + datos.payments.length + datos.repairs.length +
-                datos.expenses.length + datos.incomes.length
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
@@ -47,13 +38,13 @@ export default function CopiaSeguridad() {
             Copia de seguridad
           </h2>
           <p className="text-xs text-slate-500 mt-1 max-w-md">
-            Descarga todos los datos en un fichero. Lo borrado en Firebase no se puede
-            recuperar, así que conviene guardar una copia cada {DIAS_ENTRE_COPIAS} días.
+            Cada {DIAS_ENTRE_COPIAS} días se hace sola al abrir la app: se guarda en Descargas y se manda por correo
+            a la oficina. Con el botón se hace cuando quieras.
           </p>
         </div>
-        <button onClick={descargar}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shrink-0">
-          <Download size={16} /> Descargar copia
+        <button onClick={hacer} disabled={haciendo}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shrink-0 disabled:opacity-60">
+          <Download size={16} /> {haciendo ? 'Haciendo la copia…' : 'Hacer copia ahora'}
         </button>
       </div>
 
@@ -61,24 +52,17 @@ export default function CopiaSeguridad() {
         toca ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'
       }`} translate="no">
         {dias === null
-          ? 'No consta ninguna copia hecha desde este navegador.'
+          ? 'No consta ninguna copia'
           : dias === 0
-            ? 'Última copia: hoy.'
-            : `Última copia: hace ${dias} ${dias === 1 ? 'día' : 'días'}.`}
+            ? 'Última copia: hoy'
+            : `Última copia: hace ${dias} ${dias === 1 ? 'día' : 'días'}`}
+        {estado?.por && ` (${estado.por})`}
+        {estado?.correo && `, ${estado.correo}`}.
         {toca && ' Toca hacer una.'}
-        {` Se guardarían ${numSuelto(total)} registros.`}
+        {` Se guardarían ${numSuelto(registrosDe(datosDeCopia(datos)))} registros.`}
       </div>
 
-      {nombre && (
-        <p className="mt-2 text-xs text-slate-500" translate="no">
-          Descargado <b>{nombre}</b>. Guárdalo fuera del ordenador (correo, disco o nube).
-        </p>
-      )}
-
-      <p className="mt-3 text-[11px] text-slate-400">
-        El aviso se apunta en este navegador: si haces la copia desde otro equipo, aquí
-        seguirá pidiéndola.
-      </p>
+      {resultado && <p className="mt-2 text-xs text-slate-500" translate="no">{resultado}</p>}
     </div>
   )
 }

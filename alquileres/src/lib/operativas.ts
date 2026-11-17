@@ -77,7 +77,9 @@ const LIMPIEZA: ReglaOperativa = {
 const TEMPORADA: ReglaOperativa = {
   que: 'Temporada y año de la tarifa',
   formula: 'los de la fecha de ENTRADA, igual que el tramo y la oferta',
-  nota: 'Se usa la tarifa **del año de entrada**; solo si ese año aún no tiene tarifa, la del año siguiente.',
+  nota: 'El **Invierno 2027** de Precios es el **2026/27** (de octubre de 2026 a abril de 2027): una entrada de '
+    + '**octubre a diciembre** usa la tarifa de invierno del **año siguiente**; las de enero a septiembre, la de su año. '
+    + 'Si esa aún no existe, la del año después.',
 }
 
 // lib/cuentas.ts — comisionDe()
@@ -141,8 +143,9 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
   },
   {
     // components/CorregirTarifaAno.tsx, lib/tarifaAnoSiguiente.ts
-    que: 'Tarifa del año siguiente',
-    nota: 'Hasta el 06/11/2026 algunas reservas se calcularon con la tabla de Precios del **año siguiente**. El aviso '
+    que: 'Tarifa de otro año',
+    nota: 'Hasta el 06/11/2026 algunas reservas se calcularon con la tabla de Precios del **año siguiente**, y del 06/11 '
+      + 'al 17/11/2026 las de noviembre y diciembre con la del **invierno pasado**. El aviso '
       + 'ámbar las enseña con su **importe correcto** y lo ya cobrado; se corrigen **solo las que dejes marcadas** '
       + '(el pendiente se ajusta y queda en el Registro). Las de precio pactado no salen.',
   },
@@ -178,10 +181,11 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
     nota: 'Solo avisan: **no cambian ninguna cifra** de la aplicación.',
   },
   {
-    // lib/copia.ts — DIAS_ENTRE_COPIAS
+    // components/CopiaAutomatica.tsx, lib/copiaAutomatica.ts
     que: 'Copia de seguridad',
-    formula: 'avisa a los 15 días de la última',
-    nota: 'Se descarga en Apartamentos. Lo que se borra por error **no se puede recuperar** sin ella.',
+    formula: 'se hace sola al abrir la app, a los 15 días de la última',
+    nota: 'Se guarda en **Descargas** y se manda **por correo a ofipapelsl@ y compras@ofipapelsl.com**; sale un aviso abajo. '
+      + 'Lo que se borra por error **no se puede recuperar** sin ella.',
   },
   {
     // pages/Dashboard.tsx — isPriceRenewalMonth
@@ -284,6 +288,11 @@ export const OPERATIVA_RESERVAS: ReglaOperativa[] = [
 ]
 
 export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
+  {
+    // index.css (hoja-nueva), pages/Prices.tsx
+    que: 'Imprimir / PDF',
+    nota: '**Cada temporada en su hoja** (verano e invierno) y **cada oferta en otra**. Nunca se parte una tabla entre dos hojas.',
+  },
   PRECIO,
   TRAMO,
   OFERTA,
@@ -328,6 +337,11 @@ export const OPERATIVA_PRECIOS: ReglaOperativa[] = [
 ]
 
 export const OPERATIVA_COBROS: ReglaOperativa[] = [
+  {
+    // index.css (hoja-nueva), pages/Collections.tsx
+    que: 'Imprimir / PDF',
+    nota: 'En «Trimestres» sale **cada trimestre en su hoja**. Nunca se parte una fila entre dos hojas.',
+  },
   {
     // lib/recordado.ts — useVuelveALaAltura
     que: 'Al volver',
@@ -379,7 +393,8 @@ export const OPERATIVA_COBROS: ReglaOperativa[] = [
   {
     // components/CeldaDesglose.tsx, components/FichaCuadre.tsx
     que: 'Ver el cuadre de una estancia',
-    nota: '**Pasa el ratón** por las noches o el importe para verlo; **pincha** en la cifra o en el recuadro para '
+    nota: 'Pincha el **cuadradito «+»** delante del importe para verlo (se cierra con otro clic, fuera o con Esc; '
+      + '**pasar el ratón no abre nada**); **pincha** en la cifra o en el recuadro para '
       + 'abrir la ficha, imprimirla o enviarla a la agencia **por correo o por WhatsApp**. Por correo, **el cuadro va '
       + 'copiado**: en el correo, clic **en el cuerpo** (no en «Para») y **Ctrl+V**. Por WhatsApp va **como imagen**: '
       + 'sale «Compartir», se elige **WhatsApp** y el contacto (si no sale, la imagen queda en **Descargas** y se '
@@ -606,9 +621,10 @@ export const OPERATIVA_APARTAMENTOS: ReglaOperativa[] = [
     nota: 'Deja de salir en las listas, pero **su dinero sigue viéndose** en Cobros si tiene movimientos ese año.',
   },
   {
-    // lib/copia.ts
+    // lib/copia.ts, lib/copiaAutomatica.ts, components/CopiaAutomatica.tsx
     que: 'Copia de seguridad',
-    nota: 'Hazla cada **15 días**. Lo que se borra por error desaparece y no hay papelera.',
+    nota: '**Cada 15 días se hace sola** al abrir la app: se guarda en **Descargas** y se manda **por correo** a la oficina. '
+      + '«Hacer copia ahora» hace lo mismo cuando quieras. Lo que se borra por error desaparece y no hay papelera.',
   },
 ]
 

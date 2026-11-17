@@ -85,11 +85,65 @@ export function diasDesde(iso: string | null): number | null {
 
 /** Lanza la descarga del fichero en el navegador. */
 export function descargaCopia(datos: DatosCopia): string {
-  const copia = construyeCopia(datos)
-  const nombre = nombreCopia()
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }),
-  )
+  return descargaTexto(nombreCopia(), JSON.stringify(construyeCopia(datos), null, 2))
+}
+
+/** Los registros que lleva una copia, para decirlo en el correo y en pantalla. */
+export function registrosDe(datos: DatosCopia): number {
+  return Object.values(datos).reduce((s, l) => s + (Array.isArray(l) ? l.length : 0), 0)
+}
+
+// ─── Copia automática y por correo (Luis, 16/11/2026) ─────────────────────────
+//
+// Cada 15 días, al abrir la app, la copia se hace sola: se descarga y se manda
+// por correo (netlify/functions/alquileres-copia-correo.js). La fecha de la
+// última va en Firestore (`meta/copiaSeguridad`) y no solo en el navegador, para
+// que no la haga cada ordenador por su cuenta.
+
+export const DOC_COPIA = { coleccion: 'meta', id: 'copiaSeguridad' }
+
+export interface EstadoCopia {
+  ultima: string
+  por?: string
+  /** Cómo fue el correo de la última: «enviada» o el error. */
+  correo?: string
+}
+
+/**
+ * La función de correo vive en Netlify. La copia de GitHub Pages (y las pruebas
+ * en local) no tienen funciones, así que desde fuera de *.netlify.app se llama
+ * a la publicada.
+ */
+const RUTA_CORREO = '/.netlify/functions/alquileres-copia-correo'
+function urlCorreo(): string {
+  return location.hostname.endsWith('netlify.app') ? RUTA_CORREO : `https://ofipapel.netlify.app${RUTA_CORREO}`
+}
+
+/** UTF-8 a base64 por trozos: `btoa` de una cadena larga con tildes no vale. */
+function aBase64(texto: string): string {
+  const bytes = new TextEncoder().encode(texto)
+  let bin = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(bin)
+}
+
+/** Manda la copia por correo. Devuelve a quién, o lanza el error en castellano. */
+export async function enviaCopiaPorCorreo(
+  nombre: string, texto: string, registros: number, token: string, desde: string | null,
+): Promise<string> {
+  const resp = await fetch(urlCorreo(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ nombre, contenido: aBase64(texto), registros, desde }),
+  })
+  const r = await resp.json().catch(() => ({})) as { error?: string; para?: string }
+  if (!resp.ok) throw new Error(r.error || `El servidor ha contestado ${resp.status}.`)
+  return r.para || 'el correo de la oficina'
+}
+
+/** Descarga un texto como fichero .json. */
+export function descargaTexto(nombre: string, texto: string): string {
+  const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }))
   const a = document.createElement('a')
   a.href = url
   a.download = nombre

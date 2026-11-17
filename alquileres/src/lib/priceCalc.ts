@@ -1,5 +1,5 @@
 import type { PriceEntry, PriceCalculation, ApartmentType, StayType, OfferPrice, OfferTarifa, Season } from '../types'
-import { getSeason } from './dateUtils'
+import { anioDeTarifa, getSeason } from './dateUtils'
 import { num } from './formato'
 
 /** El nombre de cada tipo en las tablas de tarifas (Precios y la ficha). */
@@ -137,15 +137,20 @@ export function buscaTarifa(
     return { entry: comoGeneral, oferta: o, ...precioPorNoches(comoGeneral, nights) }
   }
 
-  // Manda la tarifa del año de entrada; la del año siguiente solo si esa aún no
-  // existe. Antes valía la primera de las dos que apareciera en la lista, así que
-  // una estancia de enero de 2026 podía calcularse con la de 2027 (Luis,
-  // 06/11/2026: «Precios INVIERNO 2027» para la estancia del 105).
-  const deTipo = (y: number) => prices.find(p =>
-    p.apartmentType === aptType && p.season === season && p.year === y)
-  const entry = deTipo(year) ?? deTipo(year + 1)
+  // Manda la tabla del año que le toca a la entrada (anioDeTarifa: de octubre a
+  // diciembre, la de invierno del año siguiente); la del año después solo si esa
+  // aún no existe. Antes valía la primera que apareciera en la lista, así que una
+  // estancia de enero de 2026 podía calcularse con la de 2027 (Luis, 06/11/2026);
+  // y del 06/11 al 17/11/2026 noviembre y diciembre cogían el invierno pasado.
+  const entry = tarifaDelAnio(prices, aptType, season, anioDeTarifa(entrada))
+    ?? tarifaDelAnio(prices, aptType, season, anioDeTarifa(entrada) + 1)
   if (!entry) return null
   return { entry, ...precioPorNoches(entry, nights) }
+}
+
+/** La tabla general de ese tipo, temporada y año, sin más. */
+export function tarifaDelAnio(prices: PriceEntry[], aptType: ApartmentType, season: Season, year: number) {
+  return prices.find(p => p.apartmentType === aptType && p.season === season && p.year === year)
 }
 
 /**

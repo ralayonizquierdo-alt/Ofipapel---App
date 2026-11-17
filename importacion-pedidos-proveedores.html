@@ -104,6 +104,16 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
 .del-btn{ background:none; border:none; color:var(--rojo); cursor:pointer; font-size:14px; }
 .empty-state{ text-align:center; padding:40px 20px; color:var(--texto2); }
 .tabla-wrap{ overflow-x:auto; }
+/* 17/11/2026 (propietario: «aún se esconde el importe»): Importe, Familia y la
+   papelera quedan fijas a la derecha; lo que se desliza es el resto. */
+@media (min-width:701px){
+  table.tabla thead th:nth-child(n+14), table.tabla tbody td:nth-child(n+14){ position:sticky; z-index:1; background:#fff; }
+  table.tabla thead th:nth-child(n+14){ background:var(--verde-claro, #e8f5e9); }
+  table.tabla tbody tr:hover td:nth-child(n+14){ background:#f7fcf8; }
+  table.tabla thead th:nth-child(16), table.tabla tbody td:nth-child(16){ right:0; width:34px; min-width:34px; max-width:34px; }
+  table.tabla thead th:nth-child(15), table.tabla tbody td:nth-child(15){ right:34px; width:76px; min-width:76px; max-width:76px; }
+  table.tabla thead th:nth-child(14), table.tabla tbody td:nth-child(14){ right:110px; width:84px; min-width:84px; max-width:84px; box-shadow:-6px 0 6px -4px rgba(0,0,0,.18); }
+}
 .footer-note{ font-size:11.5px; color:var(--texto2); margin-top:10px; line-height:1.5; }
 
 .modal-overlay{
@@ -200,6 +210,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button class="btn btn-secundario" id="btnOrdenDesc" onclick="ordenarPor('desc')">↕ Ordenar por Descripción</button>
       <button class="btn btn-secundario" onclick="anadirFila()">+ Añadir fila</button>
       <button class="btn btn-peligro" onclick="vaciarFilas()">🗑 Vaciar todo</button>
+      <div style="margin-left:auto;align-self:center;font-weight:800;font-size:16px;color:var(--verde,#1b5e20);white-space:nowrap;">TOTAL PEDIDO: <span id="totalArriba">0,00</span> €</div>
     </div>
     <div class="tabla-wrap">
       <table class="tabla">
@@ -226,7 +237,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
         <tbody id="tbodyFilas"></tbody>
         <tfoot>
           <tr>
-            <td colspan="13" style="text-align:right;">TOTAL PEDIDO:</td>
+            <td colspan="13" style="text-align:left;"><span style="position:sticky;left:12px;font-size:15px;font-weight:800;">TOTAL PEDIDO: <span id="totalAbajo">0,00</span> €</span></td>
             <td id="totalImporte">0,00</td>
             <td colspan="2"></td>
           </tr>
@@ -251,7 +262,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <b>Operativa</b><br>
       1. Sube la factura (PDF o Excel). Si el proveedor está homologado, se lee sola y te dice si cuadra con el total.<br>
       2. Si no sale bien o el proveedor no está homologado: <b>«🤖 Leer con IA»</b> (cualquier proveedor; acierta el 80 % de las veces si no es muy complicada; revisa las líneas marcadas y el total).<br>
-      3. Revisa la tabla: Familia, Caja y Ud./Caja casi nunca vienen en la factura.<br>
+      3. Revisa la tabla: Familia, Caja y Ud./Caja casi nunca vienen en la factura. El total sale arriba y abajo de la tabla. En <b>Talens</b> ya salen solos el precio neto (sin descuento), la marca TALEN´S, IGIC 3 %, familia 151020, y el nº y la fecha de la factura para el nombre del Excel.<br>
       4. Elige plantilla (Luis por defecto) y <b>«📥 Generar Excel»</b>. Los descuentos encadenados salen como uno solo; las tildes y la Ñ, sin tilde.<br>
       <b>PARA HOMOLOGAR UN PROVEEDOR, LA ÚNICA Y MÁS RÁPIDA MANERA ES PULSAR «📤 ENVIAR PARA HOMOLOGAR»: LE LLEGA A ROBER Y LO HOMOLOGA ÉL. DESDE LA APLICACIÓN ES TÉCNICAMENTE IMPOSIBLE HOMOLOGAR UN PROVEEDOR.</b>
     </div>
@@ -645,17 +656,20 @@ function parseRoymart(lineas){
 }
 
 // TALENS: "LINEA,000 [ARTICULO] DESC CANT.PEDIDA CANT.ENTREGADA PRECIO.BRUTO [%DTO] PRECIO.NETO IMPORTE IVA%"
+// 17/11/2026 (propietario, factura 26014297): el precio es SIEMPRE el PRECIO
+// NETO de la factura y sin descuento (antes llevaba el neto y además el %, que
+// se descontaba dos veces). También entran las líneas «116,001» (no solo
+// «,000»), las que no traen precio bruto («6 6 1,40 8,40») y la que pdf.js
+// pega detrás del texto vertical del margen («Reg. Merc. BARNA… 13,000 …»).
 function parseTalens(lineas){
   const filas = [];
-  const RE = /^\d+,000\s+(?:([A-Z0-9]{4,12})\s+)?(.*?)\s+(\d+)\s+(\d+)\s+(\d+,\d{2})\s+(?:(\d+,\d)\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+,\d{2}$/;
+  const RE = /(?:^|\s)\d+,\d{3}\s+(?:([A-Z0-9]{4,12})\s+)?(.*?)\s+(\d+)\s+(\d+)\s+(?:(\d+,\d{2})\s+)?(?:(\d+,\d)\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+,\d{2}$/;
   lineas.forEach(l=>{
-    const m = l.match(RE);
+    const m = l.replace(/^Reg\. Merc\..*?ENV\/\d+\/\d+\s+/, '').match(RE);
     if(!m) return;
-    const [,codigo,desc,,cantEnt,precioBruto,pct,precioNeto,importe] = m;
-    const bruto = parseDecComa(precioBruto), neto = parseDecComa(precioNeto);
-    const dto = pct ? parseDecComa(pct) : (bruto>0 ? round2_((1-neto/bruto)*100) : 0);
+    const [,codigo,desc,,cantEnt,,,precioNeto,importe] = m;
     filas.push(fila_({codigo:codigo||'', descripcion:desc.trim(), cantidad:parseInt(cantEnt,10),
-      precioUnitario:neto, dto1:dto, importe:parseDecComa(importe)}));
+      precioUnitario:parseDecComa(precioNeto), dto1:0, importe:parseDecComa(importe)}));
   });
   return filas;
 }
@@ -1718,7 +1732,11 @@ const PERFILES_PROVEEDOR = [
   { id:'roymart', nombre:'ROYMART, S.L.', detectar: t => /ROYMART|B58263526/i.test(t), parser: parseRoymart,
     total: t => ultimoNumeroTrasLinea(t, 'Total pedido') },
   { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens,
-    total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT') },
+    total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT'),
+    // 17/11/2026, propietario: en Talens la marca, el IGIC y la familia son siempre estos.
+    porDefecto: { marca:'TALEN´S', igic:3, familia:151020 }, // números, como en los Excel que Géminis ya ha aceptado
+    cabecera: t => { const m = t.match(/No\.\s*(\d{6,})\s+Pagina\s+\d+\/\d+\s+Fecha\s+(\d{2})-(\d{2})-(\d{2})/i);
+      return m ? { numero:m[1], fecha:'20'+m[4]+'-'+m[3]+'-'+m[2] } : null; } },
   { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor,
     total: t => /IMP\. BRUTO/i.test(t) ? totalSenfortPedido(t) : totalSimple(t, /Total \(Euros\)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'sgel', nombre:'SGEL LIBROS, S.L.', detectar: t => /\bSGEL\b/i.test(t), parser: parseSgel,
@@ -1966,6 +1984,9 @@ function renderFilas(){
 function renderTotales(){
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
   document.getElementById('totalImporte').textContent = fmtNum(total);
+  // También arriba de la tabla: abajo queda a la derecha y no se ve sin desplazar.
+  document.getElementById('totalArriba').textContent = fmtNum(total);
+  document.getElementById('totalAbajo').textContent = fmtNum(total);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2275,8 +2296,16 @@ function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
     precioU: f.precioUnitario,
     dto1: f.dto1, dto2: f.dto2, dto3: f.dto3, dto4: f.dto4,
     importe: f.importe,
-    igic: f.igic || ''
+    igic: f.igic || '',
+    ...((perfil && perfil.porDefecto) || {})
   }));
+  // Nº de factura y fecha leídos del PDF (para el nombre del Excel); solo los
+  // proveedores que tienen `cabecera` en su perfil (se pueden cambiar a mano).
+  const cab = (perfil && perfil.cabecera) ? perfil.cabecera(texto) : null;
+  if(cab){
+    if(cab.numero) document.getElementById('cabPedido').value = cab.numero;
+    if(cab.fecha) document.getElementById('cabFecha').value = cab.fecha;
+  }
   ordenActual = {campo:null, asc:true};
   renderFilas();
   actualizarBotonesOrden();
@@ -2539,18 +2568,43 @@ function generarExcel(){
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
   const nombreArchivo = nombreExcel(proveedor, pedido, fecha);
-  XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
+  escribirBiff5(wb, nombreArchivo, aoaSinAcentos);
 }
 
-// Nombre del Excel (13/11/2026, propietario): «PROVEEDOR Nº FACTURA MES AÑO»,
-// p. ej. «CABERO GROUP 2605151 FACTURA NOVIEMBRE 2026.xls». El mes y el año son
+// SheetJS, al escribir el Excel 5.0/95, cambia por «_» todo lo que no es ASCII:
+// la marca «TALEN´S» llegaba a Géminis como «TALEN_S» (17/11/2026). Se escribe
+// el fichero y luego se pone a mano el byte Windows-1252 del «´» (solo ese:
+// lo demás sale igual que antes), en los textos que lo llevan (con su longitud delante, para no
+// tocar otra cosa). Las tildes y la Ñ siguen saliendo sin tilde (quitarAcentos).
+function escribirBiff5(wb, nombre, aoa){
+  const bytes = new Uint8Array(XLSX.write(wb, {bookType:'biff5', type:'array'}));
+  const textos = new Set();
+  aoa.forEach(f => f.forEach(v => { if(typeof v === 'string' && v.includes('´') && v.length < 256) textos.add(v); }));
+  textos.forEach(t => {
+    const bueno = [t.length & 255, t.length >> 8, ...[...t].map(c => c === '´' ? 0xB4 : (c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 95))];
+    const malo = [t.length & 255, t.length >> 8, ...[...t].map(c => c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 95)];
+    for(let i = 0; i + malo.length <= bytes.length; i++){
+      let k = 0; while(k < malo.length && bytes[i+k] === malo[k]) k++;
+      if(k === malo.length){ bytes.set(bueno, i); i += malo.length - 1; }
+    }
+  });
+  const url = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.ms-excel'}));
+  const a = document.createElement('a'); a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// Nombre del Excel (17/11/2026, propietario: «así es como tenemos el resto»):
+// «PROVEEDOR FACTURA Nº NÚMERO MES-AÑO», p. ej.
+// «TALENS ESPANA, S.A.U. FACTURA Nº 26014297 NOV-2026.xls». El mes y el año son
 // los de la fecha del documento (casilla Fecha); sin fecha, los de hoy.
 function nombreExcel(proveedor, numero, fechaIso){
-  const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  const MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
   const m = /^(\d{4})-(\d{2})/.exec(fechaIso || '');
   const d = m ? { a: m[1], mes: MESES[Number(m[2]) - 1] } : { a: String(new Date().getFullYear()), mes: MESES[new Date().getMonth()] };
   const limpio = (t) => quitarAcentos(String(t || '')).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
-  return [limpio(proveedor) || 'PROVEEDOR', limpio(numero), 'FACTURA', d.mes, d.a].filter(Boolean).join(' ') + '.xls';
+  const num = limpio(numero);
+  return [limpio(proveedor) || 'PROVEEDOR', 'FACTURA', num ? 'Nº ' + num : '', d.mes + '-' + d.a].filter(Boolean).join(' ') + '.xls';
 }
 
 // Total del Excel en la cabecera, fila 9 (C–D), celdas vacías en las dos
@@ -2595,7 +2649,7 @@ function generarExcelRober(){
   XLSX.utils.book_append_sheet(wb, ws, 'fichero');
 
   const nombreArchivo = nombreExcel(proveedor, pedido, fechaIso);
-  XLSX.writeFile(wb, nombreArchivo, {bookType:'biff5'});
+  escribirBiff5(wb, nombreArchivo, aoaSinAcentos);
 }
 
 poblarSelectorProveedores();

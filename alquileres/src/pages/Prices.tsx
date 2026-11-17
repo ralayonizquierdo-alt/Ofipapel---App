@@ -6,7 +6,7 @@ import { calcPrices, getApartmentType, tarifaDeOferta, APT_TYPE_LABELS } from '.
 import PageHeader from '../components/ui/PageHeader'
 import Modal from '../components/ui/Modal'
 import { Pencil, Printer, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { MONTH_NAMES_ES } from '../lib/dateUtils'
+import { MONTH_NAMES_ES, nombreTemporada } from '../lib/dateUtils'
 import { num, numSuelto } from '../lib/formato'
 import AplicarOferta from '../components/AplicarOferta'
 import CompararBooking from '../components/CompararBooking'
@@ -189,13 +189,16 @@ export default function Prices() {
 
       {/* Price tables — both seasons */}
       <div className={`space-y-8 ${soloOferta ? 'hidden' : ''}`}>
-        {(['VERANO', 'INVIERNO'] as Season[]).map(season => {
+        {(['VERANO', 'INVIERNO'] as Season[]).map((season, i) => {
           const filtered = pricesBySeason(season)
           return (
-            <div key={season}>
+            // Al imprimir, cada temporada en su hoja (index.css, `hoja-nueva`).
+            <div key={season} className={i > 0 ? 'hoja-nueva' : ''}>
               <div className="flex items-center gap-2 mb-4 px-1">
                 <span className={`text-sm font-bold px-3 py-1 rounded-full ${season === 'VERANO' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-                  {season === 'VERANO' ? 'VERANO (May–Sep)' : 'INVIERNO (Oct–Abr)'}
+                  {season === 'VERANO'
+                    ? `VERANO ${selectedYear} (may–sep)`
+                    : `INVIERNO ${selectedYear - 1}/${String(selectedYear).slice(2)} (oct ${selectedYear - 1} – abr ${selectedYear})`}
                 </span>
               </div>
               <div className="space-y-4">
@@ -206,7 +209,7 @@ export default function Prices() {
                       p.year === selectedYear - 1 && p.season === season && p.apartmentType === aptType)
                     return (
                       <div key={aptType} className="bg-white rounded-xl border border-dashed border-slate-300 p-4 text-center">
-                        <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {season} {selectedYear}</p>
+                        <p className="text-slate-400 text-sm">{APT_TYPE_LABELS[aptType]} — Sin precios para {nombreTemporada(season, selectedYear)}</p>
                         <button onClick={() => creaTarifa(season, aptType)}
                           className="mt-2 text-sm text-blue-600 hover:underline">
                           {hayPrevia ? `Cargar la tarifa de ${selectedYear - 1} y editarla` : '+ Añadir precios'}
@@ -229,8 +232,8 @@ export default function Prices() {
         })}
       </div>
 
-      {/* Offer Prices section */}
-      <div className="mt-8">
+      {/* Offer Prices section — al imprimir, en hoja aparte */}
+      <div className={`mt-8 ${soloOferta ? '' : 'hoja-nueva'}`}>
         <div className={`flex items-center justify-between mb-4 ${soloOferta ? 'hidden' : ''}`}>
           <h2 className="text-lg font-semibold text-slate-800">Tarifas de Oferta</h2>
           <button
@@ -246,11 +249,13 @@ export default function Prices() {
           </div>
         ) : (
           <div className="space-y-3">
-            {offerPrices.map(op => {
+            {offerPrices.map((op, i) => {
               const plegada = plegadas.includes(op.id)
               return (
+              // Al imprimir la pantalla entera, cada oferta en su hoja (la
+              // primera ya empieza hoja con el título «Tarifas de Oferta»).
               <div key={op.id} id={`oferta-${op.id}`}
-                className={`bg-white rounded-xl border-2 border-amber-300 ${
+                className={`bg-white rounded-xl border-2 border-amber-300 ${soloOferta || i === 0 ? '' : 'hoja-nueva'} ${
                   op.id === ofertaMarcada ? 'ring-4 ring-blue-400 ring-offset-2' : ''} ${
                   soloOferta && soloOferta !== op.id ? 'hidden' : ''}`}>
                <div className="p-4 flex items-start justify-between gap-3 bg-amber-50 rounded-t-lg">
@@ -367,7 +372,7 @@ function PriceTable({ entry, onEdit, titulo, marcarTramo }: {
               (Luis, 13/11/2026). */}
           {marcarTramo && (
             <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${entry.season === 'VERANO' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-              {entry.season} {entry.year}
+              {nombreTemporada(entry.season, entry.year)}
             </span>
           )}
         </h3>
@@ -419,7 +424,7 @@ function PriceTable({ entry, onEdit, titulo, marcarTramo }: {
           <tfoot>
             <tr className="border-t border-slate-200 bg-slate-50">
               <td colSpan={8} className="py-2 px-4 text-xs text-slate-400">
-                Limpieza: {entry.cleaningFee}€ · Precios {entry.season} {entry.year} · Canales: limpieza no incluida, se cobra aparte
+                Limpieza: {entry.cleaningFee}€ · Precios {nombreTemporada(entry.season, entry.year)} · Canales: limpieza no incluida, se cobra aparte
               </td>
             </tr>
           </tfoot>
@@ -499,8 +504,8 @@ function PriceEditModal({ entry, onClose }: { entry: PriceEntry; onClose: () => 
     <Modal title={`Editar precios — ${APT_TYPE_LABELS[entry.apartmentType]}`} onClose={onClose}>
       <div className="space-y-4">
         <p className="text-xs text-slate-500">
-          {entry.season} {entry.year}
-          {anterior && <> · comparado con <b className="text-slate-600">{entry.season} {anterior.year}</b></>}
+          {nombreTemporada(entry.season, entry.year)}
+          {anterior && <> · comparado con <b className="text-slate-600">{nombreTemporada(entry.season, anterior.year)}</b></>}
         </p>
 
         {/* Casilla de subida: lo que se usa en enero para el año siguiente. */}
