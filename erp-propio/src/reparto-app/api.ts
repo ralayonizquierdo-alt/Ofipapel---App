@@ -11,6 +11,8 @@ export interface Sesion {
   puede_cambiar_ruta: boolean
   /** Entrada «OFICINA»: ve todas las rutas, solo lectura. */
   supervisor?: boolean
+  /** Entrada «PAGOS»: la caja de administración. Solo ve lo que cada repartidor tiene que entregar. */
+  solo_caja?: boolean
   caduca: number
 }
 
@@ -128,7 +130,7 @@ export const repartidores = () => rpc<{ codigo: string; nombre: string }[]>('fn_
 
 /** Entra con el PIN. Si debeCambiar, la sesión NO se guarda todavía: antes hay que poner un PIN nuevo (cambiarPin + guardarSesion). */
 export async function entrar(repartidor: string, pin: string): Promise<{ sesion: Sesion; debeCambiar: boolean }> {
-  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean; supervisor?: boolean; debe_cambiar?: boolean }>(
+  const r = await rpc<{ ok: boolean; error?: string; token: string; repartidor: string; nombre: string; puede_cambiar_ruta: boolean; supervisor?: boolean; debe_cambiar?: boolean; solo_caja?: boolean }>(
     'fn_app_rep_login',
     { p_repartidor: repartidor, p_pin: pin, p_dispositivo: navigator.userAgent.slice(0, 200) },
   )
@@ -139,6 +141,7 @@ export async function entrar(repartidor: string, pin: string): Promise<{ sesion:
     nombre: r.nombre,
     puede_cambiar_ruta: r.puede_cambiar_ruta,
     supervisor: r.supervisor === true,
+    solo_caja: r.solo_caja === true,
     caduca: Date.now() + 15.5 * 3600_000,
   }
   const debeCambiar = r.debe_cambiar === true

@@ -107,6 +107,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
       '«Preparado, sin salir»: el reparto está generado y nadie ha marcado nada todavía.',
       '«En reparto · quedan 3»: el repartidor va marcando; faltan esos pedidos.',
       '«✔ Listo para cerrar»: no queda ningún pedido pendiente. Ya se puede cerrar en GeminisWin.',
+      '«Cerrado»: ya se cerró en GeminisWin. Las rutas cerradas de hoy bajan al final de la lista y desaparecen al día siguiente.',
       'Toca una ruta para ver el detalle factura por factura: entregada, no entregada y por qué, y la hora.',
       '«Liquidada» en azul: el repartidor ya pagó esa factura en administración y en GeminisWin está liquidada.',
       'Al lado va la forma de pago de la factura (remesa, transferencia, contado…): así se ve por qué una factura no se cobró en la entrega.',
@@ -122,7 +123,8 @@ export const OPERATIVA_OFICINA: Apartado[] = [
     icono: '💶',
     titulo: 'Caja: cobrar a los repartidores',
     pasos: [
-      'Arriba hay dos botones: «Rutas» y «Caja». El móvil recuerda en cuál te quedaste.',
+      'Quien entra por «PAGOS» va directo a la Caja y solo ve la Caja. Quien entra por «OFICINA» tiene arriba dos botones, «Rutas» y «Caja»; el móvil recuerda en cuál se quedó.',
+      'En un ordenador: abajo del todo está «Abrir WhatsApp Web». Se vincula una vez con el móvil de administración (WhatsApp → Dispositivos vinculados) y los justificantes salen de ese número.',
       'En «Caja» sale cada ruta con el total que ese repartidor tiene que entregar: las facturas de contado que entregó y dice que cobró.',
       'Toca una ruta: verás el total en grande y, debajo, cada factura con cliente, número e importe. Ve tocándolas según las cuentas.',
       'Escribe lo que te entrega y la app te dice si cuadra, falta o sobra.',

@@ -426,7 +426,7 @@ export function RepartoApp() {
       <div style={{ maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {!sesion ? (
           <Entrada onEntrar={setSesion} />
-        ) : sesion.supervisor ? (
+        ) : sesion.supervisor || sesion.solo_caja ? (
           <Oficina sesion={sesion} onSalir={salir} onCaducada={() => setSesion(null)} />
         ) : !avisoLeido ? (
           <AvisoUbicacion sesion={sesion} onLeido={() => setAvisoVisto((v) => v + 1)} onSalir={salir} onCaducada={() => setSesion(null)} />
@@ -461,7 +461,9 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
   const [verCobros, setVerCobros] = useState(false)
   // Dos vistas: las rutas (David) y la caja (Cande). Cada móvil recuerda en cuál se quedó.
-  const [vista, setVista] = useState<'rutas' | 'caja'>(() => (leer<string>('reparto.oficina.vista') === 'caja' ? 'caja' : 'rutas'))
+  // Quien entra por «PAGOS» solo tiene la caja: ni rutas ni botones para cambiar.
+  const soloCaja = sesion.solo_caja === true && !sesion.supervisor
+  const [vista, setVista] = useState<'rutas' | 'caja'>(() => (soloCaja || leer<string>('reparto.oficina.vista') === 'caja' ? 'caja' : 'rutas'))
   const cambiarVista = (v: 'rutas' | 'caja') => {
     setVista(v)
     guardar('reparto.oficina.vista', v)
@@ -469,6 +471,12 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
 
   const cargar = useCallback(async () => {
     try {
+      if (soloCaja) {
+        setCobros(await porCobrar(sesion.token))
+        setError(null)
+        setHora(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))
+        return
+      }
       const r = await todasLasRutas(sesion.token)
       setRutas(r.rutas ?? [])
       // Si falla solo esta lista, las rutas se siguen viendo.
@@ -483,7 +491,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
       if (err.caducada) onCaducada()
       else setError(err.red ? 'Sin conexión: se reintenta solo.' : err.message)
     }
-  }, [sesion.token, onCaducada])
+  }, [sesion.token, onCaducada, soloCaja])
   const cargarLineas = useCallback(
     async (r: RutaOficina) => {
       try {
@@ -581,14 +589,16 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   return (
     <>
       <Cabecera sub={sesion.nombre.toUpperCase()} oficina derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-        <Boton claro={vista !== 'rutas'} onClick={() => cambiarVista('rutas')} style={{ flex: 1, padding: '10px 8px' }}>
-          Rutas
-        </Boton>
-        <Boton claro={vista !== 'caja'} color={AZUL} onClick={() => cambiarVista('caja')} style={{ flex: 1, padding: '10px 8px' }}>
-          Caja
-        </Boton>
-      </div>
+      {!soloCaja && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <Boton claro={vista !== 'rutas'} onClick={() => cambiarVista('rutas')} style={{ flex: 1, padding: '10px 8px' }}>
+            Rutas
+          </Boton>
+          <Boton claro={vista !== 'caja'} color={AZUL} onClick={() => cambiarVista('caja')} style={{ flex: 1, padding: '10px 8px' }}>
+            Caja
+          </Boton>
+        </div>
+      )}
       {vista === 'caja' && <Caja cobros={cobros} hora={hora} error={error} quien={sesion.nombre} />}
       <Tarjeta style={vista === 'caja' ? { display: 'none' } : undefined}>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Todas las rutas</div>
@@ -596,7 +606,10 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
         {!rutas && !error && <div style={{ color: V.gris }}>Cargando…</div>}
         {rutas && !rutas.length && <div style={{ color: V.gris }}>No hay ningún reparto abierto ni de hoy.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {rutas?.map((r) => {
+          {/* Las abiertas primero; las ya cerradas de hoy, al final (siguen visibles hasta que acaba el día). */}
+          {[...(rutas ?? [])]
+            .sort((a, b) => Number(a.estado !== 2) - Number(b.estado !== 2))
+            .map((r) => {
             const [sit, color] = situacion(r)
             return (
               <button
@@ -784,6 +797,24 @@ function Caja({ cobros, hora, error, quien }: { cobros: PorCobrar[] | null; hora
         ))}
       </div>
       {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
+      <a
+        href="https://web.whatsapp.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, padding: '10px 12px', borderRadius: 14, border: '2px solid #1fa855', textDecoration: 'none', color: V.texto }}
+      >
+        <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <path
+            fill="#1fa855"
+            d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 1.8a8.2 8.2 0 0 1 0 16.4 8.1 8.1 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 0 1 12 3.8Zm-3.2 4c-.2 0-.5 0-.7.3-.3.3-1 1-1 2.3s1 2.7 1.2 2.9c.1.2 2 3.1 4.900 4.300 2.400.9 2.900.8 3.400.7.500 0 1.700-.7 1.900-1.300.2-.700.2-1.200.2-1.300-.1-.2-.3-.2-.6-.4l-2-1c-.3-.1-.5-.1-.7.2l-.9 1.100c-.2.2-.3.2-.6.1a6.700 6.700 0 0 1-3.300-2.900c-.2-.4.300-.400.700-1.300.1-.2 0-.3 0-.5l-.9-2.200c-.2-.5-.4-.5-.6-.5h-.5Z"
+          />
+        </svg>
+        <span style={{ fontSize: 13 }}>
+          <b style={{ color: '#1fa855' }}>¿En un ordenador? Abrir WhatsApp Web</b>
+          <br />
+          Se vincula una sola vez: en el móvil de administración, WhatsApp → Dispositivos vinculados → Vincular, y se escanea el código.
+        </span>
+      </a>
     </Tarjeta>
   )
 }
