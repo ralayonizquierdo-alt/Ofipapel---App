@@ -131,6 +131,13 @@ por lo que se agotó antes de tiempo y por cómo va el año, con el «poco más�
 Antes de calcular nada hay que hacer el estudio con el histórico (tres años de ventas mensuales ya
 cargados) y una prueba hacia atrás: calcular con datos hasta 2025 y ver qué habría pasado en 2026.
 
+**Tarifas de proveedores (Rober, 17/11/2026).** Subir al ERP la tarifa de cada proveedor para que diga, en
+los artículos punteros que venden varios, quién sale más barato. Los artículos se emparejan por código de
+barras (EAN). Se compara el precio neto: tarifa menos descuentos, por unidad y no por caja, con los portes
+y el pedido mínimo a la vista. El ERP ya guarda varios proveedores por artículo (`articulo_proveedor`);
+falta la subida de tarifas desde Excel, con su fecha de validez, y enseñar la comparación en la propuesta
+semanal. Sin construir.
+
 Arranque con un piloto: un proveedor, unas semanas comparando la propuesta del ERP con el método de
 siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
 
