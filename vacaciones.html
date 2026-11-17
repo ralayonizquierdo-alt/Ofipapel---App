@@ -204,6 +204,12 @@ aside h2{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(
 /* ── main grid area ── */
 main{flex:1;overflow:auto;position:relative;background:#fff;}
 #gridWrap{position:relative;padding-bottom:30px;}
+/* Planning Escala en la pantalla de inicio: la hoja de la Vista previa, encogida al ancho. */
+.pantalla-escala-caja{ overflow-x:auto; margin:8px; }
+.pantalla-escala-lienzo{ overflow:hidden; }
+.pantalla-escala{ box-sizing:border-box; width:420mm; padding:6mm 10mm; background:#fff; font-family:'Inter',sans-serif;
+  color:#1A2E1A; transform-origin:top left; }
+.pantalla-escala .p-header h1, .pantalla-escala .p-sub, .pantalla-escala .p-footer{ display:none; }
 #filtroAviso{position:sticky;top:0;left:0;z-index:20;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#FFF6BF;border-bottom:2px solid #E0B400;padding:6px 10px;font-size:.8rem;font-weight:600;color:#6b4e00;}
 #filtroAviso button{font-size:.78rem;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;border:1px solid #b08a00;background:#fff;color:#6b4e00;}
 
@@ -433,6 +439,10 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <select id="planningSelect" title="Planning que se ve e imprime">
       <option value="tiendas">Tiendas</option>
       <option value="ventas">Ventas</option>
+    </select>
+    <select id="pantallaVista" title="Cómo se ve el planning en esta pantalla (se recuerda en este equipo)">
+      <option value="lineal">Lineal</option>
+      <option value="escala">Escala</option>
     </select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
     <button class="secondary" id="btnRotation" title="Prioridad de rotación">Prioridad</button>
@@ -2116,6 +2126,7 @@ function renderGrid(){
   renderFiltroAviso();
   const wrap = document.getElementById('gridWrap');
   wrap.innerHTML = '';
+  if(pantallaVista==='escala'){ renderEscalaPantalla(wrap); return; }
   if(gridView==='anual'){ renderYearView(wrap); return; }
   const y = state.year;
   const n = daysInYear(y);
@@ -2212,6 +2223,36 @@ function renderGrid(){
 
 /* Calendario del año (pantalla principal, Luis 05/11/2026): el año entero de un vistazo, con lo bloqueado
    reducido. Pulsar una barra la edita y pulsar un hueco crea un periodo. Para arrastrar, «Detalle». */
+/* Planning Escala en la pantalla de inicio (Luis, 17/11/2026: «que se posicione el planning que me convenga»).
+   Es la misma hoja que la Vista previa en Escala, ajustada al ancho de la pantalla. Solo se mira: las fechas se
+   cambian en el Lineal. Se recuerda en cada equipo. */
+let pantallaVista = 'lineal';
+try{ if(localStorage.getItem('ofipapel_vacaciones_pantalla')==='escala') pantallaVista = 'escala'; }catch(e){}
+function renderEscalaPantalla(wrap){
+  const hoja = document.createElement('div'); hoja.className = 'pantalla-escala';
+  const caja = document.createElement('div'); caja.className = 'pantalla-escala-caja';
+  const lienzo = document.createElement('div'); lienzo.className = 'pantalla-escala-lienzo';
+  lienzo.appendChild(hoja); caja.appendChild(lienzo); wrap.appendChild(caja);
+  const vista = printVista, formato = printFormat;
+  printVista = 'escala'; printFormat = 'A3';
+  try{ buildPrintArea(hoja); } finally { printVista = vista; printFormat = formato; }
+  const ajustar = ()=>{
+    hoja.style.transform = 'none';
+    // en el móvil no se encoge tanto que no se lea: se desliza de lado
+    const s = Math.max(0.5, Math.min(1, (caja.clientWidth - 2) / hoja.offsetWidth));
+    hoja.style.transform = `scale(${s})`;
+    lienzo.style.width = (hoja.offsetWidth * s) + 'px';
+    lienzo.style.height = (hoja.offsetHeight * s) + 'px';
+  };
+  requestAnimationFrame(ajustar);
+}
+window.addEventListener('resize', ()=>{ if(pantallaVista==='escala') renderGrid(); });
+document.getElementById('pantallaVista').value = pantallaVista;
+document.getElementById('pantallaVista').onchange = e=>{
+  pantallaVista = e.target.value==='escala' ? 'escala' : 'lineal';
+  try{ localStorage.setItem('ofipapel_vacaciones_pantalla', pantallaVista); }catch(err){}
+  renderGrid();
+};
 let gridView = 'anual';
 try{ if(localStorage.getItem('ofipapel_vacaciones_vista')==='detalle') gridView = 'detalle'; }catch(e){}
 function setGridView(view){
@@ -4283,8 +4324,7 @@ function appendCellLines(el, y, n, pos){
     el.appendChild(line);
   }
 }
-function buildPrintArea(){
-  const container = document.getElementById('printArea');
+function buildPrintArea(container = document.getElementById('printArea')){
   container.innerHTML = '';
   container.classList.toggle('fmt-a4', printFormat==='A4');
   const y = state.year;
@@ -4574,8 +4614,8 @@ function printEscala(titulo, emps, y, n, pos){
 /* Aviso grande al pasar el ratón (o tocar, en el móvil) una barra de la Vista previa: el nombre de la persona y
    del día tal al día tal, en los dos plannings (Luis, 17/11/2026: el nombre va fuera de la barra y no se sabe de quién es). */
 (function(){
-  const area = document.getElementById('printArea'), tip = document.getElementById('pvTip');
-  if(!area || !tip) return;
+  const tip = document.getElementById('pvTip');
+  if(!tip) return;
   const poner = (blk, x, yy)=>{
     tip.innerHTML = `<b>${escapeHtml(blk.dataset.nombre)}</b><br>${escapeHtml(blk.dataset.fechas)}`
       + (blk.dataset.extra ? '<br>'+escapeHtml(blk.dataset.extra) : '');
@@ -4591,9 +4631,9 @@ function printEscala(titulo, emps, y, n, pos){
     const blk = ev.target.closest && ev.target.closest('.p-block[data-tip]');
     if(blk) poner(blk, ev.clientX, ev.clientY); else quitar();
   };
-  area.addEventListener('mousemove', mira);
-  area.addEventListener('click', mira);
-  area.addEventListener('mouseleave', quitar);
+  // En la Vista previa y en el Planning Escala de la pantalla de inicio (las dos usan las mismas barras).
+  document.addEventListener('mousemove', mira);
+  document.addEventListener('click', mira);
   document.addEventListener('scroll', quitar, true);
 })();
 
@@ -5398,6 +5438,7 @@ const OPERATIVAS = {
   '#operativaCuadrante': {
     pasos: [
       'Elige arriba el año y el planning, <b>Tiendas</b> o <b>Ventas</b>. Cada año guarda sus vacaciones por separado.',
+      'En el desplegable de al lado elige cómo verlo: <b>Lineal</b> (una fila por persona) o <b>Escala</b> (los turnos en escalera). Este equipo lo recuerda. En <b>Escala</b> solo se mira: pasa el ratón por una barra para ver de quién es y sus fechas; para cambiarlas, vuelve a <b>Lineal</b>.',
       'Pulsa una barra para cambiar sus fechas o eliminarla, y pulsa un hueco de la fila para crear un periodo.',
       'Con <b>Día a día</b> puedes arrastrar: sobre una fila vacía crea un periodo, y una barra o su borde la mueve o cambia su inicio o fin.',
       'Con <b>Generar plan</b> se rellena lo que falte. Para repartir una sola unidad, elígela antes en el filtro <b>Unidad</b>.',
