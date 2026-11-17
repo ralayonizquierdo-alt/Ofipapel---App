@@ -124,6 +124,13 @@ mínimo y máximo de cada artículo, y él decida con cada uno si lo envía ya o
   el pedido mínimo y los portes de cada proveedor, para saber si compensa enviarlo ya; y los datos reales
   del espejo. Sin el stock de cada día, los mínimos y máximos no sirven.
 
+**Campañas (vuelta al cole, Navidad).** Rober no usa mínimos y máximos: mira lo que vendió el año pasado
+en esas fechas y pide eso y un poco más. El ERP hará lo mismo como «pedido de campaña», aparte de la
+propuesta semanal: ventas de la misma campaña del año anterior por artículo, corregidas por lo que sobró,
+por lo que se agotó antes de tiempo y por cómo va el año, con el «poco más» como un porcentaje que pone él.
+Antes de calcular nada hay que hacer el estudio con el histórico (tres años de ventas mensuales ya
+cargados) y una prueba hacia atrás: calcular con datos hasta 2025 y ver qué habría pasado en 2026.
+
 Arranque con un piloto: un proveedor, unas semanas comparando la propuesta del ERP con el método de
 siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
 
