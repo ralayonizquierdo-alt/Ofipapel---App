@@ -74,6 +74,16 @@ const MOTIVOS: [string, string][] = [
   ['otro', 'Otro'],
 ]
 
+/** Entregado pero sin cobrar (Rober, 17/11/2026): por qué. La factura sale del reparto y pasa a administración. */
+const NO_COBRO: [string, string][] = [
+  ['paga_banco', 'Dice que paga por transferencia'],
+  ['sin_dinero', 'No tenía el dinero'],
+  ['no_responsable', 'No estaba quien paga'],
+  ['importe', 'No está de acuerdo con el importe'],
+  ['ya_pagado', 'Dice que ya la pagó'],
+  ['otro', 'Otro'],
+]
+
 const normal = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
 const hora = (v: string | null) => (v ? new Date(v).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' }) : '')
 /** Número para WhatsApp (con el 34 delante) si el teléfono es un móvil español o ya trae prefijo; si es un fijo, nada. */
@@ -120,6 +130,8 @@ function queHacer(l: { total: number | null; pagado: number | null; contado?: bo
   if (l.pagado != null && l.total - l.pagado > 0.005) return ['Revisar y cobrar', V.rojo]
   return ['Solo revisar · Pagado', V.verdeMed]
 }
+/** ¿Hay que cobrarla en la entrega? Lo mismo que decide el rótulo rojo «Revisar y cobrar». */
+const hayQueCobrar = (l: Parameters<typeof queHacer>[0]) => queHacer(l)?.[0] === 'Revisar y cobrar'
 /**
  * Importe a la derecha del nombre, en su misma línea, sin ensanchar la casilla. La indicación va justo
  * debajo, en pequeño: en un móvil de 360 px, con las tres cosas en una línea el nombre no se leía.
@@ -432,7 +444,7 @@ const ESTADO_OFI: Record<LineaOficina['estado'], [string, string]> = {
   no_entregado: ['NO entregado', V.rojo],
   pendiente: ['Pendiente', V.gris],
 }
-const textoDe = (lista: [string, string][], v: string | null) => (v ? (lista.find(([k]) => k === v)?.[1] ?? v) : null)
+const textoDe = (lista: [string, string][], v: string | null | undefined) => (v ? (lista.find(([k]) => k === v)?.[1] ?? v) : null)
 
 function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () => void; onCaducada: () => void }) {
   const [rutas, setRutas] = useState<RutaOficina[] | null>(null)
@@ -518,8 +530,10 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
           {!lineas && <div style={{ color: V.gris }}>Cargando…</div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lineas?.map((l) => {
-              const [et, ec] = ESTADO_OFI[l.estado]
-              const detalle = [textoDe(MOTIVOS, l.motivo), textoDe(INCIDENCIAS, l.incidencia), l.nota].filter(Boolean).join(' · ')
+              // Entregada pero sin cobrar: pasa a administración para el cobro, con el motivo que dio el repartidor.
+              const sinCobrar = l.estado === 'entregado' && !!l.no_cobro
+              const [et, ec] = sinCobrar ? (['Entregado SIN COBRAR', V.naranja] as [string, string]) : ESTADO_OFI[l.estado]
+              const detalle = [textoDe(MOTIVOS, l.motivo), textoDe(INCIDENCIAS, l.incidencia), sinCobrar ? textoDe(NO_COBRO, l.no_cobro) : null, l.nota].filter(Boolean).join(' · ')
               return (
                 <div key={`${l.vt}-${l.vn}`} style={{ borderLeft: `6px solid ${ec}`, background: '#f7faf7', borderRadius: 10, padding: '8px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -877,7 +891,7 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
 }
 
 // ------------------------------------------------------------------ Ruta
-type Hoja = { tipo: 'incidencia' | 'no_entregado' | 'ruta' | 'telefono'; linea: LineaApp } | null
+type Hoja = { tipo: 'incidencia' | 'no_entregado' | 'cobro' | 'ruta' | 'telefono'; linea: LineaApp } | null
 
 function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; reparto: RepartoApp; onVolver: () => void; onCaducada: () => void }) {
   const [datos, setDatos] = useState(() => lineasEnCache(reparto.tienda, reparto.numero))
@@ -981,7 +995,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     guardarCache(reparto.tienda, reparto.numero, nuevo)
   }
 
-  const accion = (l: LineaApp, tipo: 'entregado' | 'incidencia' | 'no_entregado' | 'deshacer', detalle?: string, nota?: string) => {
+  const accion = (l: LineaApp, tipo: 'entregado' | 'sin_cobrar' | 'incidencia' | 'no_entregado' | 'deshacer', detalle?: string, nota?: string) => {
     if (tipo !== 'deshacer' && !puedeEntregar) {
       setHoja(null)
       setAviso('Primero ficha la entrada (botón «Fichar entrada», arriba): hasta entonces puedes ver, comprobar y ordenar la ruta, pero no entregar.')
@@ -990,13 +1004,15 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     }
     const ahora = new Date().toISOString()
     const pos = ultimaPos.current
-    if (tipo === 'entregado') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, entregado_en: ahora, nota: nota ?? null })
-    if (tipo === 'incidencia') cambiarLocal(clave(l), { estado: 'entregado', incidencia: detalle ?? null, motivo: null, entregado_en: ahora, nota: nota ?? null })
+    if (tipo === 'entregado') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: null, entregado_en: ahora, nota: nota ?? null })
+    if (tipo === 'sin_cobrar') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: detalle ?? null, entregado_en: ahora, nota: nota ?? null })
+    if (tipo === 'incidencia') cambiarLocal(clave(l), { estado: 'entregado', incidencia: detalle ?? null, motivo: null, no_cobro: null, entregado_en: ahora, nota: nota ?? null })
     if (tipo === 'no_entregado')
       cambiarLocal(clave(l), {
         estado: 'no_entregado',
         motivo: detalle ?? null,
         incidencia: null,
+        no_cobro: null,
         nota: nota ?? null,
         intento1: l.intento1 ?? ahora,
         intento2: l.intento1 ? ahora : null,
@@ -1007,6 +1023,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         estado: l.prioritario ? 'viene_anterior' : 'pendiente',
         incidencia: null,
         motivo: null,
+        no_cobro: null,
         nota: null,
         entregado_en: null,
         intento2: l.estado === 'no_entregado' && l.intento2 ? null : l.intento2,
@@ -1017,7 +1034,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
       p_numero: l.rn ?? reparto.numero,
       p_vt: l.vt,
       p_vn: l.vn,
-      p_accion: tipo,
+      p_accion: tipo === 'sin_cobrar' ? 'entregado_sin_cobrar' : tipo,
       p_detalle: detalle ?? null,
       p_nota: nota ?? null,
       p_en: ahora,
@@ -1196,6 +1213,20 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           opciones={INCIDENCIAS}
           onCerrar={() => setHoja(null)}
           onOk={(d, n) => accion(hoja.linea, 'incidencia', d, n)}
+        />
+      )}
+      {hoja?.tipo === 'cobro' && (
+        <HojaOpciones
+          titulo={`Entregado · ¿cobraste ${euros((hoja.linea.total ?? 0) - (hoja.linea.pagado ?? 0))}?`}
+          opciones={NO_COBRO}
+          cabecera={
+            <>
+              <Boton onClick={() => accion(hoja.linea, 'entregado')}>Sí, cobrado</Boton>
+              <div style={{ fontSize: 14, fontWeight: 700, color: V.rojo, marginTop: 6 }}>No se cobró porque…</div>
+            </>
+          }
+          onCerrar={() => setHoja(null)}
+          onOk={(d, n) => accion(hoja.linea, 'sin_cobrar', d, n)}
         />
       )}
       {hoja?.tipo === 'no_entregado' && (
@@ -1442,6 +1473,7 @@ function Lista({
   onReordenar: (l: LineaApp[]) => void
   onComprobar: (l: LineaApp) => void
   onAccion: (l: LineaApp, t: 'entregado' | 'deshacer') => void
+  // Si la factura había que cobrarla, «Entregado» pregunta antes si se cobró (y, si no, por qué).
   onHoja: (h: Hoja) => void
   puedeCambiarRuta: boolean
   onRetirar: (l: LineaApp) => void
@@ -1493,8 +1525,8 @@ function Lista({
         const kk = k(l)
         const marcado = !['pendiente', 'viene_anterior'].includes(l.estado)
         const color =
-          l.estado === 'liquidado' ? AZUL : l.estado === 'no_entregado' ? V.rojo : l.incidencia ? V.naranja : l.estado === 'entregado' ? V.verdeCl : l.prioritario ? V.rojo : '#cfd8cf'
-        const fondo = l.estado === 'liquidado' ? '#eaf2fb' : l.estado === 'no_entregado' ? '#fdecea' : l.incidencia ? '#fff4e0' : marcado ? '#eef8ee' : '#fff'
+          l.estado === 'liquidado' ? AZUL : l.estado === 'no_entregado' ? V.rojo : l.incidencia || l.no_cobro ? V.naranja : l.estado === 'entregado' ? V.verdeCl : l.prioritario ? V.rojo : '#cfd8cf'
+        const fondo = l.estado === 'liquidado' ? '#eaf2fb' : l.estado === 'no_entregado' ? '#fdecea' : l.incidencia || l.no_cobro ? '#fff4e0' : marcado ? '#eef8ee' : '#fff'
         const abiertaEsta = abierta === kk
         return (
           <div
@@ -1573,7 +1605,7 @@ function Lista({
                       ? `Liquidada en administración${l.entregado_en ? ' · entregado ' + hora(l.entregado_en) : ''}`
                       : l.estado === 'no_entregado'
                       ? `No entregado${l.intento1 ? ' · ' + hora(l.intento1) : ''}${l.intento2 ? ' y ' + hora(l.intento2) : ''}`
-                      : `${l.incidencia ? 'Con incidencia' : 'Entregado'}${l.entregado_en ? ' · ' + hora(l.entregado_en) : ''}`}
+                      : `${l.incidencia ? 'Con incidencia' : l.no_cobro ? 'Entregado SIN COBRAR: ' + (textoDe(NO_COBRO, l.no_cobro) ?? '') : 'Entregado'}${l.entregado_en ? ' · ' + hora(l.entregado_en) : ''}`}
                   </div>
                 )}
               </button>
@@ -1676,7 +1708,7 @@ function Lista({
                         </Boton>
                       )}
                       {l.estado === 'no_entregado' && (
-                        <Boton onClick={() => onAccion(l, 'entregado')} style={{ flex: 1, fontSize: 14 }}>
+                        <Boton onClick={() => (hayQueCobrar(l) ? onHoja({ tipo: 'cobro', linea: l }) : onAccion(l, 'entregado'))} style={{ flex: 1, fontSize: 14 }}>
                           ✅ Ya entregado
                         </Boton>
                       )}
@@ -1686,7 +1718,7 @@ function Lista({
                     </div>
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10, opacity: bloqueado ? 0.45 : 1 }}>
-                      <Boton onClick={() => onAccion(l, 'entregado')} style={{ fontSize: 14, padding: '12px 4px' }}>
+                      <Boton onClick={() => (hayQueCobrar(l) ? onHoja({ tipo: 'cobro', linea: l }) : onAccion(l, 'entregado'))} style={{ fontSize: 14, padding: '12px 4px' }}>
                         ✅<br />
                         Entregado
                       </Boton>
@@ -1737,13 +1769,27 @@ function Hoja({ titulo, children, onCerrar }: { titulo: string; children: ReactN
   )
 }
 
-function HojaOpciones({ titulo, opciones, onCerrar, onOk }: { titulo: string; opciones: [string, string][]; onCerrar: () => void; onOk: (detalle: string, nota?: string) => void }) {
+function HojaOpciones({
+  titulo,
+  opciones,
+  cabecera,
+  onCerrar,
+  onOk,
+}: {
+  titulo: string
+  opciones: [string, string][]
+  /** Lo que va encima de las opciones (p. ej. «Sí, cobrado» antes de los motivos de no cobro). */
+  cabecera?: ReactNode
+  onCerrar: () => void
+  onOk: (detalle: string, nota?: string) => void
+}) {
   const [otro, setOtro] = useState(false)
   const [nota, setNota] = useState('')
   return (
     <Hoja titulo={titulo} onCerrar={onCerrar}>
       {!otro ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {cabecera}
           {opciones.map(([v, t]) => (
             <Boton key={v} claro onClick={() => (v === 'otro' ? setOtro(true) : onOk(v))} style={{ textAlign: 'left' }}>
               {t}

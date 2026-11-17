@@ -258,6 +258,9 @@ def escribir_partes(partes):
             for l in p['lineas']:
                 poner = nombres.get(l.get('estado_gw'), '(no tocar: sin marcar)')
                 det = ' · '.join(str(x) for x in (l.get('motivo'), l.get('incidencia'), l.get('nota')) if x)
+                if l.get('no_cobro'):
+                    # Entregada pero sin cobrar: en GeminisWin va como ENTREGADO (sale del reparto); la cobra administración.
+                    det = f"SIN COBRAR ({l['no_cobro']}): pasa a administración" + (' · ' + det if det else '')
                 if l.get('contado'):
                     det = (det + ' · ' if det else '') + f"CONTADO total {l.get('total')} pagado {l.get('pagado')}"
                 h.write(f"{l['ofi_venta']}-{l['venta']:<11} {str(l.get('factura') or ''):<14} {poner:<21} {det}\n")

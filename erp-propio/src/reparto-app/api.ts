@@ -50,6 +50,8 @@ export interface LineaApp {
   bultos: number | null
   incidencia: string | null
   motivo: string | null
+  /** Entregado pero sin cobrar: por qué (lo pone el repartidor). */
+  no_cobro?: string | null
   nota: string | null
   intento1: string | null
   intento2: string | null
@@ -273,6 +275,7 @@ export interface LineaOficina {
   forma_pago?: string | null
   incidencia: string | null
   motivo: string | null
+  no_cobro?: string | null
   nota: string | null
   hora: string | null
   /** Teléfono que el repartidor puso porque el que venía no era el bueno. */
