@@ -762,7 +762,12 @@ function Caja({ cobros, hora, error }: { cobros: PorCobrar[] | null; hora: strin
  */
 function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void }) {
   // Bizum es que ya está pagada: no cuenta como pendiente aunque GeminisWin aún no lo refleje.
-  const lista = cobros.filter((c) => tipoPago(c.forma_pago) !== 'pagada')
+  // Solo FACTURAS (Rober, 17/11/2026): los albaranes a crédito (transferencia o remesa a 30, 60 días…) todavía
+  // no se han facturado y se cobran a su vencimiento; con ellos la lista sería interminable. Lo de contado
+  // que había que cobrar en mano sí sale siempre, tenga o no número de factura.
+  const conFactura = (c: PorCobrar) => c.factura != null && String(c.factura).trim() !== ''
+  const enMano = (c: PorCobrar) => c.contado !== false && tipoPago(c.forma_pago) === 'mano'
+  const lista = cobros.filter((c) => tipoPago(c.forma_pago) !== 'pagada' && (conFactura(c) || enMano(c)))
   const grupo = (c: PorCobrar): string => {
     const f = (c.forma_pago ?? '').toLowerCase()
     if (f.includes('remesa')) return 'Remesa'
@@ -781,7 +786,7 @@ function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; a
           <span style={{ flex: 1, fontWeight: 700, fontSize: 17, color: AZUL }}>POR COBRAR</span>
           <span style={{ fontWeight: 700, fontSize: 16, color: AZUL, whiteSpace: 'nowrap' }}>{euros(suma(lista))}</span>
         </div>
-        <div style={{ color: V.gris, fontSize: 13 }}>Facturas ya entregadas con importe pendiente · {abierta ? 'toca para cerrar' : 'toca para ver la lista'}</div>
+        <div style={{ color: V.gris, fontSize: 13 }}>Facturas ya entregadas con importe pendiente (sin los albaranes a crédito) · {abierta ? 'toca para cerrar' : 'toca para ver la lista'}</div>
         <div style={{ fontSize: 13, color: V.texto, marginTop: 4 }}>
           {grupos.map((x) => `${x.filas.length} ${x.g.replace('Contado · ', '').replace('el repartidor no cobró', 'sin cobrar').replace('entregada, sin liquidar todavía', 'sin liquidar').toLowerCase()}`).join(' · ')}
         </div>

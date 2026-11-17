@@ -113,6 +113,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
       '«Entregado SIN COBRAR» en naranja: el repartidor la entregó y no la cobró; debajo sale el motivo que dio. Sale del reparto y queda para cobrarla desde administración.',
       'Debajo de las rutas, en azul, «POR COBRAR»: tócala y se despliega la lista de facturas ya entregadas que siguen con importe pendiente, con cliente, número de factura e importe.',
       'Van agrupadas: las de contado que el repartidor no cobró (con su motivo), las de contado entregadas y aún sin liquidar, las de transferencia y las de remesa. Cada grupo lleva su total.',
+      'Solo salen facturas. Los albaranes a crédito (transferencia o remesa a 30, 60 días…) no aparecen: se facturan después y se cobran a su vencimiento.',
       'Es solo para mirar: el cobro se apunta en GeminisWin y la factura sale de la lista cuando allí queda pagada o liquidada.',
       'Se actualiza sola cada medio minuto.',
     ],
