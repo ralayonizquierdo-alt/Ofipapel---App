@@ -6,7 +6,8 @@
 -- GeminisWin, no un dato que haya que conservar.
 --
 --  · espejo_gw_aviso: datos de GeminisWin que no se han podido copiar tal cual, con su valor original, para
---    que alguien los corrija ALLÍ. Al corregirlos, la siguiente copia los trae bien y el aviso se borra solo.
+--    que alguien los corrija ALLÍ. Al corregirlos, la siguiente copia los trae bien y el aviso queda resuelto
+--    (resuelto_en), sin borrarse: se conserva el historial.
 --  · gw_n_tope(datos, campo, tope, tabla, clave): el número del campo; si se sale del tope, lo apunta como
 --    aviso y devuelve null (la carga pone entonces su valor por defecto).
 --  · fn_carga_gw_articulo usa gw_n_tope para el IGIC. Si otro campo diera el mismo problema, misma receta.
@@ -18,6 +19,7 @@ create table if not exists public.espejo_gw_aviso (
   valor text,
   motivo text not null,
   en timestamptz not null default now(),
+  resuelto_en timestamptz,
   primary key (tabla, clave, campo)
 );
 alter table public.espejo_gw_aviso enable row level security;
@@ -36,10 +38,10 @@ begin
   if v is not null and abs(v) >= p_tope then
     insert into espejo_gw_aviso (tabla, clave, campo, valor, motivo)
     values (p_tabla, p_clave, k, v::text, format('Valor fuera de lo admitido (hasta %s): no se ha copiado', p_tope))
-    on conflict (tabla, clave, campo) do update set valor = excluded.valor, motivo = excluded.motivo, en = now();
+    on conflict (tabla, clave, campo) do update set valor = excluded.valor, motivo = excluded.motivo, en = now(), resuelto_en = null;
     return null;
   end if;
-  delete from espejo_gw_aviso where tabla = p_tabla and clave = p_clave and campo = k;
+  update espejo_gw_aviso set resuelto_en = now() where tabla = p_tabla and clave = p_clave and campo = k and resuelto_en is null;
   return v;
 end $$;
 revoke all on function public.gw_n_tope(jsonb, text, numeric, text, text) from public, anon, authenticated;

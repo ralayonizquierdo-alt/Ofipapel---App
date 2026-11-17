@@ -28,6 +28,15 @@ interface Panel {
   equipo: string | null
   tablas: FilaTabla[]
 }
+/** Dato de GeminisWin que no se ha podido copiar tal cual (espejo_gw_aviso): se corrige allí. */
+interface Aviso {
+  tabla: string
+  clave: string
+  campo: string
+  valor: string | null
+  motivo: string
+  en: string
+}
 interface AreaDueno {
   area: string
   nombre: string
@@ -111,6 +120,7 @@ export function EspejoEstado() {
   const [panel, setPanel] = useState<Panel | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mirando, setMirando] = useState(false)
+  const [avisos, setAvisos] = useState<Aviso[]>([])
 
   const cargar = useCallback(async () => {
     setMirando(true)
@@ -119,6 +129,8 @@ export function EspejoEstado() {
     if (e) return setError(e.message)
     setError(null)
     setPanel(data as Panel)
+    const av = await supabase.from('espejo_gw_aviso').select('tabla, clave, campo, valor, motivo, en').is('resuelto_en', null).order('en', { ascending: false }).limit(100)
+    setAvisos((av.data ?? []) as Aviso[])
   }, [])
 
   // Se refresca solo cada medio minuto: durante una carga grande se ve avanzar sin tocar nada.
@@ -208,6 +220,36 @@ export function EspejoEstado() {
           </tbody>
         </table>
       </div>
+      {avisos.length > 0 && (
+        <div className="rounded border border-[#e0b96a] bg-[#fff8e8] px-3 py-2">
+          <b className="text-[14px] text-[#8a5a00]">Datos de GeminisWin que no se han podido copiar ({avisos.length})</b>
+          <div className="text-[12px] text-[#555]">Son valores imposibles, casi siempre un error al teclear. Hay que corregirlos en GeminisWin; al corregirlos desaparecen de aquí solos.</div>
+          <table className="gw-grid mt-1 w-full text-[13px]">
+            <thead>
+              <tr>
+                <th className="text-left">Qué</th>
+                <th className="text-left">Código</th>
+                <th className="text-left">Campo</th>
+                <th className="text-right">Valor en GeminisWin</th>
+                <th className="text-left">Qué se ha hecho</th>
+                <th className="text-left">Desde</th>
+              </tr>
+            </thead>
+            <tbody>
+              {avisos.map((a) => (
+                <tr key={`${a.tabla}|${a.clave}|${a.campo}`}>
+                  <td>{NOMBRE[a.tabla] ?? a.tabla}</td>
+                  <td>{a.clave}</td>
+                  <td>{a.campo}</td>
+                  <td className="text-right font-bold">{a.valor}</td>
+                  <td>{a.motivo}</td>
+                  <td>{cuando(a.en)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="text-[12px] text-[#666]">
         «En el ERP» cuenta la tabla del ERP donde acaba cada fichero; no siempre coincide con lo recibido (dos ficheros pueden acabar en la misma tabla, y el ERP
         puede tener altas propias). Se actualiza sola cada medio minuto.
@@ -310,6 +352,7 @@ function Operativa() {
             '«Por pasar al ERP» distinto de cero es normal durante una carga grande: baja solo. Si se queda fijo mucho rato, avisa.',
             'Un fallo deja de enseñarse cuando esa tabla vuelve a cargar bien.',
             '«Aplazada» no es un fallo: es una tabla que todavía no se copia.',
+            'Si aparece el recuadro «Datos de GeminisWin que no se han podido copiar», son valores imposibles (por ejemplo, un IGIC del 8.200 %). La carga sigue sin ellos; hay que corregirlos en GeminisWin y desaparecen solos.',
           ],
         },
         {
