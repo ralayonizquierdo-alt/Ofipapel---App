@@ -126,6 +126,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
       'En «Caja» sale cada ruta con el total que ese repartidor tiene que entregar: las facturas de contado que entregó y dice que cobró.',
       'Toca una ruta: verás el total en grande y, debajo, cada factura con cliente, número e importe. Ve tocándolas según las cuentas.',
       'Escribe lo que te entrega y la app te dice si cuadra, falta o sobra.',
+      '«Imprimir justificante»: saca dos copias en una hoja con las facturas, el total y lo entregado. Una se la lleva el repartidor con tu firma y sello; la otra te la quedas con la suya. Así deja el dinero y se va.',
       'Las que el repartidor NO cobró no salen aquí: están en «Rutas», en la tarjeta azul «Por cobrar».',
       'No guarda nada: liquida en GeminisWin como siempre. Al liquidarlas, las facturas salen de la lista.',
     ],

@@ -716,9 +716,16 @@ function Caja({ cobros, hora, error }: { cobros: PorCobrar[] | null; hora: strin
             {dif === 0 ? '✔ Cuadra' : dif < 0 ? `Faltan ${euros(-dif)}` : `Sobran ${euros(dif)}`}
           </div>
         )}
+        <Boton color={AZUL} onClick={() => window.print()} style={{ width: '100%', marginTop: 12 }}>
+          🖨 Imprimir justificante
+        </Boton>
+        <div style={{ fontSize: 12, color: V.gris, marginTop: 6 }}>
+          Salen dos copias en la misma hoja: una para el repartidor, con tu firma y sello, y otra para ti, con la suya. Así deja el dinero y se va.
+        </div>
         <div style={{ fontSize: 12, color: V.gris, marginTop: 10 }}>
           Es una ayuda para contar: no guarda nada. Liquida las facturas en GeminisWin como siempre; al hacerlo salen de esta lista.
         </div>
+        <Justificante ruta={nombreRuta(sel.filas[0])} repartidor={sel.filas[0].repartidor} filas={sel.filas} total={total} recibido={hayEntrega ? recibido : null} />
       </Tarjeta>
     )
   }
@@ -752,6 +759,77 @@ function Caja({ cobros, hora, error }: { cobros: PorCobrar[] | null; hora: strin
       </div>
       {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
     </Tarjeta>
+  )
+}
+
+/**
+ * Justificante de entrega de efectivo (Rober, 17/11/2026): el repartidor deja el dinero en administración y
+ * se va con este papel firmado y sellado, sin esperar a que se liquide en GeminisWin. Dos copias en la misma
+ * hoja: la suya y la de administración. En pantalla no se ve: solo existe al imprimir.
+ */
+function Justificante({ ruta, repartidor, filas, total, recibido }: { ruta: string; repartidor: string | null; filas: PorCobrar[]; total: number; recibido: number | null }) {
+  const ahora = new Date().toLocaleString('es-ES', { timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const dif = recibido == null ? 0 : Math.round((recibido - total) * 100) / 100
+  const celda: CSSProperties = { padding: '3px 4px', borderBottom: '1px solid #999', fontSize: 12 }
+  const copia = (para: string, firmaIzq: string, firmaDer: string) => (
+    <div style={{ pageBreakInside: 'avoid', color: '#000', fontFamily: 'Arial, sans-serif', padding: '6px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline' }}>
+        <b style={{ flex: 1, fontSize: 18 }}>OFIPAPEL</b>
+        <span style={{ fontSize: 11 }}>{para}</span>
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, margin: '2px 0 6px' }}>Justificante de entrega de cobros del reparto</div>
+      <div style={{ fontSize: 12 }}>
+        <b>{ruta}</b> · Repartidor: <b>{repartidor ?? '______________________'}</b> · {ahora}
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 6 }}>
+        <thead>
+          <tr>
+            <th style={{ ...celda, textAlign: 'left' }}>Cliente</th>
+            <th style={{ ...celda, textAlign: 'left' }}>Documento</th>
+            <th style={{ ...celda, textAlign: 'right' }}>Importe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((c) => (
+            <tr key={`${c.vt}-${c.vn}`}>
+              <td style={celda}>{c.cliente}</td>
+              <td style={{ ...celda, whiteSpace: 'nowrap' }}>{c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`}</td>
+              <td style={{ ...celda, textAlign: 'right', whiteSpace: 'nowrap' }}>{euros(c.pendiente)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginTop: 6, fontSize: 14 }}>
+        <span>
+          {filas.length} documento{filas.length === 1 ? '' : 's'} · Total a entregar: <b>{euros(total)}</b>
+        </span>
+      </div>
+      <div style={{ textAlign: 'right', fontSize: 14, marginTop: 2 }}>
+        Entregado: <b>{recibido == null ? '______________ €' : euros(recibido)}</b>
+        {recibido != null && dif !== 0 ? ` · ${dif < 0 ? 'Faltan' : 'Sobran'} ${euros(Math.abs(dif))}` : ''}
+      </div>
+      <div style={{ display: 'flex', gap: 24, marginTop: 34, fontSize: 11 }}>
+        <div style={{ flex: 1, borderTop: '1px solid #000', paddingTop: 2 }}>{firmaIzq}</div>
+        <div style={{ flex: 1, borderTop: '1px solid #000', paddingTop: 2 }}>{firmaDer}</div>
+      </div>
+      <div style={{ fontSize: 10, marginTop: 4 }}>Acredita la entrega del dinero en administración. Las facturas se liquidan después en el programa.</div>
+    </div>
+  )
+  return (
+    <div id="justificante-caja">
+      <style>{`
+        #justificante-caja { display: none; }
+        @media print {
+          html, body { background: #fff !important; }
+          body * { visibility: hidden !important; }
+          #justificante-caja, #justificante-caja * { visibility: visible !important; }
+          #justificante-caja { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 0 8px; box-sizing: border-box; }
+        }
+      `}</style>
+      {copia('Ejemplar para el repartidor', 'Recibí — administración (firma y sello)', 'Entregó — repartidor')}
+      <div style={{ borderTop: '1px dashed #000', margin: '14px 0', textAlign: 'center', fontSize: 10, color: '#000' }}>✂ cortar por aquí</div>
+      {copia('Ejemplar para administración', 'Recibí — administración', 'Entregó — repartidor (firma)')}
+    </div>
   )
 }
 
