@@ -174,7 +174,13 @@ async function cargarLineas(tienda: string, numero: number): Promise<Linea[]> {
     .select('*')
     .eq('tienda_terminal_codigo', tienda)
     .eq('numero', numero)
+    // Mismo orden que ve el repartidor en su app (Rober, 17/11/2026): primero lo que viene de un reparto
+    // anterior, después el orden de entrega y, a igualdad, población y dirección.
+    .order('reparto_anterior_numero', { ascending: true, nullsFirst: false })
     .order('orden', { ascending: true, nullsFirst: false })
+    .order('poblacion')
+    .order('direccion')
+    .order('venta_numero')
   const filas = (data ?? []) as Record<string, unknown>[]
   if (filas.length === 0) return []
   const numeros = [...new Set(filas.map((f) => Number(f.venta_numero)))]
