@@ -36,6 +36,8 @@ import {
   rutasDestino,
   sesionGuardada,
   type LineaApp,
+  type PorCobrar,
+  porCobrar,
   type RepartoApp,
   type Sesion,
 } from './api'
@@ -98,7 +100,9 @@ const numeroWhatsApp = (tel: string | null | undefined): string | null => {
 /** «RUTA 1 · LOS CRISTIANOS»: el número de la ruta delante del nombre de la zona. */
 const nombreRuta = (ruta: string | null | undefined, nombre: string | null | undefined) =>
   [ruta ? `RUTA ${/^\d+$/.test(ruta) ? Number(ruta) : ruta}` : null, nombre || (ruta ? null : 'Sin ruta')].filter(Boolean).join(' · ')
-const euros = (n: number | null | undefined) => (n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €')
+// «always»: punto de millar también en 1.250,00 (en español, por defecto, solo desde 10.000).
+const euros = (n: number | null | undefined) =>
+  n == null ? '' : n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' as unknown as boolean }) + ' €'
 const base = import.meta.env.BASE_URL
 
 /**
@@ -453,11 +457,18 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   const [abierta, setAbierta] = useState<RutaOficina | null>(null)
   const [lineas, setLineas] = useState<LineaOficina[] | null>(null)
   const [hora, setHora] = useState<string | null>(null)
+  // «Por cobrar»: facturas entregadas con importe pendiente; se despliega debajo de las rutas.
+  const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
+  const [verCobros, setVerCobros] = useState(false)
 
   const cargar = useCallback(async () => {
     try {
       const r = await todasLasRutas(sesion.token)
       setRutas(r.rutas ?? [])
+      // Si falla solo esta lista, las rutas se siguen viendo.
+      porCobrar(sesion.token)
+        .then(setCobros)
+        .catch(() => {})
       setHoy(r.hoy ?? null)
       setError(null)
       setHora(new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }))
@@ -595,10 +606,86 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
               </button>
             )
           })}
+          {cobros && cobros.length > 0 && <TarjetaPorCobrar cobros={cobros} abierta={verCobros} onAbrir={() => setVerCobros((v) => !v)} />}
         </div>
         {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
       </Tarjeta>
     </>
+  )
+}
+
+/**
+ * «Por cobrar» (Rober y David, 17/11/2026): como una ruta más, en azul, debajo de las demás. Al tocarla se
+ * despliega la lista de facturas ya entregadas que siguen con importe pendiente, agrupadas por cómo se
+ * cobran. Es informativa: los cobros se apuntan en GeminisWin y la factura sale de aquí sola.
+ */
+export function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void }) {
+  // Bizum es que ya está pagada: no cuenta como pendiente aunque GeminisWin aún no lo refleje.
+  const lista = cobros.filter((c) => tipoPago(c.forma_pago) !== 'pagada')
+  const grupo = (c: PorCobrar): string => {
+    const f = (c.forma_pago ?? '').toLowerCase()
+    if (f.includes('remesa')) return 'Remesa'
+    if (f.includes('transfer')) return 'Transferencia'
+    if (c.contado === false || tipoPago(c.forma_pago) === 'banco') return 'Otras formas por banco'
+    return c.no_cobro ? 'Contado · el repartidor no cobró' : 'Contado · entregada, sin liquidar todavía'
+  }
+  const ORDEN = ['Contado · el repartidor no cobró', 'Contado · entregada, sin liquidar todavía', 'Transferencia', 'Remesa', 'Otras formas por banco']
+  const grupos = ORDEN.map((g) => ({ g, filas: lista.filter((c) => grupo(c) === g) })).filter((x) => x.filas.length)
+  const suma = (fs: PorCobrar[]) => fs.reduce((t, c) => t + (c.pendiente ?? 0), 0)
+  if (!lista.length) return null
+  return (
+    <div style={{ background: '#eef5fc', border: `2px solid ${AZUL}`, borderRadius: 16, overflow: 'hidden' }}>
+      <button type="button" onClick={onAbrir} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ flex: 1, fontWeight: 700, fontSize: 17, color: AZUL }}>POR COBRAR</span>
+          <span style={{ fontWeight: 700, fontSize: 16, color: AZUL, whiteSpace: 'nowrap' }}>{euros(suma(lista))}</span>
+        </div>
+        <div style={{ color: V.gris, fontSize: 13 }}>Facturas ya entregadas con importe pendiente · {abierta ? 'toca para cerrar' : 'toca para ver la lista'}</div>
+        <div style={{ fontSize: 13, color: V.texto, marginTop: 4 }}>
+          {grupos.map((x) => `${x.filas.length} ${x.g.replace('Contado · ', '').replace('el repartidor no cobró', 'sin cobrar').replace('entregada, sin liquidar todavía', 'sin liquidar').toLowerCase()}`).join(' · ')}
+        </div>
+      </button>
+      {abierta && (
+        <div style={{ padding: '0 10px 10px' }}>
+          {grupos.map((x) => (
+            <div key={x.g} style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, borderBottom: `2px solid ${AZUL}`, paddingBottom: 2 }}>
+                <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: x.g.includes('no cobró') ? V.rojo : AZUL }}>
+                  {x.g} ({x.filas.length})
+                </span>
+                <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{euros(suma(x.filas))}</span>
+              </div>
+              {x.filas.map((c) => (
+                <div key={`${c.vt}-${c.vn}`} style={{ background: '#fff', borderRadius: 10, padding: '6px 8px', marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.cliente}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{euros(c.pendiente)}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: V.gris }}>
+                    {c.factura ? `Factura ${c.factura}` : `Albarán ${c.vt}/${c.vn}`}
+                    {c.ruta ? ` · Ruta ${/^\d+$/.test(c.ruta) ? Number(c.ruta) : c.ruta}` : ''}
+                    {c.repartidor ? ` · ${c.repartidor}` : ''}
+                    {c.hora ? ` · ${c.hora}` : ''}
+                  </div>
+                  <div style={{ fontSize: 12, color: V.texto }}>
+                    {c.forma_pago ?? 'Sin forma de pago'}
+                    {c.total != null && Math.abs(c.total - c.pendiente) > 0.005 ? ` · total ${euros(c.total)}` : ''}
+                  </div>
+                  {(c.no_cobro || c.nota) && (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: c.no_cobro ? V.rojo : V.texto }}>
+                      {[c.no_cobro ? `No cobró: ${textoDe(NO_COBRO, c.no_cobro)}` : null, c.nota].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+          <div style={{ fontSize: 12, color: V.gris, marginTop: 8 }}>
+            Solo para mirar: el cobro se apunta en GeminisWin, y la factura sale de esta lista cuando allí queda pagada o liquidada.
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

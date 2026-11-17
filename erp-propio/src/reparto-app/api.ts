@@ -281,6 +281,26 @@ export interface LineaOficina {
   /** Teléfono que el repartidor puso porque el que venía no era el bueno. */
   telefono_repartidor?: string | null
 }
+/** Factura ya entregada que sigue con importe pendiente (vista de oficina, «Por cobrar»). */
+export interface PorCobrar {
+  vt: string
+  vn: number
+  ruta: string | null
+  ruta_nombre: string | null
+  fecha: string
+  repartidor: string | null
+  cliente: string
+  factura: number | string | null
+  total: number | null
+  pendiente: number
+  contado: boolean | null
+  forma_pago: string | null
+  no_cobro: string | null
+  incidencia: string | null
+  nota: string | null
+  hora: string | null
+}
+export const porCobrar = (token: string) => rpc<PorCobrar[]>('fn_app_rep_por_cobrar', { p_token: token })
 export const todasLasRutas = (token: string) => rpc<{ supervisor: boolean; hoy?: string; rutas?: RutaOficina[] }>('fn_app_rep_todas', { p_token: token })
 export const lineasOficina = (token: string, tienda: string, numero: number) =>
   rpc<LineaOficina[]>('fn_app_rep_todas_lineas', { p_token: token, p_tienda: tienda, p_numero: numero })
