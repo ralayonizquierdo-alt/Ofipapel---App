@@ -113,6 +113,17 @@ adaptar a cualquier proveedor. El formato del Excel ya está en este repositorio
 - Al final, la fila del TOTAL. Un solo descuento por línea: si hay varios encadenados, se funden en uno.
 El ERP sacará ese mismo fichero desde el pedido aceptado. Sin probar todavía contra GeminisWin.
 
+**Cómo quiere comprar Rober (17/11/2026).** Hoy: saca las ventas de un proveedor desde su último pedido.
+Lo ideal: que el ERP proponga **cada semana** los pedidos de todos los proveedores a partir del stock
+mínimo y máximo de cada artículo, y él decida con cada uno si lo envía ya o aguanta.
+- Ya existe, como funciones que hoy solo usa NEXA: cálculo de mínimos y máximos desde el histórico
+  (`fn_compras_calcular_minimos`), propuesta por proveedor de lo que está en el mínimo o por debajo, con la
+  cantidad que lo lleva al máximo (`fn_compras_propuesta_pedidos`), y su método de siempre
+  (`fn_compras_gestor_proveedor`).
+- Falta: una pantalla semanal que junte las propuestas de todos los proveedores, con «enviar» y «aguantar»;
+  el pedido mínimo y los portes de cada proveedor, para saber si compensa enviarlo ya; y los datos reales
+  del espejo. Sin el stock de cada día, los mínimos y máximos no sirven.
+
 Arranque con un piloto: un proveedor, unas semanas comparando la propuesta del ERP con el método de
 siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
 
