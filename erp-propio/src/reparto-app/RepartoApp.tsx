@@ -94,9 +94,13 @@ const base = import.meta.env.BASE_URL
 /**
  * Qué hay que hacer con el albarán, a la vista en la lista sin abrir el pedido (Rober, 17/11/2026):
  * crédito → revisar y firmar; contado ya pagado → solo revisar; contado sin pagar → revisar y cobrar.
+ * Cuando el repartidor ya ha pagado la factura en administración y GeminisWin la da por liquidada, no
+ * queda nada que hacer: pone «Liquidado» (Rober, 17/11/2026).
  */
-function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null }): [string, string] | null {
-  if (l.contado === false) return ['Revisar y firmar', '#1f6fb2']
+const AZUL = '#1f6fb2'
+function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string }): [string, string] | null {
+  if (l.estado === 'liquidado') return ['Liquidado', AZUL]
+  if (l.contado === false) return ['Revisar y firmar', AZUL]
   if (l.total == null) return null
   if (l.pagado != null && l.total - l.pagado > 0.005) return ['Revisar y cobrar', V.rojo]
   return ['Solo revisar · Pagado', V.verdeMed]
@@ -109,7 +113,7 @@ function Importe({ l }: { l: { total: number | null } }) {
   if (l.total == null) return null
   return <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 14, color: V.texto, whiteSpace: 'nowrap' }}>{euros(l.total)}</span>
 }
-function QueHacer({ l }: { l: { total: number | null; pagado: number | null; contado?: boolean | null } }) {
+function QueHacer({ l }: { l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string } }) {
   const q = queHacer(l)
   return q ? <div style={{ fontSize: 12, fontWeight: 700, color: q[1] }}>{q[0]}</div> : null
 }
@@ -396,6 +400,7 @@ export function RepartoApp() {
 // ------------------------------------------------------------------ Oficina: todas las rutas (solo lectura)
 const ESTADO_OFI: Record<LineaOficina['estado'], [string, string]> = {
   entregado: ['Entregado', V.verdeMed],
+  liquidado: ['Liquidado', AZUL],
   incidencia: ['Entregado con incidencia', V.naranja],
   no_entregado: ['NO entregado', V.rojo],
   pendiente: ['Pendiente', V.gris],
@@ -1461,8 +1466,8 @@ function Lista({
         const kk = k(l)
         const marcado = !['pendiente', 'viene_anterior'].includes(l.estado)
         const color =
-          l.estado === 'no_entregado' ? V.rojo : l.incidencia ? V.naranja : l.estado === 'entregado' || l.estado === 'liquidado' ? V.verdeCl : l.prioritario ? V.rojo : '#cfd8cf'
-        const fondo = l.estado === 'no_entregado' ? '#fdecea' : l.incidencia ? '#fff4e0' : marcado ? '#eef8ee' : '#fff'
+          l.estado === 'liquidado' ? AZUL : l.estado === 'no_entregado' ? V.rojo : l.incidencia ? V.naranja : l.estado === 'entregado' ? V.verdeCl : l.prioritario ? V.rojo : '#cfd8cf'
+        const fondo = l.estado === 'liquidado' ? '#eaf2fb' : l.estado === 'no_entregado' ? '#fdecea' : l.incidencia ? '#fff4e0' : marcado ? '#eef8ee' : '#fff'
         const abiertaEsta = abierta === kk
         return (
           <div
@@ -1537,7 +1542,9 @@ function Lista({
                 {l.traspaso?.estado === 'aceptado' && <div style={{ fontSize: 12, color: V.gris, fontWeight: 700 }}>➡ Lo lleva {l.traspaso.a}</div>}
                 {marcado && (
                   <div style={{ fontSize: 12, color }}>
-                    {l.estado === 'no_entregado'
+                    {l.estado === 'liquidado'
+                      ? `Liquidado en administración${l.entregado_en ? ' · entregado ' + hora(l.entregado_en) : ''}`
+                      : l.estado === 'no_entregado'
                       ? `No entregado${l.intento1 ? ' · ' + hora(l.intento1) : ''}${l.intento2 ? ' y ' + hora(l.intento2) : ''}`
                       : `${l.incidencia ? 'Con incidencia' : 'Entregado'}${l.entregado_en ? ' · ' + hora(l.entregado_en) : ''}`}
                   </div>
@@ -1559,7 +1566,9 @@ function Lista({
                 <div style={{ fontSize: 13, color: V.gris, marginTop: 2 }}>
                   {l.factura ? `Factura ${l.factura} · ` : `Albarán ${l.vt}/${l.vn} · `}
                   {euros(l.total)}
-                  {l.contado === false ? (
+                  {l.estado === 'liquidado' ? (
+                    ' · liquidado'
+                  ) : l.contado === false ? (
                     // GeminisWin, venta a crédito: no se cobra en la entrega, solo se firma el albarán.
                     ' · crédito: solo firmar'
                   ) : l.total != null && l.pagado != null && l.total - l.pagado > 0.005 ? (

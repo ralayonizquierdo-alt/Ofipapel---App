@@ -64,6 +64,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
       '«Crédito: solo firmar»: el cliente firma el albarán y no se cobra nada.',
       '«CONTADO: por cobrar» en rojo: hay que cobrar ese importe.',
       '«Pagado»: ya está cobrado, no hay que cobrar.',
+      '«Liquidado» en azul: ya entregaste el dinero de esa factura en administración y allí la han dado por liquidada. No queda nada que hacer con ella.',
     ],
   },
   {
@@ -102,6 +103,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
       '«En reparto · quedan 3»: el repartidor va marcando; faltan esos pedidos.',
       '«✔ Listo para cerrar»: no queda ningún pedido pendiente. Ya se puede cerrar en GeminisWin.',
       'Toca una ruta para ver el detalle factura por factura: entregada, no entregada y por qué, y la hora.',
+      '«Liquidado» en azul: el repartidor ya pagó esa factura en administración y en GeminisWin está liquidada.',
       'Se actualiza sola cada medio minuto.',
     ],
   },

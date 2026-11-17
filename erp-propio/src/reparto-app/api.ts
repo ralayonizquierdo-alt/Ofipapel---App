@@ -261,7 +261,8 @@ export interface RutaOficina {
 export interface LineaOficina {
   vt: string
   vn: number
-  estado: 'entregado' | 'incidencia' | 'no_entregado' | 'pendiente'
+  /** «liquidado»: el repartidor ya pagó la factura en administración (estado 5 de GeminisWin). */
+  estado: 'entregado' | 'liquidado' | 'incidencia' | 'no_entregado' | 'pendiente'
   cliente: string
   poblacion: string | null
   factura: number | string | null

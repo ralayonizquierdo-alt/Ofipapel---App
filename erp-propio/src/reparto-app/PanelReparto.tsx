@@ -408,9 +408,9 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
     rutas.forEach((r, i) => {
       const color = COLORES_RUTA[i % COLORES_RUTA.length]
       for (const p of r.puntos) {
-        const c = p.estado === 'no_entregado' ? C.rojo : p.estado === 'incidencia' ? C.naranja : C.verdeCl
+        const c = p.estado === 'liquidado' ? '#1f6fb2' : p.estado === 'no_entregado' ? C.rojo : p.estado === 'incidencia' ? C.naranja : C.verdeCl
         // Al pulsar el punto: qué pedido se marcó ahí, cómo quedó y a qué hora (Rober, 17/11/2026).
-        const que = p.estado === 'no_entregado' ? 'No entregado' : p.estado === 'incidencia' ? 'Entregado con incidencia' : 'Entregado'
+        const que = p.estado === 'liquidado' ? 'Liquidado' : p.estado === 'no_entregado' ? 'No entregado' : p.estado === 'incidencia' ? 'Entregado con incidencia' : 'Entregado'
         const caja = document.createElement('div')
         caja.style.cssText = 'font:14px Inter,sans-serif;line-height:1.35'
         const nombre = document.createElement('b')
