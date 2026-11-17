@@ -132,8 +132,10 @@ Antes de calcular nada hay que hacer el estudio con el histórico (tres años de
 cargados) y una prueba hacia atrás: calcular con datos hasta 2025 y ver qué habría pasado en 2026.
 
 **Tarifas de proveedores (Rober, 17/11/2026).** Subir al ERP la tarifa de cada proveedor para que diga, en
-los artículos punteros que venden varios, quién sale más barato. Los artículos se emparejan por código de
-barras (EAN). Se compara el precio neto: tarifa menos descuentos, por unidad y no por caja, con los portes
+los artículos punteros que venden varios, quién sale más barato. El emparejamiento NO es por código de
+barras: es el mismo producto de fabricantes distintos, así que cada uno tiene su EAN. Se empareja por la
+**referencia de compra de cada proveedor**, que ya está en la ficha del artículo (recuadro de referencias:
+un artículo, varios proveedores, cada uno con su referencia). Se compara el precio neto: tarifa menos descuentos, por unidad y no por caja, con los portes
 y el pedido mínimo a la vista. El ERP ya guarda varios proveedores por artículo (`articulo_proveedor`);
 falta la subida de tarifas desde Excel, con su fecha de validez, y enseñar la comparación en la propuesta
 semanal. Sin construir.
