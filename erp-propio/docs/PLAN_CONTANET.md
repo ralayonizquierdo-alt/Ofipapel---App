@@ -122,6 +122,17 @@ pasar los datos a contabilidad.
 Un trimestre llevando la contabilidad en los dos sitios. Se comparan sumas y saldos y el modelo 420.
 Cuando coinciden, se deja CONTANET solo para consulta.
 
+### Fase 8 — Quitarle a Mónica lo que hoy teclea (Rober, 17/11/2026)
+El 94 % del diario llega solo desde la gestión. Lo demás, unas 13.600 líneas al año, se teclea. Tres
+piezas para reducirlo, ninguna hecha todavía:
+1. **Bancos por API** (proyecto de la empresa): los movimientos entran solos cada día en la conciliación,
+   que ya existe y hoy lee ficheros Norma 43. Solo lectura. Falta decidir el camino (intermediario
+   autorizado o el canal de empresas de cada banco) y mirar qué ofrece cada banco.
+2. **Nóminas**: las hace la asesoría. Si manda cada mes el resumen en un fichero, el asiento se genera
+   solo y los pagos se casan con el banco. Falta pedirles un mes de muestra.
+3. **Traspaso desde GeminisWin** mientras se siga vendiendo con él: un puente como el del reparto, para
+   que no lo haga Mónica a mano. Cuando el ERP sustituya a GeminisWin deja de hacer falta.
+
 ## 4. Cómo se sabrá que cada fase está bien
 - Fase 1 y 2: Mónica y Luis dan por buena la lista y la tabla.
 - Fase 3 y 4: quien usa CONTANET cada día reconoce cada pantalla sin explicación.
