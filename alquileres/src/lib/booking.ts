@@ -2,8 +2,8 @@ import { collection, deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firesto
 import { useEffect, useState } from 'react'
 import { db } from './firebase'
 import { usuarioActual } from './auth'
-import { buscaTarifa, calcPrices, getApartmentType } from './priceCalc'
-import { MONTH_NAMES_ES, getSeason } from './dateUtils'
+import { buscaTarifa, calcPrices, getApartmentType, precioPorNoches } from './priceCalc'
+import { MONTH_NAMES_ES, anioDeTarifa, getSeason, nombreTemporada } from './dateUtils'
 import type { OfferPrice, PriceEntry } from '../types'
 
 /**
@@ -131,13 +131,12 @@ export function precioNuestro(
   if (!t) {
     // Sin tarifa de ese año: la última que haya de esa temporada y tipo, la
     // misma regla que usa Precios al preparar un año nuevo.
-    const y = Number(entrada.slice(0, 4))
+    const y = anioDeTarifa(entrada)
     const ultima = prices
       .filter(p => p.season === getSeason(entrada) && p.apartmentType === getApartmentType(apartmentId) && p.year < y)
       .sort((a, b) => b.year - a.year)[0]
     if (!ultima) return null
-    t = buscaTarifa(prices, apartmentId, `${ultima.year}${entrada.slice(4)}`, NOCHES_BOOKING, [])
-    if (!t) return null
+    t = { entry: ultima, ...precioPorNoches(ultima, NOCHES_BOOKING) }
     deOtroAnio = y
   }
   const limpieza = t.entry.cleaningFee
@@ -147,8 +146,8 @@ export function precioNuestro(
   const igic = r2(sinIgic * IGIC)
   const tarifa = t.oferta
     ? `Oferta ${MONTH_NAMES_ES[t.oferta.month - 1].toLowerCase()} ${t.oferta.year}`
-    : `${t.entry.season === 'VERANO' ? 'Verano' : 'Invierno'} ${t.entry.year}`
-      + (deOtroAnio ? ` (aún no hay ${deOtroAnio})` : '')
+    : nombreTemporada(t.entry.season, t.entry.year)
+      + (deOtroAnio ? ` (aún no hay ${nombreTemporada(t.entry.season, deOtroAnio)})` : '')
   return {
     total: r2(sinIgic + igic), sinIgic, base: t.base, comision: calc.realEstate,
     web, limpieza, igic, tarifa, deOtroAnio,

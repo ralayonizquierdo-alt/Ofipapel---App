@@ -7,6 +7,25 @@ export function getSeason(date: string | Date): Season {
   return month >= 5 && month <= 9 ? 'VERANO' : 'INVIERNO'
 }
 
+/**
+ * El año de la tabla de Precios que le toca a una fecha.
+ *
+ * La tarifa de invierno de un año N es la del invierno (N−1)/N: de octubre de
+ * N−1 a abril de N. Por eso una entrada de octubre, noviembre o diciembre usa
+ * la tarifa del año SIGUIENTE: el 13/11/2026 va con «Invierno 2027», la de
+ * 2026/27 (595 € la semana del estudio), y no con la de 2025/26 (550 €). Lo
+ * confirmó la agencia el 17/11/2026 con su tabla de Booking.
+ */
+export function anioDeTarifa(date: string | Date): number {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return getSeason(d) === 'INVIERNO' && d.getMonth() + 1 >= 10 ? d.getFullYear() + 1 : d.getFullYear()
+}
+
+/** «Verano 2026» o «Invierno 2025/26» (la tabla de invierno de 2026). */
+export function nombreTemporada(season: Season, year: number): string {
+  return season === 'VERANO' ? `Verano ${year}` : `Invierno ${year - 1}/${String(year).slice(2)}`
+}
+
 export function getNights(checkIn: string, checkOut: string): number {
   const start = new Date(checkIn)
   const end = new Date(checkOut)

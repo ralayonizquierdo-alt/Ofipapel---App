@@ -77,7 +77,9 @@ const LIMPIEZA: ReglaOperativa = {
 const TEMPORADA: ReglaOperativa = {
   que: 'Temporada y año de la tarifa',
   formula: 'los de la fecha de ENTRADA, igual que el tramo y la oferta',
-  nota: 'Se usa la tarifa **del año de entrada**; solo si ese año aún no tiene tarifa, la del año siguiente.',
+  nota: 'El **Invierno 2027** de Precios es el **2026/27** (de octubre de 2026 a abril de 2027): una entrada de '
+    + '**octubre a diciembre** usa la tarifa de invierno del **año siguiente**; las de enero a septiembre, la de su año. '
+    + 'Si esa aún no existe, la del año después.',
 }
 
 // lib/cuentas.ts — comisionDe()
@@ -141,8 +143,9 @@ export const OPERATIVA_DASHBOARD: ReglaOperativa[] = [
   },
   {
     // components/CorregirTarifaAno.tsx, lib/tarifaAnoSiguiente.ts
-    que: 'Tarifa del año siguiente',
-    nota: 'Hasta el 06/11/2026 algunas reservas se calcularon con la tabla de Precios del **año siguiente**. El aviso '
+    que: 'Tarifa de otro año',
+    nota: 'Hasta el 06/11/2026 algunas reservas se calcularon con la tabla de Precios del **año siguiente**, y del 06/11 '
+      + 'al 17/11/2026 las de noviembre y diciembre con la del **invierno pasado**. El aviso '
       + 'ámbar las enseña con su **importe correcto** y lo ya cobrado; se corrigen **solo las que dejes marcadas** '
       + '(el pendiente se ajusta y queda en el Registro). Las de precio pactado no salen.',
   },

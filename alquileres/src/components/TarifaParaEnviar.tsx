@@ -1,5 +1,6 @@
 import { calcPrices } from '../lib/priceCalc'
 import { numSuelto } from '../lib/formato'
+import { nombreTemporada } from '../lib/dateUtils'
 import type { PriceEntry } from '../types'
 
 /**
@@ -33,7 +34,7 @@ export default function TarifaParaEnviar({ entry, tramo, titulo }: {
     <div className="space-y-1 break-inside-avoid">
       <p className="text-xs font-semibold text-slate-700">
         Tarifa: {titulo} · <span className={entry.season === 'VERANO' ? 'text-orange-700' : 'text-blue-700'}>
-          {entry.season} {entry.year}
+          {nombreTemporada(entry.season, entry.year)}
         </span>
       </p>
       <table className="tarifa-enviar w-full text-xs tabular-nums">

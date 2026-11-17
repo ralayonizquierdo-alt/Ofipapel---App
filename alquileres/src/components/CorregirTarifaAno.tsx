@@ -47,7 +47,7 @@ export default function CorregirTarifaAno() {
     }
     anotaVolcado({
       origen: 'correcciones', reservas: marcadas.length,
-      resumen: `Importe recalculado con la tarifa de su año (se había usado la del año siguiente): `
+      resumen: `Importe recalculado con la tarifa que le toca (se había usado la de otro año): `
         + marcadas.map(x => `${nombre(x.r.apartmentId)} ${formatDate(x.r.checkIn)}: ${eur(x.actual)} → ${eur(x.correcto)}`).join(' · '),
     })
     setHecho(`${marcadas.length} ${marcadas.length === 1 ? 'reserva corregida' : 'reservas corregidas'}`)
@@ -61,9 +61,9 @@ export default function CorregirTarifaAno() {
           <AlertTriangle size={18} className="text-amber-600 shrink-0" />
           <div className="flex-1 min-w-[16rem]">
             <p className="text-sm font-semibold text-amber-900">
-              {lista.length === 1 ? '1 reserva calculada' : `${lista.length} reservas calculadas`} con la tarifa del año siguiente
+              {lista.length === 1 ? '1 reserva calculada' : `${lista.length} reservas calculadas`} con la tarifa de otro año
             </p>
-            <p className="text-xs text-amber-800">Un fallo ya corregido les puso el precio del año que viene. Revísalas y corrígelas.</p>
+            <p className="text-xs text-amber-800">Un fallo ya corregido les puso el precio de otra tabla de su temporada. Revísalas y corrígelas.</p>
           </div>
           <button type="button" onClick={() => { setAbierto(true); setHecho('') }}
             className="px-4 py-2 text-sm font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700">
@@ -73,13 +73,14 @@ export default function CorregirTarifaAno() {
       )}
 
       {abierto && (
-        <Modal title="Reservas con la tarifa del año siguiente" onClose={() => setAbierto(false)} size="xl">
+        <Modal title="Reservas con la tarifa de otro año" onClose={() => setAbierto(false)} size="xl">
           <div className="space-y-3 text-sm" translate="no">
             {hecho && <p className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-green-900 font-medium">✓ {hecho}. Quedan apuntadas en el Registro.</p>}
             {lista.length > 0 ? (
               <>
                 <p className="text-slate-600">
-                  Su importe sale de la tabla de Precios del <b>año siguiente</b>. «Correcto» es el de la tabla de <b>su año</b>.
+                  Su importe sale de <b>otra tabla</b> de Precios de su temporada. «Correcto» es el de <b>la que le toca</b>{' '}
+                  (una entrada de octubre a diciembre va con el invierno que empieza ese año: noviembre de 2026 con el 2026/27).
                   Quita la marca a las que se acordaron así, y márcalas como <b>precio pactado</b> en su ficha
                   para que no vuelvan a salir.
                 </p>
