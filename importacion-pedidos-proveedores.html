@@ -200,6 +200,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <button class="btn btn-secundario" id="btnOrdenDesc" onclick="ordenarPor('desc')">↕ Ordenar por Descripción</button>
       <button class="btn btn-secundario" onclick="anadirFila()">+ Añadir fila</button>
       <button class="btn btn-peligro" onclick="vaciarFilas()">🗑 Vaciar todo</button>
+      <div style="margin-left:auto;align-self:center;font-weight:800;font-size:16px;color:var(--verde,#1b5e20);white-space:nowrap;">TOTAL PEDIDO: <span id="totalArriba">0,00</span> €</div>
     </div>
     <div class="tabla-wrap">
       <table class="tabla">
@@ -226,7 +227,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
         <tbody id="tbodyFilas"></tbody>
         <tfoot>
           <tr>
-            <td colspan="13" style="text-align:right;">TOTAL PEDIDO:</td>
+            <td colspan="13" style="text-align:left;"><span style="position:sticky;left:12px;font-size:15px;font-weight:800;">TOTAL PEDIDO: <span id="totalAbajo">0,00</span> €</span></td>
             <td id="totalImporte">0,00</td>
             <td colspan="2"></td>
           </tr>
@@ -251,7 +252,7 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
       <b>Operativa</b><br>
       1. Sube la factura (PDF o Excel). Si el proveedor está homologado, se lee sola y te dice si cuadra con el total.<br>
       2. Si no sale bien o el proveedor no está homologado: <b>«🤖 Leer con IA»</b> (cualquier proveedor; acierta el 80 % de las veces si no es muy complicada; revisa las líneas marcadas y el total).<br>
-      3. Revisa la tabla: Familia, Caja y Ud./Caja casi nunca vienen en la factura.<br>
+      3. Revisa la tabla: Familia, Caja y Ud./Caja casi nunca vienen en la factura. El total sale arriba y abajo de la tabla. En <b>Talens</b> ya salen solos el precio neto (sin descuento), la marca TALEN´S, IGIC 3 %, familia 151020, y el nº y la fecha de la factura para el nombre del Excel.<br>
       4. Elige plantilla (Luis por defecto) y <b>«📥 Generar Excel»</b>. Los descuentos encadenados salen como uno solo; las tildes y la Ñ, sin tilde.<br>
       <b>PARA HOMOLOGAR UN PROVEEDOR, LA ÚNICA Y MÁS RÁPIDA MANERA ES PULSAR «📤 ENVIAR PARA HOMOLOGAR»: LE LLEGA A ROBER Y LO HOMOLOGA ÉL. DESDE LA APLICACIÓN ES TÉCNICAMENTE IMPOSIBLE HOMOLOGAR UN PROVEEDOR.</b>
     </div>
@@ -644,42 +645,21 @@ function parseRoymart(lineas){
   return filas;
 }
 
-// TALENS: "LINEA,NNN [ARTICULO] DESC CANT.PEDIDA CANT.ENTREGADA PRECIO.BRUTO [%DTO] PRECIO.NETO IMPORTE IVA%"
-// El nº de línea no siempre termina en ",000" (alguna tanda lo manda con
-// ",001"). Cantidad Pedida y Entregada son siempre el mismo número en esta
-// factura — exigir que coincidan evita confundir con la cantidad un número
-// suelto que a veces trae la propia descripción (p.ej. "RSP TIERRA SOMBRA
-// NAT 10" o "GSP ESTUCHE STARTER 12", donde el "10"/"12" no es cantidad).
-// La cola de precios varía: con descuento explícito trae Bruto, %Dto, Neto;
-// sin descuento, Bruto y Neto directamente; y en algún artículo sin ningún
-// descuento, un único precio (Bruto = Neto, sin repetirlo). Precio U. es
-// siempre el Precio Bruto (precio de tarifa, nunca el neto ya descontado) —
-// la misma regla que en APLI: el precio nunca se toca, el descuento sí se
-// puede recalcular. Pequeños descuadres de 1-2 céntimos por línea (y un
-// pequeño residuo en el total) son del propio redondeo de la factura, no
-// del lector — Talens no imprime el % exacto en todas las líneas.
+// TALENS: "LINEA,000 [ARTICULO] DESC CANT.PEDIDA CANT.ENTREGADA PRECIO.BRUTO [%DTO] PRECIO.NETO IMPORTE IVA%"
+// 17/11/2026 (propietario, factura 26014297): el precio es SIEMPRE el PRECIO
+// NETO de la factura y sin descuento (antes llevaba el neto y además el %, que
+// se descontaba dos veces). También entran las líneas «116,001» (no solo
+// «,000»), las que no traen precio bruto («6 6 1,40 8,40») y la que pdf.js
+// pega detrás del texto vertical del margen («Reg. Merc. BARNA… 13,000 …»).
 function parseTalens(lineas){
   const filas = [];
-  const RE = /^\d+,\d{3}\s+(?:([A-Z0-9]{4,12})\s+)?(.*?)\s+(\d+)\s+\3\s+([\d.,\s]+)$/;
+  const RE = /(?:^|\s)\d+,\d{3}\s+(?:([A-Z0-9]{4,12})\s+)?(.*?)\s+(\d+)\s+(\d+)\s+(?:(\d+,\d{2})\s+)?(?:(\d+,\d)\s+)?(\d+,\d{2})\s+(\d+(?:\.\d{3})*,\d{2})\s+\d+,\d{2}$/;
   lineas.forEach(l=>{
-    const m = l.trim().match(RE);
+    const m = l.replace(/^Reg\. Merc\..*?ENV\/\d+\/\d+\s+/, '').match(RE);
     if(!m) return;
-    const [,codigo,desc,cantEnt,cola] = m;
-    const nums = cola.trim().split(/\s+/);
-    if(nums.length < 3 || nums.length > 5) return;
-    const importe = parseDecComa(nums[nums.length-2]);
-    let bruto, dto;
-    if(nums.length === 3){
-      bruto = parseDecComa(nums[0]); dto = 0;
-    } else if(nums.length === 4){
-      bruto = parseDecComa(nums[0]);
-      const neto = parseDecComa(nums[1]);
-      dto = bruto>0 ? round2_((1-neto/bruto)*100) : 0;
-    } else {
-      bruto = parseDecComa(nums[0]); dto = parseDecComa(nums[1]);
-    }
+    const [,codigo,desc,,cantEnt,,,precioNeto,importe] = m;
     filas.push(fila_({codigo:codigo||'', descripcion:desc.trim(), cantidad:parseInt(cantEnt,10),
-      precioUnitario:bruto, dto1:dto, importe}));
+      precioUnitario:parseDecComa(precioNeto), dto1:0, importe:parseDecComa(importe)}));
   });
   return filas;
 }
@@ -1742,7 +1722,11 @@ const PERFILES_PROVEEDOR = [
   { id:'roymart', nombre:'ROYMART, S.L.', detectar: t => /ROYMART|B58263526/i.test(t), parser: parseRoymart,
     total: t => ultimoNumeroTrasLinea(t, 'Total pedido') },
   { id:'talens', nombre:'TALENS ESPAÑA, S.A.U.', detectar: t => /TALENS\s+ESPA|A08542771/i.test(t), parser: parseTalens,
-    total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT') },
+    total: t => ultimoNumeroTrasLinea(t, 'IMPORTE\\s+TOTAL\\s+FACT'),
+    // 17/11/2026, propietario: en Talens la marca, el IGIC y la familia son siempre estos.
+    porDefecto: { marca:'TALEN´S', igic:'3', familia:'151020' },
+    cabecera: t => { const m = t.match(/No\.\s*(\d{6,})\s+Pagina\s+\d+\/\d+\s+Fecha\s+(\d{2})-(\d{2})-(\d{2})/i);
+      return m ? { numero:m[1], fecha:'20'+m[4]+'-'+m[3]+'-'+m[2] } : null; } },
   { id:'senfor', nombre:'SENFORT S.A.', detectar: t => /SENFORT|A08795809/i.test(t), parser: parseSenfor,
     total: t => /IMP\. BRUTO/i.test(t) ? totalSenfortPedido(t) : totalSimple(t, /Total \(Euros\)\s+(\d{1,3}(?:\.\d{3})*,\d{2})/i) },
   { id:'sgel', nombre:'SGEL LIBROS, S.L.', detectar: t => /\bSGEL\b/i.test(t), parser: parseSgel,
@@ -1990,6 +1974,9 @@ function renderFilas(){
 function renderTotales(){
   const total = filas.reduce((s,f)=>s + (parseFloat(f.importe)||0), 0);
   document.getElementById('totalImporte').textContent = fmtNum(total);
+  // También arriba de la tabla: abajo queda a la derecha y no se ve sin desplazar.
+  document.getElementById('totalArriba').textContent = fmtNum(total);
+  document.getElementById('totalAbajo').textContent = fmtNum(total);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2299,8 +2286,16 @@ function procesarFacturaConPerfil(lineas, texto, perfil, viaOCR){
     precioU: f.precioUnitario,
     dto1: f.dto1, dto2: f.dto2, dto3: f.dto3, dto4: f.dto4,
     importe: f.importe,
-    igic: f.igic || ''
+    igic: f.igic || '',
+    ...((perfil && perfil.porDefecto) || {})
   }));
+  // Nº de factura y fecha leídos del PDF (para el nombre del Excel); solo los
+  // proveedores que tienen `cabecera` en su perfil (se pueden cambiar a mano).
+  const cab = (perfil && perfil.cabecera) ? perfil.cabecera(texto) : null;
+  if(cab){
+    if(cab.numero) document.getElementById('cabPedido').value = cab.numero;
+    if(cab.fecha) document.getElementById('cabFecha').value = cab.fecha;
+  }
   ordenActual = {campo:null, asc:true};
   renderFilas();
   actualizarBotonesOrden();
