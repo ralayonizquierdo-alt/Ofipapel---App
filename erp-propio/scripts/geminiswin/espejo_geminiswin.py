@@ -265,11 +265,19 @@ def llamar(cfg, clave, cuerpo, espera=120):
             return json.loads(r.read().decode('utf-8'))
     except urllib.error.HTTPError as e:
         try:
-            return {'ok': False, 'error': json.loads(e.read().decode('utf-8')).get('error', f'HTTP {e.code}')}
-        except (ValueError, OSError):
-            return {'ok': False, 'error': f'HTTP {e.code}'}
+            return {'ok': False, 'error': corto(json.loads(e.read().decode('utf-8')).get('error', f'HTTP {e.code}'))}
+        except (ValueError, OSError, AttributeError):
+            return {'ok': False, 'error': f'el ERP contestó con el error HTTP {e.code}'}
     except (urllib.error.URLError, OSError, ValueError) as e:
-        return {'ok': False, 'error': f'Sin conexión con el ERP: {e}'}
+        return {'ok': False, 'error': corto(f'Sin conexión con el ERP: {e}')}
+
+
+def corto(texto):
+    """Un error en una línea y sin páginas web dentro: si el servidor devuelve HTML, no se copia al registro."""
+    t = ' '.join(str(texto).split())
+    if '<' in t and '>' in t:
+        t = t.split('<', 1)[0].strip() or 'el servidor devolvió una página de error'
+    return t[:200]
 
 
 # ── Memoria entre pasadas ────────────────────────────────────────────────────────────────────────
@@ -354,9 +362,13 @@ def pasada(cfg, clave, todo=False, solo=None):
             def cargar():
                 con.execute('insert or ignore into pendiente (tabla) values (?)', (tabla,))
                 con.commit()
-                r = llamar(cfg, clave, {'procesar': tabla, 'equipo': equipo}, espera=600)
-                if not r.get('ok'):
-                    return r.get('error', 'error desconocido')
+                # El ERP carga por tandas cortas y avisa si le queda más: se repite hasta que termina.
+                for _ in range(2000):
+                    r = llamar(cfg, clave, {'procesar': tabla, 'equipo': equipo}, espera=120)
+                    if not r.get('ok'):
+                        return corto(r.get('error', 'error desconocido'))
+                    if not r.get('quedan'):
+                        break
                 con.execute('delete from pendiente where tabla = ?', (tabla,))
                 con.commit()
                 return None
