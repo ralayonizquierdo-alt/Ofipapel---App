@@ -118,6 +118,18 @@ export const OPERATIVA_OFICINA: Apartado[] = [
     ],
   },
   {
+    icono: '💶',
+    titulo: 'Caja: cobrar a los repartidores',
+    pasos: [
+      'Arriba hay dos botones: «Rutas» y «Caja». El móvil recuerda en cuál te quedaste.',
+      'En «Caja» sale cada ruta con el total que ese repartidor tiene que entregar: las facturas de contado que entregó y dice que cobró.',
+      'Toca una ruta: verás el total en grande y, debajo, cada factura con cliente, número e importe. Ve tocándolas según las cuentas.',
+      'Escribe lo que te entrega y la app te dice si cuadra, falta o sobra.',
+      'Las que el repartidor NO cobró no salen aquí: están en «Rutas», en la tarjeta azul «Por cobrar».',
+      'No guarda nada: liquida en GeminisWin como siempre. Al liquidarlas, las facturas salen de la lista.',
+    ],
+  },
+  {
     icono: '🔁',
     titulo: 'De dónde salen los datos',
     pasos: [

@@ -460,6 +460,12 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   // «Por cobrar»: facturas entregadas con importe pendiente; se despliega debajo de las rutas.
   const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
   const [verCobros, setVerCobros] = useState(false)
+  // Dos vistas: las rutas (David) y la caja (Cande). Cada móvil recuerda en cuál se quedó.
+  const [vista, setVista] = useState<'rutas' | 'caja'>(() => (leer<string>('reparto.oficina.vista') === 'caja' ? 'caja' : 'rutas'))
+  const cambiarVista = (v: 'rutas' | 'caja') => {
+    setVista(v)
+    guardar('reparto.oficina.vista', v)
+  }
 
   const cargar = useCallback(async () => {
     try {
@@ -575,7 +581,16 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   return (
     <>
       <Cabecera sub={sesion.nombre.toUpperCase()} oficina derecha={<BotonCabecera onClick={onSalir}>Salir</BotonCabecera>} />
-      <Tarjeta>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <Boton claro={vista !== 'rutas'} onClick={() => cambiarVista('rutas')} style={{ flex: 1, padding: '10px 8px' }}>
+          Rutas
+        </Boton>
+        <Boton claro={vista !== 'caja'} color={AZUL} onClick={() => cambiarVista('caja')} style={{ flex: 1, padding: '10px 8px' }}>
+          Caja
+        </Boton>
+      </div>
+      {vista === 'caja' && <Caja cobros={cobros} hora={hora} error={error} />}
+      <Tarjeta style={vista === 'caja' ? { display: 'none' } : undefined}>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Todas las rutas</div>
         <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Solo para mirar. Se actualiza sola{hora ? ` · ${hora}` : ''}.</div>
         {!rutas && !error && <div style={{ color: V.gris }}>Cargando…</div>}
@@ -615,11 +630,137 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
 }
 
 /**
+ * Caja (Rober, 17/11/2026): para quien recibe en administración el dinero de los repartidores. Por cada ruta,
+ * las facturas de contado que el repartidor entregó y dice que cobró, y en grande el total que tiene que
+ * entregar. Lo que NO cobró no sale aquí: eso es de la vista de rutas («Por cobrar»). Es una ayuda para
+ * contar: la liquidación se sigue apuntando en GeminisWin, y al hacerlo la factura sale de la lista.
+ */
+function Caja({ cobros, hora, error }: { cobros: PorCobrar[] | null; hora: string | null; error: string | null }) {
+  const [abierta, setAbierta] = useState<string | null>(null)
+  const [contadas, setContadas] = useState<Record<string, boolean>>({})
+  const [entrega, setEntrega] = useState('')
+  const enMano = (cobros ?? []).filter((c) => c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro)
+  const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}`
+  const rutas = [...new Set(enMano.map(clave))].map((k) => ({ k, filas: enMano.filter((c) => clave(c) === k) }))
+  const suma = (fs: PorCobrar[]) => fs.reduce((t, c) => t + (c.pendiente ?? 0), 0)
+  const nombreRuta = (c: PorCobrar) => `RUTA ${c.ruta && /^\d+$/.test(c.ruta) ? Number(c.ruta) : (c.ruta ?? '')} · ${c.ruta_nombre ?? ''}`
+  const abrir = (k: string | null) => {
+    setAbierta(k)
+    setContadas({})
+    setEntrega('')
+  }
+
+  const sel = rutas.find((r) => r.k === abierta)
+  if (sel) {
+    const total = suma(sel.filas)
+    const marcadas = sel.filas.filter((c) => contadas[`${c.vt}-${c.vn}`])
+    const recibido = Number(entrega.replace(/\./g, '').replace(',', '.'))
+    const hayEntrega = entrega.trim() !== '' && Number.isFinite(recibido)
+    const dif = hayEntrega ? Math.round((recibido - total) * 100) / 100 : 0
+    return (
+      <Tarjeta style={{ borderTopColor: AZUL }}>
+        <button type="button" onClick={() => abrir(null)} style={{ background: 'none', border: 'none', color: AZUL, fontSize: 14, fontWeight: 700, padding: '0 0 6px' }}>
+          ← Todas las rutas
+        </button>
+        <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>{nombreRuta(sel.filas[0])}</div>
+        <div style={{ color: V.gris, fontSize: 13 }}>{sel.filas[0].repartidor ?? 'Sin repartidor apuntado'}</div>
+        <div style={{ background: V.verde, color: '#fff', borderRadius: 16, padding: '12px 14px', margin: '10px 0', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>TIENE QUE ENTREGAR</div>
+          <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 40, lineHeight: 1.1 }}>{euros(total)}</div>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>
+            {sel.filas.length} factura{sel.filas.length === 1 ? '' : 's'} de contado cobrada{sel.filas.length === 1 ? '' : 's'}
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: V.gris, marginBottom: 4 }}>Toca cada factura según la vayas contando.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {sel.filas.map((c) => {
+            const k = `${c.vt}-${c.vn}`
+            const ok = !!contadas[k]
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setContadas((m) => ({ ...m, [k]: !m[k] }))}
+                style={{ textAlign: 'left', background: ok ? '#e6f4e6' : '#fff', border: `2px solid ${ok ? V.verdeCl : '#d6dfd6'}`, borderRadius: 12, padding: '8px 10px' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ width: 18, fontWeight: 700, color: V.verdeCl }}>{ok ? '✔' : ''}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.cliente}</span>
+                  <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 16, whiteSpace: 'nowrap' }}>{euros(c.pendiente)}</span>
+                </div>
+                <div style={{ fontSize: 12, color: V.gris, paddingLeft: 24 }}>
+                  {c.factura ? `Factura ${c.factura}` : `Albarán ${c.vt}/${c.vn}`}
+                  {c.forma_pago ? ` · ${c.forma_pago}` : ''}
+                  {c.hora ? ` · entregada ${c.hora}` : ''}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        <div style={{ fontSize: 13, color: V.texto, marginTop: 8 }}>
+          Contadas {marcadas.length} de {sel.filas.length} · <b>{euros(suma(marcadas))}</b>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>Te entrega</span>
+          <input
+            value={entrega}
+            onChange={(e) => setEntrega(e.target.value)}
+            inputMode="decimal"
+            placeholder="0,00"
+            style={{ flex: 1, minWidth: 0, border: '2px solid #cfe0cf', borderRadius: 12, padding: '10px 12px', fontSize: 20, textAlign: 'right', fontFamily: '"IBM Plex Mono", monospace' }}
+          />
+          <span style={{ fontSize: 18, fontWeight: 700 }}>€</span>
+        </div>
+        {hayEntrega && (
+          <div style={{ fontWeight: 700, fontSize: 18, marginTop: 6, textAlign: 'center', color: dif === 0 ? V.verdeMed : V.rojo }}>
+            {dif === 0 ? '✔ Cuadra' : dif < 0 ? `Faltan ${euros(-dif)}` : `Sobran ${euros(dif)}`}
+          </div>
+        )}
+        <div style={{ fontSize: 12, color: V.gris, marginTop: 10 }}>
+          Es una ayuda para contar: no guarda nada. Liquida las facturas en GeminisWin como siempre; al hacerlo salen de esta lista.
+        </div>
+      </Tarjeta>
+    )
+  }
+
+  return (
+    <Tarjeta style={{ borderTopColor: AZUL }}>
+      <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Caja · cobrar a los repartidores</div>
+      <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>
+        Lo que cada repartidor dice que ha cobrado en mano y aún no está liquidado. Se actualiza sola{hora ? ` · ${hora}` : ''}.
+      </div>
+      {!cobros && !error && <div style={{ color: V.gris }}>Cargando…</div>}
+      {cobros && !rutas.length && <div style={{ color: V.gris }}>Ahora mismo ningún repartidor tiene cobros pendientes de entregar.</div>}
+      {rutas.length > 0 && (
+        <div style={{ background: '#eef5fc', borderRadius: 14, padding: '8px 12px', marginBottom: 10, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ flex: 1, fontWeight: 700, color: AZUL }}>Total a recibir</span>
+          <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 22, color: AZUL }}>{euros(suma(enMano))}</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {rutas.map((r) => (
+          <button key={r.k} type="button" onClick={() => abrir(r.k)} style={{ textAlign: 'left', background: '#fff', border: `2px solid ${AZUL}`, borderRadius: 16, padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 17, color: V.verde }}>{nombreRuta(r.filas[0])}</span>
+              <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 20, whiteSpace: 'nowrap' }}>{euros(suma(r.filas))}</span>
+            </div>
+            <div style={{ color: V.gris, fontSize: 13 }}>
+              {r.filas[0].repartidor ?? 'Sin repartidor apuntado'} · {r.filas.length} factura{r.filas.length === 1 ? '' : 's'}
+            </div>
+          </button>
+        ))}
+      </div>
+      {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
+    </Tarjeta>
+  )
+}
+
+/**
  * «Por cobrar» (Rober y David, 17/11/2026): como una ruta más, en azul, debajo de las demás. Al tocarla se
  * despliega la lista de facturas ya entregadas que siguen con importe pendiente, agrupadas por cómo se
  * cobran. Es informativa: los cobros se apuntan en GeminisWin y la factura sale de aquí sola.
  */
-export function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void }) {
+function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void }) {
   // Bizum es que ya está pagada: no cuenta como pendiente aunque GeminisWin aún no lo refleje.
   const lista = cobros.filter((c) => tipoPago(c.forma_pago) !== 'pagada')
   const grupo = (c: PorCobrar): string => {
