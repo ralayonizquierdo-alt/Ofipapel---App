@@ -4,6 +4,7 @@ import { PlanCuentasPage } from './PlanCuentasPage'
 import { ConfiguracionContablePage } from './ConfiguracionContablePage'
 import { GenerarAsientosPage } from './GenerarAsientosPage'
 import { DiarioPage } from './DiarioPage'
+import { DiarioContanetPage } from './DiarioContanetPage'
 import { MayorPage } from './MayorPage'
 import { PerdidasGananciasPage, SumasSaldosPage } from './BalancesPage'
 import { LibrosIgicPage, Modelo347Page, Modelo420Page, Modelo425Page } from './ImpuestosPage'
@@ -48,6 +49,7 @@ function ContabilidadPantallas({ onEmpresa }: { onEmpresa: () => void }) {
       <Route path="generar" element={<GenerarAsientosPage />} />
       <Route path="pendientes" element={<DiarioPage key="errores" modo="errores" />} />
       <Route path="diario" element={<DiarioPage key="diario" />} />
+      <Route path="diario-contanet" element={<DiarioContanetPage />} />
       <Route path="empresas" element={<EmpresasContablesPage onCambio={onEmpresa} />} />
       <Route path="plan-cuentas" element={<PlanCuentasPage />} />
       <Route path="mayor" element={<MayorPage />} />

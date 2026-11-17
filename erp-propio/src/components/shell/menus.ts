@@ -240,6 +240,7 @@ export const MENUS: TopMenu[] = [
     items: [
       // Diario el primero (Luis, 31/10/2026).
       item('Diario de Asientos', { to: '/contabilidad/diario', description: 'Diario de asientos: consulta y edición manual', icono: BookOpenText, colorIcono: '#1d3a8a' }),
+      item('Diario como en CONTANET (prueba)', { to: '/contabilidad/diario-contanet', description: 'Prueba para Mónica: el diario con la forma de trabajar de CONTANET', icono: BookOpenText, colorIcono: '#c2410c' }),
       item('Generar Asientos Automáticos', { to: '/contabilidad/generar', description: 'Genera los asientos de ventas, facturas, cobros, pagos y caja' }),
       item('Asientos Pendientes / con Errores', { to: '/contabilidad/pendientes', description: 'Asientos que no cuadran o sin cuenta contable' }),
       'sep',
