@@ -16,8 +16,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  BadgeCheck, BarChart3, Briefcase, Calculator, ClipboardPaste, Copy, FilePlus2, FileSearch, FolderOpen, PieChart, Printer,
-  RefreshCw, Save, Scissors, StickyNote, Table2, Undo2, Wallet, Wrench, type LucideIcon,
+  BadgeMinus, BadgePlus, BookOpenCheck, Briefcase, Calculator, Check, ClipboardPaste, Copy, FilePlus2, FileSearch, FolderOpen, PieChart, Printer,
+  RefreshCw, Replace, Save, Scale, Scissors, ShieldCheck, StickyNote, Table2, Undo2, Wallet, Wrench, type LucideIcon,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { cargarAsientosConApuntes, cargarDescripciones, ejercicioContable, finAnio, hoy, inicioAnio, r2 } from './contabModel'
@@ -159,7 +159,7 @@ export function DiarioContanetPage() {
   // Teclas de CONTANET: F4 plan, F5 extractos, F7 conceptos, F8 / F9 grabar IGIC.
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      const m: Record<string, () => void> = { F4: () => ir('/contabilidad/plan-cuentas'), F5: () => ir('/contabilidad/mayor'), F7: () => setVentana('conceptos'), F8: () => setVentana('rep'), F9: () => setVentana('sop') }
+      const m: Record<string, () => void> = { F4: () => ir('/contabilidad/plan-cuentas'), F6: () => ir('/contabilidad/plan-cuentas'), F5: () => ir('/contabilidad/mayor'), F7: () => setVentana('conceptos'), F8: () => setVentana('rep'), F9: () => setVentana('sop') }
       if (m[e.key]) {
         e.preventDefault()
         m[e.key]()
@@ -177,10 +177,11 @@ export function DiarioContanetPage() {
     <div className="flex min-w-0 flex-col gap-1">
       {/* Barra de botones, en el orden de la de CONTANET */}
       <div className="flex flex-wrap items-center gap-0.5 border border-[var(--gw-border-light)] bg-[var(--gw-face)] px-1 py-0.5 print:hidden">
+        {/* Los 27 botones de CONTANET, con su mismo texto y orden (lista de Cowork, 17/11/2026). */}
         <Boton icono={RefreshCw} color="#1e6fc2" titulo="Actualizar" onClick={() => void cargar()} />
-        <Boton icono={FilePlus2} color="#6b7280" titulo="Nuevo: vaciar la línea de entrada" onClick={() => (setCuenta(''), setDesc(''), setRef(''), setImporte(''))} />
-        <Boton icono={FolderOpen} color="#d99a06" titulo="Abrir empresa: se elige arriba, en la barra del ejercicio" />
-        <Boton icono={Save} color="#374151" titulo="Guardar: el asiento se guarda solo cuando cuadra" />
+        <Boton icono={FilePlus2} color="#6b7280" titulo="Nuevo" onClick={() => (setCuenta(''), setDesc(''), setRef(''), setImporte(''))} />
+        <Boton icono={FolderOpen} color="#d99a06" titulo="Abrir (la empresa se elige arriba, en la barra del ejercicio)" />
+        <Boton icono={Save} color="#374151" titulo="Actualizar (el asiento se guarda solo cuando cuadra)" />
         <Sep />
         <Boton icono={Printer} color="#374151" titulo="Imprimir" onClick={() => window.print()} />
         <Sep />
@@ -188,19 +189,23 @@ export function DiarioContanetPage() {
         <Boton icono={Copy} color="#6b7280" titulo="Copiar" />
         <Boton icono={ClipboardPaste} color="#6b7280" titulo="Pegar" />
         <Sep />
-        <Boton icono={Undo2} color="#1e6fc2" titulo="Deshacer la última línea sin guardar" onClick={enCurso.length ? () => setEnCurso(enCurso.slice(0, -1)) : undefined} />
-        <Boton icono={Table2} color="#7a5230" titulo="Visualizar Plan (F4)" onClick={() => ir('/contabilidad/plan-cuentas')} />
-        <Boton icono={FileSearch} color="#374151" titulo="Extractos Contables (F5)" onClick={() => ir('/contabilidad/mayor')} />
-        <Boton icono={BarChart3} color="#c2410c" titulo="Balance de Sumas y Saldos" onClick={() => ir('/contabilidad/sumas-saldos')} />
-        <Boton icono={PieChart} color="#16a34a" titulo="Gráficos (pendiente)" />
-        <Boton icono={Wrench} color="#6b7280" titulo="Utilidades (pendiente)" />
-        <Boton icono={Calculator} color="#7c3aed" titulo="Conceptos Contables (F7)" onClick={() => setVentana('conceptos')} />
-        <Boton icono={BadgeCheck} color="#16a34a" titulo="Grabar IGIC Repercutido (F8): factura de venta" etiqueta="IVA" onClick={() => setVentana('rep')} />
-        <Boton icono={BadgeCheck} color="#dc2626" titulo="Grabar IGIC Soportado (F9): factura de compra" etiqueta="IVA" onClick={() => setVentana('sop')} />
-        <Boton icono={Briefcase} color="#b45309" titulo="Cartera (pendiente)" />
-        <Boton icono={BadgeCheck} color="#16a34a" titulo="Punteo (pendiente)" />
+        <Boton icono={Undo2} color="#1e6fc2" titulo="Deshacer último borrado (quita la última línea sin guardar)" onClick={enCurso.length ? () => setEnCurso(enCurso.slice(0, -1)) : undefined} />
+        <Boton icono={Table2} color="#b91c1c" titulo="Consultar Acumulados de la Cuenta (F4)" onClick={() => ir('/contabilidad/plan-cuentas')} />
+        <Boton icono={FileSearch} color="#374151" titulo="Consultar Extracto (F5)" onClick={() => ir('/contabilidad/mayor')} />
+        <Boton icono={BookOpenCheck} color="#c2410c" titulo="Buscar Cuenta en Plan Contable (F6)" onClick={() => ir('/contabilidad/plan-cuentas')} />
+        <Boton icono={PieChart} color="#16a34a" titulo="Ver Gráfico de la Cuenta (pendiente)" />
+        <Boton icono={Wrench} color="#6b7280" titulo="Personalización (pendiente)" />
+        <Boton icono={Replace} color="#7c3aed" titulo="Buscar y Reemplazar (pendiente)" />
+        <Boton icono={BadgePlus} color="#16a34a" titulo="IVA Soportado (F9): factura de compra" etiqueta="IVA" onClick={() => setVentana('sop')} />
+        <Boton icono={BadgeMinus} color="#dc2626" titulo="IVA Repercutido (F8): factura de venta" etiqueta="IVA" onClick={() => setVentana('rep')} />
+        <Boton icono={Briefcase} color="#b45309" titulo="Grabar Cartera (no se usa en Ofipapel)" />
+        <Boton icono={Check} color="#16a34a" titulo="Punteo (pendiente)" />
         <Boton icono={StickyNote} color="#eab308" titulo="Notas (pendiente)" />
         <Boton icono={Wallet} color="#15803d" titulo="Conciliación Bancaria" onClick={() => ir('/contabilidad/conciliacion')} />
+        <Sep />
+        <Boton icono={Scale} color="#b45309" titulo="Balance de Sumas y Saldos" onClick={() => ir('/contabilidad/sumas-saldos')} />
+        <Boton icono={ShieldCheck} color="#1e6fc2" titulo="Auditoría y Recálculo: Control y firmas" onClick={() => ir('/contabilidad/control')} />
+        <Boton icono={Calculator} color="#7c3aed" titulo="Conceptos Contables (F7)" onClick={() => setVentana('conceptos')} />
         <span className="ml-2 text-[12px] text-[#555]">Prueba del diario como en CONTANET · ejercicio {anio}</span>
       </div>
 
