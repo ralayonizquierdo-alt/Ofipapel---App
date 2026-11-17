@@ -736,8 +736,12 @@ function detectar({ pregunta, categoria, dicho, buscado, datos }) {
       }
 
       if (QUIEN_CONTESTA) {
-        const q = quien.get(categoria) || { ia: 0, regla: 0 };
+        const q = quien.get(categoria) || { ia: 0, regla: 0, iaAviso: 0, reglaAviso: 0 };
         q[hablóLaIA ? 'ia' : 'regla'] += 1;
+        // Y de esas, cuáles traen algo que mirar. Hablar no es hacer daño: lo
+        // que dice si la IA es el problema es cuántas de SUS respuestas saltan
+        // un detector, comparado con las que escribe una regla.
+        if (avisos.length) q[hablóLaIA ? 'iaAviso' : 'reglaAviso'] += 1;
         quien.set(categoria, q);
       }
 
@@ -765,14 +769,18 @@ function detectar({ pregunta, categoria, dicho, buscado, datos }) {
 
   if (QUIEN_CONTESTA) {
     const filas = [...quien.entries()].sort((a, b) => b[1].ia - a[1].ia);
-    const ia = filas.reduce((n, [, q]) => n + q.ia, 0);
-    const regla = filas.reduce((n, [, q]) => n + q.regla, 0);
+    const sum = (k) => filas.reduce((n, [, q]) => n + q[k], 0);
+    const ia = sum('ia'); const regla = sum('regla');
+    const iaAviso = sum('iaAviso'); const reglaAviso = sum('reglaAviso');
+    const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
     console.log('═'.repeat(74));
     console.log(`  QUIÉN CONTESTA — la IA en ${ia} de ${ia + regla}; regla fija o catálogo en ${regla}`);
+    console.log(`  CON ALGO QUE MIRAR — de la IA ${iaAviso} (${pct(iaAviso, ia)} %); de las reglas ${reglaAviso} (${pct(reglaAviso, regla)} %)`);
     console.log('═'.repeat(74));
-    console.log('  ' + 'categoría'.padEnd(22) + 'IA'.padStart(5) + 'regla'.padStart(8));
+    console.log('  ' + 'categoría'.padEnd(20) + 'IA'.padStart(5) + 'IA⚠'.padStart(6) + 'regla'.padStart(8) + 'regla⚠'.padStart(9));
     for (const [cat, q] of filas) {
-      console.log('  ' + cat.padEnd(22) + String(q.ia).padStart(5) + String(q.regla).padStart(8));
+      console.log('  ' + cat.padEnd(20) + String(q.ia).padStart(5) + String(q.iaAviso).padStart(6)
+        + String(q.regla).padStart(8) + String(q.reglaAviso).padStart(9));
     }
     console.log('');
   }
