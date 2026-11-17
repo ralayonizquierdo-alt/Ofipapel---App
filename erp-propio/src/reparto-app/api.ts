@@ -269,6 +269,8 @@ export interface LineaOficina {
   total: number | null
   pagado: number | null
   contado: boolean | null
+  /** Forma de pago de GeminisWin, tal cual: «Remesa Bancaria 30-dias», «Transferencia INMEDIATA»… */
+  forma_pago?: string | null
   incidencia: string | null
   motivo: string | null
   nota: string | null

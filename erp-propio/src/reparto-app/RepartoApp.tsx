@@ -113,9 +113,21 @@ function Importe({ l }: { l: { total: number | null } }) {
   if (l.total == null) return null
   return <span style={{ flexShrink: 0, fontWeight: 700, fontSize: 14, color: V.texto, whiteSpace: 'nowrap' }}>{euros(l.total)}</span>
 }
-function QueHacer({ l }: { l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string } }) {
+/**
+ * La indicación y, a su lado, la forma de pago tal como viene de GeminisWin (Rober y David, 17/11/2026):
+ * una factura puede ir marcada como contado y pagarse por remesa o transferencia, y sin ese dato no se
+ * entiende por qué el repartidor no la cobró.
+ */
+function QueHacer({ l }: { l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null } }) {
   const q = queHacer(l)
-  return q ? <div style={{ fontSize: 12, fontWeight: 700, color: q[1] }}>{q[0]}</div> : null
+  const forma = l.forma_pago?.trim()
+  if (!q && !forma) return null
+  return (
+    <div style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      {q && <b style={{ color: q[1] }}>{q[0]}</b>}
+      {forma && <span style={{ color: V.gris }}>{q ? ' · ' : ''}{forma}</span>}
+    </div>
+  )
 }
 // Fichaje (/fichaje, en el ERP): el registro horario legal; lo gestiona gerencia en Archivo → Fichaje.
 
