@@ -1,4 +1,4 @@
-40
+45
 # Cuántos avisos da hoy el sondeo (`node scripts/sondeo-bot.js`) sobre sus 220
 # respuestas — la primera línea es el número y es lo único que lee el CI.
 #
@@ -28,3 +28,16 @@
 # un aviso nuevo de otra clase. De paso desaparecieron las 7 respuestas que
 # decían «no quiero decirte una medida por otra» a preguntas que no iban de
 # medidas (a «¿se puede pagar con tarjeta?», por ejemplo).
+
+# 17/11/2026: sube de 40 a 45, y OTRA VEZ PORQUE SE ARREGLÓ ALGO. Las
+# incidencias (algo roto, algo que no llegó, una devolución) ya no las redacta
+# la IA: van a una persona con una respuesta fija. Como la respuesta es la
+# misma para todas —que es exactamente lo que se quería—, el detector MISMA
+# RESPUESTA se queja de cada una. Comprobadas una a una: «el papel que me
+# mandasteis viene roto», «me habéis enviado el toner equivocado», «quiero
+# devolver una silla» y «la plastificadora que compré no funciona» dan todas la
+# misma respuesta que «Hice un pedido ayer y no me ha llegado nada», y es la
+# correcta. Ninguna es un aviso nuevo de otra clase.
+#
+# Medido con `--quien-contesta`: la IA baja de 106 a 98 de 220, y la categoría
+# «incidencia» pasa de 10 IA / 0 regla a 4 IA / 6 regla.
