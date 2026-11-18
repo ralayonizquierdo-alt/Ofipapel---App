@@ -325,6 +325,8 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 #pvTip b{ font-size:.8rem; }
 #pvTip{ text-align:center; }
 .p-block[data-tip]{ cursor:help; }
+.p-hueco{ background:#FFE45C; color:#5C4A00; border:0.2mm dashed #C9A400; box-sizing:border-box; }
+.p-huecos-tit{ background:#FFF6C2; color:#7A6300; margin-top:1.5mm; }
 @media print{ #pvTip{ display:none !important; } }
 .p-blocked{ position:absolute; top:0; height:5mm; opacity:.7;
   background:repeating-linear-gradient(45deg,#FDE3E1,#FDE3E1 1mm,#FBCFCB 1mm,#FBCFCB 2mm); }
@@ -4521,6 +4523,62 @@ function buildEscalaRows(grid, emps, y, n, pos){
     } else grid.appendChild(printEscala(l.titulo, l.emps, y, n, pos));
   }
 }
+/* Huecos libres de 7 días en la reserva (Luis, 18/11/2026: «píntalos en amarillo»). Del 16 de octubre a fin de año,
+   sin días bloqueados, sin empezar ni terminar en festivo y sin pasar de ESCALERA_MAX_FUERA fuera a la vez, contando
+   lo que ya hay puesto. Van en dos filas al pie de la Escala, una por cada sitio libre. Solo se pintan: no se guardan. */
+function huecosReserva(emps, y, n){
+  const desde = isoToIndex(y, y+'-10-16');
+  const occ = new Array(n).fill(0);
+  for(const e of emps) for(const p of periodsOfYear(e.id, y)){
+    for(let i=Math.max(0,isoToIndex(y,p.start)); i<=Math.min(n-1,isoToIndex(y,p.end)); i++) occ[i]++;
+  }
+  const libre = i=> !isBlockedIndex(y, i) && occ[i] < ESCALERA_MAX_FUERA;
+  const filas = [];
+  for(let f=0; f<ESCALERA_MAX_FUERA; f++){
+    const fila = [];
+    for(let s=desde; s+6<n; s++){
+      const e = s+6;
+      if(isFestivo(dateFromIndex(y,s)) || isFestivo(dateFromIndex(y,e))) continue;
+      let ok = true;
+      for(let i=s; i<=e; i++) if(!libre(i)){ ok = false; break; }
+      if(!ok) continue;
+      fila.push({s, e});
+      for(let i=s; i<=e; i++) occ[i]++;
+      s = e;
+    }
+    if(fila.length) filas.push(fila);
+  }
+  return filas;
+}
+function appendHuecosReserva(unitDiv, emps, y, n, pos){
+  const filas = huecosReserva(emps, y, n);
+  if(!filas.length) return;
+  const total = filas.reduce((t,f)=>t+f.length, 0);
+  const tit = document.createElement('div'); tit.className = 'p-unit-title p-huecos-tit';
+  tit.textContent = `Huecos libres de 7 días (${total})`;
+  unitDiv.appendChild(tit);
+  for(const fila of filas){
+    const row = document.createElement('div'); row.className = 'p-emp-row';
+    row.appendChild(Object.assign(document.createElement('div'), {className:'p-name'}));
+    const track = document.createElement('div'); track.className = 'p-track';
+    appendCellLines(track, y, n, pos);
+    appendPrintBlocked(track, y, n, pos);
+    for(const h of fila){
+      const blk = document.createElement('div'); blk.className = 'p-block p-hueco';
+      blk.style.left = pos(h.s)+'%';
+      blk.style.width = (pos(h.e+1)-pos(h.s))+'%';
+      const a = toISO(dateFromIndex(y,h.s)), b = toISO(dateFromIndex(y,h.e));
+      blk.textContent = `${dateFromIndex(y,h.s).getUTCDate()}–${dateFromIndex(y,h.e).getUTCDate()}`;
+      blk.dataset.nombre = 'Hueco libre';
+      blk.dataset.fechas = `${fechasCortas(a, b)} = 7-d`;
+      blk.dataset.tip = '1';
+      track.appendChild(blk);
+    }
+    row.appendChild(track);
+    row.appendChild(Object.assign(document.createElement('div'), {className:'p-days'}));
+    unitDiv.appendChild(row);
+  }
+}
 /* En la Escala, las peticiones aprobadas y las fechas fijas van en rojo, aparte de la escalera (Luis, 10/11/2026). */
 /* «del 01 al 15 May-26»; si cambia de mes, «del 25 Ene al 08 Feb-26»; si cambia de año, «del 25 Dic-26 al 08 Ene-27»
    (forma corta que pidió Luis el 17/11/2026 para el aviso de las barras de la Vista previa). */
@@ -4608,6 +4666,7 @@ function printEscala(titulo, emps, y, n, pos){
     row.appendChild(Object.assign(document.createElement('div'), {className:'p-days'}));
     unitDiv.appendChild(row);
   }
+  appendHuecosReserva(unitDiv, emps, y, n, pos);
   return unitDiv;
 }
 
@@ -5617,6 +5676,7 @@ const OPERATIVAS = {
       'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
       '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. Las peticiones y fechas fijas van <b>en rojo</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
       'Si una barra choca con otra de su fila, pasa a la siguiente fila libre: por eso la escalera puede no salir perfecta.',
+      'Debajo de Tiendas, en <b>amarillo</b>, los <b>huecos libres de 7 días</b> que quedan del 16 de octubre a fin de año: sin días bloqueados, sin empezar ni terminar en festivo y sin pasar de 2 fuera. Solo se pintan; para usar uno, pon las fechas a la persona en el Lineal.',
       'Los números de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes, y los símbolos van al final del nombre. Su significado está en la Operativa de la pantalla principal.',
       '<b>WhatsApp</b> prepara un texto con quién está fuera en la fecha elegida en «¿Quién está fuera?». No manda la imagen.',
     ],
