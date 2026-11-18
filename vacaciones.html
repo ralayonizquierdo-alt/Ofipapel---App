@@ -443,10 +443,6 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
       <option value="tiendas">Tiendas</option>
       <option value="ventas">Ventas</option>
     </select>
-    <select id="pantallaVista" title="Cómo se ve el planning en esta pantalla (se recuerda en este equipo)">
-      <option value="lineal">Lineal</option>
-      <option value="escala">Escala</option>
-    </select>
     <button class="secondary" id="btnEmployees">👤 Empleados</button>
     <button class="secondary" id="btnRotation" title="Prioridad de rotación">Prioridad</button>
     <button class="secondary" id="btnSaturdays" title="Turnos de sábado">🔄 Sábados</button>
@@ -455,6 +451,10 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
     <button class="secondary" id="btnPeticiones">🙋 Peticiones</button>
     <button class="secondary" id="btnListado">📄 Listado</button>
     <button id="btnPrint">🖨 Vista previa</button>
+    <select id="pantallaVista" title="Cómo se ve el planning en esta pantalla (se recuerda en este equipo)">
+      <option value="lineal">Lineal</option>
+      <option value="escala">Escala</option>
+    </select>
     <button class="secondary" id="btnPanelReglas">⚙️ Reglas y filtros</button>
     <button class="secondary" id="btnPanelFuera">🏖️ Fuera <span id="fueraCount"></span></button>
     <button id="btnRevisar" style="display:none;background:#C0392B;color:#fff;padding:5px 6px;"></button>
@@ -5537,7 +5537,7 @@ const OPERATIVAS = {
   '#operativaCuadrante': {
     pasos: [
       'Elige arriba el año y el planning, <b>Tiendas</b> o <b>Ventas</b>. Cada año guarda sus vacaciones por separado.',
-      'En el desplegable de al lado elige cómo verlo: <b>Lineal</b> (una fila por persona) o <b>Escala</b> (los turnos en escalera). Este equipo lo recuerda. En <b>Escala</b> solo se mira: pasa el ratón por una barra para ver de quién es y sus fechas; para cambiarlas, vuelve a <b>Lineal</b>.',
+      'En el desplegable que hay junto a <b>Vista previa</b> elige cómo verlo: <b>Lineal</b> (una fila por persona) o <b>Escala</b> (los turnos en escalera). Este equipo lo recuerda. En <b>Escala</b> solo se mira: pasa el ratón por una barra para ver de quién es y sus fechas; para cambiarlas, vuelve a <b>Lineal</b>.',
       'Pulsa una barra para cambiar sus fechas o eliminarla, y pulsa un hueco de la fila para crear un periodo.',
       'Con <b>Día a día</b> puedes arrastrar: sobre una fila vacía crea un periodo, y una barra o su borde la mueve o cambia su inicio o fin.',
       'Con <b>Generar plan</b> se rellena lo que falte. Para repartir una sola unidad, elígela antes en el filtro <b>Unidad</b>.',
