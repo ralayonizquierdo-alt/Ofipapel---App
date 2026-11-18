@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { FileText, Send, Upload } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { leerConLector, type LecturaLector } from '../../../lib/lectorPdf'
 
 const num = (v: unknown) => (v == null ? null : Number(v))
 const eur = (n: number | null) => (n == null ? '—' : n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 3 }) + ' €')
@@ -173,7 +174,7 @@ export function Propuestas({ pedidoInicial }: { pedidoInicial?: { tienda: string
       <div className="rounded-2xl border border-[#e1e7f3] bg-white p-4 shadow-[0_1px_3px_rgba(20,40,90,0.08)]">
         <h2 className="text-[17px] font-bold">Propuestas de proveedor</h2>
         <p className="text-[14px] text-[#5b6680]">
-          Elige el pedido, sube el PDF que ha mandado el proveedor y el ERP lo compara con lo que pediste: precios, cantidades, lo que no sirven y lo que añaden. Después contestas con una confirmación o con reparos.
+          Elige el pedido, sube el PDF que ha mandado el proveedor y el ERP lo compara con lo que pediste (si el proveedor está homologado en «PDF a Excel», con su mismo lector; si no, lo lee la IA): precios, cantidades, lo que no sirven y lo que añaden. Después contestas con una confirmación o con reparos.
         </p>
         <input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Buscar por nº de pedido o proveedor" className="mt-3 h-9 w-[320px] max-w-full rounded-lg border border-[#c9d3e8] px-2 text-[14px]" />
         {error && <p className="mt-2 text-[14px] font-bold text-[#c42b1c]">{error}</p>}
@@ -236,8 +237,15 @@ function RevisarPedido({ pedido, onVolver }: { pedido: PedidoAbierto; onVolver: 
     if (f.size > 8_000_000) return setError('El PDF pesa demasiado (máximo 8 MB).')
     setLeyendo(true)
     try {
+      // Primero, el lector de «PDF a Excel» (proveedores homologados). Si falla o no reconoce al proveedor, lee la IA.
+      let lector: LecturaLector | null = null
+      try {
+        lector = await leerConLector(f)
+      } catch {
+        lector = null
+      }
       const { data, error: e } = await supabase.functions.invoke('propuesta-proveedor-ia', {
-        body: { tienda: pedido.tienda, numero: pedido.numero, archivo: f.name, pdf_base64: await aBase64(f) },
+        body: { tienda: pedido.tienda, numero: pedido.numero, archivo: f.name, pdf_base64: await aBase64(f), lector: lector?.perfil && lector.filas.length ? lector : null },
       })
       if (e) throw new Error(e.message)
       if (!data?.ok) throw new Error(data?.error ?? 'La IA no ha contestado.')

@@ -103,5 +103,9 @@ Gestor 2.0 → «Propuestas de proveedor» (o el botón de la ficha del pedido):
 (precio neto, cantidad) los compara la propia función, sin fiarse de la IA → en cada diferencia se decide «Aceptar»
 o «Reparo» → «Enviar confirmación» / «Enviar reparos» deja el correo en la cola (buzón de compras).
 Se guarda en `compra_propuesta` (migración `20261119_compras_propuestas_proveedor.sql`). No cambia el pedido.
-Pendiente: usar los lectores de los 37 proveedores homologados de `importacion-pedidos-proveedores.html` como
-comprobación exacta de los números cuando el proveedor esté homologado.
+Lector (Rober: «usa el lector de PDF a Excel»): el navegador lee primero el PDF con el MISMO lector de
+`importacion-pedidos-proveedores.html` (sus perfiles de proveedores homologados). Ese código no se copia a mano:
+`scripts/generar-lector-pdf.mjs` genera `src/lib/lectorPdfProveedores.generado.js` desde el trozo de la app entre
+las marcas `LECTOR-PDF: INICIO/FIN` (se ejecuta solo antes de cada build). Si el lector reconoce al proveedor, la
+función empareja sus líneas por referencia y código de barras y la IA solo ayuda con las sueltas, en texto; si no lo
+reconoce, la IA lee el PDF. Un arreglo o un perfil nuevo se hace en la app de Importación y vale para los dos.

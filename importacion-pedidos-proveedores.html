@@ -256,6 +256,8 @@ table.tabla tfoot td{ font-weight:700; padding:8px 6px; border-top:2px solid var
      (ver probarConOcr() más abajo) — no se usa en el flujo normal de texto. -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
+// ==== LECTOR-PDF: INICIO ==== (de aquí a «LECTOR-PDF: FIN» se comparte con el ERP: erp-propio/scripts/generar-lector-pdf.mjs
+// genera desde este trozo erp-propio/src/lib/lectorPdfProveedores.generado.js. Aquí solo funciones puras: nada de la pantalla.)
 // ═══════════════════════════════════════════════════════
 // NÚCLEO: extracción de texto posicional del PDF (líneas reconstruidas
 // agrupando por coordenada Y y ordenando por X), igual patrón que
@@ -1481,6 +1483,7 @@ function detectarProveedor(lineas){
   const texto = lineas.join('\n');
   return PERFILES_PROVEEDOR.find(p => p.detectar(texto)) || null;
 }
+// ==== LECTOR-PDF: FIN ====
 
 // ═══════════════════════════════════════════════════════
 // DESPLEGABLE "PROVEEDOR" PREVIO A LA CARGA DEL PDF
