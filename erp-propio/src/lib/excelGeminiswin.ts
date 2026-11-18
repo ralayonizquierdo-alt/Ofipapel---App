@@ -19,8 +19,10 @@ interface SheetJS {
     aoa_to_sheet(aoa: Celda[][]): Record<string, unknown>
     book_new(): unknown
     book_append_sheet(wb: unknown, ws: unknown, nombre: string): void
+    sheet_to_json(ws: unknown, op: { header: 1; raw: boolean; defval: string }): unknown[][]
   }
   writeFile(wb: unknown, nombre: string, op: { bookType: string }): void
+  read(datos: ArrayBuffer, op: { type: 'array' }): { SheetNames: string[]; Sheets: Record<string, unknown> }
 }
 
 let cargando: Promise<SheetJS> | null = null
@@ -141,4 +143,19 @@ export async function descargarExcelGw(tienda: string, numero: number): Promise<
   } catch (e) {
     return e instanceof Error ? e.message : 'No se pudo preparar el Excel.'
   }
+}
+
+/**
+ * Lee la primera hoja de un Excel con la misma librería (sirve también para el .xls antiguo, que la lectura propia
+ * del ERP no entiende). Las celdas salen como texto; los números con punto decimal.
+ */
+export async function leerExcelConLibreria(f: File): Promise<string[][]> {
+  const X = await cargarLibreria()
+  const wb = X.read(await f.arrayBuffer(), { type: 'array' })
+  const hoja = wb.Sheets[wb.SheetNames[0]]
+  if (!hoja) return []
+  return X.utils
+    .sheet_to_json(hoja, { header: 1, raw: true, defval: '' })
+    .map((fila) => fila.map((c) => (c == null ? '' : String(c))))
+    .filter((fila) => fila.some((c) => c.trim() !== ''))
 }
