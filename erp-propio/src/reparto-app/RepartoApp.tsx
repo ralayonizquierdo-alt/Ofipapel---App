@@ -254,9 +254,9 @@ function Cabecera({ sub, derecha, oficina = false }: { sub?: string; derecha?: R
         boxShadow: '0 8px 24px rgba(0,0,0,.25)',
       }}
     >
-      <img src={`${base}marca/logo-ofipapel.png`} alt="Ofipapel" style={{ height: 38, width: 'auto', flexShrink: 0 }} />
+      <img src={`${base}marca/logo-ofipapel.png`} alt="Ofipapel" style={{ height: 'auto', width: 'clamp(50px, 17vw, 112px)', flexShrink: 1, minWidth: 46 }} />
       <div style={{ flex: 1, minWidth: 0, color: '#fff', overflow: 'hidden' }}>
-        <div style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 800, fontSize: 21, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Reparto</div>
+        <div style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 800, fontSize: 'clamp(14px, 4.4vw, 21px)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Reparto</div>
         <div style={{ fontSize: 11, letterSpacing: 1.2, fontWeight: 600, opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {sub ?? 'OFIPAPEL'}
         </div>
