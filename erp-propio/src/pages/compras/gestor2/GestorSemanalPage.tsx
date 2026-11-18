@@ -109,7 +109,7 @@ const OPERATIVA: BloqueOperativa[] = [
       'El aviso «más barato en…» compara el precio neto por unidad con el de los otros proveedores dados de alta en la ficha del artículo.',
       'Peticiones de clientes: siguen pendientes mientras el pedido es una propuesta. Pasan solas a «tramitada» cuando el pedido se acepta, y a «resuelta» cuando se liquida, igual que con el Gestor de siempre.',
       'El pedido creado se ve y se cambia en Compras › Pedidos a Proveedores y en el Gestor de Pedidos a Proveedores.',
-      'Los mínimos y máximos los calcula el ERP (los de las fichas de GeminisWin no se usan): venta media de los últimos 12 meses, más un margen para no quedarse sin stock durante el plazo de entrega; el máximo cubre un mes más. «Recalcular mínimos» los rehace con las ventas al día.',
+      'Los mínimos y máximos los calcula el ERP (los de las fichas de GeminisWin no se usan): venta media de los últimos 12 meses, más un margen para no quedarse sin stock durante el plazo de entrega (como mucho, lo que se vende en ese plazo: las subidas de temporada van por campañas); el máximo cubre dos semanas más de venta. «Recalcular mínimos» los rehace con las ventas al día.',
       'Tipos: regular (se vende 9 o más meses del año), intermitente (4 a 8) y raro (3 o menos). Los raros no tienen mínimo hasta que decides: pestaña «Raros», «En stock» o «Bajo pedido». Bajo pedido = solo se pide cuando lo pide un cliente.',
       'En «Raros» salen primero los que hoy tienen stock: si quieres seguir teniéndolos, márcalos «En stock»; si no, no se repondrán.',
       '«Condiciones» en cada proveedor: plazo de entrega real, pedido mínimo y portes gratis. Mandan sobre la ficha de GeminisWin y recalculan al momento los mínimos de sus artículos.',
