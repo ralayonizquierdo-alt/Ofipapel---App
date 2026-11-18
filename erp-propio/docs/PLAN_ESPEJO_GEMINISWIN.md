@@ -230,3 +230,12 @@ siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
   y desde ahí se abren y cierran las áreas de solo consulta.
 - Pendiente: las cinco tablas grandes (fuera de horario), comprobar totales, cerrar las áreas en solo
   consulta y dejar la tarea automática cada 10 minutos.
+
+## 10. Pendiente para después de la primera carga
+
+- **Adelgazar la copia de GeminisWin (`carga_dbf`)** (Rober, 18/11/2026: «para más adelante»). Hoy guarda cada
+  registro entero (577 MB de los 1.085 MB de la base de datos, el 18/11). Para saber qué ha cambiado basta con una
+  huella de cada registro; el registro entero solo hace falta mientras se pasa a la tabla del ERP. Guardando solo la
+  huella (y borrando el contenido una vez cargado) bajaría a unos 50 MB. No es urgente: el plan Pro incluye 8 GB.
+- Limpieza automática del historial (`espejo_gw_pasada`, `reparto_gw_pasada`) de más de 30 días: ocupa poco
+  (unos 2 MB al mes con el espejo cada 10 minutos); se hará junto con lo anterior.
