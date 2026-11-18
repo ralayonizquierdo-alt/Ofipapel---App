@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom'
 import { AlarmClock, Calculator, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { descargarExcelGw } from '../../../lib/excelGeminiswin'
+import { Campanas } from './Campanas'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
 
 interface Resumen {
@@ -98,6 +99,7 @@ const OPERATIVA: BloqueOperativa[] = [
       'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo (a cajas completas), y lo que hace falta para servir las peticiones de clientes.',
       'Arriba salen primero los que tienen artículos agotados. La barra dice si la propuesta llega al pedido mínimo del proveedor.',
       '«Revisar y enviar»: abre la propuesta. Quita lo que no quieras, cambia cantidades y pulsa «Crear pedido». El pedido nace pendiente, igual que los del Gestor de siempre.',
+      '«Campañas» (vuelta al cole y similares): eliges los meses del año pasado y cuánto más quieres pedir (%). Por cada artículo propone lo vendido en esos meses más ese %, menos el stock y lo que está en camino, a cajas completas. Se revisa proveedor a proveedor y «Crear pedido» lo deja pendiente, con su Excel para GeminisWin. Al quedar en camino, la propuesta semanal no lo vuelve a pedir.',
       '«Pueden esperar»: los proveedores con un pedido por debajo de 300 € (o de su pedido mínimo, si es mayor) se apartan aquí para juntarlo con el de otra semana. Si alguno trae una petición de cliente, sale en «Para decidir» aunque el pedido sea pequeño. Se pueden enviar igual con «Revisar y enviar». El importe se cambia en el parámetro compras.pedido_pequeno.',
       'Los consumibles de informática (cartuchos, tóner, tambores y cintas) no salen aquí: se piden aparte cada semana comparando entre tres proveedores. Se pueden volver a incluir desde el parámetro compras.familias_aparte.',
       '«No pedir solo» (en cada línea de la propuesta): marca el artículo «Bajo pedido». Deja de proponerse por mínimos y solo se pide cuando lo pide un cliente. Sirve para servicios (portes, fotocopias) y artículos que no se quieren tener en stock. Si el stock es negativo en GeminisWin se cuenta como 0.',
@@ -125,7 +127,7 @@ export function GestorSemanalPage() {
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ texto: string; pedido?: number; error?: boolean } | null>(null)
-  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros'>('decidir')
+  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas'>('decidir')
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const [sinProveedor, setSinProveedor] = useState(0)
@@ -234,6 +236,9 @@ export function GestorSemanalPage() {
         <Pestana activa={vista === 'raros'} onClick={() => setVista('raros')}>
           Raros por decidir · {estado?.raros_por_decidir ?? '…'}
         </Pestana>
+        <Pestana activa={vista === 'campanas'} onClick={() => setVista('campanas')}>
+          Campañas
+        </Pestana>
         {error && (
           <span role="alert" className="text-[14px] font-bold text-[#c42b1c]">
             {error}
@@ -265,6 +270,7 @@ export function GestorSemanalPage() {
         </p>
       )}
       {datos === null && !error && <p className="text-[15px] text-[#5b6680]">Calculando las propuestas…</p>}
+      {vista === 'campanas' && <Campanas />}
       {vista === 'raros' && (
         <Raros
           proveedores={(datos ?? []).map((r) => ({ codigo: r.proveedor_codigo, nombre: r.proveedor_nombre }))}
