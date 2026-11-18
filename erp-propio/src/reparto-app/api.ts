@@ -256,6 +256,8 @@ export interface RutaOficina {
   ruta: string | null
   ruta_nombre: string | null
   repartidor: string | null
+  /** Hora (HH:MM) a la que el repartidor fichó la entrada el día del reparto; null si no ha fichado o no está enlazado. */
+  entrada?: string | null
   total: number
   entregados: number
   incidencias: number

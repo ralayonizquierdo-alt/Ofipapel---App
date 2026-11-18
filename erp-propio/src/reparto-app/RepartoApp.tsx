@@ -567,7 +567,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
         <Tarjeta>
           <div style={{ fontWeight: 700, fontSize: 19, color: V.verde }}>{titulo(r)}</div>
           <div style={{ color: V.gris, fontSize: 14 }}>
-            {r.repartidor ?? 'Sin repartidor'} · {dia(r.fecha)} · reparto nº {r.numero}
+            {r.repartidor ?? 'Sin repartidor'}{r.repartidor ? (r.entrada ? ` · entró a las ${r.entrada}` : ' · sin fichar la entrada') : ''} · {dia(r.fecha)} · reparto nº {r.numero}
           </div>
           <div style={{ fontWeight: 700, color, margin: '6px 0 10px' }}>{sit}</div>
           {!lineas && <div style={{ color: V.gris }}>Cargando…</div>}
@@ -641,7 +641,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
               >
                 <div style={{ fontWeight: 700, fontSize: 17, color: V.verde }}>{titulo(r)}</div>
                 <div style={{ color: V.gris, fontSize: 13 }}>
-                  {r.repartidor ?? 'Sin repartidor'} · {dia(r.fecha)}
+                  {r.repartidor ?? 'Sin repartidor'}{r.repartidor && r.entrada ? ` · entró ${r.entrada}` : ''} · {dia(r.fecha)}
                 </div>
                 <div style={{ fontWeight: 700, color, marginTop: 4 }}>{sit}</div>
                 <div style={{ fontSize: 13, color: V.texto }}>
