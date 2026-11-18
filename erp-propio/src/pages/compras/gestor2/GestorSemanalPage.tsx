@@ -98,6 +98,7 @@ const OPERATIVA: BloqueOperativa[] = [
       'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo (a cajas completas), y lo que hace falta para servir las peticiones de clientes.',
       'Arriba salen primero los que tienen artículos agotados. La barra dice si la propuesta llega al pedido mínimo del proveedor.',
       '«Revisar y enviar»: abre la propuesta. Quita lo que no quieras, cambia cantidades y pulsa «Crear pedido». El pedido nace pendiente, igual que los del Gestor de siempre.',
+      '«No pedir solo» (en cada línea de la propuesta): marca el artículo «Bajo pedido». Deja de proponerse por mínimos y solo se pide cuando lo pide un cliente. Sirve para servicios (portes, fotocopias) y artículos que no se quieren tener en stock. Si el stock es negativo en GeminisWin se cuenta como 0.',
       '«Excel para GeminisWin»: al crear el pedido sale este enlace (y en la ficha del pedido, el botón verde de la barra de líneas). Descarga el Excel 5.0/95 con la hoja «fichero», el mismo que hace la app de Importación de Pedidos, listo para importarlo en Compras de GeminisWin. Sin tildes ni Ñ, porque ese formato no las admite.',
       '«Aguantar»: lo quita de la lista una o dos semanas. Cuando vuelve trae lo que se haya sumado.',
     ],
@@ -431,6 +432,27 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
   const [lineas, setLineas] = useState<Linea[] | null>(null)
   const [cant, setCant] = useState<Record<string, number>>({})
   const [fuera, setFuera] = useState<Set<string>>(new Set())
+  const [bajoPedido, setBajoPedido] = useState<Set<string>>(new Set())
+
+  async function noPedirSolo(l: Linea) {
+    setError(null)
+    const { error: e } = await supabase.rpc('fn_compras_articulo_decidir', { p_articulo: l.articulo_codigo, p_decision: 'bajo_pedido', p_motivo: 'Desde la propuesta semanal' })
+    if (e) return setError(e.message)
+    setBajoPedido(new Set(bajoPedido).add(l.articulo_codigo))
+    setFuera(new Set(fuera).add(l.articulo_codigo))
+  }
+
+  async function deshacerBajoPedido(l: Linea) {
+    setError(null)
+    const { error: e } = await supabase.rpc('fn_compras_articulo_decidir', { p_articulo: l.articulo_codigo, p_decision: null, p_motivo: null })
+    if (e) return setError(e.message)
+    const b = new Set(bajoPedido)
+    b.delete(l.articulo_codigo)
+    setBajoPedido(b)
+    const f = new Set(fuera)
+    f.delete(l.articulo_codigo)
+    setFuera(f)
+  }
   const [error, setError] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
 
@@ -515,6 +537,26 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
                         {l.ultima_compra_uds ? ` · última compra ${uds(l.ultima_compra_uds)} uds${l.ultima_compra_fecha ? ` el ${fecha(l.ultima_compra_fecha)}` : ''}` : ''}
                         {l.dias_dura_compra ? ` · le dura ~${l.dias_dura_compra} días` : ''}
                       </div>
+                      {l.stock_actual < 0 && (
+                        <div className="text-[12px] text-[#b42318]">Stock negativo en GeminisWin: se cuenta como 0.</div>
+                      )}
+                      {bajoPedido.has(l.articulo_codigo) ? (
+                        <div className="text-[12px] font-semibold text-[#7a5200]">
+                          Marcado «Bajo pedido»: ya no se propondrá solo (solo si lo pide un cliente).{' '}
+                          <button type="button" onClick={() => void deshacerBajoPedido(l)} className="font-normal underline">
+                            Deshacer
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void noPedirSolo(l)}
+                          title="Marca el artículo «Bajo pedido»: deja de proponerse por mínimos y solo se pide cuando lo pide un cliente. Se puede deshacer aquí mismo"
+                          className="mr-2 text-[12px] text-[#5b6680] underline hover:text-[#1d3a8a]"
+                        >
+                          No pedir solo
+                        </button>
+                      )}
                       {l.peticiones > 0 && (
                         <div className="mr-1 mt-0.5 inline-flex items-center gap-1 rounded-full bg-[#dfe9ff] px-2 py-0.5 text-[12px] font-semibold text-[#16306f]">
                           <UserRound size={12} /> {uds(l.peticiones)} {l.peticiones === 1 ? 'pedida por un cliente' : 'pedidas por clientes'}

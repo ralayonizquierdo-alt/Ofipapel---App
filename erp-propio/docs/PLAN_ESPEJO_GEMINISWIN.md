@@ -231,7 +231,22 @@ siempre sin enviar nada, y después pedir de verdad. Necesita las tandas 1 a 3.
 - Pendiente: las cinco tablas grandes (fuera de horario), comprobar totales, cerrar las áreas en solo
   consulta y dejar la tarea automática cada 10 minutos.
 
+**18/11/2026 — tanda 1 terminada, sin cortes.** ARTICALM entró entera (01:49–01:53): 380.567 registros. En el
+ERP: 142.402 artículos, 182.496 códigos de barras, 161.487 artículo-proveedor y 363.538 filas de stock (se
+saltan las que no tienen almacén o traen cantidades imposibles; quedan en Archivo → Espejo de GeminisWin). No hay
+tarea programada: el espejo solo se mueve cuando Cowork lo lanza a mano (`paso3_espejo.bat`). CLIENART sin tocar.
+
 ## 10. Pendiente para después de la primera carga
+
+- **Lo que falta para que el Gestor de Pedidos 2.0 no pida de más** (18/11/2026), por este orden:
+  1. **Pedidos a proveedor pendientes de recibir en GeminisWin.** El ERP solo ve como «en camino» los pedidos
+     hechos en el ERP; lo pedido en GeminisWin se volvería a proponer.
+  2. **Peticiones de clientes de GeminisWin** (Rober: «no te olvides de las peticiones de clientes»). La
+     propuesta ya suma las peticiones del ERP (`peticion`), pero las de verdad están en GeminisWin.
+  Cowork tiene que localizar en qué ficheros DBF están las dos cosas (solo mirar, sin guardar nada en GeminisWin)
+  para añadirlas al espejo.
+- **Tarea automática del espejo cada 10 minutos** y, con ella funcionando, **cerrar las áreas en solo consulta**
+  (Archivo → Espejo de GeminisWin). Cerrarlas antes dejaría el ERP con datos que no se actualizan.
 
 - **Adelgazar la copia de GeminisWin (`carga_dbf`)** (Rober, 18/11/2026: «para más adelante»). Hoy guarda cada
   registro entero (577 MB de los 1.085 MB de la base de datos, el 18/11). Para saber qué ha cambiado basta con una
