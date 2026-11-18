@@ -325,6 +325,18 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 #pvTip b{ font-size:.8rem; }
 #pvTip{ text-align:center; }
 .p-block[data-tip]{ cursor:help; }
+/* Desglose de vacaciones de una persona (Luis, 18/11/2026): al pulsar sus días. */
+[data-desglose]{ cursor:pointer; text-decoration:underline dotted; }
+#desglose{ position:fixed; z-index:5001; display:none; background:#fff; border:1px solid var(--borde); border-radius:8px;
+  box-shadow:0 6px 20px rgba(0,0,0,.22); padding:8px 10px 10px; font-size:.78rem; color:#1A2E1A; max-width:calc(100vw - 16px); overflow-x:auto; }
+#desglose .dg-tit{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-weight:700; color:var(--verde); margin-bottom:5px; }
+#desglose .dg-tit button{ background:none; border:none; cursor:pointer; font-size:.95rem; color:var(--texto2); padding:0 2px; }
+#desglose table{ border-collapse:collapse; }
+#desglose th, #desglose td{ border:1px solid #cfd9cf; padding:2px 7px; text-align:center; white-space:nowrap; }
+#desglose th{ background:#EBF7EB; color:#1A5C1A; font-weight:700; }
+#desglose td.dg-nota{ text-align:left; color:var(--texto2); }
+#desglose tr.dg-total td{ background:#CFEBCF; font-weight:700; color:#1A5C1A; }
+@media print{ #desglose{ display:none !important; } }
 .p-hueco{ background:#FFE45C; color:#5C4A00; border:0.2mm dashed #C9A400; box-sizing:border-box; }
 .p-sin-nadie{ position:absolute; top:0; height:100%; background:#FFE45C; opacity:.55; z-index:1; }
 .p-huecos-tit{ background:#FFF6C2; color:#7A6300; margin-top:1.5mm; }
@@ -782,6 +794,7 @@ main{flex:1;overflow:auto;position:relative;background:#fff;}
 
 <div class="toast" id="toast"></div>
 <div id="pvTip" role="tooltip"></div>
+<div id="desglose" role="dialog" aria-label="Desglose de vacaciones"></div>
 
 <div class="overlay" id="categoriesOverlay">
   <div class="modal" style="width:440px;">
@@ -2386,6 +2399,7 @@ function renderYearView(wrap){
         openModal('periodOverlay');
       };
       const days = el('yv-days', used+'/'+effectiveDaysPerYear(emp));
+      days.dataset.desglose = emp.id; days.title = 'Pulsa para ver el desglose';
       wrap.appendChild(rowOf('', name, track, days));
     }
   }
@@ -4736,6 +4750,52 @@ function printEscala(titulo, emps, y, n, pos){
   document.addEventListener('scroll', quitar, true);
 })();
 
+/* Desglose de vacaciones de una persona en el año que se ve: cada trozo con sus fechas, días y qué es (Luis,
+   18/11/2026: «sino estamos preguntando todo el tiempo»). Se abre al pulsar sus días en la pantalla de inicio
+   o el Total del Listado. Si un trozo empieza el 1 de enero o acaba el 31 de diciembre, dice que sigue del o en
+   el otro año, porque los días cuentan en el año de cada fecha. */
+function desgloseHtml(emp, y){
+  const corta = iso=> iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(2,4);
+  const dias = p=> isoToIndex(y,p.end)-isoToIndex(y,p.start)+1;
+  const sigueAntes = p=> p.start===y+'-01-01' && (state.periods.some(q=>q.employeeId===emp.id && q.end===(y-1)+'-12-31')
+    || (hasFixedPref(emp.id) && parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y-1).some(r=>r.end===(y-1)+'-12-31')));
+  const sigueDespues = p=> p.end===y+'-12-31' && (state.periods.some(q=>q.employeeId===emp.id && q.start===(y+1)+'-01-01')
+    || (hasFixedPref(emp.id) && parsePreferredRanges(state.employeePrefs[emp.id].preferredText, y+1).some(r=>r.start===(y+1)+'-01-01')));
+  const filas = periodsOfYear(emp.id, y).sort((a,b)=>a.start.localeCompare(b.start)).map((p,i)=>{
+    const tipo = tipoDeFecha(emp, p, y);
+    const nota = sigueAntes(p) ? '← viene de '+(y-1) : sigueDespues(p) ? '→ sigue en '+(y+1) : '';
+    return `<tr><td>${i+1}.º</td><td>${corta(p.start)}</td><td>${corta(p.end)}</td><td>${dias(p)}</td><td>${escapeHtml(tipo==='📌'?'📌 Fija':tipo)}</td><td class="dg-nota">${nota}</td></tr>`;
+  });
+  const fest = diasPorFestivo(emp.id, y);
+  if(fest) filas.push(`<tr><td></td><td colspan="2">Festivos trabajados</td><td>${fest}</td><td></td><td class="dg-nota"></td></tr>`);
+  const usados = diasUsados(emp.id, y), toca = effectiveDaysPerYear(emp), dif = usados - toca;
+  const difTxt = dif===0 ? 'completo' : dif<0 ? 'faltan '+(-dif) : 'sobran '+dif;
+  return `<div class="dg-tit"><span>${escapeHtml(empLabel(emp))} · ${y}</span><button type="button" data-dg-cerrar aria-label="Cerrar">✕</button></div>
+    <table><thead><tr><th>Trozo</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Tipo</th><th>Nota</th></tr></thead><tbody>
+    ${filas.join('') || '<tr><td colspan="6">Sin vacaciones este año</td></tr>'}
+    <tr class="dg-total"><td colspan="3">Total</td><td>${usados}/${toca}</td><td colspan="2">${difTxt}</td></tr></tbody></table>`;
+}
+(function(){
+  const caja = document.getElementById('desglose');
+  if(!caja) return;
+  const cerrar = ()=>{ caja.style.display = 'none'; };
+  document.addEventListener('click', ev=>{
+    if(ev.target.closest('[data-dg-cerrar]')){ cerrar(); return; }
+    const celda = ev.target.closest('[data-desglose]');
+    if(!celda){ if(!ev.target.closest('#desglose')) cerrar(); return; }
+    const emp = EMPLOYEES.find(e=>e.id===celda.dataset.desglose);
+    if(!emp) return;
+    ev.stopPropagation();
+    caja.innerHTML = desgloseHtml(emp, state.year);
+    caja.style.display = 'block';
+    const r = celda.getBoundingClientRect(), w = caja.offsetWidth, h = caja.offsetHeight;
+    caja.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
+    caja.style.top = (r.bottom + h + 8 < innerHeight ? r.bottom + 4 : Math.max(8, r.top - h - 4)) + 'px';
+  }, true);
+  document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') cerrar(); });
+  document.addEventListener('scroll', cerrar, true);
+})();
+
 let printFormat = 'A3'; // tamaño del calendario: 'A3' | 'A4'
 let printVista = 'lineal'; // 'lineal' | 'escala'
 try{ if(localStorage.getItem('ofipapel_vacaciones_vista')==='escala') printVista = 'escala'; }catch(e){}
@@ -4993,7 +5053,7 @@ function listadoTableHtml(y){
     const cols = Array.from({length:columns},(_,i)=>`<td class="lv-c" style="background:${tint(i+1)};">${days[i]??''}</td>`).join('');
     return `<tr><td class="lv-c">${p.turno}</td><td class="lv-name">${empNameHtml(p.emp)}</td>
       <td class="lv-c" style="${color}">${shortDate(p.start)}</td><td class="lv-c" style="${color}">${shortDate(p.end)}</td>
-      ${cols}<td class="lv-c lv-total">${total}</td><td class="lv-c" style="font-weight:700;color:var(--verde);">${fest}</td></tr>`;
+      ${cols}<td class="lv-c lv-total" data-desglose="${escapeHtml(p.emp.id)}" title="Pulsa para ver el desglose">${total}</td><td class="lv-c" style="font-weight:700;color:var(--verde);">${fest}</td></tr>`;
   };
   const gap = `<tr class="lv-gap"><td colspan="${columns+6}"></td></tr>`;
   const blocks = turnos.map(list=> list.map(p=>{ const x = byEmp.get(p.emp.id); return row(p, x.days, x.total, festivos(p.emp)); }).join(''));
@@ -5545,6 +5605,7 @@ const OPERATIVAS = {
     ],
     notas: [
       'Los <b>números</b> de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes. En las zonas bloqueadas no salen.',
+      'Pulsa los <b>días</b> de una persona (por ejemplo <b>22/30</b>) para ver su <b>desglose</b>: cada trozo con sus fechas, días y si es <b>Petición</b> o <b>📌 Fija</b>. Si un trozo empieza el 1 de enero o acaba el 31 de diciembre, dice si viene del año anterior o sigue en el siguiente. También en el <b>Total</b> del Listado.',
       '<b>Días</b> son los puestos / los que le tocan: los de su ficha más uno por cada festivo trabajado. <b>31/30</b> es un día de más y <b>30/31</b>, uno por poner.',
       'Los días por <b>festivo trabajado</b> van dentro del <b>1.º y 2.º turno</b> (de enero a agosto), uno en cada uno. A partir de agosto, solo para quien no lo haya podido disfrutar antes.',
       'Una <b>rayita roja</b> al final de una barra señala que ese turno lleva un día por festivo trabajado.',
