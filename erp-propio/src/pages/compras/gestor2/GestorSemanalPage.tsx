@@ -14,8 +14,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, Calculator, CircleHelp, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
+import { AlarmClock, Calculator, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
 
 interface Resumen {
@@ -97,6 +98,7 @@ const OPERATIVA: BloqueOperativa[] = [
       'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo (a cajas completas), y lo que hace falta para servir las peticiones de clientes.',
       'Arriba salen primero los que tienen artículos agotados. La barra dice si la propuesta llega al pedido mínimo del proveedor.',
       '«Revisar y enviar»: abre la propuesta. Quita lo que no quieras, cambia cantidades y pulsa «Crear pedido». El pedido nace pendiente, igual que los del Gestor de siempre.',
+      '«Excel para GeminisWin»: al crear el pedido sale este enlace (y en la ficha del pedido, el botón verde de la barra de líneas). Descarga el Excel 5.0/95 con la hoja «fichero», el mismo que hace la app de Importación de Pedidos, listo para importarlo en Compras de GeminisWin. Sin tildes ni Ñ, porque ese formato no las admite.',
       '«Aguantar»: lo quita de la lista una o dos semanas. Cuando vuelve trae lo que se haya sumado.',
     ],
   },
@@ -119,7 +121,7 @@ const OPERATIVA: BloqueOperativa[] = [
 export function GestorSemanalPage() {
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [aviso, setAviso] = useState<{ texto: string; pedido?: boolean } | null>(null)
+  const [aviso, setAviso] = useState<{ texto: string; pedido?: number; error?: boolean } | null>(null)
   const [vista, setVista] = useState<'decidir' | 'aplazados' | 'raros'>('decidir')
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
@@ -147,6 +149,11 @@ export function GestorSemanalPage() {
   const decidir = useMemo(() => (datos ?? []).filter((r) => !r.aplazado_hasta), [datos])
   const aplazados = useMemo(() => (datos ?? []).filter((r) => r.aplazado_hasta), [datos])
   const lista = vista === 'decidir' ? decidir : vista === 'aplazados' ? aplazados : []
+
+  async function excel(numero: number) {
+    const e = await descargarExcelGw(TIENDA, numero)
+    if (e) setAviso({ texto: e, pedido: numero, error: true })
+  }
 
   async function recalcular() {
     setError(null)
@@ -215,12 +222,17 @@ export function GestorSemanalPage() {
           </span>
         )}
         {aviso && (
-          <span role="status" className="text-[14px] font-bold text-[#127a12]">
+          <span role="status" className={`text-[14px] font-bold ${aviso.error ? 'text-[#b42318]' : 'text-[#127a12]'}`}>
             {aviso.texto}{' '}
-            {aviso.pedido && (
-              <Link to="/gestor-pedidos-proveedor" className="underline">
-                Verlo en el Gestor
-              </Link>
+            {aviso.pedido != null && (
+              <>
+                <button type="button" onClick={() => void excel(aviso.pedido!)} className="mr-2 inline-flex items-center gap-1 underline">
+                  <FileSpreadsheet size={14} /> Excel para GeminisWin
+                </button>
+                <Link to="/gestor-pedidos-proveedor" className="underline">
+                  Verlo en el Gestor
+                </Link>
+              </>
             )}
           </span>
         )}
@@ -258,9 +270,9 @@ export function GestorSemanalPage() {
         <Propuesta
           r={abierto}
           onCerrar={() => setAbierto(null)}
-          onCreado={(texto) => {
+          onCreado={(texto, numero) => {
             setAbierto(null)
-            setAviso({ texto, pedido: true })
+            setAviso({ texto, pedido: numero })
             void cargar()
           }}
         />
@@ -415,7 +427,7 @@ function Capa({ titulo, onCerrar, children, ancho = 'max-w-[1100px]' }: { titulo
 }
 
 /** La propuesta de un proveedor: se quita lo que no se quiera, se cambian cantidades y se crea el pedido. */
-function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void; onCreado: (texto: string) => void }) {
+function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void; onCreado: (texto: string, numero: number) => void }) {
   const [lineas, setLineas] = useState<Linea[] | null>(null)
   const [cant, setCant] = useState<Record<string, number>>({})
   const [fuera, setFuera] = useState<Set<string>>(new Set())
@@ -450,7 +462,7 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
     setCreando(false)
     if (e) return setError(e.message)
     const d = data as { numero: number; lineas: number; total: number }
-    onCreado(`Pedido ${d.numero} creado para ${r.proveedor_nombre ?? r.proveedor_codigo}: ${d.lineas} líneas, ${eur(num(d.total))}. Queda pendiente.`)
+    onCreado(`Pedido ${d.numero} creado para ${r.proveedor_nombre ?? r.proveedor_codigo}: ${d.lineas} líneas, ${eur(num(d.total))}. Queda pendiente.`, d.numero)
   }
 
   return (

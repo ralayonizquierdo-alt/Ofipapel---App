@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Binoculars, Check, FilePen, FilePlus2, FileX2, HelpCircle, Sheet, Wallet, X } from 'lucide-react'
+import { Binoculars, Check, FilePen, FilePlus2, FileSpreadsheet, FileX2, HelpCircle, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { aplicarArticulo, tocarLinea, type LineaEnEdicion } from '../../../lib/lineaEnEdicion'
 import { ahoraTrabajo, fechaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
@@ -1216,6 +1217,15 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
             </MiniBtn>
             <MiniBtn title="Borrar línea" disabled={!editing || !!editLinea || !lineas[sel] || lineasBloqueadas} onClick={borrarLinea}>
               <FileX2 size={15} />
+            </MiniBtn>
+            <MiniBtn
+              title="Excel para importar este pedido en GeminisWin (Excel 5.0/95, hoja «fichero», como la app de Importación de Pedidos)"
+              disabled={editing || !cab || cab.numero == null || !lineas.length}
+              onClick={() => {
+                if (cab?.numero != null) void descargarExcelGw(cab.tienda_terminal_codigo, cab.numero).then((e) => e && setMensaje(e))
+              }}
+            >
+              <FileSpreadsheet size={15} className="text-[#127a12]" />
             </MiniBtn>
           </div>
           <span className="gw-label !text-[17px]">Observaciones</span>
