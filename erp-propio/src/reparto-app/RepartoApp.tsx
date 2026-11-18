@@ -1017,7 +1017,10 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
       {cobros && !rutas.length && <div style={{ color: V.gris }}>Ahora mismo ningún repartidor tiene cobros pendientes de entregar.</div>}
       {rutas.length > 0 && (
         <div style={{ background: '#eef5fc', borderRadius: 14, padding: '8px 12px', marginBottom: 10, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ flex: 1, fontWeight: 700, color: AZUL }}>Total a recibir</span>
+          <span style={{ flex: 1, fontWeight: 700, color: AZUL }}>
+            Total a recibir en efectivo
+            {tarjeta(enMano).length ? <span style={{ display: 'block', fontSize: 12, fontWeight: 600 }}>💳 Además {euros(suma(tarjeta(enMano)))} con tarjeta (no se entrega)</span> : null}
+          </span>
           <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 22, color: AZUL }}>{euros(suma(efectivo(enMano)))}</span>
         </div>
       )}
