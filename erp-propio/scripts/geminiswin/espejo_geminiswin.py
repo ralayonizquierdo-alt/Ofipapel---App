@@ -70,6 +70,13 @@ TABLAS = [
     ('ARTPROV', 'ARTPROV', ['COD_PROV', 'COD_INTERN', 'COD_COMPRA']),
     ('ARTICALM', 'ARTICALM', ['CODALMAC', 'COD_INTERN']),
     ('CLIENART', 'CLIENART', ['IDCLIENTE', 'COD_INTERN']),
+    # Pedidos a proveedor y peticiones de clientes (18/11/2026): para que el Gestor de Pedidos del ERP sepa lo que
+    # ya está pedido en GeminisWin y lo que han pedido los clientes. De los pedidos solo se traen los del último
+    # año y los que siguen sin recibir (ver 'ventana_dias'); las peticiones, todas.
+    ('PEDIDCAB', 'PEDIDCAB', ['IDOFICINA', 'NUMERO']),
+    ('PEDIDLIN', 'PEDIDLIN', ['IDOFICINA', 'NUMERO', 'LINEA', 'COD_INTERN']),
+    ('PETICION', 'PETICION', ['IDOFICINA', 'NUMERO']),
+    ('PETIDETA', 'PETIDETA', ['IDOFICINA', 'NUMERO', 'IDOFICPED', 'NUMEROPED', 'NUMLINPED', 'FECHAHORA']),
 ]
 
 POR_DEFECTO = {
@@ -85,6 +92,9 @@ POR_DEFECTO = {
     'claves': {},                 # para corregir los campos de la clave: {"FOMA": ["FORMA_COD"]}
     # CLIENART (precios especiales por cliente y artículo) tiene 6,5 millones de registros: no se trae así.
     'saltar': ['CLIENART'],       # tablas que no se quieren traer
+    # Pedidos a proveedor: solo los de los últimos N días, más los que siguen sin recibir y los que ya se habían
+    # mandado alguna vez (para que el ERP se entere cuando se reciben). Las líneas siguen a su cabecera.
+    'ventana_dias': {'PEDIDCAB': 400},
 }
 
 
@@ -326,6 +336,27 @@ def medir(cfg):
     print('\nEscrito en espejo_medida.txt')
 
 
+def _pedido_dentro(reg, limite, conocidas):
+    """Cabecera de pedido a proveedor que interesa: reciente, sin recibir o ya mandada antes."""
+    fecha = str(reg.get('FECHAHORA') or reg.get('FECHA_L') or '')[:10]
+    return fecha >= limite or not reg.get('RECIBIDO') or clave_de(reg, ['IDOFICINA', 'NUMERO']) in conocidas
+
+
+def pedidos_dentro(cfg, con):
+    """Claves IDOFICINA|NUMERO de las cabeceras de pedido a proveedor que se traen (para filtrar sus líneas)."""
+    dias = cfg.get('ventana_dias', {}).get('PEDIDCAB')
+    f = buscar_fichero(cfg, cfg.get('ficheros', {}).get('PEDIDCAB', 'PEDIDCAB'))
+    if not dias or not f:
+        return None
+    limite = (dt.date.today() - dt.timedelta(days=int(dias))).isoformat()
+    conocidas = {k for (k,) in con.execute("select clave from registro where tabla = 'PEDIDCAB'")}
+    d = Dbf(f)
+    try:
+        return {clave_de(r, ['IDOFICINA', 'NUMERO']) for r in d.registros() if _pedido_dentro(r, limite, conocidas)}
+    finally:
+        d.cerrar()
+
+
 def pasada(cfg, clave, todo=False, solo=None):
     con = abrir_estado()
     equipo = socket.gethostname()
@@ -354,6 +385,15 @@ def pasada(cfg, clave, todo=False, solo=None):
                 resumen.append(f'{tabla}: {d.n} registros, más de los esperados: no se lee')
                 continue
             conocidas = dict(con.execute('select clave, huella from registro where tabla = ?', (tabla,)))
+            # Ventana de los pedidos a proveedor (las tablas enteras son muy grandes y casi todo es historia).
+            dentro = None
+            if tabla == 'PEDIDCAB' and cfg.get('ventana_dias', {}).get('PEDIDCAB'):
+                limite = (dt.date.today() - dt.timedelta(days=int(cfg['ventana_dias']['PEDIDCAB']))).isoformat()
+                dentro = lambda r: _pedido_dentro(r, limite, conocidas)  # noqa: E731
+            elif tabla == 'PEDIDLIN':
+                cabeceras = pedidos_dentro(cfg, con)
+                if cabeceras is not None:
+                    dentro = lambda r: clave_de(r, ['IDOFICINA', 'NUMERO']) in cabeceras or clave_de(r, campos_clave) in conocidas  # noqa: E731
             # Se va enviando según se lee (un fichero grande no cabe entero en memoria) y, cada cierto número
             # de registros, se pide al ERP que los pase a sus tablas: así ninguna carga es larga.
             vistos = enviados = sin_cargar = 0
@@ -384,6 +424,8 @@ def pasada(cfg, clave, todo=False, solo=None):
                 return None
 
             for reg in d.registros():
+                if dentro is not None and not dentro(reg):
+                    continue
                 vistos += 1
                 k = clave_de(reg, campos_clave)
                 texto = json.dumps(reg, sort_keys=True, ensure_ascii=False)

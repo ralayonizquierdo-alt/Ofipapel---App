@@ -243,9 +243,14 @@ tarea programada: el espejo solo se mueve cuando Cowork lo lanza a mano (`paso3_
      hechos en el ERP; lo pedido en GeminisWin se volvería a proponer.
   2. **Peticiones de clientes de GeminisWin** (Rober: «no te olvides de las peticiones de clientes»). La
      propuesta ya suma las peticiones del ERP (`peticion`), pero las de verdad están en GeminisWin.
-  Cowork tiene que localizar en qué ficheros DBF están las dos cosas (solo mirar, sin guardar nada en GeminisWin)
-  para añadirlas al espejo.
-- **Tarea automática del espejo cada 10 minutos** y, con ella funcionando, **cerrar las áreas en solo consulta**
+  **Hecho (18/11/2026):** Cowork localizó PEDIDCAB/PEDIDLIN (pedidos y albaranes de proveedor) y PETICION/PETIDETA
+  (peticiones y su seguimiento). El espejo las trae a tablas de copia propias (`gw_pedido_proveedor`,
+  `gw_pedido_proveedor_linea`, `gw_peticion`, `gw_peticion_seguimiento`, migración
+  `20261118_espejo_pedidos_peticiones.sql`); de los pedidos, solo el último año, los que siguen sin recibir y los
+  ya mandados alguna vez (`ventana_dias` en el programa). Falta: confirmar con los datos qué TIPODOC es pedido y
+  qué TIPO/ESTADO de petición está abierta, y usarlas en la propuesta del Gestor 2.0.
+- **Tarea automática del espejo cada 10 minutos** (hecha el 18/11: «Ofipapel\\Espejo GeminisWin»; de momento solo
+  trae clientes, proveedores y artículos: tiene que lanzar todas las tablas) y, con ella funcionando, **cerrar las áreas en solo consulta**
   (Archivo → Espejo de GeminisWin). Cerrarlas antes dejaría el ERP con datos que no se actualizan.
 
 - **Adelgazar la copia de GeminisWin (`carga_dbf`)** (Rober, 18/11/2026: «para más adelante»). Hoy guarda cada
