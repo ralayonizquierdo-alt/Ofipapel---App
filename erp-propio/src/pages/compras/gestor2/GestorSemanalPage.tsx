@@ -7,12 +7,14 @@
 // también en el Gestor de siempre y en Pedidos a Proveedores.
 //
 // A propósito NO tiene el aspecto de ventana de GeminisWin: Rober la pidió sencilla, atractiva y moderna.
-// OJO: propone con el stock y los mínimos que haya en el ERP. Hasta que el espejo de GeminisWin los traiga
-// al día (docs/PLAN_ESPEJO_GEMINISWIN.md), lo que sale es de la muestra cargada, no para pedir de verdad.
+// Mínimos y máximos PROPIOS del ERP (18/11/2026, migración 20261118_compras_politica_erp.sql): los de las fichas de
+// GeminisWin no se usaban nunca. El ERP los calcula con la venta de 12 meses y el plazo de entrega (la forma ganadora
+// del estudio fn_compras_estudio_minimos). Los artículos raros se deciden aquí, uno a uno o en bloque: «en stock» o
+// «bajo pedido». Plazo, pedido mínimo y portes de cada proveedor se ponen aquí (compra_proveedor_condicion).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, CircleHelp, PackageX, RefreshCw, Send, TrendingDown, Truck, UserRound, X } from 'lucide-react'
+import { AlarmClock, Calculator, CircleHelp, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
 
@@ -30,6 +32,31 @@ interface Resumen {
   mas_baratos_en_otro: number
   aplazado_hasta: string | null
   aplazado_motivo: string | null
+  portes_gratis_desde: number | null
+  condiciones_erp: boolean | null
+  raros_por_decidir: number
+}
+interface Estado {
+  calculado_en: string | null
+  con_minimo: number
+  regulares: number
+  intermitentes: number
+  raros: number
+  raros_por_decidir: number
+  bajo_pedido: number
+}
+interface Raro {
+  articulo_codigo: string
+  descripcion: string
+  proveedor_codigo: string | null
+  proveedor_nombre: string | null
+  meses_con_venta: number
+  venta_12m: number
+  coste: number
+  stock_actual: number
+  valor_stock: number
+  decision: 'stock' | 'bajo_pedido' | null
+  peticiones_abiertas: number | null
 }
 interface Linea {
   articulo_codigo: string
@@ -47,6 +74,13 @@ interface Linea {
   mejor_proveedor: string | null
   mejor_proveedor_nombre: string | null
   mejor_coste: number | null
+  tipo: 'regular' | 'intermitente' | 'raro' | 'sin_ventas' | null
+  decision: 'stock' | 'bajo_pedido' | null
+  venta_mes: number | null
+  plazo_dias: number | null
+  ultima_compra_uds: number | null
+  ultima_compra_fecha: string | null
+  dias_dura_compra: number | null
 }
 
 const TIENDA = '01' // la misma que usa el Gestor de siempre
@@ -60,7 +94,7 @@ const OPERATIVA: BloqueOperativa[] = [
   {
     titulo: 'Pedidos de la semana',
     pasos: [
-      'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo, y lo que hace falta para servir las peticiones de clientes.',
+      'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo (a cajas completas), y lo que hace falta para servir las peticiones de clientes.',
       'Arriba salen primero los que tienen artículos agotados. La barra dice si la propuesta llega al pedido mínimo del proveedor.',
       '«Revisar y enviar»: abre la propuesta. Quita lo que no quieras, cambia cantidades y pulsa «Crear pedido». El pedido nace pendiente, igual que los del Gestor de siempre.',
       '«Aguantar»: lo quita de la lista una o dos semanas. Cuando vuelve trae lo que se haya sumado.',
@@ -72,7 +106,11 @@ const OPERATIVA: BloqueOperativa[] = [
       'El aviso «más barato en…» compara el precio neto por unidad con el de los otros proveedores dados de alta en la ficha del artículo.',
       'Peticiones de clientes: siguen pendientes mientras el pedido es una propuesta. Pasan solas a «tramitada» cuando el pedido se acepta, y a «resuelta» cuando se liquida, igual que con el Gestor de siempre.',
       'El pedido creado se ve y se cambia en Compras › Pedidos a Proveedores y en el Gestor de Pedidos a Proveedores.',
-      'Los mínimos y máximos se ponen en la ficha del artículo. Sin mínimo, el artículo solo se propone si lo ha pedido un cliente.',
+      'Los mínimos y máximos los calcula el ERP (los de las fichas de GeminisWin no se usan): venta media de los últimos 12 meses, más un margen para no quedarse sin stock durante el plazo de entrega; el máximo cubre un mes más. «Recalcular mínimos» los rehace con las ventas al día.',
+      'Tipos: regular (se vende 9 o más meses del año), intermitente (4 a 8) y raro (3 o menos). Los raros no tienen mínimo hasta que decides: pestaña «Raros», «En stock» o «Bajo pedido». Bajo pedido = solo se pide cuando lo pide un cliente.',
+      'En «Raros» salen primero los que hoy tienen stock: si quieres seguir teniéndolos, márcalos «En stock»; si no, no se repondrán.',
+      '«Condiciones» en cada proveedor: plazo de entrega real, pedido mínimo y portes gratis. Mandan sobre la ficha de GeminisWin y recalculan al momento los mínimos de sus artículos.',
+      'Junto a cada artículo: lo que vende al mes y la última compra con cuántos días le dura al ritmo de venta de ahora.',
       'Las campañas (vuelta al cole, Navidad) no van por aquí: se piden comparando con el año anterior.',
     ],
   },
@@ -82,19 +120,23 @@ export function GestorSemanalPage() {
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ texto: string; pedido?: boolean } | null>(null)
-  const [vista, setVista] = useState<'decidir' | 'aplazados'>('decidir')
+  const [vista, setVista] = useState<'decidir' | 'aplazados' | 'raros'>('decidir')
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const [sinProveedor, setSinProveedor] = useState(0)
+  const [estado, setEstado] = useState<Estado | null>(null)
+  const [calculando, setCalculando] = useState(false)
+  const [condiciones, setCondiciones] = useState<Resumen | null>(null)
 
   const cargar = useCallback(async () => {
     setError(null)
-    const { data, error: e } = await supabase.rpc('fn_compras_semanal_resumen')
+    const { data, error: e } = await supabase.rpc('fn_compras_semanal_proveedores')
     if (e) return setError(e.message)
     supabase.rpc('fn_compras_semanal_sin_proveedor').then(({ data: n }) => setSinProveedor(Number(n ?? 0)))
+    supabase.rpc('fn_compras_politica_estado').then(({ data: est }) => setEstado((est ?? null) as Estado | null))
     setDatos(
       ((data ?? []) as Resumen[])
-        .map((r) => ({ ...r, importe: num(r.importe), unidades: num(r.unidades), compra_minima: r.compra_minima == null ? null : num(r.compra_minima) }))
+        .map((r) => ({ ...r, importe: num(r.importe), unidades: num(r.unidades), compra_minima: r.compra_minima == null ? null : num(r.compra_minima), portes_gratis_desde: r.portes_gratis_desde == null ? null : num(r.portes_gratis_desde) }))
         .sort((a, b) => b.agotados - a.agotados || b.importe - a.importe),
     )
   }, [])
@@ -104,7 +146,18 @@ export function GestorSemanalPage() {
 
   const decidir = useMemo(() => (datos ?? []).filter((r) => !r.aplazado_hasta), [datos])
   const aplazados = useMemo(() => (datos ?? []).filter((r) => r.aplazado_hasta), [datos])
-  const lista = vista === 'decidir' ? decidir : aplazados
+  const lista = vista === 'decidir' ? decidir : vista === 'aplazados' ? aplazados : []
+
+  async function recalcular() {
+    setError(null)
+    setCalculando(true)
+    const { data, error: e } = await supabase.rpc('fn_compras_politica_calcular')
+    setCalculando(false)
+    if (e) return setError(e.message)
+    const d = data as Estado & { articulos: number }
+    setAviso({ texto: `Mínimos recalculados: ${d.con_minimo} artículos con mínimo (${d.regulares} regulares, ${d.intermitentes} intermitentes). ${d.raros_por_decidir} raros por decidir.` })
+    await cargar()
+  }
 
   async function aplazar(r: Resumen, dias: number) {
     setError(null)
@@ -120,8 +173,16 @@ export function GestorSemanalPage() {
         <div>
           <h1 className="text-[26px] font-bold leading-tight">Pedidos de la semana</h1>
           <p className="text-[14px] text-[#5b6680]">Lo que el programa propone pedir a cada proveedor, según el stock mínimo y máximo. Tú decides: enviar o aguantar.</p>
+          {estado?.calculado_en && (
+            <p className="text-[13px] text-[#7a849c]">
+              Mínimos del ERP calculados el {fecha(estado.calculado_en.slice(0, 10))} · {estado.con_minimo} artículos con mínimo · {estado.raros_por_decidir} raros por decidir
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 print:hidden">
+          <button type="button" onClick={() => void recalcular()} disabled={calculando} className="flex h-9 items-center gap-1.5 rounded-full border border-[#d5dcec] bg-white px-3 text-[14px] hover:bg-[#f1f5fd] disabled:opacity-50">
+            <Calculator size={15} /> {calculando ? 'Calculando…' : 'Recalcular mínimos'}
+          </button>
           <button type="button" onClick={() => void cargar()} className="flex h-9 items-center gap-1.5 rounded-full border border-[#d5dcec] bg-white px-3 text-[14px] hover:bg-[#f1f5fd]">
             <RefreshCw size={15} /> Actualizar
           </button>
@@ -144,6 +205,9 @@ export function GestorSemanalPage() {
         </Pestana>
         <Pestana activa={vista === 'aplazados'} onClick={() => setVista('aplazados')}>
           Aguantando · {aplazados.length}
+        </Pestana>
+        <Pestana activa={vista === 'raros'} onClick={() => setVista('raros')}>
+          Raros por decidir · {estado?.raros_por_decidir ?? '…'}
         </Pestana>
         {error && (
           <span role="alert" className="text-[14px] font-bold text-[#c42b1c]">
@@ -171,7 +235,14 @@ export function GestorSemanalPage() {
         </p>
       )}
       {datos === null && !error && <p className="text-[15px] text-[#5b6680]">Calculando las propuestas…</p>}
-      {datos !== null && !lista.length && (
+      {vista === 'raros' && (
+        <Raros
+          proveedores={(datos ?? []).map((r) => ({ codigo: r.proveedor_codigo, nombre: r.proveedor_nombre }))}
+          onCambio={() => void cargar()}
+          onError={setError}
+        />
+      )}
+      {vista !== 'raros' && datos !== null && !lista.length && (
         <p className="rounded-2xl border border-dashed border-[#c9d3e8] bg-white p-8 text-center text-[15px] text-[#5b6680]">
           {vista === 'decidir' ? 'No hay nada que pedir: ningún artículo con mínimo está por debajo de él.' : 'No estás aguantando ningún proveedor.'}
         </p>
@@ -179,7 +250,7 @@ export function GestorSemanalPage() {
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {lista.map((r) => (
-          <Ficha key={r.proveedor_codigo} r={r} onAbrir={() => setAbierto(r)} onAplazar={(d) => void aplazar(r, d)} />
+          <Ficha key={r.proveedor_codigo} r={r} onAbrir={() => setAbierto(r)} onAplazar={(d) => void aplazar(r, d)} onCondiciones={() => setCondiciones(r)} />
         ))}
       </section>
 
@@ -190,6 +261,17 @@ export function GestorSemanalPage() {
           onCreado={(texto) => {
             setAbierto(null)
             setAviso({ texto, pedido: true })
+            void cargar()
+          }}
+        />
+      )}
+      {condiciones && (
+        <Condiciones
+          r={condiciones}
+          onCerrar={() => setCondiciones(null)}
+          onGuardado={(texto) => {
+            setCondiciones(null)
+            setAviso({ texto })
             void cargar()
           }}
         />
@@ -220,7 +302,7 @@ function Pestana({ activa, onClick, children }: { activa: boolean; onClick: () =
   )
 }
 
-function Ficha({ r, onAbrir, onAplazar }: { r: Resumen; onAbrir: () => void; onAplazar: (dias: number) => void }) {
+function Ficha({ r, onAbrir, onAplazar, onCondiciones }: { r: Resumen; onAbrir: () => void; onAplazar: (dias: number) => void; onCondiciones: () => void }) {
   const [menu, setMenu] = useState(false)
   const minimo = r.compra_minima && r.compra_minima > 0 ? r.compra_minima : null
   const llega = minimo == null || r.importe >= minimo
@@ -258,10 +340,18 @@ function Ficha({ r, onAbrir, onAplazar }: { r: Resumen; onAbrir: () => void; onA
           </Chip>
         )}
         {r.dias_entrega ? (
-          <Chip>
-            <Truck size={13} /> {r.dias_entrega} días
+          <Chip color={r.condiciones_erp ? undefined : 'ambar'}>
+            <Truck size={13} /> {r.dias_entrega} días{r.condiciones_erp ? '' : ' (ficha de GeminisWin)'}
           </Chip>
         ) : null}
+        {r.portes_gratis_desde ? (
+          <Chip color={r.importe >= r.portes_gratis_desde ? undefined : 'ambar'}>
+            {r.importe >= r.portes_gratis_desde ? 'Portes pagados' : `Portes gratis desde ${eur0(r.portes_gratis_desde)}`}
+          </Chip>
+        ) : null}
+        <button type="button" onClick={onCondiciones} className="inline-flex items-center gap-1 rounded-full border border-[#d5dcec] px-2.5 py-0.5 font-semibold text-[#33415f] hover:bg-[#f1f5fd]">
+          <Settings2 size={13} /> Condiciones
+        </button>
       </div>
 
       <div>
@@ -269,7 +359,7 @@ function Ficha({ r, onAbrir, onAplazar }: { r: Resumen; onAbrir: () => void; onA
           <div className={`h-full rounded-full ${llega ? 'bg-[#1f9d55]' : 'bg-[#e0a100]'}`} style={{ width: `${pct}%` }} />
         </div>
         <div className={`mt-1 text-[13px] font-semibold ${llega ? 'text-[#127a12]' : 'text-[#8a5a00]'}`}>
-          {minimo == null ? 'Sin pedido mínimo en la ficha del proveedor' : llega ? `Llega al pedido mínimo (${eur0(minimo)})` : `Faltan ${eur0(minimo - r.importe)} para el mínimo (${eur0(minimo)})`}
+          {minimo == null ? 'Sin pedido mínimo (ponlo en «Condiciones»)' : llega ? `Llega al pedido mínimo (${eur0(minimo)})` : `Faltan ${eur0(minimo - r.importe)} para el mínimo (${eur0(minimo)})`}
         </div>
       </div>
 
@@ -333,9 +423,9 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
   const [creando, setCreando] = useState(false)
 
   useEffect(() => {
-    supabase.rpc('fn_compras_semanal_lineas', { p_proveedor: r.proveedor_codigo }).then(({ data, error: e }) => {
+    supabase.rpc('fn_compras_semanal_propuesta', { p_proveedor: r.proveedor_codigo }).then(({ data, error: e }) => {
       if (e) return setError(e.message)
-      const ls = ((data ?? []) as Linea[]).map((l) => ({ ...l, stock_actual: num(l.stock_actual), pendiente_recibir: num(l.pendiente_recibir), stock_minimo: num(l.stock_minimo), stock_maximo: num(l.stock_maximo), peticiones: num(l.peticiones), cantidad_sugerida: num(l.cantidad_sugerida), coste: num(l.coste), importe: num(l.importe), mejor_coste: l.mejor_coste == null ? null : num(l.mejor_coste) }))
+      const ls = ((data ?? []) as Linea[]).map((l) => ({ ...l, stock_actual: num(l.stock_actual), pendiente_recibir: num(l.pendiente_recibir), stock_minimo: num(l.stock_minimo), stock_maximo: num(l.stock_maximo), peticiones: num(l.peticiones), cantidad_sugerida: num(l.cantidad_sugerida), coste: num(l.coste), importe: num(l.importe), mejor_coste: l.mejor_coste == null ? null : num(l.mejor_coste), venta_mes: l.venta_mes == null ? null : num(l.venta_mes), ultima_compra_uds: l.ultima_compra_uds == null ? null : num(l.ultima_compra_uds) }))
       ls.sort((a, b) => a.stock_actual - b.stock_actual || a.descripcion.localeCompare(b.descripcion))
       setLineas(ls)
       setCant(Object.fromEntries(ls.map((l) => [l.articulo_codigo, l.cantidad_sugerida])))
@@ -407,6 +497,12 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
                         {l.referencia_compra ? ` · ref. ${l.referencia_compra}` : ''}
                         {l.unidades_por_caja && l.unidades_por_caja > 1 ? ` · caja de ${uds(l.unidades_por_caja)}` : ''}
                       </div>
+                      <div className="text-[12px] text-[#5b6680]">
+                        {l.tipo === 'raro' ? <b className="text-[#7a5200]">Raro · </b> : l.tipo === 'intermitente' ? 'Intermitente · ' : ''}
+                        {l.venta_mes ? `vende ~${uds(l.venta_mes)}/mes` : 'sin ventas en 12 meses'}
+                        {l.ultima_compra_uds ? ` · última compra ${uds(l.ultima_compra_uds)} uds${l.ultima_compra_fecha ? ` el ${fecha(l.ultima_compra_fecha)}` : ''}` : ''}
+                        {l.dias_dura_compra ? ` · le dura ~${l.dias_dura_compra} días` : ''}
+                      </div>
                       {l.peticiones > 0 && (
                         <div className="mr-1 mt-0.5 inline-flex items-center gap-1 rounded-full bg-[#dfe9ff] px-2 py-0.5 text-[12px] font-semibold text-[#16306f]">
                           <UserRound size={12} /> {uds(l.peticiones)} {l.peticiones === 1 ? 'pedida por un cliente' : 'pedidas por clientes'}
@@ -456,6 +552,11 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
           </div>
           <div className="text-[24px] font-bold tabular-nums">{eur(total)}</div>
           {minimo != null && <div className={`text-[13px] font-semibold ${total >= minimo ? 'text-[#127a12]' : 'text-[#8a5a00]'}`}>{total >= minimo ? `Llega al pedido mínimo (${eur0(minimo)})` : `Faltan ${eur0(minimo - total)} para el pedido mínimo`}</div>}
+          {r.portes_gratis_desde ? (
+            <div className={`text-[13px] font-semibold ${total >= r.portes_gratis_desde ? 'text-[#127a12]' : 'text-[#8a5a00]'}`}>
+              {total >= r.portes_gratis_desde ? 'Portes pagados' : `Faltan ${eur0(r.portes_gratis_desde - total)} para portes gratis`}
+            </div>
+          ) : null}
           {error && (
             <div role="alert" className="text-[14px] font-bold text-[#c42b1c]">
               {error}
@@ -472,5 +573,225 @@ function Propuesta({ r, onCerrar, onCreado }: { r: Resumen; onCerrar: () => void
         </div>
       </div>
     </Capa>
+  )
+}
+
+/** Condiciones de compra del proveedor en el ERP: plazo real, pedido mínimo y portes gratis (mandan sobre GeminisWin). */
+function Condiciones({ r, onCerrar, onGuardado }: { r: Resumen; onCerrar: () => void; onGuardado: (texto: string) => void }) {
+  const [plazo, setPlazo] = useState(r.dias_entrega != null ? String(r.dias_entrega) : '')
+  const [minimo, setMinimo] = useState(r.compra_minima != null ? String(r.compra_minima).replace('.', ',') : '')
+  const [portes, setPortes] = useState(r.portes_gratis_desde != null ? String(r.portes_gratis_desde).replace('.', ',') : '')
+  const [notas, setNotas] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const n = (t: string) => (t.trim() === '' ? null : Number(t.replace(/\./g, '').replace(',', '.')))
+
+  useEffect(() => {
+    supabase
+      .from('compra_proveedor_condicion')
+      .select('notas')
+      .eq('proveedor_codigo', r.proveedor_codigo)
+      .maybeSingle()
+      .then(({ data }) => setNotas((data as { notas: string | null } | null)?.notas ?? ''))
+  }, [r.proveedor_codigo])
+
+  async function guardar() {
+    const p = n(plazo)
+    const m = n(minimo)
+    const g = n(portes)
+    if ([p, m, g].some((x) => x != null && !Number.isFinite(x))) return setError('Revisa los números: solo cifras, con coma para los decimales.')
+    setGuardando(true)
+    setError(null)
+    const { data, error: e } = await supabase.rpc('fn_compras_proveedor_condicion_poner', {
+      p_proveedor: r.proveedor_codigo,
+      p_plazo_dias: p == null ? null : Math.round(p),
+      p_pedido_minimo: m,
+      p_portes_gratis_desde: g,
+      p_notas: notas || null,
+    })
+    setGuardando(false)
+    if (e) return setError(e.message)
+    onGuardado(`${r.proveedor_nombre ?? r.proveedor_codigo}: condiciones guardadas; ${num((data as { articulos_recalculados: number }).articulos_recalculados)} artículos recalculados con el plazo nuevo.`)
+  }
+
+  const campo = 'h-10 w-full rounded-lg border border-[#c9d3e8] px-3 text-right text-[15px] tabular-nums'
+  return (
+    <Capa titulo={`${r.proveedor_nombre ?? r.proveedor_codigo} · condiciones de compra`} onCerrar={onCerrar} ancho="max-w-[520px]">
+      <div className="flex flex-col gap-3 text-[14px]">
+        {!r.condiciones_erp && (
+          <p className="rounded-xl bg-[#fff4d6] px-3 py-2 text-[#6b4a00]">Ahora salen los datos de la ficha de GeminisWin. Lo que guardes aquí manda sobre ellos y el espejo no lo pisa.</p>
+        )}
+        <label className="flex items-center justify-between gap-3">
+          <span>
+            <b>Plazo de entrega</b> (días desde que se pide hasta que llega)
+          </span>
+          <input className={`${campo} max-w-[110px]`} inputMode="numeric" value={plazo} onChange={(e) => setPlazo(e.target.value)} />
+        </label>
+        <label className="flex items-center justify-between gap-3">
+          <span>
+            <b>Pedido mínimo</b> (€ sin IGIC)
+          </span>
+          <input className={`${campo} max-w-[140px]`} inputMode="decimal" value={minimo} onChange={(e) => setMinimo(e.target.value)} />
+        </label>
+        <label className="flex items-center justify-between gap-3">
+          <span>
+            <b>Portes gratis desde</b> (€ sin IGIC)
+          </span>
+          <input className={`${campo} max-w-[140px]`} inputMode="decimal" value={portes} onChange={(e) => setPortes(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <b>Notas</b>
+          <textarea className="min-h-[70px] rounded-lg border border-[#c9d3e8] p-2" value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Día de reparto, persona de contacto, cómo se le pide…" />
+        </label>
+        <p className="text-[13px] text-[#5b6680]">Deja en blanco lo que no sepas. Al cambiar el plazo se recalculan al momento los mínimos de los artículos de este proveedor.</p>
+        {error && (
+          <p role="alert" className="font-bold text-[#c42b1c]">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCerrar} className="h-10 rounded-full border border-[#d5dcec] px-5 font-semibold hover:bg-[#f1f5fd]">
+            Cancelar
+          </button>
+          <button type="button" onClick={() => void guardar()} disabled={guardando} className="h-10 rounded-full bg-[#1d3a8a] px-5 font-semibold text-white hover:bg-[#16306f] disabled:opacity-50">
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </Capa>
+  )
+}
+
+/** Raros por decidir: los que se venden 3 meses o menos al año. Primero los que tienen stock parado. */
+function Raros({ proveedores, onCambio, onError }: { proveedores: { codigo: string; nombre: string | null }[]; onCambio: () => void; onError: (t: string | null) => void }) {
+  const [filtro, setFiltro] = useState('')
+  const [filas, setFilas] = useState<Raro[] | null>(null)
+  const [marcados, setMarcados] = useState<Set<string>>(new Set())
+  const [ocupado, setOcupado] = useState(false)
+
+  const cargar = useCallback(async () => {
+    setFilas(null)
+    const { data, error: e } = await supabase.rpc('fn_compras_raros', { p_proveedor: filtro || null, p_todos: false })
+    if (e) return onError(e.message)
+    setFilas(((data ?? []) as Raro[]).map((f) => ({ ...f, stock_actual: num(f.stock_actual), valor_stock: num(f.valor_stock), venta_12m: num(f.venta_12m), coste: num(f.coste) })))
+    setMarcados(new Set())
+  }, [filtro, onError])
+  useEffect(() => {
+    void cargar()
+  }, [cargar])
+
+  async function decidir(codigos: string[], decision: 'stock' | 'bajo_pedido') {
+    setOcupado(true)
+    onError(null)
+    const { error: e } = await supabase.rpc('fn_compras_articulos_decidir', { p_articulos: codigos, p_decision: decision, p_motivo: null })
+    setOcupado(false)
+    if (e) return onError(e.message)
+    await cargar()
+    onCambio()
+  }
+
+  const conStock = (filas ?? []).filter((f) => f.stock_actual > 0)
+  const todos = (filas ?? []).map((f) => f.articulo_codigo)
+  const elegidos = [...marcados]
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-[#e1e7f3] bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2 text-[14px]">
+        <Sparkles size={16} className="text-[#7a5200]" />
+        <b>Artículos raros</b>
+        <span className="text-[#5b6680]">(se venden 3 meses o menos al año). Decide si se tienen en stock o se traen bajo pedido.</span>
+        <select className="ml-auto h-9 rounded-full border border-[#d5dcec] px-3" value={filtro} onChange={(e) => setFiltro(e.target.value)}>
+          <option value="">Todos los proveedores</option>
+          {proveedores.map((p) => (
+            <option key={p.codigo} value={p.codigo}>
+              {p.nombre ?? p.codigo}
+            </option>
+          ))}
+        </select>
+      </div>
+      {filas && conStock.length > 0 && (
+        <p className="rounded-xl bg-[#fff4d6] px-3 py-2 text-[14px] text-[#6b4a00]">
+          <b>{conStock.length}</b> {conStock.length === 1 ? 'tiene' : 'tienen'} stock hoy ({eur0(conStock.reduce((s, f) => s + f.valor_stock, 0))} parados): salen arriba. Si no los marcas «En stock», no se repondrán.
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2 text-[14px]">
+        <button type="button" className="h-9 rounded-full border border-[#d5dcec] px-3 hover:bg-[#f1f5fd]" onClick={() => setMarcados(new Set(marcados.size === todos.length ? [] : todos))}>
+          {marcados.size === todos.length && todos.length ? 'Desmarcar todos' : 'Marcar todos'}
+        </button>
+        <span className="text-[#5b6680]">{elegidos.length} marcados</span>
+        <button type="button" disabled={ocupado || !elegidos.length} onClick={() => void decidir(elegidos, 'stock')} className="h-9 rounded-full bg-[#1f9d55] px-4 font-semibold text-white disabled:opacity-40">
+          En stock
+        </button>
+        <button type="button" disabled={ocupado || !elegidos.length} onClick={() => void decidir(elegidos, 'bajo_pedido')} className="h-9 rounded-full bg-[#33415f] px-4 font-semibold text-white disabled:opacity-40">
+          Bajo pedido
+        </button>
+        {ocupado && <span className="text-[#5b6680]">Guardando…</span>}
+      </div>
+      {!filas && <p className="text-[14px] text-[#5b6680]">Cargando…</p>}
+      {filas && !filas.length && <p className="text-[14px] text-[#5b6680]">No queda ningún raro por decidir{filtro ? ' de este proveedor' : ''}.</p>}
+      {filas && filas.length > 0 && (
+        <div className="max-h-[60vh] overflow-auto rounded-xl border border-[#e1e7f3]">
+          <table className="w-full border-collapse text-[14px]">
+            <thead className="sticky top-0 bg-[#f4f7fc] text-left text-[12px] uppercase tracking-wide text-[#5b6680]">
+              <tr>
+                <th className="w-9 px-2 py-2" />
+                <th className="px-2 py-2">Artículo</th>
+                <th className="px-2 py-2">Proveedor</th>
+                <th className="px-2 py-2 text-right">Vendido en 12 meses</th>
+                <th className="px-2 py-2 text-right">Stock hoy</th>
+                <th className="px-2 py-2 text-right">Coste</th>
+                <th className="w-[230px] px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f) => (
+                <tr key={f.articulo_codigo} className="border-t border-[#eef2f8]">
+                  <td className="px-2 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={marcados.has(f.articulo_codigo)}
+                      aria-label={`Marcar ${f.descripcion}`}
+                      onChange={() => {
+                        const s = new Set(marcados)
+                        if (s.has(f.articulo_codigo)) s.delete(f.articulo_codigo)
+                        else s.add(f.articulo_codigo)
+                        setMarcados(s)
+                      }}
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <div className="font-semibold">{f.descripcion}</div>
+                    <div className="text-[12px] text-[#7a849c]">
+                      {f.articulo_codigo}
+                      {f.peticiones_abiertas ? ` · ${uds(num(f.peticiones_abiertas))} pedidas por clientes` : ''}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-[13px]">{f.proveedor_nombre ?? f.proveedor_codigo ?? '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums">
+                    {uds(f.venta_12m)} uds <span className="text-[12px] text-[#7a849c]">· {f.meses_con_venta} {f.meses_con_venta === 1 ? 'mes' : 'meses'}</span>
+                  </td>
+                  <td className={`px-2 py-2 text-right tabular-nums ${f.stock_actual > 0 ? 'font-semibold' : 'text-[#7a849c]'}`}>
+                    {uds(f.stock_actual)}
+                    {f.valor_stock > 0 ? <div className="text-[12px] font-normal text-[#7a849c]">{eur0(f.valor_stock)}</div> : null}
+                  </td>
+                  <td className="px-2 py-2 text-right tabular-nums">{f.coste ? eur(f.coste) : '—'}</td>
+                  <td className="px-2 py-2 text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <button type="button" disabled={ocupado} onClick={() => void decidir([f.articulo_codigo], 'stock')} className="h-8 whitespace-nowrap rounded-full border border-[#1f9d55] px-3 text-[13px] font-semibold text-[#127a12] hover:bg-[#eaf7ef] disabled:opacity-40">
+                        En stock
+                      </button>
+                      <button type="button" disabled={ocupado} onClick={() => void decidir([f.articulo_codigo], 'bajo_pedido')} className="h-8 whitespace-nowrap rounded-full border border-[#33415f] px-3 text-[13px] font-semibold text-[#33415f] hover:bg-[#eef2fb] disabled:opacity-40">
+                        Bajo pedido
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-[13px] text-[#5b6680]">Se enseñan como mucho 500 a la vez; al decidir salen de la lista y aparecen los siguientes. Las decisiones se pueden cambiar más adelante.</p>
+    </section>
   )
 }
