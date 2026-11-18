@@ -98,6 +98,7 @@ const OPERATIVA: BloqueOperativa[] = [
       'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo (a cajas completas), y lo que hace falta para servir las peticiones de clientes.',
       'Arriba salen primero los que tienen artículos agotados. La barra dice si la propuesta llega al pedido mínimo del proveedor.',
       '«Revisar y enviar»: abre la propuesta. Quita lo que no quieras, cambia cantidades y pulsa «Crear pedido». El pedido nace pendiente, igual que los del Gestor de siempre.',
+      '«Pueden esperar»: los proveedores con un pedido por debajo de 300 € (o de su pedido mínimo, si es mayor) se apartan aquí para juntarlo con el de otra semana. Si alguno trae una petición de cliente, sale en «Para decidir» aunque el pedido sea pequeño. Se pueden enviar igual con «Revisar y enviar». El importe se cambia en el parámetro compras.pedido_pequeno.',
       'Los consumibles de informática (cartuchos, tóner, tambores y cintas) no salen aquí: se piden aparte cada semana comparando entre tres proveedores. Se pueden volver a incluir desde el parámetro compras.familias_aparte.',
       '«No pedir solo» (en cada línea de la propuesta): marca el artículo «Bajo pedido». Deja de proponerse por mínimos y solo se pide cuando lo pide un cliente. Sirve para servicios (portes, fotocopias) y artículos que no se quieren tener en stock. Si el stock es negativo en GeminisWin se cuenta como 0.',
       '«Excel para GeminisWin»: al crear el pedido sale este enlace (y en la ficha del pedido, el botón verde de la barra de líneas). Descarga el Excel 5.0/95 con la hoja «fichero», el mismo que hace la app de Importación de Pedidos, listo para importarlo en Compras de GeminisWin. Sin tildes ni Ñ, porque ese formato no las admite.',
@@ -124,19 +125,26 @@ export function GestorSemanalPage() {
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ texto: string; pedido?: number; error?: boolean } | null>(null)
-  const [vista, setVista] = useState<'decidir' | 'aplazados' | 'raros'>('decidir')
+  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros'>('decidir')
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const [sinProveedor, setSinProveedor] = useState(0)
   const [estado, setEstado] = useState<Estado | null>(null)
   const [calculando, setCalculando] = useState(false)
   const [condiciones, setCondiciones] = useState<Resumen | null>(null)
+  const [pequeno, setPequeno] = useState(300)
 
   const cargar = useCallback(async () => {
     setError(null)
     const { data, error: e } = await supabase.rpc('fn_compras_semanal_proveedores')
     if (e) return setError(e.message)
     supabase.rpc('fn_compras_semanal_sin_proveedor').then(({ data: n }) => setSinProveedor(Number(n ?? 0)))
+    supabase
+      .from('parametro')
+      .select('valor')
+      .eq('clave', 'compras.pedido_pequeno')
+      .maybeSingle()
+      .then(({ data: pp }) => pp && Number(pp.valor) >= 0 && setPequeno(Number(pp.valor)))
     supabase.rpc('fn_compras_politica_estado').then(({ data: est }) => setEstado((est ?? null) as Estado | null))
     setDatos(
       ((data ?? []) as Resumen[])
@@ -148,9 +156,14 @@ export function GestorSemanalPage() {
     void cargar()
   }, [cargar])
 
-  const decidir = useMemo(() => (datos ?? []).filter((r) => !r.aplazado_hasta), [datos])
+  // Pedido pequeño: por debajo de compras.pedido_pequeno (o del pedido mínimo del proveedor, si es mayor) y sin
+  // peticiones de clientes, se aparta en «Pueden esperar» para juntarlo con el de otra semana (Rober, 18/11/2026).
+  const limiteDe = useCallback((r: Resumen) => Math.max(pequeno, r.compra_minima ?? 0), [pequeno])
+  const esPequeno = useCallback((r: Resumen) => !r.aplazado_hasta && r.con_peticion === 0 && r.importe < limiteDe(r), [limiteDe])
+  const decidir = useMemo(() => (datos ?? []).filter((r) => !r.aplazado_hasta && !esPequeno(r)), [datos, esPequeno])
+  const esperar = useMemo(() => (datos ?? []).filter((r) => esPequeno(r)), [datos, esPequeno])
   const aplazados = useMemo(() => (datos ?? []).filter((r) => r.aplazado_hasta), [datos])
-  const lista = vista === 'decidir' ? decidir : vista === 'aplazados' ? aplazados : []
+  const lista = vista === 'decidir' ? decidir : vista === 'esperar' ? esperar : vista === 'aplazados' ? aplazados : []
 
   async function excel(numero: number) {
     const e = await descargarExcelGw(TIENDA, numero)
@@ -212,6 +225,9 @@ export function GestorSemanalPage() {
         <Pestana activa={vista === 'decidir'} onClick={() => setVista('decidir')}>
           Para decidir · {decidir.length}
         </Pestana>
+        <Pestana activa={vista === 'esperar'} onClick={() => setVista('esperar')}>
+          Pueden esperar · {esperar.length}
+        </Pestana>
         <Pestana activa={vista === 'aplazados'} onClick={() => setVista('aplazados')}>
           Aguantando · {aplazados.length}
         </Pestana>
@@ -264,7 +280,7 @@ export function GestorSemanalPage() {
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {lista.map((r) => (
-          <Ficha key={r.proveedor_codigo} r={r} onAbrir={() => setAbierto(r)} onAplazar={(d) => void aplazar(r, d)} onCondiciones={() => setCondiciones(r)} />
+          <Ficha key={r.proveedor_codigo} r={r} pequeno={esPequeno(r) ? limiteDe(r) : null} onAbrir={() => setAbierto(r)} onAplazar={(d) => void aplazar(r, d)} onCondiciones={() => setCondiciones(r)} />
         ))}
       </section>
 
@@ -316,7 +332,7 @@ function Pestana({ activa, onClick, children }: { activa: boolean; onClick: () =
   )
 }
 
-function Ficha({ r, onAbrir, onAplazar, onCondiciones }: { r: Resumen; onAbrir: () => void; onAplazar: (dias: number) => void; onCondiciones: () => void }) {
+function Ficha({ r, pequeno, onAbrir, onAplazar, onCondiciones }: { r: Resumen; pequeno: number | null; onAbrir: () => void; onAplazar: (dias: number) => void; onCondiciones: () => void }) {
   const [menu, setMenu] = useState(false)
   const minimo = r.compra_minima && r.compra_minima > 0 ? r.compra_minima : null
   const llega = minimo == null || r.importe >= minimo
@@ -338,6 +354,7 @@ function Ficha({ r, onAbrir, onAplazar, onCondiciones }: { r: Resumen; onAbrir: 
 
       <div className="flex flex-wrap gap-1.5 text-[13px]">
         <Chip>{r.articulos} {r.articulos === 1 ? 'artículo' : 'artículos'}</Chip>
+        {pequeno != null && <Chip color="ambar">Pedido pequeño: se junta hasta {eur0(pequeno)}</Chip>}
         {r.agotados > 0 && (
           <Chip color="rojo">
             <PackageX size={13} /> {r.agotados} sin stock
