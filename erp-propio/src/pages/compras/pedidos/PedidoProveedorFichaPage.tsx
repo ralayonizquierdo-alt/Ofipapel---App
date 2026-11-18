@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Binoculars, Check, FilePen, FilePlus2, FileSpreadsheet, FileX2, HelpCircle, Sheet, Wallet, X } from 'lucide-react'
+import { Binoculars, Check, FilePen, FilePlus2, FileSearch, FileSpreadsheet, FileX2, HelpCircle, Sheet, Wallet, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
@@ -1226,6 +1226,13 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
               }}
             >
               <FileSpreadsheet size={15} className="text-[#127a12]" />
+            </MiniBtn>
+            <MiniBtn
+              title="Revisar la propuesta del proveedor (PDF) con la IA y contestarle con confirmación o reparos"
+              disabled={editing || !cab || cab.numero == null || !lineas.length}
+              onClick={() => cab?.numero != null && navigate(`/gestor-pedidos-proveedor/semanal?vista=propuestas&pedido=${encodeURIComponent(cab.tienda_terminal_codigo)}-${cab.numero}`)}
+            >
+              <FileSearch size={15} className="text-[#1a4fd0]" />
             </MiniBtn>
           </div>
           <span className="gw-label !text-[17px]">Observaciones</span>

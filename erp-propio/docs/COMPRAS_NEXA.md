@@ -94,3 +94,14 @@ Rober); se prepara un pedido por proveedor y se envía por correo. Hoy ya está 
 `generar-pedido-informatica-geminiswin` e `importar-pedidos-informatica-geminiswin`), así que de momento NEXA no lo
 sustituye. MUCHO CARTUCHO (consumibles) no entra en esa subasta. El Gestor de compras (`fn_compras_gestor_proveedor`)
 vale para el resto de proveedores no locales.
+
+## Propuestas de proveedor revisadas con IA (18/11/2026)
+
+Circuito (Rober): enviamos el pedido → el proveedor contesta con su propuesta en PDF (proforma o confirmación) →
+Gestor 2.0 → «Propuestas de proveedor» (o el botón de la ficha del pedido): se sube el PDF, la función
+`propuesta-proveedor-ia` lo lee con la IA y dice qué línea del proveedor es qué línea del pedido; los números
+(precio neto, cantidad) los compara la propia función, sin fiarse de la IA → en cada diferencia se decide «Aceptar»
+o «Reparo» → «Enviar confirmación» / «Enviar reparos» deja el correo en la cola (buzón de compras).
+Se guarda en `compra_propuesta` (migración `20261119_compras_propuestas_proveedor.sql`). No cambia el pedido.
+Pendiente: usar los lectores de los 37 proveedores homologados de `importacion-pedidos-proveedores.html` como
+comprobación exacta de los números cuando el proveedor esté homologado.

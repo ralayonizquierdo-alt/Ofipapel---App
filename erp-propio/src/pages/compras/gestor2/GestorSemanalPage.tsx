@@ -13,12 +13,13 @@
 // «bajo pedido». Plazo, pedido mínimo y portes de cada proveedor se ponen aquí (compra_proveedor_condicion).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AlarmClock, Calculator, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { Campanas } from './Campanas'
 import { Tarifas } from './Tarifas'
+import { Propuestas } from './Propuestas'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
 
 interface Resumen {
@@ -100,6 +101,7 @@ const OPERATIVA: BloqueOperativa[] = [
       'Cada ficha es un proveedor con lo que el programa propone pedirle: los artículos que están en su stock mínimo o por debajo, en la cantidad que los lleva a su máximo (a cajas completas), y lo que hace falta para servir las peticiones de clientes.',
       'Arriba salen primero los que tienen artículos agotados. La barra dice si la propuesta llega al pedido mínimo del proveedor.',
       '«Revisar y enviar»: abre la propuesta. Quita lo que no quieras, cambia cantidades y pulsa «Crear pedido». El pedido nace pendiente, igual que los del Gestor de siempre.',
+      '«Propuestas de proveedor»: cuando el proveedor contesta al pedido con su propuesta (proforma o confirmación en PDF), elige el pedido y sube el PDF. La IA lo lee y el ERP lo compara línea a línea con lo pedido: precio neto, cantidad, lo que no aparece, sin stock, sustitutos y lo que añaden. En cada diferencia pulsa «Aceptar» o «Reparo» (el texto del reparo se puede cambiar). Al final, «Enviar confirmación» o «Enviar reparos» manda el correo al proveedor desde el buzón de compras; «Guardar sin enviar» si ya se lo has dicho por teléfono. No cambia el pedido: lo que aceptes distinto, corrígelo en la ficha del pedido. También se llega desde la ficha del pedido (botón de la barra de líneas).',
       '«Tarifas»: sube el Excel (también .xls antiguo) o CSV de tarifa de un proveedor, elige el proveedor y comprueba las columnas (referencia, código de barras, precio, descuento). Cada línea se empareja con el artículo por la referencia de ese proveedor o por el código de barras. «Ver qué cambia» enseña qué sube y qué baja frente al coste actual y si otro proveedor lo tiene más barato. «¿Quién es más barato?» compara los artículos que más pesan entre todos sus proveedores (compras de los últimos 2 años y tarifas subidas). Las tarifas no cambian los costes de GeminisWin.',
       '«Campañas» (vuelta al cole y similares): eliges los meses del año pasado y cuánto más quieres pedir (%). Por cada artículo propone lo vendido en esos meses más ese %, menos el stock y lo que está en camino, a cajas completas. Se revisa proveedor a proveedor y «Crear pedido» lo deja pendiente, con su Excel para GeminisWin. Al quedar en camino, la propuesta semanal no lo vuelve a pedir.',
       '«Pueden esperar»: los proveedores con un pedido por debajo de 300 € (o de su pedido mínimo, si es mayor) se apartan aquí para juntarlo con el de otra semana. Si alguno trae una petición de cliente, sale en «Para decidir» aunque el pedido sea pequeño. Se pueden enviar igual con «Revisar y enviar». El importe se cambia en el parámetro compras.pedido_pequeno.',
@@ -126,10 +128,15 @@ const OPERATIVA: BloqueOperativa[] = [
 ]
 
 export function GestorSemanalPage() {
+  const [busqueda] = useSearchParams()
+  const pedidoInicial = useMemo(() => {
+    const m = /^(.+)-(\d+)$/.exec(busqueda.get('pedido') ?? '')
+    return m ? { tienda: m[1], numero: Number(m[2]) } : null
+  }, [busqueda])
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ texto: string; pedido?: number; error?: boolean } | null>(null)
-  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas'>('decidir')
+  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas'>(() => (busqueda.get('vista') === 'propuestas' ? 'propuestas' : 'decidir'))
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const [sinProveedor, setSinProveedor] = useState(0)
@@ -244,6 +251,9 @@ export function GestorSemanalPage() {
         <Pestana activa={vista === 'tarifas'} onClick={() => setVista('tarifas')}>
           Tarifas
         </Pestana>
+        <Pestana activa={vista === 'propuestas'} onClick={() => setVista('propuestas')}>
+          Propuestas de proveedor
+        </Pestana>
         {error && (
           <span role="alert" className="text-[14px] font-bold text-[#c42b1c]">
             {error}
@@ -277,6 +287,7 @@ export function GestorSemanalPage() {
       {datos === null && !error && <p className="text-[15px] text-[#5b6680]">Calculando las propuestas…</p>}
       {vista === 'campanas' && <Campanas />}
       {vista === 'tarifas' && <Tarifas />}
+      {vista === 'propuestas' && <Propuestas pedidoInicial={pedidoInicial} />}
       {vista === 'raros' && (
         <Raros
           proveedores={(datos ?? []).map((r) => ({ codigo: r.proveedor_codigo, nombre: r.proveedor_nombre }))}
