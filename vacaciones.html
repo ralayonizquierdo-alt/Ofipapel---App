@@ -4527,10 +4527,12 @@ function buildEscalaRows(grid, emps, y, n, pos){
    Se dibuja como lo que es: ESCALERA_MAX_FUERA sitios (filas) a la vez. En cada fila van primero las vacaciones
    que ya hay en esas fechas (Sole, Herminia…) y, en lo que queda libre, los huecos de 7 días: sin días bloqueados
    y sin empezar ni terminar en festivo. Así se ve que encima de una persona no puede haber hueco. Solo se pinta. */
+/* En la reserva solo puede estar fuera UNA persona a la vez (Luis, 18/11/2026). */
+const RESERVA_MAX_FUERA = 1;
 function reservaPorFilas(emps, y, n){
   const desde = isoToIndex(y, y+'-10-16');
-  const filas = Array.from({length: ESCALERA_MAX_FUERA}, ()=>({puestos:[], huecos:[]}));
-  const ocupado = Array.from({length: ESCALERA_MAX_FUERA}, ()=> new Array(n).fill(false));
+  const filas = Array.from({length: RESERVA_MAX_FUERA}, ()=>({puestos:[], huecos:[]}));
+  const ocupado = Array.from({length: RESERVA_MAX_FUERA}, ()=> new Array(n).fill(false));
   const puestos = [];
   for(const e of emps) for(const p of periodsOfYear(e.id, y)){
     const s = Math.max(0, isoToIndex(y,p.start)), en = Math.min(n-1, isoToIndex(y,p.end));
@@ -4541,7 +4543,7 @@ function reservaPorFilas(emps, y, n){
   let sobran = 0;
   for(const it of puestos){
     let f = ocupado.findIndex(oc=>{ for(let i=it.s;i<=it.e;i++) if(oc[i]) return false; return true; });
-    if(f < 0){ sobran++; continue; } // más de los que caben: lo avisa la propia escala
+    if(f < 0){ sobran++; continue; }
     filas[f].puestos.push(it);
     for(let i=it.s;i<=it.e;i++) ocupado[f][i] = true;
   }
@@ -4560,14 +4562,15 @@ function reservaPorFilas(emps, y, n){
   return {filas, sobran};
 }
 function appendHuecosReserva(unitDiv, emps, y, n, pos){
-  const {filas} = reservaPorFilas(emps, y, n);
+  const {filas, sobran} = reservaPorFilas(emps, y, n);
   const total = filas.reduce((t,f)=>t+f.huecos.length, 0);
   const tit = document.createElement('div'); tit.className = 'p-unit-title p-huecos-tit';
-  tit.textContent = `Reserva de mitad de octubre a fin de año · ${filas.length} a la vez · huecos libres de 7 días: ${total}`;
+  tit.textContent = `Reserva de mitad de octubre a fin de año · solo ${filas.length} fuera a la vez · huecos libres de 7 días: ${total}`
+    + (sobran ? ` · ⚠ ${sobran} vacaciones se pisan en la reserva` : '');
   unitDiv.appendChild(tit);
   filas.forEach((fila, k)=>{
     const row = document.createElement('div'); row.className = 'p-emp-row';
-    const nc = document.createElement('div'); nc.className = 'p-name'; nc.textContent = 'Sitio '+(k+1);
+    const nc = document.createElement('div'); nc.className = 'p-name'; nc.textContent = 'Reserva';
     row.appendChild(nc);
     const track = document.createElement('div'); track.className = 'p-track';
     appendCellLines(track, y, n, pos);
@@ -5690,7 +5693,7 @@ const OPERATIVAS = {
       'La rayita roja al final de una barra es un turno que lleva un día por festivo trabajado.',
       '<b>Planning Escala:</b> el 1.º turno (azul) empieza abajo y <b>sube una fila por persona</b>; el 2.º (verde) <b>baja desde arriba</b>. Las peticiones y fechas fijas van <b>en rojo</b>. El nombre va junto a cada barra. Oficina y Limpieza van debajo, como en el Lineal.',
       'Si una barra choca con otra de su fila, pasa a la siguiente fila libre: por eso la escalera puede no salir perfecta.',
-      'Debajo de Tiendas va la <b>reserva</b> del 16 de octubre a fin de año en sus <b>2 sitios</b> (los 2 que pueden estar fuera a la vez): en cada sitio, quien ya está y, en <b>amarillo</b>, los <b>huecos libres de 7 días</b> que quedan, sin días bloqueados, sin empezar ni terminar en festivo y sin pasar de 2 fuera. Solo se pintan; para usar uno, pon las fechas a la persona en el Lineal.',
+      'Debajo de Tiendas va la <b>reserva</b> del 16 de octubre a fin de año, donde solo puede estar fuera <b>una persona a la vez</b>: quien ya está y, en <b>amarillo</b>, los <b>huecos libres de 7 días</b> que quedan, sin días bloqueados, sin empezar ni terminar en festivo y sin pasar de 2 fuera. Solo se pintan; para usar uno, pon las fechas a la persona en el Lineal.',
       'Los números de arriba son los días <b>5, 10, 15, 20, 25 y 30</b> de cada mes, y los símbolos van al final del nombre. Su significado está en la Operativa de la pantalla principal.',
       '<b>WhatsApp</b> prepara un texto con quién está fuera en la fecha elegida en «¿Quién está fuera?». No manda la imagen.',
     ],
