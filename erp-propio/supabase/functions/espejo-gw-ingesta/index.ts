@@ -22,7 +22,9 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return responder(405, { ok: false, error: 'Método no permitido.' })
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
   const recibida = req.headers.get('x-puente-clave') ?? ''
-  const { data: vale } = recibida.length >= 32 && recibida.length <= 200 ? await admin.rpc('fn_reparto_gw_clave_ok', { p_clave: recibida }) : { data: false }
+  const { data: vale, error: eClave } = recibida.length >= 32 && recibida.length <= 200 ? await admin.rpc('fn_reparto_gw_clave_ok', { p_clave: recibida }) : { data: false, error: null }
+  // Si la base de datos no contesta (está ocupada), no es que la clave esté mal: se dice tal cual y se reintenta.
+  if (eClave) return responder(503, { ok: false, error: 'El servidor está ocupado; se reintenta en la siguiente pasada.' })
   if (vale !== true) return responder(401, { ok: false, error: 'Clave del puente incorrecta.' })
 
   const texto = await req.text()
