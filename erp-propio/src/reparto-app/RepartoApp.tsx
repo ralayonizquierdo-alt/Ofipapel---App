@@ -130,7 +130,7 @@ function tipoPago(forma?: string | null): 'banco' | 'pagada' | 'mano' {
   if (/remesa|transfer|confirming|pagar[eé]|cr[eé]dito|efecto/.test(f)) return 'banco'
   return 'mano'
 }
-function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null; no_cobro?: string | null }): [string, string] | null {
+function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null; no_cobro?: string | null; medio?: 'efectivo' | 'tarjeta' | null }): [string, string] | null {
   if (l.estado === 'liquidado') return ['Liquidada', AZUL]
   const tipo = tipoPago(l.forma_pago)
   if (tipo === 'pagada') return ['Solo revisar · Pagado', V.verdeMed]
@@ -138,7 +138,7 @@ function queHacer(l: { total: number | null; pagado: number | null; contado?: bo
   if (l.total == null) return null
   if (l.pagado != null && l.total - l.pagado > 0.005) {
     // Ya entregada: deja de ser una orden («cobrar») y pasa a decir cómo quedó.
-    if (l.estado === 'entregado') return l.no_cobro ? ['Sin cobrar', V.naranja] : ['Cobrado', V.verdeMed]
+    if (l.estado === 'entregado') return l.no_cobro ? ['Sin cobrar', V.naranja] : [l.medio === 'tarjeta' ? 'Cobrado · 💳 tarjeta' : l.medio === 'efectivo' ? 'Cobrado · efectivo' : 'Cobrado', V.verdeMed]
     return ['Revisar y cobrar', V.rojo]
   }
   return ['Solo revisar · Pagado', V.verdeMed]
@@ -670,6 +670,9 @@ function CajaRepartidor({ lineas }: { lineas: LineaApp[] }) {
   const suma = (ls: LineaApp[]) => ls.reduce((t, l) => t + pend(l), 0)
   const entregadas = lineas.filter((l) => l.estado === 'entregado')
   const cobradas = entregadas.filter((l) => !l.no_cobro && hayQueCobrar(l))
+  // Lo cobrado con tarjeta no se entrega en mano: va al banco por el datáfono.
+  const enEfectivo = cobradas.filter((l) => l.medio !== 'tarjeta')
+  const conTarjeta = cobradas.filter((l) => l.medio === 'tarjeta')
   const sinCobrar = entregadas.filter((l) => !!l.no_cobro)
   const liquidadas = lineas.filter((l) => l.estado === 'liquidado')
   const porRepartir = lineas.filter((l) => ['pendiente', 'viene_anterior'].includes(l.estado) && hayQueCobrar(l))
@@ -693,13 +696,21 @@ function CajaRepartidor({ lineas }: { lineas: LineaApp[] }) {
       <div style={{ color: V.gris, fontSize: 13 }}>Lo que has cobrado en mano en esta ruta y tienes que entregar en administración.</div>
       <div style={{ background: V.verde, color: '#fff', borderRadius: 16, padding: '12px 14px', margin: '10px 0', textAlign: 'center' }}>
         <div style={{ fontSize: 13, opacity: 0.85 }}>TIENES QUE ENTREGAR</div>
-        <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 40, lineHeight: 1.1 }}>{euros(suma(cobradas))}</div>
+        <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 40, lineHeight: 1.1 }}>{euros(suma(enEfectivo))}</div>
         <div style={{ fontSize: 13, opacity: 0.85 }}>
-          {cobradas.length} factura{cobradas.length === 1 ? '' : 's'} cobrada{cobradas.length === 1 ? '' : 's'}
+          en efectivo · {enEfectivo.length} factura{enEfectivo.length === 1 ? '' : 's'}
         </div>
       </div>
+      {conTarjeta.length > 0 && (
+        <div style={{ background: '#eef5fc', borderRadius: 12, padding: '8px 10px', marginBottom: 10, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ flex: 1, fontSize: 14, color: AZUL, fontWeight: 700 }}>💳 Con tarjeta ({conTarjeta.length}) · no se entrega</span>
+          <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 16, color: AZUL }}>{euros(suma(conTarjeta))}</span>
+        </div>
+      )}
       {!cobradas.length && <div style={{ color: V.gris, fontSize: 14 }}>Todavía no has cobrado ninguna factura en mano.</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>{cobradas.map((l) => fila(l))}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {cobradas.map((l) => fila(l, l.medio === 'tarjeta' ? <div style={{ fontSize: 12, fontWeight: 700, color: AZUL }}>💳 Con tarjeta</div> : undefined))}
+      </div>
 
       {sinCobrar.length > 0 && (
         <>
@@ -765,6 +776,9 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
   const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}`
   const rutas = [...new Set(enMano.map(clave))].map((k) => ({ k, filas: enMano.filter((c) => clave(c) === k) }))
   const suma = (fs: { pendiente?: number; importe?: number }[]) => fs.reduce((t, c) => t + (c.pendiente ?? c.importe ?? 0), 0)
+  // Efectivo (se entrega en mano) y tarjeta (va al banco por el datáfono: se liquida, pero no se cuenta con el dinero).
+  const efectivo = <T extends { medio?: 'efectivo' | 'tarjeta' | null }>(fs: T[]) => fs.filter((c) => c.medio !== 'tarjeta')
+  const tarjeta = <T extends { medio?: 'efectivo' | 'tarjeta' | null }>(fs: T[]) => fs.filter((c) => c.medio === 'tarjeta')
   const hoyIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'Atlantic/Canary' })
   const nombreRuta = (c: { ruta: string | null; ruta_nombre: string | null; fecha?: string }) =>
     `RUTA ${c.ruta && /^\d+$/.test(c.ruta) ? Number(c.ruta) : (c.ruta ?? '')} · ${c.ruta_nombre ?? ''}` +
@@ -781,16 +795,18 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
   // El justificante por WhatsApp (Rober, 17/11/2026: ahorra papel). No lleva firma ni sello: lo que vale es que sale
   // del WhatsApp de administración, con el importe recibido y quién lo recibe. Se abre WhatsApp y quien envía elige
   // el contacto del repartidor.
-  const enviarWhatsApp = (titulo: string, repartidor: string | null, filas: { cliente: string | null; factura: string | number | null; vt: string; vn: number; importe: number }[], total: number, recibido: number, numero: number | null, en: string) => {
+  const enviarWhatsApp = (titulo: string, repartidor: string | null, filas: { cliente: string | null; factura: string | number | null; vt: string; vn: number; importe: number; medio?: 'efectivo' | 'tarjeta' | null }[], total: number, recibido: number, numero: number | null, en: string) => {
+    const conTarjeta = suma(filas.filter((c) => c.medio === 'tarjeta'))
     const dif = Math.round((recibido - total) * 100) / 100
     const texto = [
       '*OFIPAPEL · Justificante de entrega de cobros*',
       `${titulo}${repartidor ? ` · Repartidor: ${repartidor}` : ''}`,
       `${numero ? `Liquidación nº ${numero} · ` : ''}${fechaHora(en)}`,
       '',
-      ...filas.map((c) => `• ${c.cliente ?? ''} — ${c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`} — ${euros(c.importe)}`),
+      ...filas.map((c) => `• ${c.cliente ?? ''} — ${c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`} — ${euros(c.importe)}${c.medio === 'tarjeta' ? ' 💳' : ''}`),
       '',
-      `Total a entregar: *${euros(total)}*`,
+      ...(conTarjeta ? [`Cobrado con tarjeta (no se entrega): ${euros(conTarjeta)}`] : []),
+      `Total a entregar en efectivo: *${euros(total)}*`,
       `Entregado: *${euros(recibido)}*${dif === 0 ? ' ✅ Cuadra' : dif < 0 ? ` · Faltan ${euros(-dif)}` : ` · Sobran ${euros(dif)}`}`,
       '',
       `Recibido en administración por ${quien}.`,
@@ -800,7 +816,8 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
 
   // Liquidación hecha: el recibo con su número, para imprimir o mandar, y deshacer si fue un error.
   if (hecha) {
-    const filas = hecha.lineas.map((l) => ({ cliente: l.cliente, factura: l.factura, vt: l.vt, vn: l.vn, importe: l.importe }))
+    const filas = hecha.lineas.map((l) => ({ cliente: l.cliente, factura: l.factura, vt: l.vt, vn: l.vn, importe: l.importe, medio: l.medio ?? null }))
+    const hechaTarjeta = suma(filas.filter((c) => c.medio === 'tarjeta'))
     const titulo = nombreRuta({ ruta: hecha.ruta, ruta_nombre: hecha.ruta_nombre })
     const dif = Math.round((hecha.entregado - hecha.esperado) * 100) / 100
     return (
@@ -818,9 +835,10 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
           <div style={{ fontSize: 13, opacity: 0.85 }}>HA ENTREGADO</div>
           <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 40, lineHeight: 1.1 }}>{euros(hecha.entregado)}</div>
           <div style={{ fontSize: 13, opacity: 0.9 }}>
-            {hecha.facturas} factura{hecha.facturas === 1 ? '' : 's'} · tenía que entregar {euros(hecha.esperado)}
+            {hecha.facturas} factura{hecha.facturas === 1 ? '' : 's'} · tenía que entregar {euros(hecha.esperado)} en efectivo
             {dif === 0 ? ' · cuadra' : dif < 0 ? ` · faltan ${euros(-dif)}` : ` · sobran ${euros(dif)}`}
           </div>
+          {hechaTarjeta > 0 && <div style={{ fontSize: 13, opacity: 0.9 }}>💳 Con tarjeta: {euros(hechaTarjeta)} (no se entrega)</div>}
         </div>
         {!hecha.anulada && (
           <>
@@ -855,7 +873,7 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
               Deshacer esta liquidación (si te has equivocado)
             </button>
             {fallo && <div style={{ color: V.rojo, marginTop: 6 }}>{fallo}</div>}
-            <Justificante ruta={titulo} repartidor={hecha.repartidor} filas={filas} total={hecha.esperado} recibido={hecha.entregado} numero={hecha.id} en={hecha.en} />
+            <Justificante ruta={titulo} repartidor={hecha.repartidor} filas={filas} total={hecha.esperado} tarjeta={hechaTarjeta} recibido={hecha.entregado} numero={hecha.id} en={hecha.en} />
           </>
         )}
       </Tarjeta>
@@ -864,9 +882,10 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
 
   const sel = rutas.find((r) => r.k === abierta)
   if (sel) {
-    const total = suma(sel.filas)
+    const total = suma(efectivo(sel.filas))
+    const totalTarjeta = suma(tarjeta(sel.filas))
     const marcadas = sel.filas.filter((c) => contadas[`${c.vt}-${c.vn}`])
-    const aLiquidar = marcadas.length ? suma(marcadas) : total
+    const aLiquidar = marcadas.length ? suma(efectivo(marcadas)) : total
     const recibido = Number(entrega.replace(/\./g, '').replace(',', '.'))
     const hayEntrega = entrega.trim() !== '' && Number.isFinite(recibido) && recibido >= 0
     const dif = hayEntrega ? Math.round((recibido - aLiquidar) * 100) / 100 : 0
@@ -885,7 +904,8 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
           esperado: r.esperado,
           entregado: r.entregado,
           facturas: r.facturas,
-          lineas: marcadas.map((c) => ({ rt: c.rt, rn: c.rn, vt: c.vt, vn: c.vn, factura: c.factura == null ? null : String(c.factura), cliente: c.cliente, importe: c.pendiente })),
+          tarjeta: r.tarjeta ?? suma(tarjeta(marcadas)),
+          lineas: marcadas.map((c) => ({ rt: c.rt, rn: c.rn, vt: c.vt, vn: c.vn, factura: c.factura == null ? null : String(c.factura), cliente: c.cliente, importe: c.pendiente, medio: c.medio === 'tarjeta' ? 'tarjeta' : 'efectivo' })),
           nota: null,
           anulada: false,
           ruta: c0.ruta,
@@ -906,12 +926,18 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>{nombreRuta(sel.filas[0])}</div>
         <div style={{ color: V.gris, fontSize: 13 }}>{sel.filas[0].repartidor ?? 'Sin repartidor apuntado'}</div>
         <div style={{ background: V.verde, color: '#fff', borderRadius: 16, padding: '12px 14px', margin: '10px 0', textAlign: 'center' }}>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>TIENE QUE ENTREGAR</div>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>TIENE QUE ENTREGAR EN EFECTIVO</div>
           <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 40, lineHeight: 1.1 }}>{euros(total)}</div>
           <div style={{ fontSize: 13, opacity: 0.85 }}>
-            {sel.filas.length} factura{sel.filas.length === 1 ? '' : 's'} de contado cobrada{sel.filas.length === 1 ? '' : 's'}
+            {efectivo(sel.filas).length} factura{efectivo(sel.filas).length === 1 ? '' : 's'} cobrada{efectivo(sel.filas).length === 1 ? '' : 's'} en efectivo
           </div>
         </div>
+        {totalTarjeta > 0 && (
+          <div style={{ background: '#eef5fc', borderRadius: 12, padding: '8px 10px', marginBottom: 10, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span style={{ flex: 1, fontSize: 14, color: AZUL, fontWeight: 700 }}>💳 Con tarjeta ({tarjeta(sel.filas).length}) · no se entrega</span>
+            <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 16, color: AZUL }}>{euros(totalTarjeta)}</span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'baseline', fontSize: 12, color: V.gris, marginBottom: 4 }}>
           <span style={{ flex: 1 }}>Toca cada factura según la vayas contando.</span>
           <button
@@ -942,13 +968,15 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
                   {c.factura ? `Factura ${c.factura}` : `Albarán ${c.vt}/${c.vn}`}
                   {c.forma_pago ? ` · ${c.forma_pago}` : ''}
                   {c.hora ? ` · entregada ${c.hora}` : ''}
+                  {c.medio === 'tarjeta' ? <b style={{ color: AZUL }}> · 💳 tarjeta</b> : ''}
                 </div>
               </button>
             )
           })}
         </div>
         <div style={{ fontSize: 13, color: V.texto, marginTop: 8 }}>
-          Contadas {marcadas.length} de {sel.filas.length} · <b>{euros(suma(marcadas))}</b>
+          Contadas {marcadas.length} de {sel.filas.length} · <b>{euros(suma(efectivo(marcadas)))}</b> en efectivo
+          {tarjeta(marcadas).length ? ` · ${euros(suma(tarjeta(marcadas)))} con tarjeta` : ''}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>Te entrega</span>
@@ -990,7 +1018,7 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
       {rutas.length > 0 && (
         <div style={{ background: '#eef5fc', borderRadius: 14, padding: '8px 12px', marginBottom: 10, display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{ flex: 1, fontWeight: 700, color: AZUL }}>Total a recibir</span>
-          <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 22, color: AZUL }}>{euros(suma(enMano))}</span>
+          <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 22, color: AZUL }}>{euros(suma(efectivo(enMano)))}</span>
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -998,10 +1026,11 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
           <button key={r.k} type="button" onClick={() => abrir(r.k)} style={{ textAlign: 'left', background: '#fff', border: `2px solid ${AZUL}`, borderRadius: 16, padding: 12 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
               <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 17, color: V.verde }}>{nombreRuta(r.filas[0])}</span>
-              <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 20, whiteSpace: 'nowrap' }}>{euros(suma(r.filas))}</span>
+              <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 20, whiteSpace: 'nowrap' }}>{euros(suma(efectivo(r.filas)))}</span>
             </div>
             <div style={{ color: V.gris, fontSize: 13 }}>
               {r.filas[0].repartidor ?? 'Sin repartidor apuntado'} · {r.filas.length} factura{r.filas.length === 1 ? '' : 's'}
+              {tarjeta(r.filas).length ? ` · 💳 ${euros(suma(tarjeta(r.filas)))} con tarjeta` : ''}
             </div>
           </button>
         ))}
@@ -1085,14 +1114,17 @@ function Justificante({
   repartidor,
   filas,
   total,
+  tarjeta = 0,
   recibido,
   numero,
   en,
 }: {
   ruta: string
   repartidor: string | null
-  filas: { cliente: string | null; factura: string | number | null; vt: string; vn: number; importe: number }[]
+  filas: { cliente: string | null; factura: string | number | null; vt: string; vn: number; importe: number; medio?: 'efectivo' | 'tarjeta' | null }[]
   total: number
+  /** Cobrado con tarjeta (no se entrega en mano). */
+  tarjeta?: number
   recibido: number | null
   numero?: number
   en?: string
@@ -1124,16 +1156,20 @@ function Justificante({
             <tr key={`${c.vt}-${c.vn}`}>
               <td style={celda}>{c.cliente}</td>
               <td style={{ ...celda, whiteSpace: 'nowrap' }}>{c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`}</td>
-              <td style={{ ...celda, textAlign: 'right', whiteSpace: 'nowrap' }}>{euros(c.importe)}</td>
+              <td style={{ ...celda, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                {euros(c.importe)}
+                {c.medio === 'tarjeta' ? ' (tarjeta)' : ''}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginTop: 6, fontSize: 14 }}>
         <span>
-          {filas.length} documento{filas.length === 1 ? '' : 's'} · Total a entregar: <b>{euros(total)}</b>
+          {filas.length} documento{filas.length === 1 ? '' : 's'} · Total a entregar en efectivo: <b>{euros(total)}</b>
         </span>
       </div>
+      {tarjeta > 0 && <div style={{ textAlign: 'right', fontSize: 12 }}>Cobrado con tarjeta (no se entrega): {euros(tarjeta)}</div>}
       <div style={{ textAlign: 'right', fontSize: 14, marginTop: 2 }}>
         Entregado: <b>{recibido == null ? '______________ €' : euros(recibido)}</b>
         {recibido != null && dif !== 0 ? ` · ${dif < 0 ? 'Faltan' : 'Sobran'} ${euros(Math.abs(dif))}` : ''}
@@ -1647,9 +1683,9 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     }
     const ahora = new Date().toISOString()
     const pos = ultimaPos.current
-    if (tipo === 'entregado') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: null, entregado_en: ahora, nota: nota ?? null })
-    if (tipo === 'sin_cobrar') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: detalle ?? null, entregado_en: ahora, nota: nota ?? null })
-    if (tipo === 'incidencia') cambiarLocal(clave(l), { estado: 'entregado', incidencia: detalle ?? null, motivo: null, no_cobro: null, entregado_en: ahora, nota: nota ?? null })
+    if (tipo === 'entregado') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: null, medio: detalle === 'tarjeta' || detalle === 'efectivo' ? detalle : null, entregado_en: ahora, nota: nota ?? null })
+    if (tipo === 'sin_cobrar') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: detalle ?? null, medio: null, entregado_en: ahora, nota: nota ?? null })
+    if (tipo === 'incidencia') cambiarLocal(clave(l), { estado: 'entregado', incidencia: detalle ?? null, motivo: null, no_cobro: null, medio: null, entregado_en: ahora, nota: nota ?? null })
     if (tipo === 'no_entregado')
       cambiarLocal(clave(l), {
         estado: 'no_entregado',
@@ -1877,7 +1913,14 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           opciones={NO_COBRO}
           cabecera={
             <>
-              <Boton onClick={() => accion(hoja.linea, 'entregado')}>Sí, cobrado</Boton>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Boton onClick={() => accion(hoja.linea, 'entregado', 'efectivo')} style={{ flex: 1 }}>
+                  💶 En efectivo
+                </Boton>
+                <Boton color={AZUL} onClick={() => accion(hoja.linea, 'entregado', 'tarjeta')} style={{ flex: 1 }}>
+                  💳 Con tarjeta
+                </Boton>
+              </div>
               <div style={{ fontSize: 14, fontWeight: 700, color: V.rojo, marginTop: 6 }}>No se cobró porque…</div>
             </>
           }

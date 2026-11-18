@@ -54,6 +54,8 @@ export interface LineaApp {
   motivo: string | null
   /** Entregado pero sin cobrar: por qué (lo pone el repartidor). */
   no_cobro?: string | null
+  /** Cómo se cobró: «efectivo» o «tarjeta» (vacío = no se cobró, o se marcó antes del 19/11/2026: cuenta como efectivo). */
+  medio?: 'efectivo' | 'tarjeta' | null
   nota: string | null
   intento1: string | null
   intento2: string | null
@@ -281,6 +283,8 @@ export interface LineaOficina {
   incidencia: string | null
   motivo: string | null
   no_cobro?: string | null
+  /** Cómo se cobró: «efectivo» o «tarjeta» (vacío = no se cobró, o se marcó antes del 19/11/2026: cuenta como efectivo). */
+  medio?: 'efectivo' | 'tarjeta' | null
   nota: string | null
   hora: string | null
   /** Teléfono que el repartidor puso porque el que venía no era el bueno. */
@@ -304,6 +308,8 @@ export interface PorCobrar {
   contado: boolean | null
   forma_pago: string | null
   no_cobro: string | null
+  /** Cómo se cobró: «efectivo» o «tarjeta» (vacío = no se cobró, o se marcó antes del 19/11/2026: cuenta como efectivo). */
+  medio?: 'efectivo' | 'tarjeta' | null
   incidencia: string | null
   nota: string | null
   hora: string | null
@@ -317,7 +323,9 @@ export interface Liquidacion {
   esperado: number
   entregado: number
   facturas: number
-  lineas: { rt: string; rn: number; vt: string; vn: number; factura: string | null; cliente: string | null; importe: number }[]
+  /** Cobrado con tarjeta en esta liquidación (no se entrega en mano; «esperado» es solo el efectivo). */
+  tarjeta?: number
+  lineas: { rt: string; rn: number; vt: string; vn: number; factura: string | null; cliente: string | null; importe: number; medio?: 'efectivo' | 'tarjeta' }[]
   nota: string | null
   anulada: boolean
   ruta: string | null
@@ -335,7 +343,7 @@ export interface PorApuntar {
   liquidado_en: string
 }
 export const liquidar = (token: string, filas: PorCobrar[], entregado: number, nota: string | null) =>
-  rpc<{ ok: boolean; id: number; en: string; esperado: number; entregado: number; facturas: number }>('fn_app_rep_liquidar', {
+  rpc<{ ok: boolean; id: number; en: string; esperado: number; tarjeta?: number; entregado: number; facturas: number }>('fn_app_rep_liquidar', {
     p_token: token,
     p_lineas: filas.map((c) => ({ rt: c.rt, rn: c.rn, vt: c.vt, vn: c.vn })),
     p_entregado: entregado,
