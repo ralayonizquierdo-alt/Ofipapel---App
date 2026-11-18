@@ -288,6 +288,9 @@ export interface LineaOficina {
 export interface PorCobrar {
   vt: string
   vn: number
+  /** Reparto de la factura (para liquidarla). */
+  rt: string
+  rn: number
   ruta: string | null
   ruta_nombre: string | null
   fecha: string
@@ -304,6 +307,40 @@ export interface PorCobrar {
   hora: string | null
 }
 export const porCobrar = (token: string) => rpc<PorCobrar[]>('fn_app_rep_por_cobrar', { p_token: token })
+
+/** Liquidación de la Caja (18/11/2026): lo que un repartidor entrega en administración. */
+export interface Liquidacion {
+  id: number
+  en: string
+  esperado: number
+  entregado: number
+  facturas: number
+  lineas: { rt: string; rn: number; vt: string; vn: number; factura: string | null; cliente: string | null; importe: number }[]
+  nota: string | null
+  anulada: boolean
+  ruta: string | null
+  ruta_nombre: string | null
+  repartidor: string | null
+}
+/** Liquidada en la Caja del ERP pero en GeminisWin todavía sin cobrar: hay que apuntar el cobro allí. */
+export interface PorApuntar {
+  vt: string
+  vn: number
+  factura: string | null
+  cliente: string | null
+  importe: number
+  liquidacion: number
+  liquidado_en: string
+}
+export const liquidar = (token: string, filas: PorCobrar[], entregado: number, nota: string | null) =>
+  rpc<{ ok: boolean; id: number; en: string; esperado: number; entregado: number; facturas: number }>('fn_app_rep_liquidar', {
+    p_token: token,
+    p_lineas: filas.map((c) => ({ rt: c.rt, rn: c.rn, vt: c.vt, vn: c.vn })),
+    p_entregado: entregado,
+    p_nota: nota,
+  })
+export const liquidaciones = (token: string) => rpc<{ liquidaciones: Liquidacion[]; apuntar: PorApuntar[] }>('fn_app_rep_liquidaciones', { p_token: token })
+export const anularLiquidacion = (token: string, id: number) => rpc<{ ok: boolean; facturas: number }>('fn_app_rep_liquidacion_anular', { p_token: token, p_id: id })
 export const todasLasRutas = (token: string) => rpc<{ supervisor: boolean; hoy?: string; rutas?: RutaOficina[] }>('fn_app_rep_todas', { p_token: token })
 export const lineasOficina = (token: string, tienda: string, numero: number) =>
   rpc<LineaOficina[]>('fn_app_rep_todas_lineas', { p_token: token, p_tienda: tienda, p_numero: numero })

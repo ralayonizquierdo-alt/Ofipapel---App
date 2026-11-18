@@ -167,6 +167,8 @@ export const MENUS: TopMenu[] = [
       item('Zonas Territoriales', { to: '/zonas-territoriales', description: 'Zonas Territoriales' }),
       item('Rutas de Reparto', { to: '/rutas-reparto', description: 'Rutas de Reparto' }),
       item('Control de Repartos', { to: '/repartos', description: 'Repartos de hoy en vivo (app de reparto) y ficha de cada reparto: pedidos, estados y cierre' }),
+      // Propio del ERP (Rober, 18/11/2026): generar y cerrar los repartos aquí con las ventas de GeminisWin.
+      item('Generar repartos', { to: '/repartos/generar', description: 'Generar y cerrar los repartos de cada ruta con las ventas de GeminisWin, y compararlos con los de GeminisWin' }),
       item('Técnicos', { to: '/tecnicos', description: 'Ficha de Técnicos' }),
       item('Nº Serie', { to: '/numeros-serie', description: 'Números de Serie' }),
       'sep',
@@ -564,6 +566,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/tarifas-oferta', title: 'Tarifas de Oferta' },
   { prefix: '/modificacion-precios', title: 'Modificación de Precios' },
   { prefix: '/pedidos', title: 'Pedidos de Clientes' },
+  { prefix: '/repartos/generar', title: 'Generar repartos' },
   { prefix: '/repartos', title: 'Control de Repartos' },
   { prefix: '/tpv', title: 'Ventas' },
   { prefix: '/ventas', title: 'Ventas' },

@@ -40,6 +40,30 @@ el reparto y generará el del día siguiente, según la grabación de pantalla.
 
 Pendiente de decidir: el aviso de facturas de contado sin pagar al día siguiente (no se monta todavía).
 
+## Parte C — generar y cerrar en el ERP, y liquidar en la Caja (18/11/2026)
+
+Migración `20261118_reparto_circuito_erp.sql`. Las ventas, facturas y cobros siguen en GeminisWin; el reparto pasa
+a ser del ERP, ruta a ruta. GeminisWin no necesita saber nada del reparto (es control interno).
+
+| Pieza | Qué hace |
+|---|---|
+| Puente (`puente_reparto.py`) | Si el parámetro `reparto.puente_gw_ventas` es `true`: en cada pasada manda las ventas nuevas (final de VENTAS desde la última pasada; la primera vez, las últimas 4.000) con la ruta y la dirección de la sucursal (CLISUCUR) o del cliente (CLIENTES), y vuelve a leer las ventas que el ERP le pide vigilar (`fn_reparto_gw_vigilar`, máx. 5.000: candidatas a reparto y entregadas de contado sin cobrar o liquidadas sin apuntar). Todo a `reparto_gw_venta` (`fn_reparto_gw_ventas`). |
+| Ruta de cada venta | `VENTAS.IDRUTA` si se puso en la venta; si no, la de la sucursal; si no, la de la ficha del cliente. |
+| Ventas → Generar repartos (`/repartos/generar`) | Por ruta: propuesta (`reparto_privado.erp_candidatas`), repartidor de la última vez, generar (`fn_reparto_erp_generar`), cerrar (`fn_reparto_erp_cerrar`), quitar una venta sin tocar (`fn_reparto_erp_quitar`), pasar la ruta al ERP o devolverla (`fn_reparto_erp_ruta`, parámetro `reparto.erp_rutas`). Las rutas que siguen en GeminisWin solo se comparan con su reparto abierto. |
+| Repartos generados en el ERP | Origen `geminiswin` + `generado_erp = true`, numerados en la tienda `reparto.erp_tienda` desde 900001. El puente no los toca ni crea repartos nuevos de las rutas del ERP (los que ya estaban abiertos se terminan). No salen en los partes para GeminisWin. Al generar el de un día se cierra el anterior de la ruta: lo sin marcar pasa a «no entregado» y vuelve a la propuesta como «viene del anterior». |
+| Propuesta | Ventas «nuevas» de los últimos `reparto.erp_dias` días (7) con ruta, importe positivo, cliente no genérico, que no han ido en ningún reparto ni se han entregado, más las no entregadas. Marcadas por defecto las de las tiendas `reparto.erp_tiendas_venta` (["54"]) y las que vienen del anterior. |
+| Caja (app, usuario CAJA) | «Liquidar» (`fn_app_rep_liquidar`): guarda `reparto_liquidacion` (nº, quién, cuándo, esperado, entregado, facturas) y pasa las líneas a «liquidado». Deshacer en 7 días (`fn_app_rep_liquidacion_anular`). `fn_app_rep_liquidaciones`: las de 7 días y las «Falta apuntar en GeminisWin» (liquidadas aquí con pendiente en GeminisWin). La Caja ve también las rutas de los 10 días anteriores con cobros sin liquidar. El puente no deshace una liquidación de la Caja aunque GeminisWin siga diciendo «entregado». |
+
+Cobros en GeminisWin (diagnóstico de Cowork del 17/11): el cobro de una factura fuera del reparto se apunta en
+«Pagos Factura» (fichero PAGOS, con la tienda que cobra) y la venta queda con `TOT_PEND` 0 y `FECHA_PAGO`. Eso es
+lo que el puente lee para saber que ya está cobrada.
+
+Probado el 18/11/2026 en una transacción deshecha (ruta 11, ventas ZZTEST): alta de ventas, propuesta, generar,
+entregar, liquidar, «falta apuntar» y su desaparición al llegar el pago, generar el día siguiente (cierra el
+anterior y pasa la no entregada), deshacer la liquidación y negativa a generar una ruta de GeminisWin. Puente
+probado con ficheros DBF inventados y un servidor de pega. Pantallas probadas en el navegador con datos simulados.
+**Falta**: la primera pasada con los ficheros reales (`--prueba`) y comparar una ruta varios días antes de pasarla.
+
 ## Para quitarlo cuando ya no haga falta
 Tarea programada y carpeta del PC; función `reparto-gw-ingesta`; funciones `fn_reparto_gw_*`, los dos
 disparadores `trg_reparto*_gw_guarda`, tablas `reparto_gw_venta`, `reparto_gw_pasada` y

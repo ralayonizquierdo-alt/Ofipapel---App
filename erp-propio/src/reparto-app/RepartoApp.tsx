@@ -38,6 +38,11 @@ import {
   type LineaApp,
   type PorCobrar,
   porCobrar,
+  type Liquidacion,
+  type PorApuntar,
+  liquidar,
+  liquidaciones,
+  anularLiquidacion,
   type RepartoApp,
   type Sesion,
 } from './api'
@@ -604,7 +609,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
           </Boton>
         </div>
       )}
-      {vista === 'caja' && <Caja cobros={cobros} hora={hora} error={error} quien={sesion.nombre} />}
+      {vista === 'caja' && <Caja token={sesion.token} cobros={cobros} hora={hora} error={error} quien={sesion.nombre} onRecargar={() => void cargar()} />}
       <Tarjeta style={vista === 'caja' ? { display: 'none' } : undefined}>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Todas las rutas</div>
         <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Solo para mirar. Se actualiza sola{hora ? ` · ${hora}` : ''}.</div>
@@ -725,50 +730,165 @@ function CajaRepartidor({ lineas }: { lineas: LineaApp[] }) {
 /**
  * Caja (Rober, 17/11/2026): para quien recibe en administración el dinero de los repartidores. Por cada ruta,
  * las facturas de contado que el repartidor entregó y dice que cobró, y en grande el total que tiene que
- * entregar. Lo que NO cobró no sale aquí: eso es de la vista de rutas («Por cobrar»). Es una ayuda para
- * contar: la liquidación se sigue apuntando en GeminisWin, y al hacerlo la factura sale de la lista.
+ * entregar. Lo que NO cobró no sale aquí: eso es de la vista de rutas («Por cobrar»).
+ * Liquidar (18/11/2026): al tocar las facturas contadas y escribir lo que entrega, «Liquidar» lo deja guardado en el
+ * ERP (nº de liquidación, quién, cuándo, cuánto) y las facturas salen de la lista. El cobro se sigue apuntando en
+ * GeminisWin; hasta que allí queda cobrada, la factura sale en «Falta apuntar en GeminisWin».
  */
-function Caja({ cobros, hora, error, quien }: { cobros: PorCobrar[] | null; hora: string | null; error: string | null; quien: string }) {
+function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string; cobros: PorCobrar[] | null; hora: string | null; error: string | null; quien: string; onRecargar: () => void }) {
   const [abierta, setAbierta] = useState<string | null>(null)
   const [contadas, setContadas] = useState<Record<string, boolean>>({})
   const [entrega, setEntrega] = useState('')
+  const [hecha, setHecha] = useState<Liquidacion | null>(null)
+  const [hist, setHist] = useState<{ liquidaciones: Liquidacion[]; apuntar: PorApuntar[] } | null>(null)
+  const [verHist, setVerHist] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+  const [fallo, setFallo] = useState<string | null>(null)
+  const cargarHist = useCallback(() => {
+    liquidaciones(token)
+      .then(setHist)
+      .catch(() => {})
+  }, [token])
+  useEffect(() => {
+    cargarHist()
+  }, [cargarHist, cobros])
+
   const enMano = (cobros ?? []).filter((c) => c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro)
   const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}`
   const rutas = [...new Set(enMano.map(clave))].map((k) => ({ k, filas: enMano.filter((c) => clave(c) === k) }))
-  const suma = (fs: PorCobrar[]) => fs.reduce((t, c) => t + (c.pendiente ?? 0), 0)
-  const nombreRuta = (c: PorCobrar) => `RUTA ${c.ruta && /^\d+$/.test(c.ruta) ? Number(c.ruta) : (c.ruta ?? '')} · ${c.ruta_nombre ?? ''}`
+  const suma = (fs: { pendiente?: number; importe?: number }[]) => fs.reduce((t, c) => t + (c.pendiente ?? c.importe ?? 0), 0)
+  const hoyIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'Atlantic/Canary' })
+  const nombreRuta = (c: { ruta: string | null; ruta_nombre: string | null; fecha?: string }) =>
+    `RUTA ${c.ruta && /^\d+$/.test(c.ruta) ? Number(c.ruta) : (c.ruta ?? '')} · ${c.ruta_nombre ?? ''}` +
+    (c.fecha && c.fecha < hoyIso ? ` · del ${new Date(`${c.fecha}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}` : '')
   const abrir = (k: string | null) => {
     setAbierta(k)
     setContadas({})
     setEntrega('')
+    setFallo(null)
+  }
+  const fechaHora = (iso: string) =>
+    new Date(iso).toLocaleString('es-ES', { timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  // El justificante por WhatsApp (Rober, 17/11/2026: ahorra papel). No lleva firma ni sello: lo que vale es que sale
+  // del WhatsApp de administración, con el importe recibido y quién lo recibe. Se abre WhatsApp y quien envía elige
+  // el contacto del repartidor.
+  const enviarWhatsApp = (titulo: string, repartidor: string | null, filas: { cliente: string | null; factura: string | number | null; vt: string; vn: number; importe: number }[], total: number, recibido: number, numero: number | null, en: string) => {
+    const dif = Math.round((recibido - total) * 100) / 100
+    const texto = [
+      '*OFIPAPEL · Justificante de entrega de cobros*',
+      `${titulo}${repartidor ? ` · Repartidor: ${repartidor}` : ''}`,
+      `${numero ? `Liquidación nº ${numero} · ` : ''}${fechaHora(en)}`,
+      '',
+      ...filas.map((c) => `• ${c.cliente ?? ''} — ${c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`} — ${euros(c.importe)}`),
+      '',
+      `Total a entregar: *${euros(total)}*`,
+      `Entregado: *${euros(recibido)}*${dif === 0 ? ' ✅ Cuadra' : dif < 0 ? ` · Faltan ${euros(-dif)}` : ` · Sobran ${euros(dif)}`}`,
+      '',
+      `Recibido en administración por ${quien}.`,
+    ].join('\n')
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
+  }
+
+  // Liquidación hecha: el recibo con su número, para imprimir o mandar, y deshacer si fue un error.
+  if (hecha) {
+    const filas = hecha.lineas.map((l) => ({ cliente: l.cliente, factura: l.factura, vt: l.vt, vn: l.vn, importe: l.importe }))
+    const titulo = nombreRuta({ ruta: hecha.ruta, ruta_nombre: hecha.ruta_nombre })
+    const dif = Math.round((hecha.entregado - hecha.esperado) * 100) / 100
+    return (
+      <Tarjeta style={{ borderTopColor: AZUL }}>
+        <button type="button" onClick={() => (setHecha(null), abrir(null), onRecargar())} style={{ background: 'none', border: 'none', color: AZUL, fontSize: 14, fontWeight: 700, padding: '0 0 6px' }}>
+          ← Volver a la caja
+        </button>
+        <div style={{ fontWeight: 700, fontSize: 18, color: hecha.anulada ? V.rojo : V.verde }}>
+          {hecha.anulada ? `Liquidación nº ${hecha.id} DESHECHA` : `✔ Liquidación nº ${hecha.id} guardada`}
+        </div>
+        <div style={{ color: V.gris, fontSize: 13 }}>
+          {titulo} · {hecha.repartidor ?? 'Sin repartidor apuntado'} · {fechaHora(hecha.en)}
+        </div>
+        <div style={{ background: hecha.anulada ? '#999' : V.verde, color: '#fff', borderRadius: 16, padding: '12px 14px', margin: '10px 0', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, opacity: 0.85 }}>HA ENTREGADO</div>
+          <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 40, lineHeight: 1.1 }}>{euros(hecha.entregado)}</div>
+          <div style={{ fontSize: 13, opacity: 0.9 }}>
+            {hecha.facturas} factura{hecha.facturas === 1 ? '' : 's'} · tenía que entregar {euros(hecha.esperado)}
+            {dif === 0 ? ' · cuadra' : dif < 0 ? ` · faltan ${euros(-dif)}` : ` · sobran ${euros(dif)}`}
+          </div>
+        </div>
+        {!hecha.anulada && (
+          <>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Boton color="#1fa855" onClick={() => enviarWhatsApp(titulo, hecha.repartidor, filas, hecha.esperado, hecha.entregado, hecha.id, hecha.en)} style={{ flex: 1, padding: '12px 6px', fontSize: 15 }}>
+                WhatsApp
+              </Boton>
+              <Boton color={AZUL} onClick={() => window.print()} style={{ flex: 1, padding: '12px 6px', fontSize: 15 }}>
+                🖨 Imprimir
+              </Boton>
+            </div>
+            <div style={{ fontSize: 13, color: V.texto, marginTop: 10, background: '#fff6e5', borderRadius: 12, padding: '8px 10px' }}>
+              Ahora apunta el cobro de estas facturas en GeminisWin (Pagos Factura). Mientras no esté apuntado allí, salen en «Falta apuntar en GeminisWin».
+            </div>
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={async () => {
+                if (!window.confirm(`¿Deshacer la liquidación nº ${hecha.id}? Las facturas vuelven a la caja como pendientes de liquidar.`)) return
+                setOcupado(true)
+                try {
+                  await anularLiquidacion(token, hecha.id)
+                  setHecha({ ...hecha, anulada: true })
+                  cargarHist()
+                } catch (e) {
+                  setFallo((e as Error).message)
+                }
+                setOcupado(false)
+              }}
+              style={{ background: 'none', border: 'none', color: V.rojo, fontSize: 13, marginTop: 10, textDecoration: 'underline' }}
+            >
+              Deshacer esta liquidación (si te has equivocado)
+            </button>
+            {fallo && <div style={{ color: V.rojo, marginTop: 6 }}>{fallo}</div>}
+            <Justificante ruta={titulo} repartidor={hecha.repartidor} filas={filas} total={hecha.esperado} recibido={hecha.entregado} numero={hecha.id} en={hecha.en} />
+          </>
+        )}
+      </Tarjeta>
+    )
   }
 
   const sel = rutas.find((r) => r.k === abierta)
   if (sel) {
     const total = suma(sel.filas)
     const marcadas = sel.filas.filter((c) => contadas[`${c.vt}-${c.vn}`])
+    const aLiquidar = marcadas.length ? suma(marcadas) : total
     const recibido = Number(entrega.replace(/\./g, '').replace(',', '.'))
-    const hayEntrega = entrega.trim() !== '' && Number.isFinite(recibido)
-    const dif = hayEntrega ? Math.round((recibido - total) * 100) / 100 : 0
-    // El mismo justificante, por WhatsApp (Rober, 17/11/2026: ahorra papel). No lleva firma ni sello: lo que
-    // vale es que sale del WhatsApp de administración, con el importe recibido y quién lo recibe. No se pone
-    // número: se abre WhatsApp y quien envía elige el contacto del repartidor.
-    const enviarWhatsApp = () => {
-      const ahora = new Date().toLocaleString('es-ES', { timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-      const texto = [
-        '*OFIPAPEL · Justificante de entrega de cobros*',
-        `${nombreRuta(sel.filas[0])}${sel.filas[0].repartidor ? ` · Repartidor: ${sel.filas[0].repartidor}` : ''}`,
-        ahora,
-        '',
-        ...sel.filas.map((c) => `• ${c.cliente} — ${c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`} — ${euros(c.pendiente)}`),
-        '',
-        `Total a entregar: *${euros(total)}*`,
-        `Entregado: *${euros(recibido)}*${dif === 0 ? ' ✅ Cuadra' : dif < 0 ? ` · Faltan ${euros(-dif)}` : ` · Sobran ${euros(dif)}`}`,
-        '',
-        `Recibido en administración por ${quien}.`,
-        '_Acredita la entrega del dinero. Las facturas se liquidan después en el programa._',
-      ].join('\n')
-      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener')
+    const hayEntrega = entrega.trim() !== '' && Number.isFinite(recibido) && recibido >= 0
+    const dif = hayEntrega ? Math.round((recibido - aLiquidar) * 100) / 100 : 0
+    const liquidarAhora = async () => {
+      if (!marcadas.length) return setFallo('Toca las facturas que te entrega (las que has contado).')
+      if (!hayEntrega) return setFallo('Escribe en «Te entrega» el dinero que te da.')
+      if (dif !== 0 && !window.confirm(`${dif < 0 ? `Faltan ${euros(-dif)}` : `Sobran ${euros(dif)}`}. ¿Liquidar igualmente? Queda apuntado lo que entregó.`)) return
+      setOcupado(true)
+      setFallo(null)
+      try {
+        const r = await liquidar(token, marcadas, recibido, null)
+        const c0 = marcadas[0]
+        setHecha({
+          id: r.id,
+          en: r.en,
+          esperado: r.esperado,
+          entregado: r.entregado,
+          facturas: r.facturas,
+          lineas: marcadas.map((c) => ({ rt: c.rt, rn: c.rn, vt: c.vt, vn: c.vn, factura: c.factura == null ? null : String(c.factura), cliente: c.cliente, importe: c.pendiente })),
+          nota: null,
+          anulada: false,
+          ruta: c0.ruta,
+          ruta_nombre: c0.ruta_nombre,
+          repartidor: c0.repartidor,
+        })
+        cargarHist()
+      } catch (e) {
+        setFallo((e as Error).message)
+      }
+      setOcupado(false)
     }
     return (
       <Tarjeta style={{ borderTopColor: AZUL }}>
@@ -784,7 +904,16 @@ function Caja({ cobros, hora, error, quien }: { cobros: PorCobrar[] | null; hora
             {sel.filas.length} factura{sel.filas.length === 1 ? '' : 's'} de contado cobrada{sel.filas.length === 1 ? '' : 's'}
           </div>
         </div>
-        <div style={{ fontSize: 12, color: V.gris, marginBottom: 4 }}>Toca cada factura según la vayas contando.</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', fontSize: 12, color: V.gris, marginBottom: 4 }}>
+          <span style={{ flex: 1 }}>Toca cada factura según la vayas contando.</span>
+          <button
+            type="button"
+            onClick={() => setContadas(Object.fromEntries(sel.filas.map((c) => [`${c.vt}-${c.vn}`, true])))}
+            style={{ background: 'none', border: 'none', color: AZUL, fontWeight: 700, fontSize: 13 }}
+          >
+            Marcar todas
+          </button>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {sel.filas.map((c) => {
             const k = `${c.vt}-${c.vn}`
@@ -829,26 +958,19 @@ function Caja({ cobros, hora, error, quien }: { cobros: PorCobrar[] | null; hora
             {dif === 0 ? '✔ Cuadra' : dif < 0 ? `Faltan ${euros(-dif)}` : `Sobran ${euros(dif)}`}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-          <Boton color="#1fa855" disabled={!hayEntrega} onClick={enviarWhatsApp} style={{ flex: 1, padding: '12px 6px', fontSize: 15 }}>
-            WhatsApp
-          </Boton>
-          <Boton color={AZUL} onClick={() => window.print()} style={{ flex: 1, padding: '12px 6px', fontSize: 15 }}>
-            🖨 Imprimir
-          </Boton>
-        </div>
+        <Boton color={V.verdeMed} disabled={ocupado || !marcadas.length || !hayEntrega} onClick={() => void liquidarAhora()} style={{ width: '100%', marginTop: 12, padding: '14px 6px', fontSize: 17 }}>
+          {ocupado ? 'Guardando…' : `✔ Liquidar ${marcadas.length || ''} factura${marcadas.length === 1 ? '' : 's'}`}
+        </Boton>
+        {fallo && <div style={{ color: V.rojo, marginTop: 6 }}>{fallo}</div>}
         <div style={{ fontSize: 12, color: V.gris, marginTop: 6 }}>
-          Justificante para que el repartidor deje el dinero y se vaya. <b>WhatsApp</b>: escribe antes lo que te entrega; se abre WhatsApp con el recibo ya escrito y eliges a quién mandarlo.{' '}
-          <b>Imprimir</b>: dos copias en una hoja, la suya con tu firma y sello y la tuya con su firma.
+          Toca las facturas que te entrega, escribe el dinero y pulsa <b>Liquidar</b>: queda guardado con un número y las facturas salen de la lista. Después podrás imprimir el justificante o mandarlo por WhatsApp.
         </div>
-        <div style={{ fontSize: 12, color: V.gris, marginTop: 10 }}>
-          Es una ayuda para contar: no guarda nada. Liquida las facturas en GeminisWin como siempre; al hacerlo salen de esta lista.
-        </div>
-        <Justificante ruta={nombreRuta(sel.filas[0])} repartidor={sel.filas[0].repartidor} filas={sel.filas} total={total} recibido={hayEntrega ? recibido : null} />
       </Tarjeta>
     )
   }
 
+  const apuntar = hist?.apuntar ?? []
+  const recientes = (hist?.liquidaciones ?? []).filter((q) => !q.anulada)
   return (
     <Tarjeta style={{ borderTopColor: AZUL }}>
       <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Caja · cobrar a los repartidores</div>
@@ -877,6 +999,52 @@ function Caja({ cobros, hora, error, quien }: { cobros: PorCobrar[] | null; hora
         ))}
       </div>
       {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
+
+      {apuntar.length > 0 && (
+        <div style={{ marginTop: 14, background: '#fff6e5', border: '2px solid #e0a030', borderRadius: 16, padding: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span style={{ flex: 1, fontWeight: 700, color: '#9a5b00' }}>Falta apuntar en GeminisWin · {apuntar.length}</span>
+            <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600 }}>{euros(suma(apuntar))}</span>
+          </div>
+          <div style={{ fontSize: 12, color: V.gris, margin: '2px 0 6px' }}>
+            Liquidadas aquí pero en GeminisWin todavía sin cobrar. Apunta el cobro allí (Pagos Factura): salen solas en unos minutos.
+          </div>
+          {apuntar.map((a) => (
+            <div key={`${a.vt}-${a.vn}`} style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, padding: '3px 0', borderTop: '1px solid #f0dcb4' }}>
+              <span style={{ width: 110, whiteSpace: 'nowrap' }}>{a.factura ? `Fra. ${a.factura}` : `Alb. ${a.vt}/${a.vn}`}</span>
+              <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.cliente}</span>
+              <span style={{ fontFamily: '"IBM Plex Mono", monospace', whiteSpace: 'nowrap' }}>{euros(a.importe)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {recientes.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <button type="button" onClick={() => setVerHist(!verHist)} style={{ background: 'none', border: 'none', color: AZUL, fontWeight: 700, fontSize: 14, padding: 0 }}>
+            {verHist ? '▾' : '▸'} Liquidaciones de los últimos días ({recientes.length})
+          </button>
+          {verHist && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+              {recientes.map((q) => (
+                <button key={q.id} type="button" onClick={() => setHecha(q)} style={{ textAlign: 'left', background: '#fff', border: '1px solid #cfd8e3', borderRadius: 12, padding: '8px 10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ flex: 1, fontWeight: 700 }}>
+                      Nº {q.id} · {nombreRuta(q)}
+                    </span>
+                    <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600 }}>{euros(q.entregado)}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: V.gris }}>
+                    {q.repartidor ?? ''} · {fechaHora(q.en)} · {q.facturas} factura{q.facturas === 1 ? '' : 's'}
+                    {Math.round((q.entregado - q.esperado) * 100) !== 0 ? ` · tenía que entregar ${euros(q.esperado)}` : ''}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <a
         href="https://web.whatsapp.com"
         target="_blank"
@@ -904,8 +1072,24 @@ function Caja({ cobros, hora, error, quien }: { cobros: PorCobrar[] | null; hora
  * se va con este papel firmado y sellado, sin esperar a que se liquide en GeminisWin. Dos copias en la misma
  * hoja: la suya y la de administración. En pantalla no se ve: solo existe al imprimir.
  */
-function Justificante({ ruta, repartidor, filas, total, recibido }: { ruta: string; repartidor: string | null; filas: PorCobrar[]; total: number; recibido: number | null }) {
-  const ahora = new Date().toLocaleString('es-ES', { timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+function Justificante({
+  ruta,
+  repartidor,
+  filas,
+  total,
+  recibido,
+  numero,
+  en,
+}: {
+  ruta: string
+  repartidor: string | null
+  filas: { cliente: string | null; factura: string | number | null; vt: string; vn: number; importe: number }[]
+  total: number
+  recibido: number | null
+  numero?: number
+  en?: string
+}) {
+  const ahora = new Date(en ?? Date.now()).toLocaleString('es-ES', { timeZone: 'Atlantic/Canary', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const dif = recibido == null ? 0 : Math.round((recibido - total) * 100) / 100
   const celda: CSSProperties = { padding: '3px 4px', borderBottom: '1px solid #999', fontSize: 12 }
   const copia = (para: string, firmaIzq: string, firmaDer: string) => (
@@ -916,6 +1100,7 @@ function Justificante({ ruta, repartidor, filas, total, recibido }: { ruta: stri
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, margin: '2px 0 6px' }}>Justificante de entrega de cobros del reparto</div>
       <div style={{ fontSize: 12 }}>
+        {numero ? <b>Liquidación nº {numero} · </b> : null}
         <b>{ruta}</b> · Repartidor: <b>{repartidor ?? '______________________'}</b> · {ahora}
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 6 }}>
@@ -931,7 +1116,7 @@ function Justificante({ ruta, repartidor, filas, total, recibido }: { ruta: stri
             <tr key={`${c.vt}-${c.vn}`}>
               <td style={celda}>{c.cliente}</td>
               <td style={{ ...celda, whiteSpace: 'nowrap' }}>{c.factura ? `Fra. ${c.factura}` : `Alb. ${c.vt}/${c.vn}`}</td>
-              <td style={{ ...celda, textAlign: 'right', whiteSpace: 'nowrap' }}>{euros(c.pendiente)}</td>
+              <td style={{ ...celda, textAlign: 'right', whiteSpace: 'nowrap' }}>{euros(c.importe)}</td>
             </tr>
           ))}
         </tbody>
@@ -949,7 +1134,7 @@ function Justificante({ ruta, repartidor, filas, total, recibido }: { ruta: stri
         <div style={{ flex: 1, borderTop: '1px solid #000', paddingTop: 2 }}>{firmaIzq}</div>
         <div style={{ flex: 1, borderTop: '1px solid #000', paddingTop: 2 }}>{firmaDer}</div>
       </div>
-      <div style={{ fontSize: 10, marginTop: 4 }}>Acredita la entrega del dinero en administración. Las facturas se liquidan después en el programa.</div>
+      <div style={{ fontSize: 10, marginTop: 4 }}>Acredita la entrega del dinero en administración.</div>
     </div>
   )
   return (

@@ -45,6 +45,7 @@ import { PresupuestosPage } from './pages/ventas/pedidos/PresupuestosPage'
 import { TpvPage } from './pages/ventas/tpv/TpvPage'
 import { VentaFichaPage } from './pages/ventas/ventas/VentaFichaPage'
 import { RepartoFichaPage } from './pages/ventas/repartos/RepartoFichaPage'
+import { GenerarRepartosPage } from './pages/ventas/repartos/GenerarRepartosPage'
 import { GestorPedidosPage } from './pages/ventas/gestores/GestorPedidosPage'
 import { GestorPresupuestosPage } from './pages/ventas/gestores/GestorPresupuestosPage'
 import { NumeroSerieFichaPage } from './pages/ventas/series/NumeroSerieFichaPage'
@@ -221,6 +222,7 @@ function App() {
             <Route path="/caja/aperturas/*" element={<AperturasCierresPage />} />
             {/* El seguimiento va ahora dentro de Control de Repartos (misma ventana). */}
             <Route path="/repartos/seguimiento" element={<Navigate to="/repartos" replace />} />
+            <Route path="/repartos/generar" element={<GenerarRepartosPage />} />
             <Route path="/repartos/*" element={<RepartoFichaPage />} />
             <Route path="/gestor-pedidos" element={<GestorPedidosPage />} />
             <Route path="/gestor-presupuestos" element={<GestorPresupuestosPage />} />
