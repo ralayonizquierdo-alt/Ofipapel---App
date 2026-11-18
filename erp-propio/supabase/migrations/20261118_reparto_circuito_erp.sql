@@ -173,6 +173,10 @@ returns jsonb language sql stable security definer set search_path to 'public', 
          where g.nueva and g.fecha >= current_date - 12 and coalesce(g.gw_estado, 0) not in (4, 5, 6, 8, 10)
            and coalesce(nullif(g.ruta_venta, ''), nullif(g.ruta_cliente, ''), c.ruta_codigo) is not null
         union all
+        select l.venta_tienda_codigo, l.venta_numero, 1, r.fecha            -- no entregadas: ¿ya en otro reparto o cobradas?
+          from reparto_linea l join reparto r on r.tienda_terminal_codigo = l.tienda_terminal_codigo and r.numero = l.numero
+         where l.estado = 'no_entregado' and r.origen = 'geminiswin' and r.fecha >= current_date - 45
+        union all
         select l.venta_tienda_codigo, l.venta_numero, 0, r.fecha
           from reparto_linea l
           join reparto r on r.tienda_terminal_codigo = l.tienda_terminal_codigo and r.numero = l.numero and r.origen = 'geminiswin'
