@@ -271,11 +271,14 @@ export function BarraPuntos({
   r,
   alto,
   horas = false,
+  detalle,
 }: {
   r: Pick<RutaSeg, 'entregados' | 'incidencias' | 'no_entregados' | 'pendientes' | 'pedidos'>
   alto: number
   /** Hora encima de cada punto (TV: pocas rutas y pantalla grande). */
   horas?: boolean
+  /** Texto al pasar el ratón por el punto i (Control de Repartos del ERP: cliente, importe, forma de pago…). */
+  detalle?: (i: number) => string | undefined
 }) {
   const COLOR = { entregado: C.verdeCl, incidencia: C.naranja, no_entregado: C.rojo, pendiente: C.gris } as const
   const puntos: { c: string; h: string | null }[] = r.pedidos
@@ -313,7 +316,9 @@ export function BarraPuntos({
             </span>
           )}
           <span
+            title={detalle?.(i)}
             style={{
+              cursor: detalle ? 'help' : undefined,
               width: d,
               height: d,
               marginBottom: (alto - d) / 2,

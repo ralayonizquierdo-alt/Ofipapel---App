@@ -7,16 +7,78 @@
 //    del ERP (fn_reparto_erp_cerrar: lo sin marcar pasa a «no entregado» y vuelve a la propuesta del día siguiente).
 //    Las rutas de GeminisWin ponen «Se cierra en GeminisWin» (allí no se pueden cerrar: lo impide fn_reparto_gw_guarda).
 //  · «Generar repartos»: abre aquí mismo la propuesta de cada ruta y «Comparar con GeminisWin» (GenerarRepartosPage).
+//  · «▾ Pedidos» (David, 19/11/2026): despliega los pedidos de la ruta como en la vista de oficina de la app, con la
+//    marca de comprobado para revisar y separar albaranes y facturas. Al pasar el ratón por cada puntito sale ese
+//    pedido (fn_reparto_control_lineas, mismo orden que los puntos; fn_reparto_control_comprobar).
 //  · Mapa, PIN de la app de cada repartidor y enlace para la TV.
 // Sin ranking ni totales: eso es solo para la TV (/reparto-tv). Datos: migración 20261103_reparto_app.sql.
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import QRCode from 'qrcode'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
 import { GwWindow } from '../../../components/gw'
 import { BarraPuntos, VistaMapa, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
 import { GenerarRepartosPage } from './GenerarRepartosPage'
+
+interface LineaCtl {
+  vt: string
+  vn: number
+  estado: 'entregado' | 'liquidado' | 'incidencia' | 'no_entregado' | 'pendiente'
+  cliente: string
+  poblacion: string | null
+  factura: string | number | null
+  total: number | null
+  pagado: number | null
+  contado: boolean | null
+  forma_pago: string | null
+  incidencia: string | null
+  motivo: string | null
+  no_cobro: string | null
+  medio: 'efectivo' | 'tarjeta' | null
+  nota: string | null
+  hora: string | null
+  comprobado: boolean
+}
+const eur = (n: number | null) => (n == null ? '' : `${Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
+const docDe = (l: LineaCtl) => (l.factura ? `Factura ${l.factura}` : `Albarán ${l.vt}/${l.vn}`)
+const ESTADO_TXT: Record<LineaCtl['estado'], string> = {
+  entregado: 'Entregado',
+  liquidado: 'Entregado y liquidado',
+  incidencia: 'Entregado con incidencia',
+  no_entregado: 'No entregado',
+  pendiente: 'Por entregar',
+}
+const ESTADO_COLOR: Record<LineaCtl['estado'], string> = {
+  entregado: '#2e7d32',
+  liquidado: '#2e7d32',
+  incidencia: '#a86400',
+  no_entregado: '#c62828',
+  pendiente: '#666',
+}
+/** Cobro: lo cobrado en el reparto (efectivo/tarjeta) o lo que queda por cobrar. */
+const cobro = (l: LineaCtl) => {
+  const total = Number(l.total ?? 0)
+  const pagado = Number(l.pagado ?? 0)
+  if (l.medio) return `Cobrado · ${l.medio === 'tarjeta' ? '💳 tarjeta' : '💶 efectivo'}`
+  if (l.no_cobro) return `Sin cobrar: ${l.no_cobro}`
+  if (total > 0 && pagado >= total) return 'Pagada'
+  if (l.contado && total > 0) return `Cobrar ${eur(total - pagado)}`
+  return ''
+}
+const resumen = (l: LineaCtl) =>
+  [
+    `${l.cliente} · ${eur(l.total)}`,
+    [docDe(l), l.poblacion].filter(Boolean).join(' · '),
+    [l.forma_pago, cobro(l)].filter(Boolean).join(' · '),
+    `${ESTADO_TXT[l.estado]}${l.hora ? ` · ${l.hora}` : ''}`,
+    l.incidencia ? `Incidencia: ${l.incidencia}` : '',
+    l.motivo ? `Motivo: ${l.motivo}` : '',
+    l.nota ? `Nota: ${l.nota}` : '',
+    l.comprobado ? '✓ Comprobado' : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 
 const hace = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
@@ -45,6 +107,8 @@ export function ControlRepartosHoy({
   const [mapa, setMapa] = useState(false)
   const [pines, setPines] = useState(false)
   const [tv, setTv] = useState(false)
+  const [lineas, setLineas] = useState<Record<string, LineaCtl[]>>({})
+  const [desplegada, setDesplegada] = useState<string | null>(null)
   const [params, setParams] = useSearchParams()
   const generar = params.get('generar') === '1'
   const verGenerar = (v: boolean) =>
@@ -63,7 +127,17 @@ export function ControlRepartosHoy({
     if (e) return setError(e.message)
     setError(null)
     setDatos(data as DatosSeg)
+    const l = await supabase.rpc('fn_reparto_control_lineas', {})
+    if (!l.error) setLineas((l.data ?? {}) as Record<string, LineaCtl[]>)
   }, [])
+
+  const comprobar = async (r: RutaSeg, l: LineaCtl) => {
+    const k = `${r.tienda}-${r.numero}`
+    setLineas((m) => ({ ...m, [k]: (m[k] ?? []).map((x) => (x.vt === l.vt && x.vn === l.vn ? { ...x, comprobado: !l.comprobado } : x)) }))
+    const { error: e } = await supabase.rpc('fn_reparto_control_comprobar', { p_tienda: r.tienda, p_numero: r.numero, p_vt: l.vt, p_vn: l.vn, p_ok: !l.comprobado })
+    if (e) setMensaje(e.message)
+    void cargar()
+  }
   useEffect(() => {
     const primera = setTimeout(() => void cargar(), 0)
     const t = setInterval(() => void cargar(), 20_000)
@@ -157,9 +231,12 @@ export function ControlRepartosHoy({
                 {rutas.map((r) => {
                   const esActual = actual?.tienda_terminal_codigo === r.tienda && actual.numero === r.numero
                   const cerrado = r.estado !== 2
+                  const k = `${r.tienda}-${r.numero}`
+                  const ls = lineas[k]
+                  const abierta = desplegada === k
                   return (
+                    <Fragment key={k}>
                     <tr
-                      key={`${r.tienda}-${r.numero}`}
                       onClick={() => !bloqueado && onAbrir(r.tienda, r.numero)}
                       title={bloqueado ? 'Termina de editar el reparto de abajo para abrir otro' : 'Ver aquí debajo los pedidos de esta ruta'}
                       className={`cursor-pointer ${esActual ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]'} ${cerrado ? 'text-[#888]' : ''}`}
@@ -176,7 +253,7 @@ export function ControlRepartosHoy({
                       </td>
                       <td className="border-b border-[var(--gw-border-light)] px-1.5">
                         <div className="flex">
-                          <BarraPuntos r={r} alto={22} horas />
+                          <BarraPuntos r={r} alto={22} horas detalle={ls && ls.length === (r.pedidos?.length ?? -1) ? (i) => (ls[i] ? resumen(ls[i]) : undefined) : undefined} />
                         </div>
                       </td>
                       <td className="w-[170px] border-b border-[var(--gw-border-light)] px-1.5 text-right">
@@ -187,7 +264,18 @@ export function ControlRepartosHoy({
                           {r.no_entregados ? ` · ${r.no_entregados} no` : ''}
                         </div>
                       </td>
-                      <td className="w-[130px] whitespace-nowrap border-b border-[var(--gw-border-light)] px-1.5 text-right">
+                      <td className="w-[230px] whitespace-nowrap border-b border-[var(--gw-border-light)] px-1.5 text-right">
+                        <button
+                          type="button"
+                          className={`gw-btn mr-1 h-[24px] whitespace-nowrap ${abierta ? 'bg-[#91c9f7] font-bold' : ''}`}
+                          title="Ver aquí los pedidos de la ruta, como en la vista de oficina, para revisarlos y separarlos"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDesplegada(abierta ? null : k)
+                          }}
+                        >
+                          {abierta ? '▴' : '▾'} Pedidos{ls ? ` (${ls.filter((x) => x.comprobado).length}/${ls.length} ✓)` : ''}
+                        </button>
                         {!cerrado && !r.generado_erp && (
                           <span className="text-[11px] text-[#666]" title="Esta ruta se lleva en GeminisWin: el reparto se cierra allí y aquí se actualiza solo">
                             Se cierra en GeminisWin
@@ -207,6 +295,14 @@ export function ControlRepartosHoy({
                         )}
                       </td>
                     </tr>
+                    {abierta && (
+                      <tr>
+                        <td colSpan={4} className="border-b border-[var(--gw-border)] bg-[#f6f8f6] p-1.5">
+                          <ListaPedidos lineas={ls} onComprobar={(l) => void comprobar(r, l)} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   )
                 })}
               </tbody>
@@ -237,6 +333,43 @@ export function ControlRepartosHoy({
         </div>
       )}
       {tv && <DialogoTv onCerrar={() => setTv(false)} />}
+    </div>
+  )
+}
+
+function ListaPedidos({ lineas, onComprobar }: { lineas: LineaCtl[] | undefined; onComprobar: (l: LineaCtl) => void }) {
+  if (!lineas) return <div>Cargando…</div>
+  if (!lineas.length) return <div>Este reparto no tiene pedidos.</div>
+  return (
+    <div className="flex flex-col gap-1">
+      {lineas.map((l) => (
+        <div
+          key={`${l.vt}/${l.vn}`}
+          className="flex items-start gap-2 border border-[var(--gw-border-light)] bg-white px-2 py-1"
+          style={{ borderLeft: `4px solid ${ESTADO_COLOR[l.estado]}` }}
+        >
+          <label className="flex cursor-pointer items-center gap-1 pt-0.5 text-[11px] text-[#555]" title="Marcar como comprobado (revisado y separado), igual que en la app">
+            <input type="checkbox" checked={l.comprobado} onChange={() => onComprobar(l)} />
+          </label>
+          <div className="min-w-0 flex-1">
+            <div className="flex justify-between gap-2">
+              <b className="truncate">{l.cliente}</b>
+              <b className="whitespace-nowrap">{eur(l.total)}</b>
+            </div>
+            <div className="text-[12px] text-[#444]">
+              {[l.forma_pago, cobro(l)].filter(Boolean).join(' · ')}
+            </div>
+            <div className="text-[12px] text-[#555]">{[docDe(l), l.poblacion].filter(Boolean).join(' · ')}</div>
+            <div className="text-[12px] font-bold" style={{ color: ESTADO_COLOR[l.estado] }}>
+              {ESTADO_TXT[l.estado]}
+              {l.hora ? ` · ${l.hora}` : ''}
+              {l.incidencia ? ` · ${l.incidencia}` : ''}
+              {l.motivo ? ` · ${l.motivo}` : ''}
+            </div>
+            {l.nota && <div className="text-[12px] italic text-[#555]">Nota: {l.nota}</div>}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
