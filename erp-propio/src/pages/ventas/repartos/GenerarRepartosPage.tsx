@@ -1,4 +1,5 @@
-// Ventas → Generar repartos (Rober, 18/11/2026). Generar y cerrar los repartos en el ERP con las ventas de GeminisWin,
+// Generar repartos (Rober, 18/11/2026). Desde el 19/11/2026 se abre DENTRO de Control de Repartos (botón «Generar
+// repartos» de arriba, ControlRepartosHoy.tsx): todo en el mismo sitio. La ruta antigua /repartos/generar lleva allí. Generar y cerrar los repartos en el ERP con las ventas de GeminisWin,
 // ruta a ruta, en lugar de hacerlo en GeminisWin (migración 20261118_reparto_circuito_erp.sql).
 //  · Por cada ruta, la propuesta: ventas de clientes de esa ruta que no han ido en ningún reparto y las que no se
 //    entregaron en el anterior («viene del anterior», siempre marcadas). Las de otras tiendas salen sin marcar.
@@ -68,7 +69,7 @@ const hace = (iso: string | null) => {
 const clave = (vt: string, vn: number) => `${vt}/${vn}`
 const doc = (p: Propuesta) => (p.factura ? `Fra. ${p.factura}` : `Alb. ${p.vt}/${p.vn}`)
 
-export function GenerarRepartosPage() {
+export function GenerarRepartosPage({ enControl = false }: { enControl?: boolean }) {
   const [tab, setTab] = useState('generar')
   return (
     <div className="p-2">
@@ -82,13 +83,13 @@ export function GenerarRepartosPage() {
         active={tab}
         onChange={setTab}
       >
-        <div className="p-2">{tab === 'generar' ? <Generar /> : <Operativa />}</div>
+        <div className="p-2">{tab === 'generar' ? <Generar enControl={enControl} /> : <Operativa />}</div>
       </GwTabs>
     </div>
   )
 }
 
-function Generar() {
+function Generar({ enControl }: { enControl: boolean }) {
   const navigate = useNavigate()
   const [fecha, setFecha] = useState<string | null>(null)
   const [panel, setPanel] = useState<Panel | null>(null)
@@ -143,9 +144,11 @@ function Generar() {
         <button type="button" className="gw-btn ml-auto" onClick={() => void cargar(fecha)} disabled={cargando}>
           {cargando ? 'Mirando…' : 'Actualizar'}
         </button>
-        <button type="button" className="gw-btn" onClick={() => navigate('/repartos')}>
-          Control de Repartos
-        </button>
+        {!enControl && (
+          <button type="button" className="gw-btn" onClick={() => navigate('/repartos')}>
+            Control de Repartos
+          </button>
+        )}
       </div>
 
       {!panel.puente_ventas && (
@@ -399,6 +402,7 @@ function Operativa() {
           titulo: 'Para qué sirve',
           notas: [
             'Para generar y cerrar los repartos en el ERP en lugar de en GeminisWin. Las ventas, las facturas y los cobros siguen en GeminisWin: de allí se leen solas cada 5 minutos.',
+            'Se abre desde Ventas → Control de Repartos, con el botón «Generar repartos» de arriba. Allí mismo, en cada ruta, se cierra el reparto del día.',
             'Se hace ruta a ruta. Las rutas «En GeminisWin» se siguen generando allí como siempre; aquí solo se comparan.',
           ],
         },
@@ -413,7 +417,8 @@ function Operativa() {
           ],
           notas: [
             'Al generar se cierra solo el reparto anterior de esa ruta: lo que no se marcó en la app pasa a «no entregado» y vuelve a salir en la propuesta.',
-            '«Cerrar reparto» lo cierra sin generar el siguiente (por ejemplo, el último día antes de fiestas).',
+            '«Cerrar reparto» (aquí o en la fila de la ruta en Control de Repartos) lo cierra sin generar el siguiente (por ejemplo, el último día antes de fiestas).',
+            'Las rutas que siguen en GeminisWin se cierran en GeminisWin: en Control de Repartos ponen «Se cierra en GeminisWin».',
             'La ruta de cada venta es la de la venta si se puso al hacerla; si no, la de la sucursal del cliente o la de su ficha. Si una venta sale en una ruta que no es, corrige la ruta en la ficha del cliente en GeminisWin.',
           ],
         },

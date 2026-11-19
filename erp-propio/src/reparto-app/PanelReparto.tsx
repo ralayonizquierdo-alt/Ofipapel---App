@@ -13,6 +13,8 @@ export interface RutaSeg {
   estado: number
   ruta: string | null
   ruta_nombre: string | null
+  /** El reparto se generó en el ERP (se cierra en el ERP); si no, viene de GeminisWin y se cierra allí. */
+  generado_erp?: boolean
   repartidor: string | null
   repartidor_nombre: string | null
   total: number

@@ -3,15 +3,20 @@
 //  · Una fila por ruta abierta hoy, en vivo (cada 20 s) con lo que marca el repartidor en la app (/repartidor):
 //    un punto por pedido en su color, cuántos quedan y cuándo se le vio por última vez.
 //  · Pulsando una ruta se abre debajo su reparto con todos los pedidos y su estado al momento.
-//  · «Cerrar reparto»: lo no entregado o con incidencia pasa al reparto siguiente (fn_reparto_cerrar).
+//  · Cierre (19/11/2026, «todo en Control de Repartos»): en las rutas pasadas al ERP, «Cerrar reparto» usa el cierre
+//    del ERP (fn_reparto_erp_cerrar: lo sin marcar pasa a «no entregado» y vuelve a la propuesta del día siguiente).
+//    Las rutas de GeminisWin ponen «Se cierra en GeminisWin» (allí no se pueden cerrar: lo impide fn_reparto_gw_guarda).
+//  · «Generar repartos»: abre aquí mismo la propuesta de cada ruta y «Comparar con GeminisWin» (GenerarRepartosPage).
 //  · Mapa, PIN de la app de cada repartidor y enlace para la TV.
 // Sin ranking ni totales: eso es solo para la TV (/reparto-tv). Datos: migración 20261103_reparto_app.sql.
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import QRCode from 'qrcode'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
 import { GwWindow } from '../../../components/gw'
 import { BarraPuntos, VistaMapa, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
+import { GenerarRepartosPage } from './GenerarRepartosPage'
 
 const hace = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
@@ -40,6 +45,18 @@ export function ControlRepartosHoy({
   const [mapa, setMapa] = useState(false)
   const [pines, setPines] = useState(false)
   const [tv, setTv] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const generar = params.get('generar') === '1'
+  const verGenerar = (v: boolean) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p)
+        if (v) n.set('generar', '1')
+        else n.delete('generar')
+        return n
+      },
+      { replace: true },
+    )
 
   const cargar = useCallback(async () => {
     const { data, error: e } = await supabase.rpc('fn_reparto_seguimiento', {})
@@ -67,13 +84,13 @@ export function ControlRepartosHoy({
 
   const cerrar = async (r: RutaSeg) => {
     const texto = r.pendientes
-      ? `Quedan ${r.pendientes} pedido(s) sin marcar en ${r.ruta_nombre}. Si cierras, pasan al reparto del día siguiente como no entregados. ¿Cerrar?`
-      : `¿Cerrar el reparto de ${r.ruta_nombre}? Lo no entregado o con incidencia pasa al reparto siguiente.`
+      ? `Quedan ${r.pendientes} pedido(s) sin marcar en ${r.ruta_nombre}. Si cierras, pasan a «no entregado» y vuelven a salir en la propuesta del día siguiente. ¿Cerrar?`
+      : `¿Cerrar el reparto de ${r.ruta_nombre}? Lo no entregado vuelve a salir en la propuesta del día siguiente.`
     if (!confirm(texto)) return
-    const { data, error: e } = await supabase.rpc('fn_reparto_cerrar', { p_tienda: r.tienda, p_numero: r.numero })
+    const { data, error: e } = await supabase.rpc('fn_reparto_erp_cerrar', { p_tienda: r.tienda, p_numero: r.numero })
     if (e) return setMensaje(e.message)
-    const x = data as { entregados: number; pasan: number; siguiente: string | null }
-    setMensaje(`Reparto de ${r.ruta_nombre} cerrado: ${x.entregados} entregados${x.pasan ? `, ${x.pasan} pasan al reparto ${x.siguiente}` : ''}.`)
+    const x = data as { sin_marcar: number }
+    setMensaje(`Reparto de ${r.ruta_nombre} cerrado${x.sin_marcar ? `: ${x.sin_marcar} sin marcar pasan a «no entregado» y vuelven a la propuesta` : ''}.`)
     void cargar()
   }
 
@@ -90,6 +107,14 @@ export function ControlRepartosHoy({
           {rutas.length} ruta(s) · <b>{quedan}</b> pedido(s) por entregar
         </span>
         <span className="flex-1" />
+        <button
+          type="button"
+          className={`gw-btn h-[24px] font-bold ${generar ? 'bg-[#91c9f7]' : ''}`}
+          title="Propuesta de reparto de cada ruta: generar y cerrar las del ERP y comparar las de GeminisWin"
+          onClick={() => verGenerar(!generar)}
+        >
+          ➕ Generar repartos
+        </button>
         <button type="button" className={`gw-btn h-[24px] ${mapa ? 'bg-[#91c9f7] font-bold' : ''}`} onClick={() => (setMapa(!mapa), plegar(false))}>
           🗺 Mapa
         </button>
@@ -163,7 +188,12 @@ export function ControlRepartosHoy({
                         </div>
                       </td>
                       <td className="w-[130px] whitespace-nowrap border-b border-[var(--gw-border-light)] px-1.5 text-right">
-                        {!cerrado && (
+                        {!cerrado && !r.generado_erp && (
+                          <span className="text-[11px] text-[#666]" title="Esta ruta se lleva en GeminisWin: el reparto se cierra allí y aquí se actualiza solo">
+                            Se cierra en GeminisWin
+                          </span>
+                        )}
+                        {!cerrado && r.generado_erp && (
                           <button
                             type="button"
                             className="gw-btn h-[24px] whitespace-nowrap font-bold"
@@ -192,6 +222,20 @@ export function ControlRepartosHoy({
         </div>
       )}
       {pines && <DialogoPines onCerrar={() => setPines(false)} />}
+      {generar && (
+        <div className="fixed inset-0 z-[300] flex items-start justify-center overflow-auto bg-black/25 py-6" onKeyDown={(e) => e.key === 'Escape' && verGenerar(false)}>
+          <GwWindow
+            title="Generar repartos"
+            onClose={() => {
+              verGenerar(false)
+              void cargar()
+            }}
+            className="w-[1180px] max-w-[97vw]"
+          >
+            <GenerarRepartosPage enControl />
+          </GwWindow>
+        </div>
+      )}
       {tv && <DialogoTv onCerrar={() => setTv(false)} />}
     </div>
   )
