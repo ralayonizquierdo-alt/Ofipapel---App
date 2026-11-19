@@ -261,9 +261,16 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
               Devolver a GeminisWin
             </button>
           ) : (
-            <button type="button" className="gw-btn" disabled={ocupado} onClick={() => void pasar(true)}>
-              Pasar al ERP
-            </button>
+            <>
+              {r.gw && (
+                <button type="button" className="gw-btn font-bold" onClick={() => (setAbierta(true), setComparar(true))}>
+                  Comparar con GeminisWin
+                </button>
+              )}
+              <button type="button" className="gw-btn" disabled={ocupado} onClick={() => void pasar(true)}>
+                Pasar al ERP
+              </button>
+            </>
           )}
         </span>
       </div>
@@ -414,7 +421,7 @@ function Operativa() {
           titulo: 'Probar una ruta antes de pasarla al ERP',
           pasos: [
             'Genera el reparto de esa ruta en GeminisWin como siempre.',
-            'Aquí, abre la ruta y pulsa «Comparar con GeminisWin»: dice cuántas ventas están en los dos, cuáles solo en el ERP y cuáles solo en GeminisWin.',
+            'Aquí, pulsa «Comparar con GeminisWin» en la fila de la ruta (sale cuando ya ha llegado su reparto de GeminisWin): dice cuántas ventas están en los dos, cuáles solo en el ERP y cuáles solo en GeminisWin. No genera nada.',
             'Cuando cuadre varios días seguidos, pulsa «Pasar al ERP». Desde entonces esa ruta NO se genera en GeminisWin.',
           ],
           notas: [
