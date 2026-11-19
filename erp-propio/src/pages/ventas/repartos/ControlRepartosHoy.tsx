@@ -351,6 +351,7 @@ export function ControlRepartosHoy({
             <Leyenda color="#F5A623">Con incidencia</Leyenda>
             <Leyenda color="#C62828">No entregado</Leyenda>
             <Leyenda color="#b9c4b9">Por entregar</Leyenda>
+            <Leyenda color="#1E6FD9">Contado por cobrar</Leyenda>
             <span>· Se actualiza solo cada 20 s.</span>
           </div>
         </div>
@@ -395,7 +396,7 @@ function ListaPedidos({
         <div
           key={`${l.vt}/${l.vn}`}
           className="flex items-start gap-2 border border-[var(--gw-border-light)] bg-white px-2 py-1"
-          style={{ borderLeft: `4px solid ${ESTADO_COLOR[l.estado]}` }}
+          style={{ borderLeft: `4px solid ${l.estado === 'pendiente' && l.contado && Number(l.total ?? 0) > Number(l.pagado ?? 0) ? '#1E6FD9' : ESTADO_COLOR[l.estado]}` }}
         >
           <label className="flex cursor-pointer items-center gap-1 pt-0.5 text-[11px] text-[#555]" title="Marcar como comprobado (revisado y separado), igual que en la app">
             <input type="checkbox" checked={l.comprobado} onChange={() => onComprobar(l)} />

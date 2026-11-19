@@ -27,7 +27,7 @@ export interface RutaSeg {
   /** Dónde estaba el repartidor al marcar cada pedido, con el cliente y la hora. */
   puntos: { lat: number; lng: number; estado: string; cliente?: string | null; hora?: string | null }[]
   /** Un elemento por pedido (marcados por hora y luego los que quedan): estado y hora de entrega o del intento. */
-  pedidos?: { e: 'entregado' | 'incidencia' | 'no_entregado' | 'pendiente'; h: string | null }[]
+  pedidos?: { e: 'entregado' | 'incidencia' | 'no_entregado' | 'pendiente'; h: string | null; /** Contado con importe por cobrar (azul mientras está por entregar). */ c?: boolean }[]
 }
 export interface DatosSeg {
   fecha: string
@@ -36,7 +36,7 @@ export interface DatosSeg {
   totales: { semana: number; mes: number; anio: number }
 }
 
-export const C = { verde: '#1A5C1A', verdeMed: '#237523', verdeCl: '#3DAF3D', lima: '#8DC41E', naranja: '#F5A623', rojo: '#C62828', gris: '#b9c4b9' }
+export const C = { verde: '#1A5C1A', verdeMed: '#237523', verdeCl: '#3DAF3D', lima: '#8DC41E', naranja: '#F5A623', rojo: '#C62828', gris: '#b9c4b9', azul: '#1E6FD9' }
 // Rótulos del mapa: nombre corto y, para los municipios pequeños del norte, dónde va el nombre (en el mar).
 const ROTULOS: Record<string, { corto?: string; en?: [number, number] }> = {
   'San Cristóbal de La Laguna': { corto: 'La Laguna' },
@@ -259,6 +259,7 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
         <Leyenda color={C.naranja}>Con incidencia</Leyenda>
         <Leyenda color={C.rojo}>No entregado</Leyenda>
         <Leyenda color={C.gris}>Por entregar</Leyenda>
+        <Leyenda color={C.azul}>Contado por cobrar</Leyenda>
       </div>
     </div>
   )
@@ -282,7 +283,7 @@ export function BarraPuntos({
 }) {
   const COLOR = { entregado: C.verdeCl, incidencia: C.naranja, no_entregado: C.rojo, pendiente: C.gris } as const
   const puntos: { c: string; h: string | null }[] = r.pedidos
-    ? r.pedidos.map((p) => ({ c: COLOR[p.e] ?? C.gris, h: p.h }))
+    ? r.pedidos.map((p) => ({ c: p.e === 'pendiente' && p.c ? C.azul : (COLOR[p.e] ?? C.gris), h: p.h }))
     : [
         ...Array<string>(r.entregados).fill(C.verdeCl),
         ...Array<string>(r.incidencias).fill(C.naranja),
