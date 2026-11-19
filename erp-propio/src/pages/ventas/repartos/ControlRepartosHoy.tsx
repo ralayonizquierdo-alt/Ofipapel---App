@@ -2,7 +2,8 @@
 // (antes era una pantalla aparte, «Seguimiento de Repartos»). Con el estilo del ERP.
 //  · Una fila por ruta abierta hoy, en vivo (cada 20 s) con lo que marca el repartidor en la app (/repartidor):
 //    un punto por pedido en su color, cuántos quedan y cuándo se le vio por última vez.
-//  · Pulsando una ruta se abre debajo su reparto con todos los pedidos y su estado al momento.
+//  · Pulsando el nombre de una ruta se abre debajo la ficha de su reparto; pulsando su barra de puntos, la lista de
+//    pedidos como en la app (lo mismo que «▾ Pedidos»).
 //  · Cierre (19/11/2026, «todo en Control de Repartos»): en las rutas pasadas al ERP, «Cerrar reparto» usa el cierre
 //    del ERP (fn_reparto_erp_cerrar: lo sin marcar pasa a «no entregado» y vuelve a la propuesta del día siguiente).
 //    Las rutas de GeminisWin ponen «Se cierra en GeminisWin» (allí no se pueden cerrar: lo impide fn_reparto_gw_guarda).
@@ -82,6 +83,9 @@ const resumen = (l: LineaCtl) =>
     .filter(Boolean)
     .join('\n')
 
+// La ruta desplegada sobrevive a que la ficha de abajo recargue la pantalla (al abrir otro reparto se vuelve a montar).
+let ultimaDesplegada: string | null = null
+
 const hace = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
   return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h`
@@ -110,7 +114,11 @@ export function ControlRepartosHoy({
   const [pines, setPines] = useState(false)
   const [tv, setTv] = useState(false)
   const [lineas, setLineas] = useState<Record<string, LineaCtl[]>>({})
-  const [desplegada, setDesplegada] = useState<string | null>(null)
+  const [desplegada, setDesplegadaEstado] = useState<string | null>(() => ultimaDesplegada)
+  const setDesplegada = (k: string | null) => {
+    ultimaDesplegada = k
+    setDesplegadaEstado(k)
+  }
   const [params, setParams] = useSearchParams()
   const generar = params.get('generar') === '1'
   const verGenerar = (v: boolean) =>
@@ -256,7 +264,7 @@ export function ControlRepartosHoy({
                     <Fragment key={k}>
                     <tr
                       onClick={() => !bloqueado && onAbrir(r.tienda, r.numero)}
-                      title={bloqueado ? 'Termina de editar el reparto de abajo para abrir otro' : 'Ver aquí debajo los pedidos de esta ruta'}
+                      title={bloqueado ? 'Termina de editar el reparto de abajo para abrir otro' : 'Abrir aquí debajo la ficha de este reparto'}
                       className={`cursor-pointer ${esActual ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]'} ${cerrado ? 'text-[#888]' : ''}`}
                     >
                       <td className="w-[230px] border-b border-[var(--gw-border-light)] px-1.5 py-1">
@@ -269,7 +277,14 @@ export function ControlRepartosHoy({
                           {r.posicion && ` · 📍 ${hace(r.posicion.en)}`}
                         </div>
                       </td>
-                      <td className="border-b border-[var(--gw-border-light)] px-1.5">
+                      <td
+                        className="cursor-pointer border-b border-[var(--gw-border-light)] px-1.5"
+                        title="Pincha para ver o esconder los pedidos de esta ruta (como en la app)"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDesplegada(abierta ? null : k)
+                        }}
+                      >
                         <div className="flex">
                           <BarraPuntos r={r} alto={22} horas detalle={ls && ls.length === (r.pedidos?.length ?? -1) ? (i) => (ls[i] ? resumen(ls[i]) : undefined) : undefined} />
                         </div>
