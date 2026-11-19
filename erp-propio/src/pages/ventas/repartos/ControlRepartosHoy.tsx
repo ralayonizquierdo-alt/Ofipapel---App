@@ -10,6 +10,8 @@
 //  · «▾ Pedidos» (David, 19/11/2026): despliega los pedidos de la ruta como en la vista de oficina de la app, con la
 //    marca de comprobado para revisar y separar albaranes y facturas. Al pasar el ratón por cada puntito sale ese
 //    pedido (fn_reparto_control_lineas, mismo orden que los puntos; fn_reparto_control_comprobar).
+//    «⇄ Cambiar de ruta» en cada pedido sin entregar: lo pasa a otro reparto abierto, con motivo (fn_reparto_cambiar_ruta,
+//    queda anotado en reparto_cambio_ruta).
 //  · Mapa, PIN de la app de cada repartidor y enlace para la TV.
 // Sin ranking ni totales: eso es solo para la TV (/reparto-tv). Datos: migración 20261103_reparto_app.sql.
 
@@ -137,6 +139,22 @@ export function ControlRepartosHoy({
     const { error: e } = await supabase.rpc('fn_reparto_control_comprobar', { p_tienda: r.tienda, p_numero: r.numero, p_vt: l.vt, p_vn: l.vn, p_ok: !l.comprobado })
     if (e) setMensaje(e.message)
     void cargar()
+  }
+
+  const cambiarRuta = async (r: RutaSeg, l: LineaCtl, dest: RutaSeg, motivo: string) => {
+    const { error: e } = await supabase.rpc('fn_reparto_cambiar_ruta', {
+      p_tienda: r.tienda,
+      p_numero: r.numero,
+      p_vt: l.vt,
+      p_vn: l.vn,
+      p_dest_tienda: dest.tienda,
+      p_dest_numero: dest.numero,
+      p_motivo: motivo,
+    })
+    if (e) return e.message
+    setMensaje(`${l.cliente} (${docDe(l)}) pasa de ${r.ruta_nombre} a ${dest.ruta_nombre}.`)
+    void cargar()
+    return null
   }
   useEffect(() => {
     const primera = setTimeout(() => void cargar(), 0)
@@ -298,7 +316,12 @@ export function ControlRepartosHoy({
                     {abierta && (
                       <tr>
                         <td colSpan={4} className="border-b border-[var(--gw-border)] bg-[#f6f8f6] p-1.5">
-                          <ListaPedidos lineas={ls} onComprobar={(l) => void comprobar(r, l)} />
+                          <ListaPedidos
+                            lineas={ls}
+                            onComprobar={(l) => void comprobar(r, l)}
+                            destinos={cerrado ? [] : rutas.filter((x) => x.estado === 2 && !(x.tienda === r.tienda && x.numero === r.numero))}
+                            onCambiarRuta={(l, d, m) => cambiarRuta(r, l, d, m)}
+                          />
                         </td>
                       </tr>
                     )}
@@ -337,7 +360,18 @@ export function ControlRepartosHoy({
   )
 }
 
-function ListaPedidos({ lineas, onComprobar }: { lineas: LineaCtl[] | undefined; onComprobar: (l: LineaCtl) => void }) {
+function ListaPedidos({
+  lineas,
+  onComprobar,
+  destinos,
+  onCambiarRuta,
+}: {
+  lineas: LineaCtl[] | undefined
+  onComprobar: (l: LineaCtl) => void
+  destinos: RutaSeg[]
+  onCambiarRuta: (l: LineaCtl, destino: RutaSeg, motivo: string) => Promise<string | null>
+}) {
+  const [cambiando, setCambiando] = useState<string | null>(null)
   if (!lineas) return <div>Cargando…</div>
   if (!lineas.length) return <div>Este reparto no tiene pedidos.</div>
   return (
@@ -354,7 +388,19 @@ function ListaPedidos({ lineas, onComprobar }: { lineas: LineaCtl[] | undefined;
           <div className="min-w-0 flex-1">
             <div className="flex justify-between gap-2">
               <b className="truncate">{l.cliente}</b>
-              <b className="whitespace-nowrap">{eur(l.total)}</b>
+              <span className="flex items-center gap-2">
+                {(l.estado === 'pendiente' || l.estado === 'no_entregado') && destinos.length > 0 && (
+                  <button
+                    type="button"
+                    className={`gw-btn h-[22px] whitespace-nowrap ${cambiando === `${l.vt}/${l.vn}` ? 'bg-[#91c9f7]' : ''}`}
+                    title="Pasar este pedido a otra ruta"
+                    onClick={() => setCambiando(cambiando === `${l.vt}/${l.vn}` ? null : `${l.vt}/${l.vn}`)}
+                  >
+                    ⇄ Cambiar de ruta
+                  </button>
+                )}
+                <b className="whitespace-nowrap">{eur(l.total)}</b>
+              </span>
             </div>
             <div className="text-[12px] text-[#444]">
               {[l.forma_pago, cobro(l)].filter(Boolean).join(' · ')}
@@ -367,9 +413,55 @@ function ListaPedidos({ lineas, onComprobar }: { lineas: LineaCtl[] | undefined;
               {l.motivo ? ` · ${l.motivo}` : ''}
             </div>
             {l.nota && <div className="text-[12px] italic text-[#555]">Nota: {l.nota}</div>}
+            {cambiando === `${l.vt}/${l.vn}` && (
+              <CambioRuta destinos={destinos} onCancelar={() => setCambiando(null)} onHacer={async (d, m) => {
+                const err = await onCambiarRuta(l, d, m)
+                if (!err) setCambiando(null)
+                return err
+              }} />
+            )}
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function CambioRuta({ destinos, onCancelar, onHacer }: { destinos: RutaSeg[]; onCancelar: () => void; onHacer: (d: RutaSeg, motivo: string) => Promise<string | null> }) {
+  const [dest, setDest] = useState('')
+  const [motivo, setMotivo] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+  const d = destinos.find((x) => `${x.tienda}-${x.numero}` === dest)
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5 border-t border-[var(--gw-border-light)] pt-1 text-[12px]">
+      <b>Pasar a:</b>
+      <select className="gw-input" value={dest} onChange={(e) => setDest(e.target.value)}>
+        <option value="">Elige ruta…</option>
+        {destinos.map((x) => (
+          <option key={`${x.tienda}-${x.numero}`} value={`${x.tienda}-${x.numero}`}>
+            {x.ruta_nombre ?? x.ruta} · {x.repartidor_nombre ?? 'sin repartidor'} · nº {x.numero}
+          </option>
+        ))}
+      </select>
+      <input className="gw-input w-[220px]" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Motivo (obligatorio)" maxLength={500} />
+      <button
+        type="button"
+        className="gw-btn font-bold"
+        disabled={!d || !motivo.trim() || ocupado}
+        onClick={async () => {
+          if (!d) return
+          setOcupado(true)
+          setError(await onHacer(d, motivo.trim()))
+          setOcupado(false)
+        }}
+      >
+        Pasar
+      </button>
+      <button type="button" className="gw-btn" onClick={onCancelar}>
+        Cancelar
+      </button>
+      {error && <span className="font-bold text-[#c42b1c]">{error}</span>}
     </div>
   )
 }
