@@ -122,6 +122,7 @@ export function ControlRepartosHoy({
   const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
   const [verCobros, setVerCobros] = useState(false)
   const [desplegada, setDesplegadaEstado] = useState<string | null>(() => ultimaDesplegada)
+  const [resaltado, setResaltado] = useState<string | null>(null)
   const setDesplegada = (k: string | null) => {
     ultimaDesplegada = k
     setDesplegadaEstado(k)
@@ -283,7 +284,7 @@ export function ControlRepartosHoy({
           {!datos && !error && <div>Cargando…</div>}
           {datos && !rutas.length && <div>No hay repartos hoy.</div>}
           {!!rutas.length && (
-            <table className="w-full border-collapse bg-white">
+            <table className="w-full table-fixed border-collapse bg-white">
               <tbody>
                 {rutas.map((r) => {
                   const esActual = actual?.tienda_terminal_codigo === r.tienda && actual.numero === r.numero
@@ -314,10 +315,22 @@ export function ControlRepartosHoy({
                         onClick={(e) => {
                           e.stopPropagation()
                           setDesplegada(abierta ? null : k)
+                          setResaltado(null)
                         }}
                       >
-                        <div className="flex">
-                          <BarraPuntos r={r} alto={22} horas detalle={ls && ls.length === (r.pedidos?.length ?? -1) ? (i) => (ls[i] ? resumen(ls[i]) : undefined) : undefined} />
+                        <div className="flex overflow-hidden">
+                          {/* Horas encima solo si caben: con muchos pedidos la barra se salía de la pantalla. */}
+                          <BarraPuntos
+                            r={r}
+                            alto={22}
+                            horas={(r.pedidos?.length ?? 0) <= 16}
+                            detalle={ls && ls.length === (r.pedidos?.length ?? -1) ? (i) => (ls[i] ? resumen(ls[i]) : undefined) : undefined}
+                            onPunto={(i) => {
+                              setDesplegada(k)
+                              const l = ls && ls.length === (r.pedidos?.length ?? -1) ? ls[i] : undefined
+                              setResaltado(l ? `${l.vt}/${l.vn}` : null)
+                            }}
+                          />
                         </div>
                       </td>
                       <td className="w-[170px] border-b border-[var(--gw-border-light)] px-1.5 text-right">
@@ -328,7 +341,7 @@ export function ControlRepartosHoy({
                           {r.no_entregados ? ` · ${r.no_entregados} no` : ''}
                         </div>
                       </td>
-                      <td className="w-[230px] whitespace-nowrap border-b border-[var(--gw-border-light)] px-1.5 text-right">
+                      <td className="w-[275px] whitespace-nowrap border-b border-[var(--gw-border-light)] px-1.5 text-right">
                         <button
                           type="button"
                           className={`gw-btn mr-1 h-[24px] whitespace-nowrap ${abierta ? 'bg-[#91c9f7] font-bold' : ''}`}
@@ -364,6 +377,7 @@ export function ControlRepartosHoy({
                         <td colSpan={4} className="border-b border-[var(--gw-border)] bg-[#f6f8f6] p-1.5">
                           <ListaPedidos
                             lineas={ls}
+                            resaltado={resaltado}
                             onComprobar={(l) => void comprobar(r, l)}
                             destinos={cerrado ? [] : rutas.filter((x) => x.estado === 2 && !(x.tienda === r.tienda && x.numero === r.numero))}
                             onCambiarRuta={(l, d, m) => cambiarRuta(r, l, d, m)}
@@ -409,16 +423,23 @@ export function ControlRepartosHoy({
 
 function ListaPedidos({
   lineas,
+  resaltado,
   onComprobar,
   destinos,
   onCambiarRuta,
 }: {
   lineas: LineaCtl[] | undefined
+  resaltado: string | null
   onComprobar: (l: LineaCtl) => void
   destinos: RutaSeg[]
   onCambiarRuta: (l: LineaCtl, destino: RutaSeg, motivo: string) => Promise<string | null>
 }) {
   const [cambiando, setCambiando] = useState<string | null>(null)
+  // Al pinchar un punto de la barra, la lista baja hasta ese pedido.
+  useEffect(() => {
+    if (!resaltado) return
+    document.getElementById(`ctl-ped-${resaltado}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [resaltado])
   if (!lineas) return <div>Cargando…</div>
   if (!lineas.length) return <div>Este reparto no tiene pedidos.</div>
   return (
@@ -426,7 +447,8 @@ function ListaPedidos({
       {lineas.map((l) => (
         <div
           key={`${l.vt}/${l.vn}`}
-          className="flex items-start gap-2 border border-[var(--gw-border-light)] bg-white px-2 py-1"
+          id={`ctl-ped-${l.vt}/${l.vn}`}
+          className={`flex items-start gap-2 border border-[var(--gw-border-light)] px-2 py-1 ${resaltado === `${l.vt}/${l.vn}` ? 'bg-[#fff6c2]' : 'bg-white'}`}
           style={{ borderLeft: `4px solid ${l.estado === 'pendiente' && l.contado && Number(l.total ?? 0) > Number(l.pagado ?? 0) ? '#1E6FD9' : ESTADO_COLOR[l.estado]}` }}
         >
           <label className="flex cursor-pointer items-center gap-1 pt-0.5 text-[11px] text-[#555]" title="Marcar como comprobado (revisado y separado), igual que en la app">
