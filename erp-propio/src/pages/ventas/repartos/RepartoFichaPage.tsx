@@ -187,6 +187,18 @@ async function cargarLineas(tienda: string, numero: number): Promise<Linea[]> {
     .select('tienda_terminal_codigo, numero, fecha, total, total_pagado, cliente_codigo, nombre_cliente, factura_tienda_codigo, factura_numero')
     .in('numero', numeros)
   const vs = (ventas ?? []) as Record<string, unknown>[]
+  // Repartos de GeminisWin (19/11/2026): sus ventas no están en «venta» del ERP, sino en reparto_gw_venta (las manda
+  // el puente). Sin esto la rejilla salía vacía: solo con el estado.
+  const tienenVenta = new Set(vs.map((v) => `${v.tienda_terminal_codigo}-${v.numero}`))
+  const faltan = filas.filter((f) => !tienenVenta.has(`${f.venta_tienda_codigo}-${f.venta_numero}`))
+  const gwmap = new Map<string, Record<string, unknown>>()
+  if (faltan.length) {
+    const { data: gs } = await supabase
+      .from('reparto_gw_venta')
+      .select('venta_tienda_codigo, venta_numero, fecha, total, total_pagado, cliente_codigo, nombre_cliente, factura_numero')
+      .in('venta_numero', [...new Set(faltan.map((f) => Number(f.venta_numero)))])
+    for (const g of (gs ?? []) as Record<string, unknown>[]) gwmap.set(`${g.venta_tienda_codigo}-${g.venta_numero}`, g)
+  }
   const facturas = vs.filter((v) => v.factura_numero != null)
   const fmap = new Map<string, string>()
   if (facturas.length) {
@@ -199,13 +211,14 @@ async function cargarLineas(tienda: string, numero: number): Promise<Linea[]> {
   }
   const vmap = new Map(vs.map((v) => [`${v.tienda_terminal_codigo}-${v.numero}`, v]))
   let clientes = new Map<string, string>()
-  const sinNombre = vs.filter((v) => !v.nombre_cliente && v.cliente_codigo).map((v) => String(v.cliente_codigo))
+  const sinNombre = [...vs, ...gwmap.values()].filter((v) => !v.nombre_cliente && v.cliente_codigo).map((v) => String(v.cliente_codigo))
   if (sinNombre.length) {
     const { data: cs } = await supabase.from('cliente').select('codigo, nombre').in('codigo', [...new Set(sinNombre)])
     clientes = new Map(((cs ?? []) as { codigo: string; nombre: string }[]).map((c) => [c.codigo, c.nombre]))
   }
   return filas.map((f) => {
-    const v = vmap.get(`${f.venta_tienda_codigo}-${f.venta_numero}`)
+    const g = gwmap.get(`${f.venta_tienda_codigo}-${f.venta_numero}`)
+    const v = vmap.get(`${f.venta_tienda_codigo}-${f.venta_numero}`) ?? (g ? { ...g, factura_numero: null } : undefined)
     const fk = v?.factura_numero != null ? `${v.factura_tienda_codigo}-${v.factura_numero}` : null
     return {
       ...(Object.fromEntries(CAMPOS_LINEA.map((k) => [k, f[k] ?? null])) as Pick<Linea, (typeof CAMPOS_LINEA)[number]>),
@@ -218,7 +231,7 @@ async function cargarLineas(tienda: string, numero: number): Promise<Linea[]> {
       cliente_codigo: (v?.cliente_codigo as string) ?? null,
       nombre_cliente: ((v?.nombre_cliente as string) || clientes.get(String(v?.cliente_codigo)) || null) ?? null,
       factura_numero: v?.factura_numero != null ? Number(v.factura_numero) : null,
-      factura_texto: fk ? (fmap.get(fk) ?? null) : null,
+      factura_texto: fk ? (fmap.get(fk) ?? null) : g?.factura_numero != null && g.factura_numero !== '' ? String(g.factura_numero) : null,
       incidencia: (f.incidencia as string) ?? null,
       entregado_en: (f.entregado_en as string) ?? null,
       comprobado_en: (f.comprobado_en as string) ?? null,
