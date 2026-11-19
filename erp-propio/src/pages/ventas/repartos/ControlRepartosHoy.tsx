@@ -24,6 +24,7 @@
 // Sin ranking ni totales: eso es solo para la TV (/reparto-tv). Datos: migración 20261103_reparto_app.sql.
 
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
@@ -390,25 +391,6 @@ export function ControlRepartosHoy({
                         )}
                       </td>
                     </tr>
-                    {abierta && (
-                      <tr>
-                        <td colSpan={4} className="border-b border-[var(--gw-border)] bg-[#f6f8f6] p-1.5">
-                          {inc.length > 0 && (
-                            <div className="mb-1.5">
-                              <CuadroPorCobrar titulo={`INCIDENCIAS DE ${(r.ruta_nombre ?? 'LA RUTA').toUpperCase()}`} cobros={inc} onValidar={(c) => void validar(c)} />
-                            </div>
-                          )}
-                          <ListaPedidos
-                            lineas={ls}
-                            onAnular={(l) => void anular(r, l)}
-                            resaltado={resaltado}
-                            onComprobar={(l) => void comprobar(r, l)}
-                            destinos={cerrado ? [] : rutas.filter((x) => x.estado === 2 && !(x.tienda === r.tienda && x.numero === r.numero))}
-                            onCambiarRuta={(l, d, m) => cambiarRuta(r, l, d, m)}
-                          />
-                        </td>
-                      </tr>
-                    )}
                     </Fragment>
                   )
                 })}
@@ -426,6 +408,46 @@ export function ControlRepartosHoy({
         </div>
       )}
       {pines && <DialogoPines onCerrar={() => setPines(false)} />}
+      {/* Pedidos de la ruta en su propia ventana, encima de todo (19/11/2026): desplegados dentro de la tabla no se le
+          veían a Rober. Va con portal a <body> para que nada de la pantalla de abajo la tape ni la recorte. */}
+      {desplegada &&
+        (() => {
+          const r = rutas.find((x) => `${x.tienda}-${x.numero}` === desplegada)
+          if (!r) return null
+          const k = desplegada
+          const ls = lineas[k]
+          const cerrado = r.estado !== 2
+          const inc = cobros ? listaPorCobrar(cobros.filter((c) => c.ruta === r.ruta)) : []
+          return createPortal(
+            <div
+              className="fixed inset-0 z-[400] flex items-start justify-center bg-black/30 py-4"
+              onClick={() => setDesplegada(null)}
+              onKeyDown={(e) => e.key === 'Escape' && setDesplegada(null)}
+            >
+              <div onClick={(e) => e.stopPropagation()} className="w-[1000px] max-w-[97vw]">
+                <GwWindow title={`Pedidos · ${r.ruta_nombre ?? 'Sin ruta'} · nº ${r.numero} · ${r.repartidor_nombre ?? 'sin repartidor'}`} onClose={() => setDesplegada(null)}>
+                  <div className="max-h-[85vh] overflow-auto bg-[#f6f8f6] p-1.5 text-[13px]">
+                    {mensaje && <div className="mb-1 border border-[var(--gw-border)] bg-white px-2 py-0.5 text-[#1a4fd0]">{mensaje}</div>}
+                    {inc.length > 0 && (
+                      <div className="mb-1.5">
+                        <CuadroPorCobrar titulo={`INCIDENCIAS DE ${(r.ruta_nombre ?? 'LA RUTA').toUpperCase()}`} cobros={inc} onValidar={(c) => void validar(c)} />
+                      </div>
+                    )}
+                    <ListaPedidos
+                      lineas={ls}
+                      onAnular={(l) => void anular(r, l)}
+                      resaltado={resaltado}
+                      onComprobar={(l) => void comprobar(r, l)}
+                      destinos={cerrado ? [] : rutas.filter((x) => x.estado === 2 && !(x.tienda === r.tienda && x.numero === r.numero))}
+                      onCambiarRuta={(l, d, m) => cambiarRuta(r, l, d, m)}
+                    />
+                  </div>
+                </GwWindow>
+              </div>
+            </div>,
+            document.body,
+          )
+        })()}
       {generar && (
         <div className="fixed inset-0 z-[300] flex items-start justify-center overflow-auto bg-black/25 py-6" onKeyDown={(e) => e.key === 'Escape' && verGenerar(false)}>
           <GwWindow
