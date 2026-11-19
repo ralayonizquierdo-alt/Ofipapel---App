@@ -15,6 +15,7 @@ export function tipoPago(forma?: string | null): 'banco' | 'pagada' | 'mano' {
 }
 
 export const GRUPO_ABONOS = 'Abonos · pendientes de validar en almacén'
+export const GRUPO_NULOS = 'Nulos · pendientes de validar en almacén'
 export const ORDEN_POR_COBRAR = [
   'Contado · el repartidor no cobró',
   'Contado · entregada, sin liquidar todavía',
@@ -22,6 +23,7 @@ export const ORDEN_POR_COBRAR = [
   'Remesa',
   'Otras formas por banco',
   GRUPO_ABONOS,
+  GRUPO_NULOS,
 ]
 
 /**
@@ -33,10 +35,11 @@ export const ORDEN_POR_COBRAR = [
 export function listaPorCobrar(cobros: PorCobrar[]): PorCobrar[] {
   const conFactura = (c: PorCobrar) => c.factura != null && String(c.factura).trim() !== ''
   const enMano = (c: PorCobrar) => c.contado !== false && tipoPago(c.forma_pago) === 'mano'
-  return cobros.filter((c) => c.abono || (tipoPago(c.forma_pago) !== 'pagada' && (conFactura(c) || enMano(c))))
+  return cobros.filter((c) => c.abono || c.nulo || (tipoPago(c.forma_pago) !== 'pagada' && (conFactura(c) || enMano(c))))
 }
 
 export function grupoPorCobrar(c: PorCobrar): string {
+  if (c.nulo) return GRUPO_NULOS
   if (c.abono) return GRUPO_ABONOS
   const f = (c.forma_pago ?? '').toLowerCase()
   if (f.includes('remesa')) return 'Remesa'
@@ -50,5 +53,5 @@ export function gruposPorCobrar(cobros: PorCobrar[]) {
   return ORDEN_POR_COBRAR.map((g) => ({ g, filas: lista.filter((c) => grupoPorCobrar(c) === g) })).filter((x) => x.filas.length)
 }
 
-/** Lo pendiente de cobrar (sin los abonos, que no se cobran). */
-export const sumaPorCobrar = (fs: PorCobrar[]) => fs.filter((c) => !c.abono).reduce((t, c) => t + (c.pendiente ?? 0), 0)
+/** Lo pendiente de cobrar (sin los abonos ni los nulos, que no se cobran). */
+export const sumaPorCobrar = (fs: PorCobrar[]) => fs.filter((c) => !c.abono && !c.nulo).reduce((t, c) => t + (c.pendiente ?? 0), 0)

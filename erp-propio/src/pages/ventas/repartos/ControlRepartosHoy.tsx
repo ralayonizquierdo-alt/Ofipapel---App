@@ -16,6 +16,10 @@
 //  · «💶 Por cobrar» (19/11/2026): el mismo cuadro que la oficina ve en la app (facturas entregadas con importe
 //    pendiente: contado, transferencias, remesas) y los abonos recogidos que el almacén aún no ha validado, con el
 //    botón «Validar» (fn_reparto_control_por_cobrar, fn_reparto_abono_validar; apartados en reparto-app/porCobrar.ts).
+//  · NULOS e incidencias por ruta (19/11/2026): «⊘ Anular (Nulo)» en cada pedido del desplegable lo saca del reparto
+//    (fn_reparto_linea_nulo); y arriba del desplegable de cada ruta salen sus incidencias: facturas por cobrar, abonos
+//    y nulos por validar en almacén, con «Validar» (fn_reparto_abono_validar / fn_reparto_nulo_validar). Lo de rutas
+//    que hoy no tienen reparto sale en «Todas las incidencias».
 //  · Mapa, PIN de la app de cada repartidor y enlace para la TV.
 // Sin ranking ni totales: eso es solo para la TV (/reparto-tv). Datos: migración 20261103_reparto_app.sql.
 
@@ -27,7 +31,7 @@ import { GwWindow } from '../../../components/gw'
 import { BarraPuntos, VistaMapa, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
 import { GenerarRepartosPage } from './GenerarRepartosPage'
 import type { PorCobrar } from '../../../reparto-app/api'
-import { GRUPO_ABONOS, gruposPorCobrar, sumaPorCobrar } from '../../../reparto-app/porCobrar'
+import { GRUPO_ABONOS, GRUPO_NULOS, gruposPorCobrar, listaPorCobrar, sumaPorCobrar } from '../../../reparto-app/porCobrar'
 
 interface LineaCtl {
   vt: string
@@ -158,6 +162,25 @@ export function ControlRepartosHoy({
     void cargar()
   }
 
+  const validar = async (c: PorCobrar) => {
+    const que = c.nulo ? 'el nulo' : 'el abono'
+    if (!confirm(`¿Validar ${que} de ${c.cliente} (${eur(c.total)})? Confirma que la mercancía ha llegado al almacén y está bien.`)) return
+    const { error: e } = await supabase.rpc(c.nulo ? 'fn_reparto_nulo_validar' : 'fn_reparto_abono_validar', { p_tienda: c.rt, p_numero: c.rn, p_vt: c.vt, p_vn: c.vn, p_ok: true })
+    setMensaje(e ? e.message : `${c.nulo ? 'Nulo' : 'Abono'} de ${c.cliente} validado.`)
+    void cargar()
+  }
+
+  const anular = async (r: RutaSeg, l: LineaCtl) => {
+    const motivo = prompt(
+      `Pasar a NULO: ${l.cliente} (${docDe(l)}, ${eur(l.total)}).\n\nSale del reparto y queda en las incidencias de la ruta hasta que valides que la mercancía ha vuelto al almacén. Recuerda anularla también en GeminisWin.\n\n¿Por qué se anula?`,
+    )
+    if (motivo == null) return
+    if (!motivo.trim()) return setMensaje('Para anular hay que poner el motivo.')
+    const { error: e } = await supabase.rpc('fn_reparto_linea_nulo', { p_tienda: r.tienda, p_numero: r.numero, p_vt: l.vt, p_vn: l.vn, p_motivo: motivo.trim(), p_ok: true })
+    setMensaje(e ? e.message : `${l.cliente} (${docDe(l)}) pasa a NULO y sale del reparto de ${r.ruta_nombre}. Queda en sus incidencias hasta validarlo. Anúlala también en GeminisWin.`)
+    void cargar()
+  }
+
   const cambiarRuta = async (r: RutaSeg, l: LineaCtl, dest: RutaSeg, motivo: string) => {
     const { error: e } = await supabase.rpc('fn_reparto_cambiar_ruta', {
       p_tienda: r.tienda,
@@ -230,10 +253,10 @@ export function ControlRepartosHoy({
           title="Facturas entregadas con importe pendiente (contado, transferencias, remesas) y abonos por validar en almacén"
           onClick={() => (setVerCobros(!verCobros), plegar(false))}
         >
-          💶 Por cobrar
+          💶 Todas las incidencias
           {cobros && (() => {
-            const ab = cobros.filter((x) => x.abono).length
-            return ab ? <b className="ml-1 text-[#c42b1c]">· {ab} abono(s)</b> : null
+            const ab = cobros.filter((x) => x.abono || x.nulo).length
+            return ab ? <b className="ml-1 text-[#c42b1c]">· {ab} por validar</b> : null
           })()}
         </button>
         <button type="button" className={`gw-btn h-[24px] ${mapa ? 'bg-[#91c9f7] font-bold' : ''}`} onClick={() => (setMapa(!mapa), plegar(false))}>
@@ -266,15 +289,7 @@ export function ControlRepartosHoy({
             </div>
           )}
           {verCobros && (
-            <CuadroPorCobrar
-              cobros={cobros}
-              onValidar={async (c) => {
-                if (!confirm(`¿Validar el abono de ${c.cliente} (${eur(c.total)})? Confirma que la mercancía ha llegado al almacén y está bien.`)) return
-                const { error: e } = await supabase.rpc('fn_reparto_abono_validar', { p_tienda: c.rt, p_numero: c.rn, p_vt: c.vt, p_vn: c.vn, p_ok: true })
-                setMensaje(e ? e.message : `Abono de ${c.cliente} validado.`)
-                void cargar()
-              }}
-            />
+            <CuadroPorCobrar titulo="TODAS LAS INCIDENCIAS (todas las rutas)" cobros={cobros} onValidar={(c) => void validar(c)} />
           )}
           {mapa && (
             <div className="h-[340px] border border-[var(--gw-border)]">
@@ -292,6 +307,8 @@ export function ControlRepartosHoy({
                   const k = `${r.tienda}-${r.numero}`
                   const ls = lineas[k]
                   const abierta = desplegada === k
+                  const inc = cobros ? listaPorCobrar(cobros.filter((c) => c.ruta === r.ruta)) : []
+                  const porValidar = inc.filter((c) => c.abono || c.nulo).length
                   return (
                     <Fragment key={k}>
                     <tr
@@ -352,9 +369,10 @@ export function ControlRepartosHoy({
                           }}
                         >
                           {abierta ? '▴' : '▾'} Pedidos{ls ? ` (${ls.filter((x) => x.comprobado).length}/${ls.length} ✓)` : ''}
+                          {porValidar > 0 && <b className="ml-1 text-[#c42b1c]">⚠{porValidar}</b>}
                         </button>
                         {!cerrado && !r.generado_erp && (
-                          <span className="text-[11px] text-[#666]" title="Esta ruta se lleva en GeminisWin: el reparto se cierra allí y aquí se actualiza solo">
+                          <span className="inline-block w-[64px] whitespace-normal text-center align-middle text-[10px] leading-tight text-[#666]" title="Esta ruta se lleva en GeminisWin: el reparto se cierra allí y aquí se actualiza solo">
                             Se cierra en GeminisWin
                           </span>
                         )}
@@ -375,8 +393,14 @@ export function ControlRepartosHoy({
                     {abierta && (
                       <tr>
                         <td colSpan={4} className="border-b border-[var(--gw-border)] bg-[#f6f8f6] p-1.5">
+                          {inc.length > 0 && (
+                            <div className="mb-1.5">
+                              <CuadroPorCobrar titulo={`INCIDENCIAS DE ${(r.ruta_nombre ?? 'LA RUTA').toUpperCase()}`} cobros={inc} onValidar={(c) => void validar(c)} />
+                            </div>
+                          )}
                           <ListaPedidos
                             lineas={ls}
+                            onAnular={(l) => void anular(r, l)}
                             resaltado={resaltado}
                             onComprobar={(l) => void comprobar(r, l)}
                             destinos={cerrado ? [] : rutas.filter((x) => x.estado === 2 && !(x.tienda === r.tienda && x.numero === r.numero))}
@@ -424,12 +448,14 @@ export function ControlRepartosHoy({
 function ListaPedidos({
   lineas,
   resaltado,
+  onAnular,
   onComprobar,
   destinos,
   onCambiarRuta,
 }: {
   lineas: LineaCtl[] | undefined
   resaltado: string | null
+  onAnular: (l: LineaCtl) => void
   onComprobar: (l: LineaCtl) => void
   destinos: RutaSeg[]
   onCambiarRuta: (l: LineaCtl, destino: RutaSeg, motivo: string) => Promise<string | null>
@@ -458,6 +484,9 @@ function ListaPedidos({
             <div className="flex justify-between gap-2">
               <b className="truncate">{l.cliente}</b>
               <span className="flex items-center gap-2">
+                <button type="button" className="gw-btn h-[22px] whitespace-nowrap" title="Anular esta factura o albarán (NULO): sale del reparto y queda en las incidencias de la ruta hasta validarlo" onClick={() => onAnular(l)}>
+                  ⊘ Anular (Nulo)
+                </button>
                 {(l.estado === 'pendiente' || l.estado === 'no_entregado') && destinos.length > 0 && (
                   <button
                     type="button"
@@ -535,28 +564,28 @@ function CambioRuta({ destinos, onCancelar, onHacer }: { destinos: RutaSeg[]; on
   )
 }
 
-function CuadroPorCobrar({ cobros, onValidar }: { cobros: PorCobrar[] | null; onValidar: (c: PorCobrar) => void }) {
+function CuadroPorCobrar({ titulo, cobros, onValidar }: { titulo: string; cobros: PorCobrar[] | null; onValidar: (c: PorCobrar) => void }) {
   if (!cobros) return <div>Cargando…</div>
   const grupos = gruposPorCobrar(cobros)
   const total = grupos.reduce((t, x) => t + sumaPorCobrar(x.filas), 0)
   return (
     <div className="border border-[#1f6fb2] bg-[#eef5fc] p-1.5">
       <div className="flex items-baseline gap-2">
-        <b className="flex-1 text-[#1f6fb2]">POR COBRAR</b>
+        <b className="flex-1 text-[#1f6fb2]">{titulo}</b>
         <b className="text-[#1f6fb2]">{eur(total)}</b>
       </div>
       <div className="text-[12px] text-[#555]">
-        Facturas ya entregadas con importe pendiente (sin los albaranes a crédito), y abonos recogidos que el almacén aún no ha validado. El cobro se apunta
-        en GeminisWin y la factura sale sola de aquí cuando allí queda pagada.
+        Por cobrar (facturas entregadas con importe pendiente, sin los albaranes a crédito), y abonos y nulos que el almacén aún no ha validado. El cobro se
+        apunta en GeminisWin y la factura sale sola de aquí cuando allí queda pagada.
       </div>
-      {!grupos.length && <div className="mt-1">No hay nada por cobrar ni abonos por validar.</div>}
+      {!grupos.length && <div className="mt-1">No hay nada por cobrar ni abonos o nulos por validar.</div>}
       {grupos.map((x) => (
         <div key={x.g} className="mt-1.5">
-          <div className={`flex items-baseline border-b-2 pb-0.5 ${x.g === GRUPO_ABONOS ? 'border-[#c42b1c]' : 'border-[#1f6fb2]'}`}>
-            <b className={`flex-1 ${x.g.includes('no cobró') || x.g === GRUPO_ABONOS ? 'text-[#c42b1c]' : 'text-[#1f6fb2]'}`}>
+          <div className={`flex items-baseline border-b-2 pb-0.5 ${x.g === GRUPO_ABONOS || x.g === GRUPO_NULOS ? 'border-[#c42b1c]' : 'border-[#1f6fb2]'}`}>
+            <b className={`flex-1 ${x.g.includes('no cobró') || x.g === GRUPO_ABONOS || x.g === GRUPO_NULOS ? 'text-[#c42b1c]' : 'text-[#1f6fb2]'}`}>
               {x.g} ({x.filas.length})
             </b>
-            <b>{eur(x.g === GRUPO_ABONOS ? x.filas.reduce((t, c) => t + (c.total ?? 0), 0) : sumaPorCobrar(x.filas))}</b>
+            <b>{eur(x.g === GRUPO_ABONOS || x.g === GRUPO_NULOS ? x.filas.reduce((t, c) => t + (c.total ?? 0), 0) : sumaPorCobrar(x.filas))}</b>
           </div>
           <table className="w-full border-collapse bg-white text-[12px]">
             <tbody>
@@ -567,14 +596,14 @@ function CuadroPorCobrar({ cobros, onValidar }: { cobros: PorCobrar[] | null; on
                   <td className="px-1.5 text-[#555]">
                     {c.ruta ? `Ruta ${/^\d+$/.test(c.ruta) ? Number(c.ruta) : c.ruta}` : ''}
                     {c.repartidor ? ` · ${c.repartidor}` : ''}
-                    {c.hora ? ` · ${c.abono ? 'recogido ' : ''}${c.hora}` : ''}
+                    {c.hora ? ` · ${c.abono ? 'recogido ' : c.nulo ? 'anulado ' : ''}${c.hora}` : ''}
                   </td>
                   <td className="px-1.5">{c.forma_pago ?? ''}</td>
                   <td className="px-1.5 font-bold text-[#c42b1c]">{c.no_cobro ? `No cobró: ${c.no_cobro}` : c.nota ?? ''}</td>
-                  <td className="whitespace-nowrap px-1.5 text-right font-bold">{eur(c.abono ? c.total : c.pendiente)}</td>
+                  <td className="whitespace-nowrap px-1.5 text-right font-bold">{eur(c.abono || c.nulo ? c.total : c.pendiente)}</td>
                   <td className="w-[100px] whitespace-nowrap px-1.5 text-right">
-                    {c.abono && (
-                      <button type="button" className="gw-btn h-[22px] whitespace-nowrap font-bold" title="La mercancía del abono ha llegado al almacén y está bien" onClick={() => onValidar(c)}>
+                    {(c.abono || c.nulo) && (
+                      <button type="button" className="gw-btn h-[22px] whitespace-nowrap font-bold" title="La mercancía ha llegado al almacén y está bien" onClick={() => onValidar(c)}>
                         ✔ Validar
                       </button>
                     )}
