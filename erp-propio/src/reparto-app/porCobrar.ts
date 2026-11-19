@@ -14,7 +14,7 @@ export function tipoPago(forma?: string | null): 'banco' | 'pagada' | 'mano' {
   return 'mano'
 }
 
-export const GRUPO_ABONOS = 'Abonos · pendientes de validar en almacén'
+export const GRUPO_ABONOS = 'Abonos y facturas a cero · pendientes de validar en almacén'
 export const GRUPO_NULOS = 'Nulos · pendientes de validar en almacén'
 export const ORDEN_POR_COBRAR = [
   'Contado · el repartidor no cobró',

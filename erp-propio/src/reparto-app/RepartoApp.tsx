@@ -46,7 +46,7 @@ import {
   type RepartoApp,
   type Sesion,
 } from './api'
-import { gruposPorCobrar, listaPorCobrar, sumaPorCobrar, tipoPago } from './porCobrar'
+import { GRUPO_ABONOS, GRUPO_NULOS, gruposPorCobrar, listaPorCobrar, sumaPorCobrar, tipoPago } from './porCobrar'
 import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
 import { AVISO_PIE, AVISO_PUNTOS, AVISO_TITULO, AVISO_VERSION } from './avisoUbicacion'
 import { OPERATIVA_OFICINA, OPERATIVA_REPARTIDOR } from './operativaReparto'
@@ -468,6 +468,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   // «Por cobrar»: facturas entregadas con importe pendiente; se despliega debajo de las rutas.
   const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
   const [verCobros, setVerCobros] = useState(false)
+  const [verCobrosRuta, setVerCobrosRuta] = useState(true)
   // Dos vistas: las rutas (David) y la caja (Cande). Cada móvil recuerda en cuál se quedó.
   // Quien entra por «CAJA» solo tiene la caja: ni rutas ni botones para cambiar.
   const soloCaja = sesion.solo_caja === true && !sesion.supervisor
@@ -560,6 +561,12 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
             {r.repartidor ?? 'Sin repartidor'}{r.repartidor ? (r.entrada ? ` · entró a las ${r.entrada}` : ' · sin fichar la entrada') : ''} · {dia(r.fecha)} · reparto nº {r.numero}
           </div>
           <div style={{ fontWeight: 700, color, margin: '6px 0 10px' }}>{sit}</div>
+          {/* Incidencias de esta ruta (Rober, 19/11/2026): por cobrar, abonos/facturas a cero y nulos por validar. */}
+          {cobros && listaPorCobrar(cobros.filter((c) => c.ruta === r.ruta)).length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <TarjetaPorCobrar titulo="INCIDENCIAS DE LA RUTA" cobros={cobros.filter((c) => c.ruta === r.ruta)} abierta={verCobrosRuta} onAbrir={() => setVerCobrosRuta((v) => !v)} />
+            </div>
+          )}
           {!lineas && <div style={{ color: V.gris }}>Cargando…</div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lineas?.map((l) => {
@@ -633,7 +640,13 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
                 <div style={{ color: V.gris, fontSize: 13 }}>
                   {r.repartidor ?? 'Sin repartidor'}{r.repartidor && r.entrada ? ` · entró ${r.entrada}` : ''} · {dia(r.fecha)}
                 </div>
-                <div style={{ fontWeight: 700, color, marginTop: 4 }}>{sit}</div>
+                <div style={{ fontWeight: 700, color, marginTop: 4 }}>
+                  {sit}
+                  {(() => {
+                    const n = (cobros ?? []).filter((c) => c.ruta === r.ruta && (c.abono || c.nulo)).length
+                    return n ? <span style={{ color: V.rojo }}> · ⚠ {n} por validar</span> : null
+                  })()}
+                </div>
                 <div style={{ fontSize: 13, color: V.texto }}>
                   {r.total} pedidos · {r.entregados} entregados
                   {r.incidencias ? ` · ${r.incidencias} con incidencia` : ''}
@@ -952,7 +965,7 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   <span style={{ width: 18, fontWeight: 700, color: V.verdeCl }}>{ok ? '✔' : ''}</span>
                   <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.cliente}</span>
-                  <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 16, whiteSpace: 'nowrap' }}>{euros(c.pendiente)}</span>
+                  <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 16, whiteSpace: 'nowrap' }}>{euros(c.nulo ? c.total : c.pendiente)}</span>
                 </div>
                 <div style={{ fontSize: 12, color: V.gris, paddingLeft: 24 }}>
                   {c.factura ? `Factura ${c.factura}` : `Albarán ${c.vt}/${c.vn}`}
@@ -1197,7 +1210,7 @@ function Justificante({
  * despliega la lista de facturas ya entregadas que siguen con importe pendiente, agrupadas por cómo se
  * cobran. Es informativa: los cobros se apuntan en GeminisWin y la factura sale de aquí sola.
  */
-function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void }) {
+function TarjetaPorCobrar({ cobros, abierta, onAbrir, titulo = 'POR COBRAR · TODAS LAS RUTAS' }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void; titulo?: string }) {
   // Qué sale y en qué apartado: porCobrar.ts (lo mismo que el cuadro del Control de Repartos del ERP).
   const lista = listaPorCobrar(cobros)
   const grupos = gruposPorCobrar(cobros)
@@ -1207,29 +1220,29 @@ function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; a
     <div style={{ background: '#eef5fc', border: `2px solid ${AZUL}`, borderRadius: 16, overflow: 'hidden' }}>
       <button type="button" onClick={onAbrir} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span style={{ flex: 1, fontWeight: 700, fontSize: 17, color: AZUL }}>POR COBRAR</span>
-          <span style={{ fontWeight: 700, fontSize: 16, color: AZUL, whiteSpace: 'nowrap' }}>{euros(suma(lista.filter((c) => !c.abono)))}</span>
+          <span style={{ flex: 1, fontWeight: 700, fontSize: 17, color: AZUL }}>{titulo}</span>
+          <span style={{ fontWeight: 700, fontSize: 16, color: AZUL, whiteSpace: 'nowrap' }}>{euros(suma(lista))}</span>
         </div>
-        <div style={{ color: V.gris, fontSize: 13 }}>Facturas ya entregadas con importe pendiente (sin los albaranes a crédito) · {abierta ? 'toca para cerrar' : 'toca para ver la lista'}</div>
+        <div style={{ color: V.gris, fontSize: 13 }}>Facturas entregadas con importe pendiente (sin los albaranes a crédito), y abonos, facturas a cero y nulos por validar en almacén · {abierta ? 'toca para cerrar' : 'toca para ver la lista'}</div>
         <div style={{ fontSize: 13, color: V.texto, marginTop: 4 }}>
-          {grupos.map((x) => `${x.filas.length} ${x.g.replace('Abonos · pendientes de validar en almacén', 'abonos sin validar').replace('Contado · ', '').replace('el repartidor no cobró', 'sin cobrar').replace('entregada, sin liquidar todavía', 'sin liquidar').toLowerCase()}`).join(' · ')}
+          {grupos.map((x) => `${x.filas.length} ${x.g.replace('Abonos y facturas a cero · pendientes de validar en almacén', 'abonos/a cero sin validar').replace('Nulos · pendientes de validar en almacén', 'nulos sin validar').replace('Contado · ', '').replace('el repartidor no cobró', 'sin cobrar').replace('entregada, sin liquidar todavía', 'sin liquidar').toLowerCase()}`).join(' · ')}
         </div>
       </button>
       {abierta && (
         <div style={{ padding: '0 10px 10px' }}>
           {grupos.map((x) => (
             <div key={x.g} style={{ marginTop: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, borderBottom: `2px solid ${AZUL}`, paddingBottom: 2 }}>
-                <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: x.g.includes('no cobró') ? V.rojo : AZUL }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, borderBottom: `2px solid ${x.g === GRUPO_ABONOS || x.g === GRUPO_NULOS ? V.rojo : AZUL}`, paddingBottom: 2 }}>
+                <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: x.g.includes('no cobró') || x.g === GRUPO_ABONOS || x.g === GRUPO_NULOS ? V.rojo : AZUL }}>
                   {x.g} ({x.filas.length})
                 </span>
-                <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{euros(suma(x.filas))}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{euros(x.g === GRUPO_ABONOS || x.g === GRUPO_NULOS ? x.filas.reduce((t, c) => t + (c.total ?? 0), 0) : suma(x.filas))}</span>
               </div>
               {x.filas.map((c) => (
                 <div key={`${c.vt}-${c.vn}`} style={{ background: '#fff', borderRadius: 10, padding: '6px 8px', marginTop: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                     <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.cliente}</span>
-                    <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{euros(c.pendiente)}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{euros(c.nulo ? c.total : c.pendiente)}</span>
                   </div>
                   <div style={{ fontSize: 12, color: V.gris }}>
                     {c.factura ? `Factura ${c.factura}` : `Albarán ${c.vt}/${c.vn}`}
@@ -1239,7 +1252,7 @@ function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; a
                   </div>
                   <div style={{ fontSize: 12, color: V.texto }}>
                     {c.forma_pago ?? 'Sin forma de pago'}
-                    {c.total != null && Math.abs(c.total - c.pendiente) > 0.005 ? ` · total ${euros(c.total)}` : ''}
+                    {!c.nulo && c.total != null && Math.abs(c.total - c.pendiente) > 0.005 ? ` · total ${euros(c.total)}` : ''}
                   </div>
                   {(c.no_cobro || c.nota) && (
                     <div style={{ fontSize: 12, fontWeight: 700, color: c.no_cobro ? V.rojo : V.texto }}>
