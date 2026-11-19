@@ -96,6 +96,13 @@ const resumen = (l: LineaCtl) =>
 // La ruta desplegada sobrevive a que la ficha de abajo recargue la pantalla (al abrir otro reparto se vuelve a montar).
 let ultimaDesplegada: string | null = null
 
+/** «RUTA 1 · LOS CRISTIANOS», como en el resto del ERP. */
+const nombreRuta = (r: Pick<RutaSeg, 'ruta' | 'ruta_nombre'>) =>
+  r.ruta ? `RUTA ${/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta} · ${r.ruta_nombre ?? ''}`.replace(/ · $/, '') : (r.ruta_nombre ?? 'Sin ruta')
+
+/** En las filas del Control basta «RUTA 1» (Rober, 19/11/2026): sin nº de reparto ni zona. */
+const rutaCorta = (r: Pick<RutaSeg, 'ruta' | 'ruta_nombre'>) => (r.ruta ? `RUTA ${/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta}` : (r.ruta_nombre ?? 'Sin ruta'))
+
 const hace = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
   return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h`
@@ -163,6 +170,15 @@ export function ControlRepartosHoy({
     void cargar()
   }
 
+  const comprobarTodos = async (r: RutaSeg, ok: boolean) => {
+    if (!ok && !confirm(`¿Quitar la marca de comprobado a todos los pedidos de ${nombreRuta(r)}?`)) return
+    const k = `${r.tienda}-${r.numero}`
+    setLineas((m) => ({ ...m, [k]: (m[k] ?? []).map((x) => ({ ...x, comprobado: ok })) }))
+    const { error: e } = await supabase.rpc('fn_reparto_control_comprobar_todos', { p_tienda: r.tienda, p_numero: r.numero, p_ok: ok })
+    if (e) setMensaje(e.message)
+    void cargar()
+  }
+
   const validar = async (c: PorCobrar) => {
     const que = c.nulo ? 'el nulo' : 'el abono'
     if (!confirm(`¿Validar ${que} de ${c.cliente} (${eur(c.total)})? Confirma que la mercancía ha llegado al almacén y está bien.`)) return
@@ -178,7 +194,7 @@ export function ControlRepartosHoy({
     if (motivo == null) return
     if (!motivo.trim()) return setMensaje('Para anular hay que poner el motivo.')
     const { error: e } = await supabase.rpc('fn_reparto_linea_nulo', { p_tienda: r.tienda, p_numero: r.numero, p_vt: l.vt, p_vn: l.vn, p_motivo: motivo.trim(), p_ok: true })
-    setMensaje(e ? e.message : `${l.cliente} (${docDe(l)}) pasa a NULO y sale del reparto de ${r.ruta_nombre}. Queda en sus incidencias hasta validarlo. Anúlala también en GeminisWin.`)
+    setMensaje(e ? e.message : `${l.cliente} (${docDe(l)}) pasa a NULO y sale del reparto de ${nombreRuta(r)}. Queda en sus incidencias hasta validarlo. Anúlala también en GeminisWin.`)
     void cargar()
   }
 
@@ -193,7 +209,7 @@ export function ControlRepartosHoy({
       p_motivo: motivo,
     })
     if (e) return e.message
-    setMensaje(`${l.cliente} (${docDe(l)}) pasa de ${r.ruta_nombre} a ${dest.ruta_nombre}.`)
+    setMensaje(`${l.cliente} (${docDe(l)}) pasa de ${nombreRuta(r)} a ${nombreRuta(dest)}.`)
     void cargar()
     return null
   }
@@ -217,13 +233,13 @@ export function ControlRepartosHoy({
 
   const cerrar = async (r: RutaSeg) => {
     const texto = r.pendientes
-      ? `Quedan ${r.pendientes} pedido(s) sin marcar en ${r.ruta_nombre}. Si cierras, pasan a «no entregado» y vuelven a salir en la propuesta del día siguiente. ¿Cerrar?`
-      : `¿Cerrar el reparto de ${r.ruta_nombre}? Lo no entregado vuelve a salir en la propuesta del día siguiente.`
+      ? `Quedan ${r.pendientes} pedido(s) sin marcar en ${nombreRuta(r)}. Si cierras, pasan a «no entregado» y vuelven a salir en la propuesta del día siguiente. ¿Cerrar?`
+      : `¿Cerrar el reparto de ${nombreRuta(r)}? Lo no entregado vuelve a salir en la propuesta del día siguiente.`
     if (!confirm(texto)) return
     const { data, error: e } = await supabase.rpc('fn_reparto_erp_cerrar', { p_tienda: r.tienda, p_numero: r.numero })
     if (e) return setMensaje(e.message)
     const x = data as { sin_marcar: number }
-    setMensaje(`Reparto de ${r.ruta_nombre} cerrado${x.sin_marcar ? `: ${x.sin_marcar} sin marcar pasan a «no entregado» y vuelven a la propuesta` : ''}.`)
+    setMensaje(`Reparto de ${nombreRuta(r)} cerrado${x.sin_marcar ? `: ${x.sin_marcar} sin marcar pasan a «no entregado» y vuelven a la propuesta` : ''}.`)
     void cargar()
   }
 
@@ -317,10 +333,10 @@ export function ControlRepartosHoy({
                       title={bloqueado ? 'Termina de editar el reparto de abajo para abrir otro' : 'Abrir aquí debajo la ficha de este reparto'}
                       className={`cursor-pointer ${esActual ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]'} ${cerrado ? 'text-[#888]' : ''}`}
                     >
-                      <td className="w-[230px] border-b border-[var(--gw-border-light)] px-1.5 py-1">
-                        <div className="font-bold text-[#1d3a8a]">
+                      <td className="w-[150px] border-b border-[var(--gw-border-light)] px-1.5 py-1">
+                        <div className="font-bold text-[#1d3a8a]" title={`${r.ruta_nombre ?? ''} · reparto nº ${r.numero}`}>
                           {esActual ? '▸ ' : ''}
-                          {r.ruta_nombre ?? 'Sin ruta'} · nº {r.numero}
+                          {rutaCorta(r)}
                         </div>
                         <div className="text-[12px] text-[#555]">
                           🚚 {r.repartidor_nombre ?? 'sin repartidor'}
@@ -425,12 +441,23 @@ export function ControlRepartosHoy({
               onKeyDown={(e) => e.key === 'Escape' && setDesplegada(null)}
             >
               <div onClick={(e) => e.stopPropagation()} className="w-[1000px] max-w-[97vw]">
-                <GwWindow title={`Pedidos · ${r.ruta_nombre ?? 'Sin ruta'} · nº ${r.numero} · ${r.repartidor_nombre ?? 'sin repartidor'}`} onClose={() => setDesplegada(null)}>
+                <GwWindow title={`Pedidos · ${nombreRuta(r)} · nº ${r.numero} · ${r.repartidor_nombre ?? 'sin repartidor'}`} onClose={() => setDesplegada(null)}>
                   <div className="max-h-[85vh] overflow-auto bg-[#f6f8f6] p-1.5 text-[13px]">
                     {mensaje && <div className="mb-1 border border-[var(--gw-border)] bg-white px-2 py-0.5 text-[#1a4fd0]">{mensaje}</div>}
                     {inc.length > 0 && (
                       <div className="mb-1.5">
-                        <CuadroPorCobrar titulo={`INCIDENCIAS DE ${(r.ruta_nombre ?? 'LA RUTA').toUpperCase()}`} cobros={inc} onValidar={(c) => void validar(c)} />
+                        <CuadroPorCobrar titulo={`INCIDENCIAS DE ${nombreRuta(r).toUpperCase()}`} cobros={inc} onValidar={(c) => void validar(c)} />
+                      </div>
+                    )}
+                    {ls && ls.length > 0 && (
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <b>{ls.filter((x) => x.comprobado).length} de {ls.length} comprobados</b>
+                        <button type="button" className="gw-btn h-[22px] font-bold" onClick={() => void comprobarTodos(r, true)}>
+                          ✓ Marcar todos
+                        </button>
+                        <button type="button" className="gw-btn h-[22px]" onClick={() => void comprobarTodos(r, false)}>
+                          Desmarcar todos
+                        </button>
                       </div>
                     )}
                     <ListaPedidos
@@ -560,7 +587,7 @@ function CambioRuta({ destinos, onCancelar, onHacer }: { destinos: RutaSeg[]; on
         <option value="">Elige ruta…</option>
         {destinos.map((x) => (
           <option key={`${x.tienda}-${x.numero}`} value={`${x.tienda}-${x.numero}`}>
-            {x.ruta_nombre ?? x.ruta} · {x.repartidor_nombre ?? 'sin repartidor'} · nº {x.numero}
+            {nombreRuta(x)} · {x.repartidor_nombre ?? 'sin repartidor'} · nº {x.numero}
           </option>
         ))}
       </select>
