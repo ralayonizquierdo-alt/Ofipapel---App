@@ -289,6 +289,7 @@ export function BarraPuntos({
         ...Array<string>(r.no_entregados).fill(C.rojo),
         ...Array<string>(r.pendientes).fill(C.gris),
       ].map((c) => ({ c, h: null }))
+  const [sel, setSel] = useState<number | null>(null)
   const d = Math.max(6, Math.min(alto - 6, 22))
   const conHoras = horas && puntos.some((p) => p.h)
   const letra = Math.max(9, Math.round(alto * 0.45))
@@ -309,7 +310,7 @@ export function BarraPuntos({
       title={`${r.entregados} entregados · ${r.incidencias} con incidencia · ${r.no_entregados} no entregados · ${r.pendientes} por entregar`}
     >
       {puntos.map((p, i) => (
-        <span key={i} style={{ flex: '0 1 auto', minWidth: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+        <span key={i} style={{ position: 'relative', flex: '0 1 auto', minWidth: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
           {conHoras && (
             <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontSize: letra, fontWeight: 600, lineHeight: 1, color: p.h ? (p.c === C.rojo ? C.rojo : p.c === C.naranja ? '#a86400' : C.verde) : 'transparent', whiteSpace: 'nowrap', marginBottom: (alto - d) / 2 + 6 }}>
               {p.h ?? '00:00'}
@@ -317,6 +318,16 @@ export function BarraPuntos({
           )}
           <span
             title={detalle?.(i)}
+            role={detalle ? 'button' : undefined}
+            onClick={
+              detalle
+                ? (e) => {
+                    // Tocar el punto (en el móvil no hay «pasar el ratón») abre el cuadro con el pedido.
+                    e.stopPropagation()
+                    setSel(sel === i ? null : i)
+                  }
+                : undefined
+            }
             style={{
               cursor: detalle ? 'help' : undefined,
               width: d,
@@ -326,8 +337,39 @@ export function BarraPuntos({
               background: p.c,
               flexShrink: 0,
               boxShadow: p.c === C.gris ? 'inset 0 0 0 1px #a4ada4' : '0 1px 2px rgba(0,0,0,.25)',
+              outline: sel === i ? '2px solid #1d3a8a' : undefined,
             }}
           />
+          {sel === i && detalle?.(i) && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation()
+                setSel(null)
+              }}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: 4,
+                zIndex: 60,
+                width: 260,
+                background: '#fff',
+                border: '1px solid #9aa79a',
+                borderRadius: 6,
+                boxShadow: '0 4px 12px rgba(0,0,0,.25)',
+                padding: '6px 8px',
+                fontSize: 12,
+                lineHeight: 1.35,
+                color: '#222',
+                textAlign: 'left',
+                whiteSpace: 'pre-line',
+                cursor: 'pointer',
+              }}
+            >
+              {detalle(i)}
+            </span>
+          )}
         </span>
       ))}
     </div>
