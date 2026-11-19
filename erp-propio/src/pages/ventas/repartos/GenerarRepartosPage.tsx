@@ -9,7 +9,8 @@
 //    en el reparto abierto de GeminisWin. «Pasar al ERP» cambia la ruta de sitio (y «Devolver a GeminisWin»).
 //  · Hora de corte (David, 19/11/2026: «lo suele sacar hasta las 15 h»): solo se proponen las ventas hechas hasta esa
 //    hora del día anterior al reparto (o de hoy si el reparto es de mañana). Lo que viene del reparto anterior sale
-//    siempre. Por defecto las 15:00; la última hora elegida se recuerda en este ordenador.
+//    siempre. Por defecto las 15:00; la última hora elegida se recuerda en este ordenador. Las posteriores NO se
+//    esconden: salen al final, sin marcar y con la nota «Después del corte», para poder añadir una urgente.
 // Datos: fn_reparto_erp_panel, fn_reparto_erp_generar, fn_reparto_erp_cerrar, fn_reparto_erp_quitar, fn_reparto_erp_ruta.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -34,6 +35,8 @@ interface Propuesta {
   viene: boolean
   antes: string | null
   en_gw: string | null
+  /** Hecha después de la hora de corte: sale sin marcar (se puede marcar si es urgente). */
+  tarde?: boolean
   de_ruta: 'venta' | 'ficha'
 }
 interface Ruta {
@@ -141,7 +144,10 @@ function Generar({ enControl }: { enControl: boolean }) {
   const corte = horaCorte ? `${dia} ${horaCorte}` : null
   const dentro = (p: Propuesta) => p.viene || !corte || `${p.fecha} ${p.hora ?? '00:00'}` <= corte
   const fuera = panel.rutas.reduce((n, r) => n + r.propuesta.filter((p) => !dentro(p)).length, 0)
-  const rutasCorte = panel.rutas.map((r) => ({ ...r, propuesta: r.propuesta.filter(dentro) }))
+  const rutasCorte = panel.rutas.map((r) => ({
+    ...r,
+    propuesta: [...r.propuesta.filter(dentro), ...r.propuesta.filter((p) => !dentro(p)).map((p) => ({ ...p, tarde: true }))],
+  }))
   const enErp = rutasCorte.filter((r) => r.erp)
   const enGw = rutasCorte.filter((r) => !r.erp)
   const ponerHora = (h: string) => {
@@ -178,7 +184,7 @@ function Generar({ enControl }: { enControl: boolean }) {
           <input type="date" className="gw-input" value={dia} max={panel.hoy} onChange={(e) => setDiaElegido(e.target.value || null)} />
           <input type="time" className="gw-input" value={horaCorte} onChange={(e) => ponerHora(e.target.value)} />
         </label>
-        {fuera > 0 && <span className="text-[#b26a00]">{fuera} venta(s) posteriores no salen.</span>}
+        {fuera > 0 && <span className="text-[#b26a00]">{fuera} venta(s) posteriores: salen al final de cada ruta sin marcar (márcala si es urgente).</span>}
         <span className="text-[#444]">
           Ventas de GeminisWin leídas por última vez: <b>{hace(panel.ultima_lectura)}</b>
         </span>
@@ -221,7 +227,7 @@ function Generar({ enControl }: { enControl: boolean }) {
 function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (texto: string, error?: boolean) => void }) {
   const libres = useMemo(() => r.propuesta.filter((p) => r.erp ? !p.en_gw : true), [r])
   const [marcadas, setMarcadas] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(r.propuesta.filter((p) => p.principal && (!r.erp || !p.en_gw)).map((p) => [clave(p.vt, p.vn), true])),
+    Object.fromEntries(r.propuesta.filter((p) => p.principal && !p.tarde && (!r.erp || !p.en_gw)).map((p) => [clave(p.vt, p.vn), true])),
   )
   const [repartidor, setRepartidor] = useState(r.repartidor ?? '')
   const [abierta, setAbierta] = useState(r.erp && r.propuesta.length > 0)
@@ -403,12 +409,13 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
                     const bloqueada = r.erp && !!p.en_gw
                     const notas = [
                       p.viene ? `Viene del anterior${p.antes ? ` (${p.antes.replace(/^Anterior: /, '')})` : ''}` : null,
+                      p.tarde ? 'Después del corte: márcala si es urgente' : null,
                       !p.principal && !p.viene ? `Tienda ${p.vt}: ¿va en reparto?` : null,
                       p.de_ruta === 'venta' ? 'Ruta puesta en la venta' : null,
                       bloqueada ? `Ya en el reparto ${p.en_gw} de GeminisWin` : null,
                     ].filter(Boolean)
                     return (
-                      <tr key={k} className={bloqueada ? 'opacity-50' : p.viene ? 'bg-[#fff6e5]' : ''}>
+                      <tr key={k} className={bloqueada ? 'opacity-50' : p.viene ? 'bg-[#fff6e5]' : p.tarde ? 'bg-[#f1f1f1] text-[#555]' : ''}>
                         <td className="text-center">
                           <input
                             type="checkbox"
@@ -465,6 +472,8 @@ function Operativa() {
           pasos: [
             'Arriba sale el día siguiente de reparto (el viernes, el lunes). Cámbialo si hace falta.',
             '«Ventas hasta»: solo salen las ventas hechas hasta esa hora (normalmente las 15:00 de hoy, o del día anterior si el reparto es de hoy). Las que vienen del reparto anterior salen siempre. Si cambias la hora, se recuerda la próxima vez.',
+            'Venta urgente hecha después del corte: sale al final de su ruta, en gris y sin marcar. Márcala y pulsa «Generar reparto» (o «Añadir al reparto» si ya está generado): entra en el reparto y al repartidor le sale en la app.',
+            'Si la venta no sale en ninguna ruta, mira que en GeminisWin tenga marcado que va a reparto y que el cliente tenga ruta. Si sale en otra ruta, añádela allí y luego, en Control de Repartos, «▾ Pedidos» → «⇄ Cambiar de ruta».',
             'En cada ruta «En el ERP» aparecen las ventas de sus clientes que todavía no han ido en ningún reparto, y en naranja las que no se entregaron en el anterior.',
             'Solo salen las ventas que en GeminisWin tienen marcado que van a reparto (y las que vienen del anterior). Repasa las marcas: las de otras tiendas salen sin marcar, porque a veces el cliente se lo lleva en mano.',
             'Comprueba el repartidor (sale el de la última vez) y pulsa «Generar reparto».',
