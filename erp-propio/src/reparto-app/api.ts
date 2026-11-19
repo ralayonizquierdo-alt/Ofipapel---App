@@ -313,6 +313,8 @@ export interface PorCobrar {
   incidencia: string | null
   nota: string | null
   hora: string | null
+  /** Abono recogido en reparto que el almacén aún no ha validado (lo valida David en el ERP). Solo para la oficina. */
+  abono?: boolean
 }
 export const porCobrar = (token: string) => rpc<PorCobrar[]>('fn_app_rep_por_cobrar', { p_token: token })
 

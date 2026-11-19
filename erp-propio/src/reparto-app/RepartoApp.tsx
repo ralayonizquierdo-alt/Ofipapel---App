@@ -46,6 +46,7 @@ import {
   type RepartoApp,
   type Sesion,
 } from './api'
+import { gruposPorCobrar, listaPorCobrar, sumaPorCobrar, tipoPago } from './porCobrar'
 import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
 import { AVISO_PIE, AVISO_PUNTOS, AVISO_TITULO, AVISO_VERSION } from './avisoUbicacion'
 import { OPERATIVA_OFICINA, OPERATIVA_REPARTIDOR } from './operativaReparto'
@@ -119,17 +120,6 @@ const base = import.meta.env.BASE_URL
  * como contado en GeminisWin y pagarse por el banco.
  */
 const AZUL = '#1f6fb2'
-/**
- * Cómo se paga, por el texto de la forma de pago de GeminisWin: remesa y transferencia (y confirming,
- * pagaré o crédito) las paga el cliente por el banco y no se cobran en la entrega; Bizum es que ya está
- * pagada; lo demás (contado, contra reembolso…) se cobra en mano si queda algo pendiente.
- */
-function tipoPago(forma?: string | null): 'banco' | 'pagada' | 'mano' {
-  const f = (forma ?? '').toLowerCase()
-  if (f.includes('bizum')) return 'pagada'
-  if (/remesa|transfer|confirming|pagar[eé]|cr[eé]dito|efecto/.test(f)) return 'banco'
-  return 'mano'
-}
 function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null; no_cobro?: string | null; medio?: 'efectivo' | 'tarjeta' | null }): [string, string] | null {
   if (l.estado === 'liquidado') return ['Liquidada', AZUL]
   const tipo = tipoPago(l.forma_pago)
@@ -772,7 +762,7 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
     cargarHist()
   }, [cargarHist, cobros])
 
-  const enMano = (cobros ?? []).filter((c) => c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro)
+  const enMano = (cobros ?? []).filter((c) => !c.abono && c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro)
   const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}`
   const rutas = [...new Set(enMano.map(clave))].map((k) => ({ k, filas: enMano.filter((c) => clave(c) === k) }))
   const suma = (fs: { pendiente?: number; importe?: number }[]) => fs.reduce((t, c) => t + (c.pendiente ?? c.importe ?? 0), 0)
@@ -1208,34 +1198,21 @@ function Justificante({
  * cobran. Es informativa: los cobros se apuntan en GeminisWin y la factura sale de aquí sola.
  */
 function TarjetaPorCobrar({ cobros, abierta, onAbrir }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void }) {
-  // Bizum es que ya está pagada: no cuenta como pendiente aunque GeminisWin aún no lo refleje.
-  // Solo FACTURAS (Rober, 17/11/2026): los albaranes a crédito (transferencia o remesa a 30, 60 días…) todavía
-  // no se han facturado y se cobran a su vencimiento; con ellos la lista sería interminable. Lo de contado
-  // que había que cobrar en mano sí sale siempre, tenga o no número de factura.
-  const conFactura = (c: PorCobrar) => c.factura != null && String(c.factura).trim() !== ''
-  const enMano = (c: PorCobrar) => c.contado !== false && tipoPago(c.forma_pago) === 'mano'
-  const lista = cobros.filter((c) => tipoPago(c.forma_pago) !== 'pagada' && (conFactura(c) || enMano(c)))
-  const grupo = (c: PorCobrar): string => {
-    const f = (c.forma_pago ?? '').toLowerCase()
-    if (f.includes('remesa')) return 'Remesa'
-    if (f.includes('transfer')) return 'Transferencia'
-    if (c.contado === false || tipoPago(c.forma_pago) === 'banco') return 'Otras formas por banco'
-    return c.no_cobro ? 'Contado · el repartidor no cobró' : 'Contado · entregada, sin liquidar todavía'
-  }
-  const ORDEN = ['Contado · el repartidor no cobró', 'Contado · entregada, sin liquidar todavía', 'Transferencia', 'Remesa', 'Otras formas por banco']
-  const grupos = ORDEN.map((g) => ({ g, filas: lista.filter((c) => grupo(c) === g) })).filter((x) => x.filas.length)
-  const suma = (fs: PorCobrar[]) => fs.reduce((t, c) => t + (c.pendiente ?? 0), 0)
+  // Qué sale y en qué apartado: porCobrar.ts (lo mismo que el cuadro del Control de Repartos del ERP).
+  const lista = listaPorCobrar(cobros)
+  const grupos = gruposPorCobrar(cobros)
+  const suma = sumaPorCobrar
   if (!lista.length) return null
   return (
     <div style={{ background: '#eef5fc', border: `2px solid ${AZUL}`, borderRadius: 16, overflow: 'hidden' }}>
       <button type="button" onClick={onAbrir} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{ flex: 1, fontWeight: 700, fontSize: 17, color: AZUL }}>POR COBRAR</span>
-          <span style={{ fontWeight: 700, fontSize: 16, color: AZUL, whiteSpace: 'nowrap' }}>{euros(suma(lista))}</span>
+          <span style={{ fontWeight: 700, fontSize: 16, color: AZUL, whiteSpace: 'nowrap' }}>{euros(suma(lista.filter((c) => !c.abono)))}</span>
         </div>
         <div style={{ color: V.gris, fontSize: 13 }}>Facturas ya entregadas con importe pendiente (sin los albaranes a crédito) · {abierta ? 'toca para cerrar' : 'toca para ver la lista'}</div>
         <div style={{ fontSize: 13, color: V.texto, marginTop: 4 }}>
-          {grupos.map((x) => `${x.filas.length} ${x.g.replace('Contado · ', '').replace('el repartidor no cobró', 'sin cobrar').replace('entregada, sin liquidar todavía', 'sin liquidar').toLowerCase()}`).join(' · ')}
+          {grupos.map((x) => `${x.filas.length} ${x.g.replace('Abonos · pendientes de validar en almacén', 'abonos sin validar').replace('Contado · ', '').replace('el repartidor no cobró', 'sin cobrar').replace('entregada, sin liquidar todavía', 'sin liquidar').toLowerCase()}`).join(' · ')}
         </div>
       </button>
       {abierta && (

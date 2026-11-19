@@ -127,6 +127,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
       'Van agrupadas: las de contado que el repartidor no cobró (con su motivo), las de contado entregadas y aún sin liquidar, las de transferencia y las de remesa. Cada grupo lleva su total.',
       'Solo salen facturas. Los albaranes a crédito (transferencia o remesa a 30, 60 días…) no aparecen: se facturan después y se cobran a su vencimiento.',
       'Es solo para mirar: el cobro se apunta en GeminisWin y la factura sale de la lista cuando allí queda pagada o liquidada.',
+      'Al final, en rojo, «Abonos · pendientes de validar en almacén»: abonos que el repartidor ya recogió y que el almacén todavía no ha validado. No suman en el total. Salen de aquí cuando David los valida en el ERP (Control de Repartos → «💶 Por cobrar» → «Validar»), aunque pasen varios días.',
       'Se actualiza sola cada medio minuto.',
     ],
   },

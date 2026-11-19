@@ -13,6 +13,9 @@
 //    pedido (fn_reparto_control_lineas, mismo orden que los puntos; fn_reparto_control_comprobar).
 //    «⇄ Cambiar de ruta» en cada pedido sin entregar: lo pasa a otro reparto abierto, con motivo (fn_reparto_cambiar_ruta,
 //    queda anotado en reparto_cambio_ruta).
+//  · «💶 Por cobrar» (19/11/2026): el mismo cuadro que la oficina ve en la app (facturas entregadas con importe
+//    pendiente: contado, transferencias, remesas) y los abonos recogidos que el almacén aún no ha validado, con el
+//    botón «Validar» (fn_reparto_control_por_cobrar, fn_reparto_abono_validar; apartados en reparto-app/porCobrar.ts).
 //  · Mapa, PIN de la app de cada repartidor y enlace para la TV.
 // Sin ranking ni totales: eso es solo para la TV (/reparto-tv). Datos: migración 20261103_reparto_app.sql.
 
@@ -23,6 +26,8 @@ import { supabase } from '../../../lib/supabase'
 import { GwWindow } from '../../../components/gw'
 import { BarraPuntos, VistaMapa, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
 import { GenerarRepartosPage } from './GenerarRepartosPage'
+import type { PorCobrar } from '../../../reparto-app/api'
+import { GRUPO_ABONOS, gruposPorCobrar, sumaPorCobrar } from '../../../reparto-app/porCobrar'
 
 interface LineaCtl {
   vt: string
@@ -114,6 +119,8 @@ export function ControlRepartosHoy({
   const [pines, setPines] = useState(false)
   const [tv, setTv] = useState(false)
   const [lineas, setLineas] = useState<Record<string, LineaCtl[]>>({})
+  const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
+  const [verCobros, setVerCobros] = useState(false)
   const [desplegada, setDesplegadaEstado] = useState<string | null>(() => ultimaDesplegada)
   const setDesplegada = (k: string | null) => {
     ultimaDesplegada = k
@@ -137,8 +144,9 @@ export function ControlRepartosHoy({
     if (e) return setError(e.message)
     setError(null)
     setDatos(data as DatosSeg)
-    const l = await supabase.rpc('fn_reparto_control_lineas', {})
+    const [l, c] = await Promise.all([supabase.rpc('fn_reparto_control_lineas', {}), supabase.rpc('fn_reparto_control_por_cobrar', {})])
     if (!l.error) setLineas((l.data ?? {}) as Record<string, LineaCtl[]>)
+    if (!c.error) setCobros((c.data ?? []) as PorCobrar[])
   }, [])
 
   const comprobar = async (r: RutaSeg, l: LineaCtl) => {
@@ -215,6 +223,18 @@ export function ControlRepartosHoy({
         >
           ➕ Generar repartos
         </button>
+        <button
+          type="button"
+          className={`gw-btn h-[24px] ${verCobros ? 'bg-[#91c9f7] font-bold' : ''}`}
+          title="Facturas entregadas con importe pendiente (contado, transferencias, remesas) y abonos por validar en almacén"
+          onClick={() => (setVerCobros(!verCobros), plegar(false))}
+        >
+          💶 Por cobrar
+          {cobros && (() => {
+            const ab = cobros.filter((x) => x.abono).length
+            return ab ? <b className="ml-1 text-[#c42b1c]">· {ab} abono(s)</b> : null
+          })()}
+        </button>
         <button type="button" className={`gw-btn h-[24px] ${mapa ? 'bg-[#91c9f7] font-bold' : ''}`} onClick={() => (setMapa(!mapa), plegar(false))}>
           🗺 Mapa
         </button>
@@ -243,6 +263,17 @@ export function ControlRepartosHoy({
                 ✕
               </button>
             </div>
+          )}
+          {verCobros && (
+            <CuadroPorCobrar
+              cobros={cobros}
+              onValidar={async (c) => {
+                if (!confirm(`¿Validar el abono de ${c.cliente} (${eur(c.total)})? Confirma que la mercancía ha llegado al almacén y está bien.`)) return
+                const { error: e } = await supabase.rpc('fn_reparto_abono_validar', { p_tienda: c.rt, p_numero: c.rn, p_vt: c.vt, p_vn: c.vn, p_ok: true })
+                setMensaje(e ? e.message : `Abono de ${c.cliente} validado.`)
+                void cargar()
+              }}
+            />
           )}
           {mapa && (
             <div className="h-[340px] border border-[var(--gw-border)]">
@@ -478,6 +509,60 @@ function CambioRuta({ destinos, onCancelar, onHacer }: { destinos: RutaSeg[]; on
         Cancelar
       </button>
       {error && <span className="font-bold text-[#c42b1c]">{error}</span>}
+    </div>
+  )
+}
+
+function CuadroPorCobrar({ cobros, onValidar }: { cobros: PorCobrar[] | null; onValidar: (c: PorCobrar) => void }) {
+  if (!cobros) return <div>Cargando…</div>
+  const grupos = gruposPorCobrar(cobros)
+  const total = grupos.reduce((t, x) => t + sumaPorCobrar(x.filas), 0)
+  return (
+    <div className="border border-[#1f6fb2] bg-[#eef5fc] p-1.5">
+      <div className="flex items-baseline gap-2">
+        <b className="flex-1 text-[#1f6fb2]">POR COBRAR</b>
+        <b className="text-[#1f6fb2]">{eur(total)}</b>
+      </div>
+      <div className="text-[12px] text-[#555]">
+        Facturas ya entregadas con importe pendiente (sin los albaranes a crédito), y abonos recogidos que el almacén aún no ha validado. El cobro se apunta
+        en GeminisWin y la factura sale sola de aquí cuando allí queda pagada.
+      </div>
+      {!grupos.length && <div className="mt-1">No hay nada por cobrar ni abonos por validar.</div>}
+      {grupos.map((x) => (
+        <div key={x.g} className="mt-1.5">
+          <div className={`flex items-baseline border-b-2 pb-0.5 ${x.g === GRUPO_ABONOS ? 'border-[#c42b1c]' : 'border-[#1f6fb2]'}`}>
+            <b className={`flex-1 ${x.g.includes('no cobró') || x.g === GRUPO_ABONOS ? 'text-[#c42b1c]' : 'text-[#1f6fb2]'}`}>
+              {x.g} ({x.filas.length})
+            </b>
+            <b>{eur(x.g === GRUPO_ABONOS ? x.filas.reduce((t, c) => t + (c.total ?? 0), 0) : sumaPorCobrar(x.filas))}</b>
+          </div>
+          <table className="w-full border-collapse bg-white text-[12px]">
+            <tbody>
+              {x.filas.map((c) => (
+                <tr key={`${c.vt}-${c.vn}`} className="border-b border-[var(--gw-border-light)]">
+                  <td className="px-1.5 py-0.5 font-bold">{c.cliente}</td>
+                  <td className="px-1.5 text-[#555]">{c.factura ? `Factura ${c.factura}` : `Albarán ${c.vt}/${c.vn}`}</td>
+                  <td className="px-1.5 text-[#555]">
+                    {c.ruta ? `Ruta ${/^\d+$/.test(c.ruta) ? Number(c.ruta) : c.ruta}` : ''}
+                    {c.repartidor ? ` · ${c.repartidor}` : ''}
+                    {c.hora ? ` · ${c.abono ? 'recogido ' : ''}${c.hora}` : ''}
+                  </td>
+                  <td className="px-1.5">{c.forma_pago ?? ''}</td>
+                  <td className="px-1.5 font-bold text-[#c42b1c]">{c.no_cobro ? `No cobró: ${c.no_cobro}` : c.nota ?? ''}</td>
+                  <td className="whitespace-nowrap px-1.5 text-right font-bold">{eur(c.abono ? c.total : c.pendiente)}</td>
+                  <td className="w-[100px] whitespace-nowrap px-1.5 text-right">
+                    {c.abono && (
+                      <button type="button" className="gw-btn h-[22px] whitespace-nowrap font-bold" title="La mercancía del abono ha llegado al almacén y está bien" onClick={() => onValidar(c)}>
+                        ✔ Validar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
     </div>
   )
 }
