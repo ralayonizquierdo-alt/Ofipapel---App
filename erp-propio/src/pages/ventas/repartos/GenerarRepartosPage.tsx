@@ -41,7 +41,7 @@ interface Ruta {
   abierto: { tienda: string; numero: number; repartidor: string | null; lineas: number } | null
   anteriores: number
   propuesta: Propuesta[]
-  gw: { tienda: string; numero: number; fecha: string; ventas: [string, number][] } | null
+  gw: { tienda: string; numero: number; fecha: string; hasta: string | null; ventas: [string, number][] } | null
 }
 interface Panel {
   fecha: string
@@ -189,9 +189,13 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
 
   const elegidas = libres.filter((p) => marcadas[clave(p.vt, p.vn)])
   const enGw = new Set((r.gw?.ventas ?? []).map(([vt, vn]) => clave(vt, vn)))
+  // Lo vendido después de la última venta que lleva el reparto de GeminisWin no pudo entrar en él: no es diferencia.
+  const despues = (p: Propuesta) => !!r.gw?.hasta && !enGw.has(clave(p.vt, p.vn)) && `${p.fecha} ${p.hora ?? ''}` > r.gw.hasta
+  const tarde = elegidas.filter(despues).length
+  const aComparar = elegidas.filter((p) => !despues(p))
   const enErpSet = new Set(elegidas.map((p) => clave(p.vt, p.vn)))
   const soloGw = [...enGw].filter((k) => !enErpSet.has(k))
-  const ambos = elegidas.filter((p) => enGw.has(clave(p.vt, p.vn))).length
+  const ambos = aComparar.filter((p) => enGw.has(clave(p.vt, p.vn))).length
   const nombreRuta = `RUTA ${/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta} · ${r.nombre}`
 
   const rpc = async (fn: string, args: Record<string, unknown>) => {
@@ -322,10 +326,15 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
 
           {comparar && r.gw && (
             <div className="mb-2 rounded border border-[#c9d3e6] bg-[#f4f7fc] px-3 py-2">
-              Reparto de GeminisWin {r.gw.tienda}-{r.gw.numero}: <b>{r.gw.ventas.length}</b> venta(s). Marcadas aquí: <b>{elegidas.length}</b>. En los dos: <b>{ambos}</b>.{' '}
-              {elegidas.length - ambos > 0 && <span className="text-[#b26a00]">Solo en el ERP: {elegidas.length - ambos}. </span>}
+              Reparto de GeminisWin {r.gw.tienda}-{r.gw.numero}: <b>{r.gw.ventas.length}</b> venta(s). Marcadas aquí: <b>{aComparar.length}</b>. En los dos: <b>{ambos}</b>.{' '}
+              {aComparar.length - ambos > 0 && <span className="text-[#b26a00]">Solo en el ERP: {aComparar.length - ambos}. </span>}
               {soloGw.length > 0 && <span className="text-[#b00020]">Solo en GeminisWin: {soloGw.length} ({soloGw.slice(0, 30).join(', ')}{soloGw.length > 30 ? '…' : ''}).</span>}
-              {elegidas.length === ambos && !soloGw.length && <b className="text-[#2e7d32]"> Cuadra.</b>}
+              {aComparar.length === ambos && !soloGw.length && <b className="text-[#2e7d32]"> Cuadra.</b>}
+              {tarde > 0 && r.gw.hasta && (
+                <div className="text-[#555]">
+                  {tarde} venta(s) hechas después de generar el de GeminisWin (lleva hasta el {fechaCorta(r.gw.hasta.slice(0, 10))} {r.gw.hasta.slice(11)}): no pudieron entrar y no cuentan.
+                </div>
+              )}
             </div>
           )}
 
@@ -380,7 +389,11 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
                         <td className="whitespace-nowrap text-right">{euros(p.total)}</td>
                         <td>{p.forma_pago}</td>
                         <td>{notas.join(' · ')}</td>
-                        {comparar && <td className={enGw.has(k) ? 'text-[#2e7d32]' : 'text-[#b26a00]'}>{enGw.has(k) ? 'También' : 'No'}</td>}
+                        {comparar && (
+                          <td className={enGw.has(k) ? 'text-[#2e7d32]' : despues(p) ? 'text-[#888]' : 'text-[#b26a00]'}>
+                            {enGw.has(k) ? 'También' : despues(p) ? 'Hecha después' : 'No'}
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -411,7 +424,7 @@ function Operativa() {
           pasos: [
             'Arriba sale el día siguiente de reparto (el viernes, el lunes). Cámbialo si hace falta.',
             'En cada ruta «En el ERP» aparecen las ventas de sus clientes que todavía no han ido en ningún reparto, y en naranja las que no se entregaron en el anterior.',
-            'Repasa las marcas: las de otras tiendas salen sin marcar, porque a veces el cliente se lo lleva en mano.',
+            'Solo salen las ventas que en GeminisWin tienen marcado que van a reparto (y las que vienen del anterior). Repasa las marcas: las de otras tiendas salen sin marcar, porque a veces el cliente se lo lleva en mano.',
             'Comprueba el repartidor (sale el de la última vez) y pulsa «Generar reparto».',
             'Al momento le sale al repartidor en la app. Si después entran más ventas, vuelve a pulsar: se añaden al mismo reparto («Añadir al reparto»).',
           ],
@@ -427,6 +440,7 @@ function Operativa() {
           pasos: [
             'Genera el reparto de esa ruta en GeminisWin como siempre.',
             'Aquí, pulsa «Comparar con GeminisWin» en la fila de la ruta (sale cuando ya ha llegado su reparto de GeminisWin): dice cuántas ventas están en los dos, cuáles solo en el ERP y cuáles solo en GeminisWin. No genera nada.',
+            'Las ventas hechas después de generar el reparto de GeminisWin salen como «Hecha después» y no cuentan como diferencia.',
             'Cuando cuadre varios días seguidos, pulsa «Pasar al ERP». Desde entonces esa ruta NO se genera en GeminisWin.',
           ],
           notas: [
