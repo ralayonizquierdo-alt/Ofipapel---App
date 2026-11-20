@@ -334,7 +334,32 @@ async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
   const panelUrl = `${process.env.URL || ''}/.netlify/functions/conversations?phone=${encodeURIComponent(customerPhone)}`;
   const alert = `🔔 *Ofipapel Bot* — un cliente quiere hablar con una persona\n\n📱 ${customerPhone}\n💬 Último mensaje: "${lastCustomerMessage}"\n\n👉 Ver conversación: ${panelUrl}`;
 
-  await sendWhatsappMessage(ownerNumber, alert);
+  const enviado = await sendWhatsappMessage(ownerNumber, alert);
+
+  // QUE NO LLEGUE EL AVISO NO PUEDE SER UN SILENCIO (20/11/2026).
+  //
+  // Fuera de la ventana de 24 h de Meta, este envío falla SIEMPRE — y hasta hoy
+  // solo se apuntaba en unos logs que nadie mira. Desde fuera se ve igual que
+  // si no hubiera pasado nada: un cliente pidiendo una persona y nadie
+  // enterándose. Es el mismo patrón que costó la semana de bot muerto del
+  // 10-17/9/2026, y por eso existe `registrarFalloDelBot`: lo que se apunta ahí
+  // sale en rojo en el panel.
+  //
+  // El aviso por CORREO va aparte y no depende de esto (ver WHATSAPP_SETUP.md);
+  // esto solo sirve para enterarse de que el de WhatsApp no está llegando.
+  if (!enviado?.ok) {
+    const porQue = process.env.OWNER_ALERT_TEMPLATE
+      ? 'la plantilla falló y el texto libre también'
+      : 'no hay plantilla configurada (OWNER_ALERT_TEMPLATE), así que solo llega dentro de la ventana de 24 h de Meta';
+    try {
+      await conversationStore.registrarFalloDelBot(
+        `No se pudo avisarte por WhatsApp de que ${customerPhone} pide una persona: ${porQue}. ` +
+          `Detalle de Meta: ${String(enviado?.error || 'sin detalle').slice(0, 300)}`
+      );
+    } catch (err) {
+      console.error('Encima falló al registrar que el aviso no salió:', err);
+    }
+  }
 }
 
 // Si el cliente confirma o rechaza los botones "¿Quieres hablar con una persona?".
@@ -1341,7 +1366,19 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   const hayNotaParaEsto = notasQueAplican(text, deLaFicha ? [...notas, deLaFicha] : notas).length > 0;
   const faqReply = hayNotaParaEsto && !esEscalado ? null : faqDeSiempre;
 
-  const isExplicitRequest = isAgenteInfoEnCualquierIdioma(faqReply || ''); // "hablar con alguien", queja, presupuesto...
+  // PEDIR UNA PERSONA ENTRA POR LA REGLA, NO SOLO POR LA LISTA (20/11/2026).
+  //
+  // Hasta hoy, para llegar al escalado había que encajar en la lista de ~80
+  // frases de la FAQ. `pidioHablarConAlguien` —que SÍ es una regla— solo se
+  // usaba un paso más abajo, para decidir si saltarse los botones. O sea que
+  // una petición que la regla reconocía pero la lista no, no escalaba: ni
+  // botones, ni aviso, ni nada. Contestaba la IA y el equipo no se enteraba.
+  //
+  // Visto al medirlo (propietario, 20/11/2026: «cuando un cliente pide hablar
+  // con una agente el bot ya no me está enviando mensajes»): de 14 formas
+  // normales de pedir una persona, 8 no avisaban.
+  const isExplicitRequest =
+    isAgenteInfoEnCualquierIdioma(faqReply || '') || (text && pidioHablarConAlguien(text));
   const isRepeated = !faqReply && isRepeatQuestion(text, history);
   const wantsEscalation = isExplicitRequest || isRepeated;
 

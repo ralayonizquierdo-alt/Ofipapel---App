@@ -452,10 +452,27 @@ function mensajeSobreElCorreo({ correo, esNuestro }, idioma = 'es') {
 //
 // Tiene que ser una PETICIÓN, no la palabra suelta: «un agente comercial pasó
 // por la tienda» no pide nada, y «no quiero hablar con una persona» menos.
-const _QUIEN = '(?:agente|persona|alguien|humano|operador|comercial|encargado|dependiente)';
+const _QUIEN =
+  '(?:agente|persona|alguien|humano|operador|operadora|teleoperador|comercial|encargad[oa]|' +
+  'dependient[ae]|responsable|supervisor|atenci[óo]n\\s+al\\s+cliente)';
 const PIDE_UNA_PERSONA = [
   // «pásame con un agente», «ponme con alguien», «quiero hablar con una persona»
   new RegExp(`\\b(p[áa]same|pasame|ponme|p[áa]sa?me|comun[íi]came|derívame|derivame)\\b[^.!?]{0,20}\\b${_QUIEN}\\b`, 'i'),
+  // EN INFINITIVO, que es como lo pide media España (20/11/2026).
+  //
+  // «¿me pueden pasar con un agente?» no lo cogía NADIE: ni esta regla ni la
+  // lista de la FAQ. El cliente lo pedía con todas las letras y el aviso no
+  // salía. Lo mismo con «¿puedo hablar con atención al cliente?».
+  new RegExp(`\\b(pasar|pasarme|pasarle|poner|ponerme|derivar|derivarme|comunicarme|hablar|atender|atenderme)\\b\\s*(?:me\\s+)?(?:con|a)\\s+(?:un|una|alg[úu]n|alguna|el|la|los|las)?\\s*${_QUIEN}\\b`, 'i'),
+  // «quiero que me atienda una persona», «¿me puede atender alguien del equipo?»
+  new RegExp(`\\b(atienda|atiende|atiendan|atender|atenderme)\\b[^.!?]{0,20}\\b${_QUIEN}\\b`, 'i'),
+  // «¿hay alguien ahí?», «¿hay alguna persona?» — preguntar si hay alguien al
+  // otro lado ES pedir una persona, por mucho que no lleve verbo de petición.
+  new RegExp('\\bhay\\s+(?:alg[úu]n[ao]?\\s+)?(?:alguien|persona|agente|humano)\\b', 'i'),
+  // «Con una persona, por favor» — el mensaje ENTERO es la petición. Casi
+  // siempre es la respuesta a un «¿te paso con alguien?» del propio bot, y
+  // volver a enseñarle los botones es el aro de más del 6/11/2026.
+  new RegExp(`^\\s*(?:con|a)\\s+(?:un|una|alg[úu]n[ao]?)\\s*${_QUIEN}\\b`, 'i'),
   new RegExp(`\\b(quiero|necesito|prefiero|puedo|podr[íi]a|quisiera|me\\s+gustar[íi]a|d[ée]jame)\\b[^.!?]{0,25}\\bhablar\\b[^.!?]{0,20}\\b${_QUIEN}\\b`, 'i'),
   new RegExp(`\\bhablar\\s+con\\s+(?:un|una|alg[úu]n|el|la)?\\s*${_QUIEN}\\b`, 'i'),
   // En inglés, que el bot también atiende.
