@@ -66,7 +66,7 @@ const ESTADO_TXT: Record<LineaCtl['estado'], string> = {
 }
 const ESTADO_COLOR: Record<LineaCtl['estado'], string> = {
   entregado: '#2e7d32',
-  liquidado: '#2e7d32',
+  liquidado: '#1f6fb2', // azul, como en la app (Rober, 20/11/2026)
   incidencia: '#a86400',
   no_entregado: '#c62828',
   pendiente: '#666',
