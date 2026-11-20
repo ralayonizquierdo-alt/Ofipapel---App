@@ -223,11 +223,16 @@ def leer(cfg, rutas, estado):
         if not r['IDOFICINA'] or not r['IDREPARTO'] or r['IDRUTA'] not in rutas:
             continue
         clave = f"{r['IDOFICINA']}|{r['IDREPARTO']}"
+        # Ya visto (hay un registro más nuevo del mismo reparto): manda el más nuevo, que es el que se recorre primero.
+        if (r['IDOFICINA'], r['IDREPARTO']) in reps:
+            continue
         abierto = r['ESTADO'] == 2 and (r['FECHA'] or '') >= desde
         if abierto or clave in seguidos:
+            # Cerrado = cualquier estado que no sea «Generado» (2). Antes solo valía el 4, y un reparto que GeminisWin
+            # cerró con otro código (20/11/2026: rutas 1 y 5 del jueves) seguía mandándose como abierto para siempre.
             reps[(r['IDOFICINA'], r['IDREPARTO'])] = {
                 'oficina': r['IDOFICINA'], 'numero': r['IDREPARTO'], 'ruta': r['IDRUTA'], 'fecha': dia_de_reparto(r['FECHA'], cfg),
-                'repartidor': r['IDREPARTID'], 'estado': 4 if r['ESTADO'] == 4 else 2, 'lineas': []}
+                'repartidor': r['IDREPARTID'], 'estado': 2 if r['ESTADO'] == 2 else 4, 'estado_gw': r['ESTADO'], 'lineas': []}
     d.cerrar()
     if not reps:
         return []
@@ -438,7 +443,7 @@ def principal():
         # 1. Repartos abiertos de GeminisWin (los que todavía se generan allí).
         if rutas:
             reps = leer(cfg, rutas, estado)
-            resumen = ', '.join(f"{x['oficina']}-{x['numero']} (ruta {x['ruta']}, {'abierto' if x['estado'] == 2 else 'CERRADO'}, {len(x['lineas'])} líneas, "
+            resumen = ', '.join(f"{x['oficina']}-{x['numero']} (ruta {x['ruta']}, {'abierto' if x['estado'] == 2 else 'CERRADO'} [estado GW {x.get('estado_gw')}], {len(x['lineas'])} líneas, "
                                 f"{sum(1 for l in x['lineas'] if 'nombre' not in l)} sin venta)" for x in reps) or 'ningún reparto abierto'
             if modo == '--prueba':
                 registrar(f'PRUEBA (no se envía nada): {resumen}')
