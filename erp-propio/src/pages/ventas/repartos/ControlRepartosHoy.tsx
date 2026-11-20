@@ -180,7 +180,7 @@ export function ControlRepartosHoy({
   }
 
   const validar = async (c: PorCobrar) => {
-    const que = c.nulo ? 'el nulo' : 'el abono'
+    const que = c.nulo ? 'el nulo' : (c.total ?? 0) < -0.005 ? 'el abono' : 'la factura a cero'
     if (!confirm(`¿Validar ${que} de ${c.cliente} (${eur(c.total)})? Confirma que la mercancía ha llegado al almacén y está bien.`)) return
     const { error: e } = await supabase.rpc(c.nulo ? 'fn_reparto_nulo_validar' : 'fn_reparto_abono_validar', { p_tienda: c.rt, p_numero: c.rn, p_vt: c.vt, p_vn: c.vn, p_ok: true })
     setMensaje(e ? e.message : `${c.nulo ? 'Nulo' : 'Abono'} de ${c.cliente} validado.`)

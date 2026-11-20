@@ -38,6 +38,7 @@ import {
   type LineaApp,
   type PorCobrar,
   porCobrar,
+  validarIncidencia,
   type Liquidacion,
   type PorApuntar,
   liquidar,
@@ -469,6 +470,18 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
   const [verCobros, setVerCobros] = useState(false)
   const [verCobrosRuta, setVerCobrosRuta] = useState(true)
+  const validar = async (c: PorCobrar) => {
+    const que = c.nulo ? 'el nulo' : (c.total ?? 0) < -0.005 ? 'el abono' : 'la factura a cero'
+    if (!window.confirm(`¿Validar ${que} de ${c.cliente}? Confirma que la mercancía ha llegado al almacén y está bien.`)) return
+    try {
+      await validarIncidencia(sesion.token, c)
+      setCobros((cs) => (cs ?? []).filter((x) => !(x.vt === c.vt && x.vn === c.vn && x.rt === c.rt && x.rn === c.rn)))
+    } catch (e) {
+      const err = e as ErrorApp
+      if (err.caducada) onCaducada()
+      else window.alert(err.red ? 'Sin conexión: inténtalo otra vez cuando haya cobertura.' : err.message)
+    }
+  }
   // Dos vistas: las rutas (David) y la caja (Cande). Cada móvil recuerda en cuál se quedó.
   // Quien entra por «CAJA» solo tiene la caja: ni rutas ni botones para cambiar.
   const soloCaja = sesion.solo_caja === true && !sesion.supervisor
@@ -564,7 +577,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
           {/* Incidencias de esta ruta (Rober, 19/11/2026): por cobrar, abonos/facturas a cero y nulos por validar. */}
           {cobros && listaPorCobrar(cobros.filter((c) => c.ruta === r.ruta)).length > 0 && (
             <div style={{ marginBottom: 10 }}>
-              <TarjetaPorCobrar titulo="INCIDENCIAS DE LA RUTA" cobros={cobros.filter((c) => c.ruta === r.ruta)} abierta={verCobrosRuta} onAbrir={() => setVerCobrosRuta((v) => !v)} />
+              <TarjetaPorCobrar titulo="INCIDENCIAS DE LA RUTA" cobros={cobros.filter((c) => c.ruta === r.ruta)} abierta={verCobrosRuta} onAbrir={() => setVerCobrosRuta((v) => !v)} onValidar={sesion.supervisor ? validar : undefined} />
             </div>
           )}
           {!lineas && <div style={{ color: V.gris }}>Cargando…</div>}
@@ -655,7 +668,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
               </button>
             )
           })}
-          {cobros && cobros.length > 0 && <TarjetaPorCobrar cobros={cobros} abierta={verCobros} onAbrir={() => setVerCobros((v) => !v)} />}
+          {cobros && cobros.length > 0 && <TarjetaPorCobrar cobros={cobros} abierta={verCobros} onAbrir={() => setVerCobros((v) => !v)} onValidar={sesion.supervisor ? validar : undefined} />}
         </div>
         {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
       </Tarjeta>
@@ -1210,7 +1223,20 @@ function Justificante({
  * despliega la lista de facturas ya entregadas que siguen con importe pendiente, agrupadas por cómo se
  * cobran. Es informativa: los cobros se apuntan en GeminisWin y la factura sale de aquí sola.
  */
-function TarjetaPorCobrar({ cobros, abierta, onAbrir, titulo = 'POR COBRAR · TODAS LAS RUTAS' }: { cobros: PorCobrar[]; abierta: boolean; onAbrir: () => void; titulo?: string }) {
+function TarjetaPorCobrar({
+  cobros,
+  abierta,
+  onAbrir,
+  titulo = 'POR COBRAR · TODAS LAS RUTAS',
+  onValidar,
+}: {
+  cobros: PorCobrar[]
+  abierta: boolean
+  onAbrir: () => void
+  titulo?: string
+  /** Oficina (20/11/2026): validar abonos, facturas a cero y nulos desde la app. */
+  onValidar?: (c: PorCobrar) => void
+}) {
   // Qué sale y en qué apartado: porCobrar.ts (lo mismo que el cuadro del Control de Repartos del ERP).
   const lista = listaPorCobrar(cobros)
   const grupos = gruposPorCobrar(cobros)
@@ -1259,12 +1285,17 @@ function TarjetaPorCobrar({ cobros, abierta, onAbrir, titulo = 'POR COBRAR · TO
                       {[c.no_cobro ? `No cobró: ${textoDe(NO_COBRO, c.no_cobro)}` : null, c.nota].filter(Boolean).join(' · ')}
                     </div>
                   )}
+                  {onValidar && (c.abono || c.nulo) && (
+                    <Boton onClick={() => onValidar(c)} style={{ marginTop: 6, width: '100%', padding: '8px 10px', fontSize: 15 }}>
+                      ✔ Validar (ha llegado al almacén)
+                    </Boton>
+                  )}
                 </div>
               ))}
             </div>
           ))}
           <div style={{ fontSize: 12, color: V.gris, marginTop: 8 }}>
-            Solo para mirar: el cobro se apunta en GeminisWin, y la factura sale de esta lista cuando allí queda pagada o liquidada.
+            El cobro se apunta en GeminisWin: las facturas (contado, transferencias, remesas) salen solas de esta lista cuando allí quedan pagadas o liquidadas. Los abonos, facturas a cero y nulos salen al pulsar «Validar».
           </div>
         </div>
       )}

@@ -127,7 +127,7 @@ export const OPERATIVA_OFICINA: Apartado[] = [
       'Van agrupadas: las de contado que el repartidor no cobró (con su motivo), las de contado entregadas y aún sin liquidar, las de transferencia y las de remesa. Cada grupo lleva su total.',
       'Solo salen facturas. Los albaranes a crédito (transferencia o remesa a 30, 60 días…) no aparecen: se facturan después y se cobran a su vencimiento.',
       'Es solo para mirar: el cobro se apunta en GeminisWin y la factura sale de la lista cuando allí queda pagada o liquidada.',
-      'Al final, en rojo, «Abonos y facturas a cero» y «Nulos», pendientes de validar en almacén: abonos y facturas a cero que el repartidor ya marcó como entregados (y que por eso ya no salen en la lista de la ruta), y facturas anuladas en el ERP. No suman en el total. Salen de aquí cuando David los valida en el ERP (Control de Repartos → pedidos de la ruta → «Validar»), aunque pasen varios días.',
+      'Al final, en rojo, «Abonos y facturas a cero» y «Nulos», pendientes de validar en almacén: abonos y facturas a cero que el repartidor ya marcó como entregados (y que por eso ya no salen en la lista de la ruta), y facturas anuladas en el ERP. No suman en el total. Salen de aquí cuando David los valida con «✔ Validar», aquí mismo en la app o en el ERP (Control de Repartos → pedidos de la ruta), aunque pasen varios días. Las transferencias y remesas no se validan: salen solas cuando quedan pagadas en GeminisWin.',
       'Dentro de cada ruta, arriba, salen sus incidencias (lo mismo, solo de esa ruta). En la lista de rutas, «⚠ N por validar» avisa de cuántas tiene.',
       'Se actualiza sola cada medio minuto.',
     ],

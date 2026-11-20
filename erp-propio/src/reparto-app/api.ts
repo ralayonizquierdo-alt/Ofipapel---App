@@ -319,6 +319,9 @@ export interface PorCobrar {
   nulo?: boolean
 }
 export const porCobrar = (token: string) => rpc<PorCobrar[]>('fn_app_rep_por_cobrar', { p_token: token })
+/** Oficina: validar un abono, factura a cero o nulo (la mercancía ha llegado al almacén). */
+export const validarIncidencia = (token: string, c: PorCobrar) =>
+  rpc<{ ok: boolean }>('fn_app_rep_validar', { p_token: token, p_tienda: c.rt, p_numero: c.rn, p_vt: c.vt, p_vn: c.vn })
 
 /** Liquidación de la Caja (18/11/2026): lo que un repartidor entrega en administración. */
 export interface Liquidacion {
