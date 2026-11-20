@@ -20,6 +20,8 @@
 //    (fn_reparto_linea_nulo); y arriba del desplegable de cada ruta salen sus incidencias: facturas por cobrar, abonos
 //    y nulos por validar en almacén, con «Validar» (fn_reparto_abono_validar / fn_reparto_nulo_validar). Lo de rutas
 //    que hoy no tienen reparto sale en «Todas las incidencias».
+//  · Acciones en bloque (20/11/2026): la casilla de cada pedido lo SELECCIONA; con los seleccionados se marcan como
+//    comprobados, se pasan a otra ruta o se anulan (un solo motivo). «Comprobado» va en su botón propio en cada pedido.
 //  · Mapa, PIN de la app de cada repartidor y enlace para la TV.
 // Sin ranking ni totales: eso es solo para la TV (/reparto-tv). Datos: migración 20261103_reparto_app.sql.
 
@@ -135,7 +137,9 @@ export function ControlRepartosHoy({
   const [verCobros, setVerCobros] = useState(false)
   const [desplegada, setDesplegadaEstado] = useState<string | null>(() => ultimaDesplegada)
   const [resaltado, setResaltado] = useState<string | null>(null)
+  const [seleccion, setSeleccion] = useState<Set<string>>(() => new Set())
   const setDesplegada = (k: string | null) => {
+    if (k !== ultimaDesplegada) setSeleccion(new Set())
     ultimaDesplegada = k
     setDesplegadaEstado(k)
   }
@@ -170,14 +174,53 @@ export function ControlRepartosHoy({
     void cargar()
   }
 
-  const comprobarTodos = async (r: RutaSeg, ok: boolean) => {
-    if (!ok && !confirm(`¿Quitar la marca de comprobado a todos los pedidos de ${nombreRuta(r)}?`)) return
-    const k = `${r.tienda}-${r.numero}`
-    setLineas((m) => ({ ...m, [k]: (m[k] ?? []).map((x) => ({ ...x, comprobado: ok })) }))
-    const { error: e } = await supabase.rpc('fn_reparto_control_comprobar_todos', { p_tienda: r.tienda, p_numero: r.numero, p_ok: ok })
-    if (e) setMensaje(e.message)
+
+  // ---- Acciones en bloque con los pedidos seleccionados (uno a uno por detrás; se dice cuántos salieron bien).
+  const enBloque = async (sel: LineaCtl[], hacer: (l: LineaCtl) => PromiseLike<{ error: { message: string } | null }>, hecho: string) => {
+    let bien = 0
+    const fallos: string[] = []
+    for (const l of sel) {
+      const { error: e } = await hacer(l)
+      if (e) fallos.push(`${l.cliente}: ${e.message}`)
+      else bien++
+    }
+    setSeleccion(new Set())
+    setMensaje(`${hecho}: ${bien} de ${sel.length}.${fallos.length ? ` No se pudo con: ${fallos.slice(0, 5).join(' · ')}${fallos.length > 5 ? '…' : ''}` : ''}`)
     void cargar()
   }
+  const comprobarVarios = (r: RutaSeg, sel: LineaCtl[], ok: boolean) =>
+    enBloque(
+      sel,
+      (l) => supabase.rpc('fn_reparto_control_comprobar', { p_tienda: r.tienda, p_numero: r.numero, p_vt: l.vt, p_vn: l.vn, p_ok: ok }),
+      ok ? 'Marcados como comprobados' : 'Desmarcados',
+    )
+  const anularVarios = (r: RutaSeg, sel: LineaCtl[]) => {
+    const motivo = prompt(
+      `Pasar a NULO ${sel.length} pedido(s) de ${nombreRuta(r)}.\n\nSalen del reparto y quedan en las incidencias de la ruta hasta validarlos. Recuerda anularlos también en GeminisWin.\n\n¿Por qué se anulan?`,
+    )
+    if (motivo == null) return
+    if (!motivo.trim()) return setMensaje('Para anular hay que poner el motivo.')
+    void enBloque(
+      sel,
+      (l) => supabase.rpc('fn_reparto_linea_nulo', { p_tienda: r.tienda, p_numero: r.numero, p_vt: l.vt, p_vn: l.vn, p_motivo: motivo.trim(), p_ok: true }),
+      'Pasados a NULO (anúlalos también en GeminisWin)',
+    )
+  }
+  const pasarVarios = (r: RutaSeg, sel: LineaCtl[], dest: RutaSeg, motivo: string) =>
+    enBloque(
+      sel,
+      (l) =>
+        supabase.rpc('fn_reparto_cambiar_ruta', {
+          p_tienda: r.tienda,
+          p_numero: r.numero,
+          p_vt: l.vt,
+          p_vn: l.vn,
+          p_dest_tienda: dest.tienda,
+          p_dest_numero: dest.numero,
+          p_motivo: motivo,
+        }),
+      `Pasados a ${nombreRuta(dest)}`,
+    )
 
   const validar = async (c: PorCobrar) => {
     const que = c.nulo ? 'el nulo' : (c.total ?? 0) < -0.005 ? 'el abono' : 'la factura a cero'
@@ -450,18 +493,20 @@ export function ControlRepartosHoy({
                       </div>
                     )}
                     {ls && ls.length > 0 && (
-                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                        <b>{ls.filter((x) => x.comprobado).length} de {ls.length} comprobados</b>
-                        <button type="button" className="gw-btn h-[22px] font-bold" onClick={() => void comprobarTodos(r, true)}>
-                          ✓ Marcar todos
-                        </button>
-                        <button type="button" className="gw-btn h-[22px]" onClick={() => void comprobarTodos(r, false)}>
-                          Desmarcar todos
-                        </button>
-                      </div>
+                      <AccionesBloque
+                        lineas={ls}
+                        seleccion={seleccion}
+                        onSeleccion={setSeleccion}
+                        destinos={cerrado ? [] : rutas.filter((x) => x.estado === 2 && !(x.tienda === r.tienda && x.numero === r.numero))}
+                        onComprobar={(sel, ok) => void comprobarVarios(r, sel, ok)}
+                        onAnular={(sel) => anularVarios(r, sel)}
+                        onPasar={(sel, d, m) => void pasarVarios(r, sel, d, m)}
+                      />
                     )}
                     <ListaPedidos
                       lineas={ls}
+                      seleccion={seleccion}
+                      onSeleccion={setSeleccion}
                       onAnular={(l) => void anular(r, l)}
                       resaltado={resaltado}
                       onComprobar={(l) => void comprobar(r, l)}
@@ -496,6 +541,8 @@ export function ControlRepartosHoy({
 
 function ListaPedidos({
   lineas,
+  seleccion,
+  onSeleccion,
   resaltado,
   onAnular,
   onComprobar,
@@ -503,6 +550,8 @@ function ListaPedidos({
   onCambiarRuta,
 }: {
   lineas: LineaCtl[] | undefined
+  seleccion: Set<string>
+  onSeleccion: (s: Set<string>) => void
   resaltado: string | null
   onAnular: (l: LineaCtl) => void
   onComprobar: (l: LineaCtl) => void
@@ -526,13 +575,30 @@ function ListaPedidos({
           className={`flex items-start gap-2 border border-[var(--gw-border-light)] px-2 py-1 ${resaltado === `${l.vt}/${l.vn}` ? 'bg-[#fff6c2]' : 'bg-white'}`}
           style={{ borderLeft: `4px solid ${l.estado === 'pendiente' && l.contado && Number(l.total ?? 0) > Number(l.pagado ?? 0) ? '#1E6FD9' : ESTADO_COLOR[l.estado]}` }}
         >
-          <label className="flex cursor-pointer items-center gap-1 pt-0.5 text-[11px] text-[#555]" title="Marcar como comprobado (revisado y separado), igual que en la app">
-            <input type="checkbox" checked={l.comprobado} onChange={() => onComprobar(l)} />
+          <label className="flex cursor-pointer items-center gap-1 pt-0.5 text-[11px] text-[#555]" title="Seleccionar para hacer algo con varios a la vez (barra de arriba)">
+            <input
+              type="checkbox"
+              checked={seleccion.has(`${l.vt}/${l.vn}`)}
+              onChange={() => {
+                const n = new Set(seleccion)
+                if (n.has(`${l.vt}/${l.vn}`)) n.delete(`${l.vt}/${l.vn}`)
+                else n.add(`${l.vt}/${l.vn}`)
+                onSeleccion(n)
+              }}
+            />
           </label>
           <div className="min-w-0 flex-1">
             <div className="flex justify-between gap-2">
               <b className="truncate">{l.cliente}</b>
               <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className={`gw-btn h-[22px] whitespace-nowrap ${l.comprobado ? 'bg-[#d8f0d8] font-bold text-[#1b5e20]' : ''}`}
+                  title="Revisado y separado (lo mismo que «① Comprobar» en la app)"
+                  onClick={() => onComprobar(l)}
+                >
+                  {l.comprobado ? '☑ Comprobado' : '☐ Comprobado'}
+                </button>
                 <button type="button" className="gw-btn h-[22px] whitespace-nowrap" title="Anular esta factura o albarán (NULO): sale del reparto y queda en las incidencias de la ruta hasta validarlo" onClick={() => onAnular(l)}>
                   ⊘ Anular (Nulo)
                 </button>
@@ -570,6 +636,73 @@ function ListaPedidos({
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function AccionesBloque({
+  lineas,
+  seleccion,
+  onSeleccion,
+  destinos,
+  onComprobar,
+  onAnular,
+  onPasar,
+}: {
+  lineas: LineaCtl[]
+  seleccion: Set<string>
+  onSeleccion: (s: Set<string>) => void
+  destinos: RutaSeg[]
+  onComprobar: (sel: LineaCtl[], ok: boolean) => void
+  onAnular: (sel: LineaCtl[]) => void
+  onPasar: (sel: LineaCtl[], destino: RutaSeg, motivo: string) => void
+}) {
+  const [pasar, setPasar] = useState(false)
+  const sel = lineas.filter((l) => seleccion.has(`${l.vt}/${l.vn}`))
+  // Solo se pueden pasar de ruta los que no se han entregado.
+  const movibles = sel.filter((l) => l.estado === 'pendiente' || l.estado === 'no_entregado')
+  return (
+    <div className="mb-1 flex flex-col gap-1 border border-[var(--gw-border)] bg-white px-2 py-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <b>{lineas.filter((x) => x.comprobado).length} de {lineas.length} comprobados</b>
+        <span className="text-[#888]">·</span>
+        <button type="button" className="gw-btn h-[22px]" onClick={() => onSeleccion(new Set(lineas.map((l) => `${l.vt}/${l.vn}`)))}>
+          Seleccionar todos
+        </button>
+        <button type="button" className="gw-btn h-[22px]" disabled={!sel.length} onClick={() => onSeleccion(new Set())}>
+          Ninguno
+        </button>
+        <b className={sel.length ? 'text-[#1d3a8a]' : 'text-[#888]'}>{sel.length} seleccionado(s):</b>
+        <button type="button" className="gw-btn h-[22px] font-bold" disabled={!sel.length} onClick={() => onComprobar(sel, true)}>
+          ✓ Marcar comprobados
+        </button>
+        <button type="button" className="gw-btn h-[22px]" disabled={!sel.length} onClick={() => onComprobar(sel, false)}>
+          Quitar comprobado
+        </button>
+        <button
+          type="button"
+          className={`gw-btn h-[22px] ${pasar ? 'bg-[#91c9f7]' : ''}`}
+          disabled={!movibles.length || !destinos.length}
+          title={sel.length && !movibles.length ? 'Solo se pueden pasar de ruta los pedidos sin entregar' : 'Pasar los seleccionados (sin entregar) a otra ruta'}
+          onClick={() => setPasar(!pasar)}
+        >
+          ⇄ Pasar a ruta…{sel.length && movibles.length < sel.length ? ` (${movibles.length})` : ''}
+        </button>
+        <button type="button" className="gw-btn h-[22px]" disabled={!sel.length} onClick={() => onAnular(sel)}>
+          ⊘ Anular (Nulo)
+        </button>
+      </div>
+      {pasar && movibles.length > 0 && (
+        <CambioRuta
+          destinos={destinos}
+          onCancelar={() => setPasar(false)}
+          onHacer={async (d, m) => {
+            onPasar(movibles, d, m)
+            setPasar(false)
+            return null
+          }}
+        />
+      )}
     </div>
   )
 }
