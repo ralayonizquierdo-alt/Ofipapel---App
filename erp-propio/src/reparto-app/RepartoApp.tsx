@@ -1286,9 +1286,11 @@ function TarjetaPorCobrar({
                     </div>
                   )}
                   {onValidar && (c.abono || c.nulo) && (
-                    <Boton onClick={() => onValidar(c)} style={{ marginTop: 6, width: '100%', padding: '8px 10px', fontSize: 15 }}>
-                      ✔ Validar (ha llegado al almacén)
-                    </Boton>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                      <Boton claro onClick={() => onValidar(c)} style={{ padding: '3px 12px', fontSize: 13, borderRadius: 999 }}>
+                        ✔ Validar
+                      </Boton>
+                    </div>
                   )}
                 </div>
               ))}
