@@ -28,7 +28,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     ],
   },
   {
-    icono: '🕒',
+    icono: '①',
     titulo: 'Fichar',
     pasos: [
       'Se ficha aquí mismo, sin ir a otra app: «Fichar entrada» al empezar.',
@@ -37,7 +37,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     ],
   },
   {
-    icono: '①',
+    icono: '②',
     titulo: 'Antes de salir: comprobar',
     pasos: [
       'Marca la casilla de cada pedido cuyo albarán llevas en la furgoneta.',
@@ -45,7 +45,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     ],
   },
   {
-    icono: '②',
+    icono: '③',
     titulo: 'En la calle: repartir',
     pasos: [
       'Toca un pedido para ver la dirección, llamar al cliente, escribirle por WhatsApp (si tiene móvil) o abrir el mapa.',
@@ -73,10 +73,10 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
     ],
   },
   {
-    icono: '🧾',
+    icono: '④',
     titulo: 'Tu caja',
     pasos: [
-      'Arriba, la tercera pestaña: «③ Caja».',
+      'Arriba, la última pestaña: «④ Caja».',
       'En grande, el dinero en EFECTIVO que tienes que entregar en administración. Debajo, en azul, lo cobrado con tarjeta: eso no se entrega, va al banco por el datáfono. Y cada factura cobrada, con su cliente e importe.',
       'Más abajo, las que entregaste sin cobrar (con el motivo que pusiste): de esas no entregas dinero.',
       'Y cuánto te queda todavía por cobrar en la ruta.',

@@ -54,7 +54,7 @@ import { OPERATIVA_OFICINA, OPERATIVA_REPARTIDOR } from './operativaReparto'
 
 // App de repartidores (/repartidor): móvil, sin cuenta del ERP. Mismo estilo que Fichaje (fichaje.html):
 // verdes de Ofipapel, fondo con tréboles, tarjetas blancas con borde lima.
-// Flujo: nombre → PIN → ruta → «Comprobar» (albaranes antes de salir) → «Repartir» (marcar cada pedido).
+// Flujo: nombre → PIN → ruta → ① Fichar → ② «Comprobar» (albaranes antes de salir) → ③ «Repartir» (marcar cada pedido) → ④ «Caja».
 
 const V = {
   verde: '#1A5C1A',
@@ -1849,7 +1849,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
               color: !caja && modo === m ? '#fff' : V.verde,
             }}
           >
-            {m === 'comprobar' ? `① Comprobar ${comprobados}/${ls.length}` : `② Repartir ${hechos}/${ls.length}`}
+            {m === 'comprobar' ? `② Comprobar ${comprobados}/${ls.length}` : `③ Repartir ${hechos}/${ls.length}`}
           </button>
         ))}
         <button
@@ -1857,7 +1857,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           onClick={() => setCaja(true)}
           style={{ flex: 0.7, borderRadius: 12, padding: '10px 4px', fontWeight: 700, fontSize: 14, border: 'none', background: caja ? AZUL : 'transparent', color: caja ? '#fff' : AZUL }}
         >
-          ③ Caja
+          ④ Caja
         </button>
       </div>
 
@@ -2044,7 +2044,7 @@ function CajaFichaje({ sesion, onCambio }: { sesion: Sesion; onCambio?: () => vo
     <Tarjeta style={{ padding: 12, borderTopColor: f.estado === 'trabajando' ? V.verdeCl : f.estado === 'pausa' ? V.naranja : V.rojo }}>
       {f.estado === 'sin_fichar' && (
         <>
-          <div style={{ fontWeight: 700, color: V.rojo, marginBottom: 8 }}>🕒 Aún no has fichado la entrada</div>
+          <div style={{ fontWeight: 700, color: V.rojo, marginBottom: 8 }}>① Fichar · 🕒 Aún no has fichado la entrada</div>
           <Boton disabled={ocupado} onClick={() => void pulsar('entrada')} style={{ width: '100%', fontSize: 18 }}>
             ▶ Fichar entrada
           </Boton>
@@ -2052,7 +2052,7 @@ function CajaFichaje({ sesion, onCambio }: { sesion: Sesion; onCambio?: () => vo
       )}
       {f.estado === 'trabajando' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 130px', fontWeight: 700, color: V.verde, fontSize: 14 }}>🟢 Trabajando{primera ? ` · entrada ${hora(primera.en)}` : ''}</div>
+          <div style={{ flex: '1 1 130px', fontWeight: 700, color: V.verde, fontSize: 14 }}>① 🟢 Trabajando{primera ? ` · entrada ${hora(primera.en)}` : ''}</div>
           <div style={{ display: 'flex', gap: 8, flex: '1 1 200px' }}>
             <Boton claro color={V.naranja} disabled={ocupado} onClick={() => void pulsar('pausa_inicio')} style={peq}>
               ⏸ Pausa
@@ -2065,7 +2065,7 @@ function CajaFichaje({ sesion, onCambio }: { sesion: Sesion; onCambio?: () => vo
       )}
       {f.estado === 'pausa' && (
         <>
-          <div style={{ fontWeight: 700, color: V.naranja, marginBottom: 8 }}>⏸ En pausa desde las {h('pausa_inicio')}</div>
+          <div style={{ fontWeight: 700, color: V.naranja, marginBottom: 8 }}>① ⏸ En pausa desde las {h('pausa_inicio')}</div>
           <Boton disabled={ocupado} onClick={() => void pulsar('pausa_fin')} style={{ width: '100%' }}>
             ▶ Terminar pausa
           </Boton>
