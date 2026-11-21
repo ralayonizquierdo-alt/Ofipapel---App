@@ -236,6 +236,18 @@ ERP: 142.402 artículos, 182.496 códigos de barras, 161.487 artículo-proveedor
 saltan las que no tienen almacén o traen cantidades imposibles; quedan en Archivo → Espejo de GeminisWin). No hay
 tarea programada: el espejo solo se mueve cuando Cowork lo lanza a mano (`paso3_espejo.bat`). CLIENART sin tocar.
 
+**21/11/2026 — qué falta y en qué orden (Rober: «quiero volcar todos los datos que falten»).** Comprobado en la base de
+datos: la tanda 1 está (142.543 artículos, 13.627 clientes, 528 proveedores, stock, códigos de barras, referencias de
+proveedor) y la contabilidad de CONTANET (75.032 asientos). Falta, por este orden:
+1. PEDIDCAB, PEDIDLIN, PETICION y PETIDETA (el ERP ya está listo desde el 18/11: falta instalar el programa nuevo en el
+   PC de Mónica) y que la tarea traiga **todas** las tablas (las pequeñas no se refrescan desde el 17/11).
+2. Sucursales de clientes (el ERP tiene 0).
+3. Tanda 2 (ventas, líneas, facturas, cobros, caja), tanda 3 (entradas y facturas de proveedor) y presupuestos y
+   pedidos de clientes. **Decisión de Rober: primero el año en curso**; los años anteriores, de noche y poco a poco.
+4. CLIENART, solo los precios vigentes.
+Pedido a Cowork: instalar el programa, cambiar la tarea y mandar la estructura (fichero, registros, campos, fechas
+extremas) de los ficheros de los puntos 2 y 3. Con eso se escriben las cargas del ERP.
+
 ## 10. Pendiente para después de la primera carga
 
 - **Lo que falta para que el Gestor de Pedidos 2.0 no pida de más** (18/11/2026), por este orden:
