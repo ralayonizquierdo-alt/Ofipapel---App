@@ -155,13 +155,12 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
 
 ## Seguridad conocida
 
-> **Estado real, comprobado en vivo (2026-08-19)**: los datos de Finanzas,
-> Alquileres, Vacaciones y Fichaje son accesibles **sin ninguna contraseña**
-> — en Finanzas incluso con escritura. El login de las apps no protege los
-> datos: se llega a la base de datos sin pasar por él. Ver el informe completo
-> en `.claude/rax/AUDITORIA_SEGURIDAD_2026-08.md` y `DEUDA_TECNICA.md` DT-23.
-> Es el punto abierto más grave del proyecto; el resto de esta sección son
-> problemas menores en comparación.
+> **Estado comprobado en vivo el 2026-11-21** con `scripts/comprobar-accesos.sh` (solo lectura): Finanzas,
+> Alquileres, Vacaciones y Fichaje están **cerrados** sin credencial (lectura 401/403, escritura denegada).
+> El aviso anterior (2026-08-19, «accesibles sin contraseña») quedó obsoleto: Finanzas se cerró el 2026-08-28
+> y Fichaje después (ver `.claude/rax/DEUDA_TECNICA.md` DT-23). Joe's App no responde desde fuera (su
+> dirección de Supabase no resuelve): el script la marca «abierta» por error al no poder conectar.
+> Antes de afirmar que algo está abierto o cerrado, ejecuta el script; no te fíes de este párrafo.
 
 
 - `Index.html`: login 100% client-side (hash SHA-256 sin salt, contraseña
