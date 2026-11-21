@@ -1,16 +1,33 @@
 # Revisión de secretos (.github/workflows/secretos.yml). Reglas de gitleaks por defecto, más qué NO revisar.
-# Para una línea concreta que dé falsa alarma (por ejemplo, una clave pública de Supabase o Firebase, que va
-# a la vista por diseño), añade en esa misma línea un comentario con `gitleaks:allow`.
+# Para una línea concreta que dé falsa alarma, añade en esa misma línea un comentario con `gitleaks:allow`.
 title = "Ofipapel"
 
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Ficheros que no son código: imágenes, documentos, tipos de letra, dependencias y generados"
+description = "Ficheros que no son código, y líneas con claves PÚBLICAS por diseño (revisadas una a una el 21/11/2026)"
+# Ficheros que no son código: imágenes, documentos, tipos de letra, dependencias y generados.
 paths = [
   '''\.(png|jpe?g|webp|gif|ico|svg|pdf|xlsx?|docx?|pptx?|woff2?|ttf|otf|eot|zip|mp3|mp4)$''',
   '''(^|/)package-lock\.json$''',
   '''(^|/)node_modules/''',
   '''lectorPdfProveedores\.generado\.(js|d\.ts)$''',
+]
+# Estas expresiones se comparan con la LÍNEA entera. Son las 41 falsas alarmas que dio la revisión de todo el
+# historial (21/11/2026): claves «publishable» de Supabase, claves web de Firebase (las usa el navegador; lo que
+# protege los datos son las reglas), nombres de claves del almacenamiento del navegador, tokens de HTML estático
+# ya marcados como «no es un secreto» y el ejemplo de la guía de WooCommerce. Ninguna era una clave secreta.
+regexTarget = "line"
+regexes = [
+  '''sb_publishable_''',
+  '''apiKey:\s*'AIzaSy''',
+  '''(API_KEY|VACACIONES_API_KEY)\s*=\s*'AIzaSy''',
+  '''^\s*AIzaSy[0-9A-Za-z_-]{33}\s*\\?\s*$''',
+  '''SECRETS_SCAN_''',
+  '''\b(STORAGE|REGISTROS|BORRADOR)_KEY\s*=''',
+  '''\bstorageKey\s*=''',
+  '''no es un secreto''',
+  '''=\s*'ofipapel-[a-z0-9-]+'\s*;''',
+  '''ck_LA_CLAVE''',
 ]
