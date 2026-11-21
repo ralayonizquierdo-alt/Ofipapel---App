@@ -101,7 +101,7 @@ export const OPERATIVA_REPARTIDOR: Apartado[] = [
   {
     icono: '📍',
     titulo: 'Tu ubicación',
-    pasos: ['Solo se recoge con una ruta abierta y dentro de tu jornada. Se borra a los 30 días.'],
+    pasos: ['Solo se recoge con la app abierta, con tu ruta abierta y entre el fichaje de entrada y el de salida (en las pausas no). Si cierras la app, deja de enviarse.', 'Se borra a los 30 días.'],
   },
 ]
 

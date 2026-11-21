@@ -1800,7 +1800,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
         <Tarjeta>
           <div style={{ fontWeight: 700, color: V.verde, marginBottom: 6 }}>📍 Ubicación</div>
           <div style={{ fontSize: 14, color: V.gris, marginBottom: 10 }}>
-            Mientras tengas la ruta abierta, la app enviará tu ubicación para la pantalla de pedidos de la oficina. Fuera de la ruta no se envía nada.
+            Mientras tengas la app abierta con tu ruta y estés fichado (entre la entrada y la salida, fuera de las pausas), la app enviará tu ubicación para la pantalla de pedidos de la oficina. Con la app cerrada o sin fichar no se envía nada.
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <Boton onClick={() => (guardar('reparto.gps', 'si'), setGps('si'))} style={{ flex: 1 }}>
