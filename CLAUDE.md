@@ -158,8 +158,8 @@ correctas; la de `Index.html` sigue sin verificar, ver seguridad conocida).
 > **Estado comprobado en vivo el 2026-11-21** con `scripts/comprobar-accesos.sh` (solo lectura): Finanzas,
 > Alquileres, Vacaciones y Fichaje están **cerrados** sin credencial (lectura 401/403, escritura denegada).
 > El aviso anterior (2026-08-19, «accesibles sin contraseña») quedó obsoleto: Finanzas se cerró el 2026-08-28
-> y Fichaje después (ver `.claude/rax/DEUDA_TECNICA.md` DT-23). Joe's App no responde desde fuera (su
-> dirección de Supabase no resuelve): el script la marca «abierta» por error al no poder conectar.
+> y Fichaje después (ver `.claude/rax/DEUDA_TECNICA.md` DT-23). **Joe's World / Joe's App está eliminado**
+> (el propietario, 2026-11-21): su proyecto de Supabase ya no existe y el script ya no lo comprueba.
 > Antes de afirmar que algo está abierto o cerrado, ejecuta el script; no te fíes de este párrafo.
 
 

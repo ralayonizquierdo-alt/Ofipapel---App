@@ -241,10 +241,8 @@ comprobar_supabase "App Bancos (Finanzas)" \
   "sb_publishable_LaJCCCGsN2VIXFDFAxEb6g_eEZHh3j6" \
   registros app_sync usuarios
 
-comprobar_supabase "Joe's App" \
-  "https://fiaqvzjzbpncutkngdbo.supabase.co" \
-  "sb_publishable_H3eVLyJpXxMiRUim_6RcTg_U80_9sSQ" \
-  events hospital_shifts coisinhas business_tasks spotify_playlists favorite_artists limon_records
+# Joe's App ya no se comprueba: su proyecto de Supabase está eliminado (el propietario, 21/11/2026; la dirección
+# ya no existe en internet). Comprobarla daba una falsa alarma: sin conexión, el script la tomaba por «abierta».
 
 comprobar_firestore "Alquileres y Vacaciones" ofipapelvv \
   AIzaSyDLqPoqiMgiqbk5Uv-4RoYrbA-5Yfc1A_s \
