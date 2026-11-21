@@ -261,6 +261,10 @@ extremas) de los ficheros de los puntos 2 y 3. Con eso se escriben las cargas de
   `20261118_espejo_pedidos_peticiones.sql`); de los pedidos, solo el último año, los que siguen sin recibir y los
   ya mandados alguna vez (`ventana_dias` en el programa). Falta: confirmar con los datos qué TIPODOC es pedido y
   qué TIPO/ESTADO de petición está abierta, y usarlas en la propuesta del Gestor 2.0.
+  **También para las propuestas de proveedor (21/11/2026):** la revisión con IA del PDF del proveedor (Gestor 2.0 →
+  «Propuestas de proveedor», migración `20261119_compras_propuestas_proveedor.sql` y función `propuesta-proveedor-ia`,
+  activas desde el 21/11) solo compara con pedidos hechos en el ERP. Rober prefiere esperar a probarla con los pedidos
+  de GeminisWin: cuando lleguen `gw_pedido_proveedor`/`_linea`, hacer que la pantalla los ofrezca también.
 - **Tarea automática del espejo cada 10 minutos** (hecha el 18/11: «Ofipapel\\Espejo GeminisWin»; de momento solo
   trae clientes, proveedores y artículos: tiene que lanzar todas las tablas) y, con ella funcionando, **cerrar las áreas en solo consulta**
   (Archivo → Espejo de GeminisWin). Cerrarlas antes dejaría el ERP con datos que no se actualizan.
