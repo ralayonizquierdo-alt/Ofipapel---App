@@ -40,6 +40,8 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         nexa: fileURLToPath(new URL('./nexa.html', import.meta.url)),
+        // Entrada propia de la app de reparto: el iPhone guarda el icono y el nombre que trae la página (no los de JS).
+        repartidor: fileURLToPath(new URL('./repartidor.html', import.meta.url)),
       },
     },
   },
