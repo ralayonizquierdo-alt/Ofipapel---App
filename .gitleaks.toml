@@ -28,6 +28,6 @@ regexes = [
   '''\b(STORAGE|REGISTROS|BORRADOR)_KEY\s*=''',
   '''\bstorageKey\s*=''',
   '''no es un secreto''',
-  '''=\s*'ofipapel-[a-z0-9-]+'\s*;''',
+  '''=\s*'ofipapel[a-z0-9_-]*'\s*;''',
   '''ck_LA_CLAVE''',
 ]
