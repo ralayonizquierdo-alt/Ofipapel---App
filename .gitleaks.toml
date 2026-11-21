@@ -1,0 +1,16 @@
+# Revisión de secretos (.github/workflows/secretos.yml). Reglas de gitleaks por defecto, más qué NO revisar.
+# Para una línea concreta que dé falsa alarma (por ejemplo, una clave pública de Supabase o Firebase, que va
+# a la vista por diseño), añade en esa misma línea un comentario con `gitleaks:allow`.
+title = "Ofipapel"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ficheros que no son código: imágenes, documentos, tipos de letra, dependencias y generados"
+paths = [
+  '''\.(png|jpe?g|webp|gif|ico|svg|pdf|xlsx?|docx?|pptx?|woff2?|ttf|otf|eot|zip|mp3|mp4)$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)node_modules/''',
+  '''lectorPdfProveedores\.generado\.(js|d\.ts)$''',
+]
