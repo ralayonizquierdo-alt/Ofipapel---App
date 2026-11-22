@@ -246,6 +246,8 @@ body{
     <ul class="ficha-funciones"></ul>
     <h3>Hoy he hecho</h3>
     <ul class="ficha-hoy"></ul>
+    <h3 class="ficha-pend-t" hidden>Tengo pendiente</h3>
+    <ul class="ficha-pendiente" hidden></ul>
   </dialog>
 
   <div class="orbit-shell">
@@ -773,23 +775,56 @@ body{
   });
 
   // Agentes de la esquina: no navegan, abren su ficha (propietario,
-  // 22/11/2026): quién es, qué funciones tiene y qué ha hecho hoy.
-  // Cada agente se describe aquí; "hoyUrl" (opcional) es un JSON con
-  // {"hoy": ["...", ...]} que se lee al abrir la ficha. Sin él, o si no
-  // contesta, se dice que aún no hay registro — nunca se inventa.
+  // 22/11/2026): quién es, qué funciones tiene, qué ha hecho hoy y qué
+  // tiene pendiente. "resumen" = código del agente en el ERP: se pregunta a
+  // fn_agente_resumen_publico (Supabase del ERP), que devuelve SOLO números y
+  // estado (nada de proveedores, importes ni nombres), por eso puede ir con
+  // la clave pública. Si no contesta, se dice que no hay registro: nunca se
+  // inventa.
+  var ERP_RPC = 'https://sufxvpiwcncnyltrvoun.supabase.co/rest/v1/rpc/fn_agente_resumen_publico';
+  var ERP_CLAVE_PUBLICA = 'sb_publishable_IArWyleDbhD_twn1W5-jHA_l9kECHap';
   var AGENTES = {
     emilio: {
       nombre: 'E-milio',
       color: '#00A3FF', glow: 'rgba(0,163,255,.45)',
-      intro: '¡Hola! Soy E-milio, el agente del correo de Ofipapel.',
-      funciones: [ /* PROVISIONAL: a confirmar con el propietario */
-        'Leo el correo que entra y lo ordeno por temas.',
-        'Aviso de lo urgente para que no se quede sin contestar.',
-        'Preparo borradores de respuesta para que solo haya que revisarlos.'
+      intro: '¡Hola! Soy E-milio, el agente del correo de Ofipapel. Leo los e-mails de los proveedores para que nadie tenga que abrirlos uno a uno.',
+      funciones: [
+        'Vigilo el buzón de compras día y noche, cada 10 minutos. Solo leo: no borro, no muevo y no contesto a nadie.',
+        'Cojo los PDF de los proveedores y digo qué son: propuesta o confirmación de pedido, factura o albarán.',
+        'Reconozco al proveedor y busco su pedido, se hiciera en el ERP o en GeminisWin.',
+        'Cruzo cada documento con su pedido, línea a línea, con IA: aviso de lo que falta, viene sin stock, de menos o de más, o cambia de precio por encima del margen.',
+        'Preparo las facturas finales con su nombre ordenado para la carpeta de facturas de proveedores.',
+        'Lo dejo todo en el Gestor de Pedidos 2.0 → «Correo de proveedores». Yo preparo; decidís vosotros. Me manda NEXA.'
       ],
-      hoyUrl: null
+      resumen: 'correo_proveedores'
     }
   };
+  function plural(n, uno, varios){ return n + ' ' + (n === 1 ? uno : varios); }
+  // Del resumen numérico del ERP a frases de E-milio.
+  function frasesCorreo(r){
+    var hoy = [], pend = [], h = r.hoy || {}, p = r.pendiente || {};
+    if (r.estado === 'esperando_conexion') hoy.push('Todavía no estoy conectado al buzón de compras: espero la conexión de Microsoft para empezar.');
+    else if (r.estado === 'parado') hoy.push('Estoy parado: NEXA me puede volver a poner en marcha.');
+    else if (r.estado === 'con_error') hoy.push('En mi última pasada algo falló al leer el buzón: lo estoy reintentando.');
+    if (r.estado !== 'esperando_conexion'){
+      if (!h.documentos) hoy.push('Hoy todavía no ha llegado ningún documento de proveedores.');
+      else {
+        var tipos = [];
+        if (h.propuestas) tipos.push(plural(h.propuestas, 'propuesta', 'propuestas'));
+        if (h.facturas) tipos.push(plural(h.facturas, 'factura', 'facturas'));
+        if (h.albaranes) tipos.push(plural(h.albaranes, 'albarán', 'albaranes'));
+        if (h.otros) tipos.push(plural(h.otros, 'otro', 'otros'));
+        hoy.push('He leído ' + plural(h.documentos, 'documento', 'documentos') + (tipos.length ? ': ' + tipos.join(', ') : '') + '.');
+        if (h.cruzados_con_pedido) hoy.push('He cruzado ' + h.cruzados_con_pedido + ' con su pedido: ' + plural(h.cuadran || 0, 'cuadra', 'cuadran') + ' y ' + plural(h.con_diferencias || 0, 'tiene diferencias', 'tienen diferencias') + '.');
+      }
+      if (r.ultima_pasada) hoy.push('Mi última vuelta por el buzón: ' + new Date(r.ultima_pasada).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', timeZone:'Atlantic/Canary'}) + '.');
+    }
+    if (p.por_revisar) pend.push(plural(p.por_revisar, 'documento por revisar', 'documentos por revisar') + ' en el Gestor 2.0.');
+    if (p.con_diferencias) pend.push(plural(p.con_diferencias, 'documento con diferencias', 'documentos con diferencias') + ' con su pedido.');
+    if (p.sin_pedido) pend.push(plural(p.sin_pedido, 'documento al que no le encuentro pedido', 'documentos a los que no les encuentro pedido') + '.');
+    if (p.facturas_sin_copiar) pend.push(plural(p.facturas_sin_copiar, 'factura por copiar', 'facturas por copiar') + ' a la carpeta de facturas.');
+    return { hoy: hoy, pend: pend };
+  }
   var ficha = document.getElementById('agenteFicha');
   function liste(ul, items, vacio){
     ul.innerHTML = '';
@@ -805,11 +840,20 @@ body{
     ficha.querySelector('.ficha-intro').textContent = ag.intro;
     liste(ficha.querySelector('.ficha-funciones'), ag.funciones, 'Sin funciones descritas todavía.');
     var hoy = ficha.querySelector('.ficha-hoy');
+    var pendT = ficha.querySelector('.ficha-pend-t'), pend = ficha.querySelector('.ficha-pendiente');
+    pendT.hidden = pend.hidden = true;
     var SIN = 'Todavía no tengo conectado el registro de lo que hago cada día.';
-    if (ag.hoyUrl){
+    if (ag.resumen){
       liste(hoy, [], 'Mirando lo de hoy…');
-      fetch(ag.hoyUrl, {cache:'no-store'}).then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(d){ liste(hoy, d && d.hoy, 'Hoy todavía no he hecho nada.'); })
+      fetch(ERP_RPC, {method:'POST', cache:'no-store', headers:{'apikey':ERP_CLAVE_PUBLICA, 'Content-Type':'application/json'}, body:JSON.stringify({p_agente: ag.resumen})})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (!d){ liste(hoy, [], SIN); return; }
+          var f = frasesCorreo(d);
+          liste(hoy, f.hoy, 'Hoy todavía no he hecho nada.');
+          if (f.pend.length){ liste(pend, f.pend, ''); pendT.hidden = pend.hidden = false; }
+          else if (d.estado !== 'esperando_conexion'){ liste(pend, [], 'Nada: lo tengo todo al día.'); pendT.hidden = pend.hidden = false; }
+        })
         .catch(function(){ liste(hoy, [], SIN); });
     } else liste(hoy, [], SIN);
     if (ficha.showModal) ficha.showModal(); else ficha.setAttribute('open','');
