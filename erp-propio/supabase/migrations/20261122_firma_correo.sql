@@ -126,3 +126,24 @@ end $$;
 revoke all on function public.fn_documento_venta_enviar(text, bigint, text, text, text, text, text) from public, anon;
 grant execute on function public.fn_documento_venta_enviar(text, bigint, text, text, text, text, text) to authenticated;
 
+
+-- Móvil: si la ficha del empleado no lo tiene, el de su ficha de Vendedor (enlazada por «Nº Vend.» / vendedor_codigo):
+-- ahí es donde están los móviles de los comerciales. Y sale aunque la empresa no tenga teléfono.
+do $blk$
+declare d text;
+begin
+  d := pg_get_functiondef('public.fn_firma_correo_html(text)'::regprocedure);
+  if position('from vendedor' in d) = 0 then
+    d := replace(d, $a$em.email, em.telefono_movil, r.nombre as rol$a$, $a$em.email, em.telefono_movil, em.vendedor_codigo, em.numero_operario, r.nombre as rol$a$);
+    d := replace(d, $a$v_movil := nullif(btrim(e.telefono_movil), '');$a$, $a$v_movil := coalesce(nullif(btrim(e.telefono_movil), ''),
+    (select nullif(btrim(v.telefono_movil), '') from vendedor v where v.codigo = coalesce(nullif(btrim(e.vendedor_codigo), ''), nullif(btrim(e.numero_operario), ''))));$a$);
+  end if;
+  if position('v_tel is null and v_movil' in d) = 0 then
+    d := replace(d, $a$|| '</td></tr></table></td></tr>'$a$, $a$|| case when v_tel is null and v_movil is not null then
+         '<div style="font-size:13px;line-height:20px"><span style="color:#3DAF3D;font-weight:bold">Móvil</span> <a href="tel:+34' || regexp_replace(v_movil, '\D', '', 'g')
+         || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_movil) || '</a></div>' else '' end
+    || '</td></tr></table></td></tr>'$a$);
+  end if;
+  if position('from vendedor' in d) = 0 or position('v_tel is null and v_movil' in d) = 0 then raise exception 'firma: no se aplicó el móvil'; end if;
+  execute d;
+end $blk$;
