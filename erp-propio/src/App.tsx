@@ -27,6 +27,7 @@ import { MonedaFichaPage } from './pages/archivo/MonedaFichaPage'
 import { TipoClienteFichaPage } from './pages/clientes/TipoClienteFichaPage'
 import { AlmacenUtilRoutes } from './pages/almacen/utilidades/AlmacenUtilRoutes'
 import { PedidoProveedorFichaPage } from './pages/compras/pedidos/PedidoProveedorFichaPage'
+import { PedidoGeminisWinPage } from './pages/compras/pedidos/PedidoGeminisWinPage'
 import { CreacionRapidaPedidosPage } from './pages/compras/pedidos/CreacionRapidaPedidosPage'
 import { PagoProveedorFichaPage } from './pages/compras/pagos/PagoProveedorFichaPage'
 import { GestorPagosProveedorPage } from './pages/compras/pagos/GestorPagosProveedorPage'
@@ -198,6 +199,7 @@ function App() {
             <Route path="/modificacion-precios/*" element={<ModificacionPreciosFichaPage />} />
             <Route path="/compras" element={<PedidoProveedorFichaPage />} />
             <Route path="/pedidos-proveedor/*" element={<PedidoProveedorFichaPage />} />
+            <Route path="/pedidos-geminiswin/*" element={<PedidoGeminisWinPage />} />
             <Route path="/creacion-rapida-pedidos" element={<CreacionRapidaPedidosPage />} />
             <Route path="/pagos-proveedor/*" element={<PagoProveedorFichaPage />} />
             <Route path="/gestor-pagos-proveedor" element={<GestorPagosProveedorPage />} />

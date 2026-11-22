@@ -53,7 +53,11 @@ const OPERATIVA: BloqueOperativa[] = [
       'Pulsa Nuevo (F3), elige el proveedor y el almacén.',
       'Añade las líneas con «Nueva línea»: código, cantidad, precio y descuento.',
       'Guarda con F1. El número se asigna al guardar.',
-      'Cuando llegue la mercancía, pulsa «Actualizado»: entra el stock y se recalculan los costes de los artículos.',
+      'Cuando llegue la mercancía, pulsa «Actualizado»: entra el stock, se recalculan los costes de los artículos y el pedido queda Liquidado.',
+    ],
+    notas: [
+      'Estados (los que usa Ofipapel): Pendiente, creado o enviado al proveedor sin su propuesta todavía. Confirmado, propuesta recibida, comprobada y aceptada. Pend. confirmar, llegó con faltas o artículos que no hay y lo que falta queda en restos. Liquidado, llegó la mercancía, con sus gastos, y se actualizó para la venta.',
+      'Número: escribe un número y pulsa Intro para ir a ese pedido; si es de GeminisWin, se abre en «Pedidos de GeminisWin (consulta)». Ctrl+Intro en Número, Fecha, Proveedor o Nombre abre la lista de todos los pedidos ordenada por ese campo.',
     ],
   },
   {
@@ -876,7 +880,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     setSaving(true)
     try {
       await actualizarCompra({ ...cab, numero: cab.numero }, lineas, empleado, costes)
-      const c = { ...cab, estado: 'recepcionado', recibido: true, stock_movido: true, fecha_recepcion: hoy() }
+      const c = { ...cab, estado: 'liquidado', recibido: true, stock_movido: true, fecha_recepcion: hoy() }
       setCab(c)
       setOrig({ cab: c, lineas })
       setRefresco((r) => r + 1)
@@ -890,12 +894,11 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   async function togglePagado() {
     if (!cab) return
     const v = !cab.pagado
-    // Pagado deja el pedido Liquidado; al desmarcarlo vuelve a Recepcionado (o Pendiente si no se actualizó).
+    // Pagado no cambia el estado: Liquidado es cuando llega la mercancía y se actualiza (Rober, 22/11/2026).
     const cambios = {
       pagado: v,
       proveedor_pagado: v,
       fecha_pago: v ? cab.fecha_pago ?? hoy() : cab.fecha_pago,
-      estado: v ? 'liquidado' : cab.estado === 'liquidado' ? (cab.stock_movido ? 'recepcionado' : 'pendiente') : cab.estado,
     }
     if (editing) {
       patch(cambios)
@@ -939,11 +942,9 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     }
     const { data: gw } = await supabase.from('gw_pedido_proveedor').select('oficina, numero').eq('numero', n).limit(1)
     const g = (gw ?? [])[0] as { oficina: string; numero: number } | undefined
-    setMensaje(
-      g
-        ? `El pedido ${g.oficina}-${g.numero} es de GeminisWin: está en el espejo pero esta ficha solo abre los pedidos hechos en el ERP.`
-        : `No hay ningún pedido con el número ${n}.`,
-    )
+    // Si es de GeminisWin, se abre en su ficha de consulta.
+    if (g) navigate(`/pedidos-geminiswin/${encodeURIComponent(g.oficina)}/${g.numero}`)
+    else setMensaje(`No hay ningún pedido con el número ${n} (ni en el ERP ni en GeminisWin).`)
   }
   const irNav = async (d: NavDir) => {
     const k = await nav.ir(d)

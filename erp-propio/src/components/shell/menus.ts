@@ -306,6 +306,8 @@ export const MENUS: TopMenu[] = [
         to: '/pedidos-proveedor',
         description: 'Realiza pedidos a los proveedores, actualiza stock, precios y crea nuevos artículos',
       }),
+      // Nuevo (22/11/2026): los pedidos de GeminisWin que trae el espejo, de solo consulta.
+      item('Pedidos de GeminisWin (consulta)', { to: '/pedidos-geminiswin', description: 'Pedidos a proveedor hechos en GeminisWin, copiados por el espejo (solo consulta)' }),
       item('Creación Ráp. de Pedidos', { to: '/creacion-rapida-pedidos', description: 'Creación Rápida de Pedidos a Proveedores' }),
       item('Listados de Pedidos', { to: '/listados-compras/pedidos', description: 'Informes de Pedidos a Proveedores' }),
       item('Listados de Proveedores', { to: '/listados-compras/proveedores', description: 'Informes de Proveedores (también con la impresora de la ficha)' }),
@@ -550,6 +552,7 @@ export const WINDOW_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/inventario', title: 'Inventarios' },
   { prefix: '/compras', title: 'Pedidos a Proveedores' },
   { prefix: '/pedidos-proveedor', title: 'Pedidos a Proveedores' },
+  { prefix: '/pedidos-geminiswin', title: 'Pedidos de GeminisWin (consulta)' },
   { prefix: '/creacion-rapida-pedidos', title: 'Creación Rápida de Pedidos' },
   { prefix: '/pagos-proveedor', title: 'Pagos de Gastos, pagos a proveedores, pagos a transportistas, etc' },
   { prefix: '/gestor-pagos-proveedor', title: 'Gestor de Pagos' },

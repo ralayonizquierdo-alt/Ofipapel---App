@@ -31,6 +31,7 @@ const RUTAS: [Seccion, string[]][] = [
     [
       '/compras',
       '/pedidos-proveedor',
+      '/pedidos-geminiswin',
       '/creacion-rapida-pedidos',
       '/facturas-proveedor',
       '/pagos-proveedor',

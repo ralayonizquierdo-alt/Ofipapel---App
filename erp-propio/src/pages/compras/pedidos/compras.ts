@@ -64,8 +64,9 @@ export const LINEA_COMPRA_COLS =
   'linea, articulo_codigo, codigo_compra, descripcion, bultos, cajas, cantidad, unidades_por_caja, cajas_por_bulto, coste_anterior, precio_compra, descuento_pct, igic_pct, canon, bonificacion'
 
 // Los de GeminisWin, en su orden (ESTADOPED 1…7). En Ofipapel solo se usan Pendiente, Pend. confirmar, Confirmado y
-// Liquidado (Rober, 22/11/2026): son los únicos que salen para elegir; el resto solo se ve si un pedido ya lo tiene
-// (Actualizar lo deja Recepcionado).
+// Liquidado (Rober, 22/11/2026): son los únicos que salen para elegir; el resto solo se ve si un pedido antiguo lo tiene.
+// Pendiente: creado o enviado, sin propuesta del proveedor. Pend. confirmar: llegó con faltas y lo que falta queda en
+// restos. Confirmado: propuesta recibida y aceptada. Liquidado: llegó la mercancía, con sus gastos (Actualizar).
 export const ESTADOS_COMPRA_USO = ['pendiente', 'pendiente_confirmar', 'confirmado', 'liquidado']
 export const ESTADOS_COMPRA = [
   { v: 'pendiente', t: 'Pendiente' },
@@ -318,7 +319,9 @@ export async function actualizarCompra(
 
   const { error } = await supabase
     .from('pedido_proveedor')
-    .update({ estado: 'recepcionado', recibido: true, stock_movido: true, fecha_recepcion: hoy })
+    // Actualizar = llega la mercancía, entra el stock y se recalculan los costes con sus gastos: en Ofipapel eso es «Liquidado»
+    // (Rober, 22/11/2026: no se usa Recepcionado).
+    .update({ estado: 'liquidado', recibido: true, stock_movido: true, fecha_recepcion: hoy })
     .eq('tienda_terminal_codigo', cab.tienda_terminal_codigo)
     .eq('numero', cab.numero)
   if (error) throw new Error(error.message)
