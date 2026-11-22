@@ -1,6 +1,8 @@
 -- Firma de los correos que envía el ERP desde el buzón de un empleado (Rober, 22/11/2026: «los pies de los mail deben
 -- tener un formato bonito… una faldilla guapa con nuestros colores»). Arriba el logo, una raya verde, el nombre, el
 -- cargo, el correo y el teléfono; abajo una franja verde con la empresa, la dirección y la web.
+--  · Móvil: el de la ficha del empleado, si lo tiene (al lado del teléfono de la empresa).
+--  · El nombre de la empresa va grande en la franja (22 px), para que acabe a la altura de la web.
 --  · Nombre y cargo: los de la ficha del empleado (Archivo → Empleados → «Nombre en la firma» y «Cargo»). Si están
 --    vacíos: el nombre de la ficha en mayúsculas/minúsculas y el grupo de permisos como cargo (menos «Administrador»).
 --  · Empresa, dirección, teléfono y web: Archivo → Datos de Empresa.
@@ -20,9 +22,9 @@ $$;
 
 create or replace function public.fn_firma_correo_html(p_empleado text)
 returns text language plpgsql stable security definer set search_path to 'public', 'pg_temp' as $$
-declare e record; m record; v_nombre text; v_cargo text; v_tel text; v_web text; v_dir text; v_email text; v_empresa text;
+declare e record; m record; v_nombre text; v_cargo text; v_tel text; v_web text; v_dir text; v_email text; v_empresa text; v_movil text;
 begin
-  select em.nombre, em.nombre_firma, em.cargo, em.email, r.nombre as rol into e
+  select em.nombre, em.nombre_firma, em.cargo, em.email, em.telefono_movil, r.nombre as rol into e
     from empleado em left join rol r on r.id = em.rol_id where em.codigo = p_empleado;
   if not found then return ''; end if;
   select coalesce(nullif(btrim(nombre), ''), 'Ofipapel') as nombre, direccion, codigo_postal, poblacion, telefono_fijo, telefono_movil, web,
@@ -35,6 +37,7 @@ begin
                       case when e.rol is null or e.rol ilike 'administrador%' then null
                            when e.rol ilike 'comercial%' then 'Asesor Comercial' else e.rol end);
   v_email := nullif(btrim(e.email), '');
+  v_movil := nullif(btrim(e.telefono_movil), '');
   v_tel := coalesce(nullif(btrim(m.telefono_fijo), ''), nullif(btrim(m.telefono_movil), ''));
   v_web := regexp_replace(coalesce(nullif(btrim(m.web), ''), ''), '^https?://', '');
   v_empresa := regexp_replace(replace(initcap(lower(m.nombre)), ' De ', ' de '), ',\s*S\.l\.$', ', S.L.');
@@ -57,10 +60,12 @@ begin
     || coalesce('<div style="font-size:13px;line-height:20px"><span style="color:#3DAF3D;font-weight:bold">&#9993;</span>&nbsp; <a href="mailto:'
                 || fn_html_texto(v_email) || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_email) || '</a></div>', '')
     || coalesce('<div style="font-size:13px;line-height:20px"><span style="color:#3DAF3D;font-weight:bold">&#9742;</span>&nbsp; <a href="tel:+34'
-                || regexp_replace(v_tel, '\D', '', 'g') || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_tel) || '</a></div>', '')
+                || regexp_replace(v_tel, '\D', '', 'g') || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_tel) || '</a>'
+                || coalesce(' &nbsp;<span style="color:#3DAF3D;font-weight:bold">Móvil</span> <a href="tel:+34' || regexp_replace(v_movil, '\D', '', 'g')
+                            || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_movil) || '</a>', '') || '</div>', '')
     || '</td></tr></table></td></tr>'
     || '<tr><td bgcolor="#1A5C1A" style="background-color:#1A5C1A;background-image:linear-gradient(90deg,#1A5C1A 0%,#237523 55%,#3DAF3D 100%);border-radius:10px 10px 0 0;padding:11px 18px;color:#ffffff">'
-    || '<div style="font-size:13px;line-height:18px;font-weight:bold;letter-spacing:.3px;color:#ffffff">' || fn_html_texto(v_empresa) || '</div>'
+    || '<div style="font-size:22px;line-height:28px;font-weight:bold;letter-spacing:.5px;color:#ffffff">' || fn_html_texto(v_empresa) || '</div>'
     || coalesce('<div style="font-size:12px;line-height:18px;color:#e4f4e2">' || v_dir || '</div>', '')
     || '</td></tr>'
     || '<tr><td bgcolor="#C1D48A" style="background-color:#C1D48A;height:5px;line-height:5px;font-size:0;border-radius:0 0 10px 10px">&nbsp;</td></tr>'

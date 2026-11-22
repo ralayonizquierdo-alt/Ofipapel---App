@@ -20,6 +20,10 @@ import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { Campanas } from './Campanas'
 import { Tarifas } from './Tarifas'
 import { Propuestas } from './Propuestas'
+import { PedidosControl } from './PedidosControl'
+import { TabPeticiones } from '../gestor/TabPeticiones'
+import { CLAVE_OPCIONES, OPCIONES_DEFECTO } from '../gestor/opciones'
+import { leerOpciones } from '../../ventas/gestores/comun'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
 
 interface Resumen {
@@ -137,7 +141,10 @@ export function GestorSemanalPage() {
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ texto: string; pedido?: number; error?: boolean } | null>(null)
-  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas'>(() => (busqueda.get('vista') === 'propuestas' ? 'propuestas' : 'decidir'))
+  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas' | 'peticiones' | 'pedidos'>(() => {
+    const v = busqueda.get('vista')
+    return v === 'propuestas' || v === 'peticiones' || v === 'pedidos' ? v : 'decidir'
+  })
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const [sinProveedor, setSinProveedor] = useState(0)
@@ -145,6 +152,7 @@ export function GestorSemanalPage() {
   const [calculando, setCalculando] = useState(false)
   const [condiciones, setCondiciones] = useState<Resumen | null>(null)
   const [pequeno, setPequeno] = useState(300)
+  const [opcionesGestor] = useState(() => leerOpciones(CLAVE_OPCIONES, OPCIONES_DEFECTO))
 
   const cargar = useCallback(async () => {
     setError(null)
@@ -255,6 +263,12 @@ export function GestorSemanalPage() {
         <Pestana activa={vista === 'propuestas'} onClick={() => setVista('propuestas')}>
           Propuestas de proveedor
         </Pestana>
+        <Pestana activa={vista === 'peticiones'} onClick={() => setVista('peticiones')}>
+          Peticiones de clientes
+        </Pestana>
+        <Pestana activa={vista === 'pedidos'} onClick={() => setVista('pedidos')}>
+          Pedidos a proveedor
+        </Pestana>
         {error && (
           <span role="alert" className="text-[14px] font-bold text-[#c42b1c]">
             {error}
@@ -268,9 +282,9 @@ export function GestorSemanalPage() {
                 <button type="button" onClick={() => void excel(aviso.pedido!)} className="mr-2 inline-flex items-center gap-1 underline">
                   <FileSpreadsheet size={14} /> Excel para GeminisWin
                 </button>
-                <Link to="/gestor-pedidos-proveedor" className="underline">
-                  Verlo en el Gestor
-                </Link>
+                <button type="button" onClick={() => setVista('pedidos')} className="underline">
+                  Verlo en «Pedidos a proveedor»
+                </button>
               </>
             )}
           </span>
@@ -289,6 +303,12 @@ export function GestorSemanalPage() {
       {vista === 'campanas' && <Campanas />}
       {vista === 'tarifas' && <Tarifas />}
       {vista === 'propuestas' && <Propuestas pedidoInicial={pedidoInicial} />}
+      {vista === 'pedidos' && <PedidosControl />}
+      {vista === 'peticiones' && (
+        <div className="overflow-hidden rounded-2xl border border-[#e1e7f3] bg-white p-2 shadow-[0_1px_3px_rgba(20,40,90,0.08)]">
+          <TabPeticiones opciones={opcionesGestor} onError={setError} />
+        </div>
+      )}
       {vista === 'raros' && (
         <Raros
           proveedores={(datos ?? []).map((r) => ({ codigo: r.proveedor_codigo, nombre: r.proveedor_nombre }))}
