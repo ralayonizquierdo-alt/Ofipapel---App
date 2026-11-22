@@ -21,6 +21,7 @@ import { Campanas } from './Campanas'
 import { Tarifas } from './Tarifas'
 import { Propuestas } from './Propuestas'
 import { PedidosControl } from './PedidosControl'
+import { CorreoProveedores } from './CorreoProveedores'
 import { TabPeticiones } from '../gestor/TabPeticiones'
 import { CLAVE_OPCIONES, OPCIONES_DEFECTO } from '../gestor/opciones'
 import { leerOpciones } from '../../ventas/gestores/comun'
@@ -141,9 +142,9 @@ export function GestorSemanalPage() {
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ texto: string; pedido?: number; error?: boolean } | null>(null)
-  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas' | 'peticiones' | 'pedidos'>(() => {
+  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas' | 'peticiones' | 'pedidos' | 'correo'>(() => {
     const v = busqueda.get('vista')
-    return v === 'propuestas' || v === 'peticiones' || v === 'pedidos' ? v : 'decidir'
+    return v === 'propuestas' || v === 'peticiones' || v === 'pedidos' || v === 'correo' ? v : 'decidir'
   })
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
@@ -269,6 +270,9 @@ export function GestorSemanalPage() {
         <Pestana activa={vista === 'pedidos'} onClick={() => setVista('pedidos')}>
           Pedidos a proveedor
         </Pestana>
+        <Pestana activa={vista === 'correo'} onClick={() => setVista('correo')}>
+          Correo de proveedores
+        </Pestana>
         {error && (
           <span role="alert" className="text-[14px] font-bold text-[#c42b1c]">
             {error}
@@ -304,6 +308,7 @@ export function GestorSemanalPage() {
       {vista === 'tarifas' && <Tarifas />}
       {vista === 'propuestas' && <Propuestas pedidoInicial={pedidoInicial} />}
       {vista === 'pedidos' && <PedidosControl />}
+      {vista === 'correo' && <CorreoProveedores />}
       {vista === 'peticiones' && (
         <div className="overflow-hidden rounded-2xl border border-[#e1e7f3] bg-white p-2 shadow-[0_1px_3px_rgba(20,40,90,0.08)]">
           <TabPeticiones opciones={opcionesGestor} onError={setError} />
@@ -316,7 +321,7 @@ export function GestorSemanalPage() {
           onError={setError}
         />
       )}
-      {vista !== 'raros' && datos !== null && !lista.length && (
+      {(vista === 'decidir' || vista === 'esperar' || vista === 'aplazados') && datos !== null && !lista.length && (
         <p className="rounded-2xl border border-dashed border-[#c9d3e8] bg-white p-8 text-center text-[15px] text-[#5b6680]">
           {vista === 'decidir' ? 'No hay nada que pedir: ningún artículo con mínimo está por debajo de él.' : 'No estás aguantando ningún proveedor.'}
         </p>
