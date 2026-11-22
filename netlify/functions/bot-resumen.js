@@ -1,4 +1,4 @@
-// Resumen PÚBLICO del día del bot de WhatsApp, para su ficha en la esquina de
+// Resumen PÚBLICO del día de WASIMARA, el bot de WhatsApp, para su ficha en la esquina de
 // agentes del hub (inicio.html) (propietario, 22/11/2026): «hoy he hecho…» sin
 // iniciar sesión.
 //
@@ -61,7 +61,7 @@ async function calcular() {
   const [pausa, fallo] = await Promise.all([store.getPausaGlobal(), store.getUltimoFallo()]);
   const falloHoy = fallo && Number(fallo.cuando) >= desde;
   return {
-    agente: 'Bot de WhatsApp',
+    agente: 'Wasimara',
     estado: pausa ? 'parado' : falloHoy ? 'con_error' : 'trabajando',
     ultimo_mensaje: ultimoMensaje ? new Date(ultimoMensaje).toISOString() : null,
     hoy: r,
