@@ -11,6 +11,8 @@ import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { gwConCeros, useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
 import { buscarArticulo } from '../../ventas/pedidos/precios'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
 import { GwVentanaFlotante } from '../../../components/gw/GwVentanaFlotante'
@@ -20,6 +22,7 @@ import { camposTotales } from './totales'
 import {
   CAB_COMPRA_COLS,
   ESTADOS_COMPRA,
+  ESTADOS_COMPRA_USO,
   GASTO_COMPRA_COLS,
   LINEA_COMPRA_COLS,
   actualizarCompra,
@@ -218,6 +221,29 @@ const NUM_CAB: (keyof CabeceraCompra)[] = [
   'otros_gastos_igic',
 ]
 
+// Ctrl+Intro (lista ordenada de GeminisWin) en Número, Fecha, Proveedor y Nombre: todos los pedidos ordenados por ese campo.
+const defPedido = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'pedido_proveedor',
+  campo,
+  etiqueta,
+  que: 'Pedidos a proveedor',
+  columnas: [
+    { key: 'tienda_terminal_codigo', label: 'Ti.', width: 44 },
+    { key: 'numero', label: 'Número', width: 90 },
+    { key: 'fecha', label: 'Fecha', width: 100 },
+    { key: 'proveedor_codigo', label: 'Proveedor', width: 90 },
+    { key: 'proveedor_nombre', label: 'Nombre' },
+    { key: 'estado', label: 'Estado', width: 120 },
+    { key: 'total', label: 'Total', width: 110, decimales: 2 },
+  ],
+})
+const ceros12 = (t: string | null) => (t && /^\d+$/.test(t.trim()) ? t.trim().padStart(12, '0') : t)
+/** «20/11/2026» → «20261120» (la lista por fecha va como AAAAMMDDHHMM). */
+const fechaOrden = (t: string | null) => {
+  const m = t ? /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t.trim()) : null
+  return m ? `${m[3]}${m[2].padStart(2, '0')}${m[1].padStart(2, '0')}` : t
+}
+
 export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean }) {
   const params = useParams()
   const [search] = useSearchParams()
@@ -259,8 +285,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   const [importTexto, setImportTexto] = useState('')
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
-  // Número tecleado para ir a ese pedido (en consulta). null = se enseña el del pedido abierto.
-  const [numIr, setNumIr] = useState<string | null>(null)
+  const listaOrd = useListaOrdenada()
   const [cargando, setCargando] = useState(true)
   const [refresco, setRefresco] = useState(0)
   // «Otros gastos adicionales»: los tres bloques de la ventana «Gastos adicionales - Compras».
@@ -894,11 +919,16 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   // F1 guarda, Alt+Retroceso cancela, AvPág/RePág navegan…: las teclas las pone CompraBar (teclasFicha).
 
   const ir = (k?: { t: string; n: number }) => k && navigate(rutaDoc(k))
+  const lista = (campo: string, etiqueta: string, transformar: (t: string | null) => string | null = (t) => t) => (texto: string | null) =>
+    listaOrd.abrir(defPedido(campo, etiqueta), {
+      texto: transformar(texto),
+      ancla: cab && cab.numero != null ? `${cab.tienda_terminal_codigo}|${cab.numero}` : null,
+      onPick: (r) => ir({ t: String(r.tienda_terminal_codigo), n: Number(r.numero) }),
+    })
   // Ir a un pedido escribiendo su número (en el móvil la lupa es incómoda). Primero en la tienda del pedido abierto;
   // si no, en cualquier tienda. Si solo existe en GeminisWin (llega por el espejo), se dice: esta ficha es la del ERP.
   const irANumero = async (texto: string) => {
     const n = Number(texto.replace(/\D/g, ''))
-    setNumIr(null)
     if (!n) return
     const { data } = await supabase.from('pedido_proveedor').select('tienda_terminal_codigo, numero').eq('numero', n).limit(20)
     const filas = (data ?? []) as { tienda_terminal_codigo: string; numero: number }[]
@@ -958,27 +988,25 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         </GwSelect>
       </Campo>
       <Campo label={<u>N</u>} labelRest="úmero" title="En alta, el próximo libre; se confirma al guardar">
-        <GwInput
-          readOnly={mode !== 'consulta'}
-          className="gw-num"
-          inputMode="numeric"
-          enterKeyHint="go"
-          title={mode === 'consulta' ? 'Escribe un número y pulsa Intro para ir a ese pedido' : undefined}
-          value={numIr ?? String(cab?.numero ?? (mode === 'alta' ? (proximo ?? '') : ''))}
-          onFocus={(e) => mode === 'consulta' && e.currentTarget.select()}
-          onChange={(e) => mode === 'consulta' && setNumIr(e.target.value)}
-          onKeyDown={(e) => {
-            if (mode !== 'consulta') return
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void irANumero(e.currentTarget.value)
-            } else if (e.key === 'Escape') setNumIr(null)
-          }}
-          onBlur={() => setNumIr(null)}
-        />
+        {mode === 'consulta' ? (
+          <GwCampoBusqueda
+            className="gw-num"
+            inputMode="numeric"
+            enterKeyHint="go"
+            value={cab?.numero != null ? String(cab.numero) : ''}
+            onBuscar={irANumero}
+            onLista={lista('numero_ord', 'Número', ceros12)}
+          />
+        ) : (
+          <GwInput readOnly className="gw-num" value={String(cab?.numero ?? (mode === 'alta' ? (proximo ?? '') : ''))} />
+        )}
       </Campo>
       <Campo label="Fecha y Hora">
-        <GwInput readOnly value={fechaHoraEs(cab?.fecha_hora)} />
+        {mode === 'consulta' ? (
+          <GwCampoBusqueda value={fechaHoraEs(cab?.fecha_hora)} onLista={lista('fecha_ord', 'Fecha', fechaOrden)} />
+        ) : (
+          <GwInput readOnly value={fechaHoraEs(cab?.fecha_hora)} />
+        )}
       </Campo>
       <button
         type="button"
@@ -1016,15 +1044,27 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
     <fieldset className="gw-group min-w-0 flex-1 !pt-0">
       <legend>Proveedor</legend>
       <div className="flex gap-1">
-        <GwInput
-          className="!w-[130px]"
-          disabled={ro || lineas.length > 0}
-          title={lineas.length > 0 ? 'Con líneas no se cambia el proveedor' : undefined}
-          value={cab?.proveedor_codigo ?? ''}
-          onChange={(e) => patch({ proveedor_codigo: e.target.value })}
-          onBlur={(e) => editing && lineas.length === 0 && elegirProveedor(e.target.value)}
-        />
-        <GwInput readOnly className="!text-[17px]" value={proveedor?.nombre ?? ''} />
+        {mode === 'consulta' ? (
+          <GwCampoBusqueda
+            className="!w-[130px]"
+            value={cab?.proveedor_codigo ?? ''}
+            onLista={lista('proveedor_codigo', 'Proveedor', (t) => (t ? gwConCeros(t) : t))}
+          />
+        ) : (
+          <GwInput
+            className="!w-[130px]"
+            disabled={ro || lineas.length > 0}
+            title={lineas.length > 0 ? 'Con líneas no se cambia el proveedor' : undefined}
+            value={cab?.proveedor_codigo ?? ''}
+            onChange={(e) => patch({ proveedor_codigo: e.target.value })}
+            onBlur={(e) => editing && lineas.length === 0 && elegirProveedor(e.target.value)}
+          />
+        )}
+        {mode === 'consulta' ? (
+          <GwCampoBusqueda className="!text-[17px]" value={proveedor?.nombre ?? ''} onLista={lista('proveedor_nombre', 'Nombre del proveedor')} />
+        ) : (
+          <GwInput readOnly className="!text-[17px]" value={proveedor?.nombre ?? ''} />
+        )}
         <GwLookupButton disabled={ro || lineas.length > 0} onClick={() => setDialogo('proveedor')} title="Buscar proveedor" />
       </div>
     </fieldset>
@@ -1330,7 +1370,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           </div>
           <div className="flex gap-1">
             <GwSelect className="!h-[36px] !text-[19px]" disabled={ro} value={cab?.estado ?? 'pendiente'} onChange={(e) => patch({ estado: e.target.value })}>
-              {ESTADOS_COMPRA.map((s) => (
+              {ESTADOS_COMPRA.filter((s) => ESTADOS_COMPRA_USO.includes(s.v) || s.v === (cab?.estado ?? 'pendiente')).map((s) => (
                 <option key={s.v} value={s.v}>
                   {s.t}
                 </option>
@@ -1593,6 +1633,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           }}
         />
       )}
+      {listaOrd.dialogo}
       {dialogo === 'buscar' && (
         <GwLookupDialog
           title="Localizar pedidos a proveedor"

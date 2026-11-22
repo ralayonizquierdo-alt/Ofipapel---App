@@ -7,6 +7,7 @@ import { formatGw, GwDate } from '../../../components/gw'
 import { BarButton, BigTabs, BIG_INPUT, chunks, fechaEs, leerOpciones, LocalizarDialog, OptionButton, PERIODOS, pitido, rangoPeriodo, useRefresco, type Periodo } from '../../ventas/gestores/comun'
 import { ordenar, Rejilla, type Col, type Orden } from '../../ventas/gestores/rejilla'
 import { BarraGestor, buscarFila, Contador } from './barra'
+import { ESTADOS_COMPRA_USO } from '../pedidos/compras'
 import { CLAVE_OPCIONES, ESTADOS_PEDIDO, fechaHoraEs, OPCIONES_DEFECTO, type OpcionesGestorCompras } from './opciones'
 import { TabArticulos } from './TabArticulos'
 import { TabOpciones } from './TabOpciones'
@@ -352,8 +353,8 @@ export function GestorPedidosProveedorPage() {
             <div className="flex flex-none gap-2">
               <fieldset className="gw-group min-w-0 flex-1 px-2 pb-1.5 pt-0.5">
                 <legend className="text-[17px]!">Filtrar Según el Estado</legend>
-                <div className="grid grid-cols-7 gap-1">
-                  {ESTADOS_PEDIDO.map((e) => (
+                <div className="grid grid-cols-4 gap-1">
+                  {ESTADOS_PEDIDO.filter((e) => ESTADOS_COMPRA_USO.includes(e.value)).map((e) => (
                     <OptionButton
                       key={e.value}
                       label={e.boton}

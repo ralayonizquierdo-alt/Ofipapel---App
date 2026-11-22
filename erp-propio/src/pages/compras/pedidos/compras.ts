@@ -63,6 +63,10 @@ export interface LineaCompra {
 export const LINEA_COMPRA_COLS =
   'linea, articulo_codigo, codigo_compra, descripcion, bultos, cajas, cantidad, unidades_por_caja, cajas_por_bulto, coste_anterior, precio_compra, descuento_pct, igic_pct, canon, bonificacion'
 
+// Los de GeminisWin, en su orden (ESTADOPED 1…7). En Ofipapel solo se usan Pendiente, Pend. confirmar, Confirmado y
+// Liquidado (Rober, 22/11/2026): son los únicos que salen para elegir; el resto solo se ve si un pedido ya lo tiene
+// (Actualizar lo deja Recepcionado).
+export const ESTADOS_COMPRA_USO = ['pendiente', 'pendiente_confirmar', 'confirmado', 'liquidado']
 export const ESTADOS_COMPRA = [
   { v: 'pendiente', t: 'Pendiente' },
   { v: 'pendiente_confirmar', t: 'Pend. confirmar' },
