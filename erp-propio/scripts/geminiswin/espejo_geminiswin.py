@@ -33,6 +33,7 @@ Reglas que NO se tocan:
 import datetime as dt
 import hashlib
 import json
+import math
 import os
 import socket
 import sqlite3
@@ -72,7 +73,7 @@ TABLAS = [
     ('CLIENART', 'CLIENART', ['IDCLIENTE', 'COD_INTERN']),
     # Pedidos a proveedor y peticiones de clientes (18/11/2026): para que el Gestor de Pedidos del ERP sepa lo que
     # ya está pedido en GeminisWin y lo que han pedido los clientes. De los pedidos solo se traen los del último
-    # año y los que siguen sin recibir (ver 'ventana_dias'); las peticiones, todas.
+    # año y medio (ver 'ventana_dias'; RECIBIDO está vacío y no sirve para filtrar); las peticiones, todas.
     ('PEDIDCAB', 'PEDIDCAB', ['IDOFICINA', 'NUMERO']),
     ('PEDIDLIN', 'PEDIDLIN', ['IDOFICINA', 'NUMERO', 'LINEA', 'COD_INTERN']),
     ('PETICION', 'PETICION', ['IDOFICINA', 'NUMERO']),
@@ -186,9 +187,10 @@ class Dbf:
             if not t or '*' in t:
                 return None
             try:
-                return float(t) if (dec or '.' in t) else int(t)
+                v = float(t) if (dec or '.' in t) else int(t)
             except ValueError:
                 return None
+            return v if not isinstance(v, float) or math.isfinite(v) else None
         if tipo == 'D':
             t = b.decode('ascii', 'replace').strip()
             return f'{t[:4]}-{t[4:6]}-{t[6:8]}' if len(t) == 8 and t.isdigit() else None
@@ -207,8 +209,11 @@ class Dbf:
             return struct.unpack('<i', b)[0] if len(b) == 4 else None
         if tipo == 'Y':                          # moneda: entero de 8 bytes con 4 decimales
             return struct.unpack('<q', b)[0] / 10000 if len(b) == 8 else None
-        if tipo == 'B':
-            return struct.unpack('<d', b)[0] if len(b) == 8 else None
+        if tipo == 'B':                          # doble: algunos registros traen basura (NaN, infinito), que no es JSON
+            if len(b) != 8:
+                return None
+            v = struct.unpack('<d', b)[0]
+            return v if math.isfinite(v) else None
         if tipo == 'L':
             return b in (b'T', b't', b'Y', b'y')
         if tipo == 'M':
@@ -267,7 +272,7 @@ def clave_de(d, campos):
 
 
 def llamar(cfg, clave, cuerpo, espera=120):
-    datos = json.dumps(cuerpo, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    datos = json.dumps(cuerpo, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode('utf-8')
     pet = urllib.request.Request(cfg['url'], data=datos, method='POST',
                                  headers={'Content-Type': 'application/json; charset=utf-8', 'x-puente-clave': clave, 'User-Agent': 'espejo-geminiswin'})
     try:
@@ -337,9 +342,10 @@ def medir(cfg):
 
 
 def _pedido_dentro(reg, limite, conocidas):
-    """Cabecera de pedido a proveedor que interesa: reciente, sin recibir o ya mandada antes."""
+    """Cabecera de pedido a proveedor que interesa: reciente (ventana_dias) o ya mandada antes.
+    RECIBIDO no sirve: está vacío en todos los pedidos (Cowork, 22/11/2026), y con él entraban todos."""
     fecha = str(reg.get('FECHAHORA') or reg.get('FECHA_L') or '')[:10]
-    return fecha >= limite or not reg.get('RECIBIDO') or clave_de(reg, ['IDOFICINA', 'NUMERO']) in conocidas
+    return fecha >= limite or clave_de(reg, ['IDOFICINA', 'NUMERO']) in conocidas
 
 
 def pedidos_dentro(cfg, con):
