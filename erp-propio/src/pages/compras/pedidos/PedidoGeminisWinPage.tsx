@@ -176,8 +176,13 @@ export function PedidoGeminisWinPage() {
         </GwField>
         <GwField label="Proveedor">
           <div className="flex gap-1">
-            <GwCampoBusqueda className="!w-[110px] flex-none" value={cab?.proveedor_codigo ?? ''} onLista={lista('proveedor_codigo', 'Proveedor', (t) => (t ? gwConCeros(t) : t))} />
-            <GwCampoBusqueda value={nombreProv} onLista={lista('proveedor_nombre', 'Nombre del proveedor')} />
+            <GwCampoBusqueda
+              className="!w-[110px] flex-none"
+              value={cab?.proveedor_codigo ?? ''}
+              onBuscar={(t) => lista('proveedor_codigo', 'Proveedor', (x) => (x ? gwConCeros(x) : x))(t)}
+              onLista={lista('proveedor_codigo', 'Proveedor', (t) => (t ? gwConCeros(t) : t))}
+            />
+            <GwCampoBusqueda value={nombreProv} onBuscar={(t) => lista('proveedor_nombre', 'Nombre del proveedor')(t)} onLista={lista('proveedor_nombre', 'Nombre del proveedor')} />
           </div>
         </GwField>
       </div>

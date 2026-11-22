@@ -1049,6 +1049,7 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           <GwCampoBusqueda
             className="!w-[130px]"
             value={cab?.proveedor_codigo ?? ''}
+            onBuscar={(t) => lista('proveedor_codigo', 'Proveedor', (x) => (x ? gwConCeros(x) : x))(t)}
             onLista={lista('proveedor_codigo', 'Proveedor', (t) => (t ? gwConCeros(t) : t))}
           />
         ) : (
@@ -1062,7 +1063,12 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
           />
         )}
         {mode === 'consulta' ? (
-          <GwCampoBusqueda className="!text-[17px]" value={proveedor?.nombre ?? ''} onLista={lista('proveedor_nombre', 'Nombre del proveedor')} />
+          <GwCampoBusqueda
+            className="!text-[17px]"
+            value={proveedor?.nombre ?? ''}
+            onBuscar={(t) => lista('proveedor_nombre', 'Nombre del proveedor')(t)}
+            onLista={lista('proveedor_nombre', 'Nombre del proveedor')}
+          />
         ) : (
           <GwInput readOnly className="!text-[17px]" value={proveedor?.nombre ?? ''} />
         )}

@@ -66,10 +66,19 @@ export function GwCampoBusqueda({
         resto.onBlur?.(e)
       }}
       data-gw-intro="avanza"
+      enterKeyHint={resto.enterKeyHint ?? (buscable && onBuscar ? 'search' : undefined)}
+      onKeyUp={(e) => {
+        resto.onKeyUp?.(e)
+        // Algunos teclados de Android no mandan bien el Intro al pulsar la tecla, solo al soltarla (keyCode 13):
+        // si lo escrito sigue sin buscar, se busca aquí.
+        if (!buscable || texto == null) return
+        if (e.key === 'Enter' || e.keyCode === 13) lanzar()
+      }}
       onKeyDown={(e) => {
         resto.onKeyDown?.(e)
         if (e.defaultPrevented) return
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        const intro = e.key === 'Enter' || e.keyCode === 13
+        if (intro && (e.ctrlKey || e.metaKey)) {
           if (!onLista || disabled) return
           e.preventDefault()
           const escrito = editable ? actual.trim() : (texto ?? '').trim()
@@ -78,7 +87,7 @@ export function GwCampoBusqueda({
           return
         }
         if (!buscable) return
-        if (e.key === 'Enter') {
+        if (intro) {
           e.preventDefault()
           lanzar()
         } else if (e.key === 'Escape' && texto != null) {
