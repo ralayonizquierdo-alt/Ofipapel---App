@@ -5,6 +5,8 @@ import { navDir, navIndice, useNavRegistro, type NavDir } from '../../../compone
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwTabs, GwTextArea, formatGw, type GwTabDef } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { GwAnterior, GwBuscar, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
@@ -102,10 +104,26 @@ function FechaInput({ value, onChange, disabled }: { value: string | null; onCha
 
 type Lookup = 'cliente' | 'articulo' | 'marca' | 'color' | 'buscar' | null
 
+// Ctrl+Intro (lista ordenada de GeminisWin) en Nº de Serie y Descripción.
+const defSerie = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'numero_serie',
+  campo,
+  etiqueta,
+  que: 'Números de serie',
+  columnas: [
+    { key: 'numero_serie', label: 'Nº de serie', width: 180 },
+    { key: 'descripcion', label: 'Descripción' },
+    { key: 'articulo_codigo', label: 'Artículo', width: 120 },
+    { key: 'cliente_codigo', label: 'Cliente', width: 90 },
+    { key: 'fecha_venta', label: 'Venta', width: 100 },
+  ],
+})
+
 export function NumeroSerieFichaPage() {
   const params = useParams()
   const ruta = params['*'] ?? ''
   const navigate = useNavigate()
+  const listaOrd = useListaOrdenada()
   const isNew = ruta === 'nuevo'
 
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>(isNew ? 'alta' : 'consulta')
@@ -269,14 +287,29 @@ export function NumeroSerieFichaPage() {
   const dis = !editing
   const rep = reparaciones[selRep]
 
+  const lista = (campo: string, etiqueta: string) => (texto: string | null) =>
+    listaOrd.abrir(defSerie(campo, etiqueta), {
+      texto: texto ? texto.toUpperCase() : texto,
+      ancla: draft.id ? String(draft.id) : null,
+      onPick: (r) => navigate(`/numeros-serie/${r.id}`),
+    })
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="grid grid-cols-[minmax(0,320px)_minmax(0,1fr)_minmax(0,320px)] gap-x-1.5">
         <GwField label="Nº de Serie">
-          <GwInput title="N_SERIE" value={draft.numero_serie} disabled={dis} onChange={(e) => patch({ numero_serie: e.target.value })} />
+          {dis ? (
+            <GwCampoBusqueda title="N_SERIE" value={draft.numero_serie} onBuscar={(t) => lista('numero_serie', 'Nº de Serie')(t)} onLista={lista('numero_serie', 'Nº de Serie')} />
+          ) : (
+            <GwInput title="N_SERIE" value={draft.numero_serie} onChange={(e) => patch({ numero_serie: e.target.value })} />
+          )}
         </GwField>
         <GwField label="Descripción">
-          <GwInput title="DESCRIP" value={draft.descripcion ?? ''} disabled={dis} onChange={(e) => patch({ descripcion: e.target.value || null })} />
+          {dis ? (
+            <GwCampoBusqueda title="DESCRIP" value={draft.descripcion ?? ''} onBuscar={(t) => lista('descripcion', 'Descripción')(t)} onLista={lista('descripcion', 'Descripción')} />
+          ) : (
+            <GwInput title="DESCRIP" value={draft.descripcion ?? ''} onChange={(e) => patch({ descripcion: e.target.value || null })} />
+          )}
         </GwField>
         <GwField label="Nº de Nº Identif.">
           <GwInput
@@ -494,6 +527,7 @@ export function NumeroSerieFichaPage() {
         {error ? <span className="text-[#c42b1c]">{error}</span> : mode === 'alta' ? 'Alta de número de serie' : !serie.activo ? 'Número de serie dado de baja' : ''}
       </div>
 
+      {listaOrd.dialogo}
       {lookup === 'cliente' && (
         <GwLookupDialog<{ codigo: string; nombre: string; nif: string | null }>
           title="Clientes"

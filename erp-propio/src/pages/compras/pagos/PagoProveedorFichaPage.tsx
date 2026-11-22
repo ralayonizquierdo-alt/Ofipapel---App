@@ -9,6 +9,8 @@ import { navIndice, useNavRegistro, type NavDir, type NavFiltro } from '../../..
 const soloActivos: NavFiltro = (q) => q.eq('activo', true)
 import { GwCheck, GwDate, GwInput, GwLookupButton, GwNumber, GwRadio, GwSelect, formatGw } from '../../../components/gw'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { gwConCeros, useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
 import { PagosBar } from './PagosBar'
 import {
   ESTADOS_PAGO,
@@ -56,10 +58,35 @@ function Campo({ label, children, className = '', alinear }: { label: ReactNode;
   )
 }
 
+// Ctrl+Intro (lista ordenada de GeminisWin) en Número, Fecha, Nº Factura, Receptor y Nombre.
+const defPago = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'pago_proveedor',
+  campo,
+  etiqueta,
+  que: 'Pagos',
+  columnas: [
+    { key: 'tienda_terminal_codigo', label: 'Ti.', width: 44 },
+    { key: 'codigo_pago', label: 'Número', width: 90 },
+    { key: 'id_pago', label: 'Pl.', width: 44 },
+    { key: 'fecha', label: 'Fecha', width: 100 },
+    { key: 'receptor_codigo', label: 'Receptor', width: 90 },
+    { key: 'receptor_nombre', label: 'Nombre' },
+    { key: 'numero_factura', label: 'Nº factura', width: 120 },
+    { key: 'cuota', label: 'Cuota', width: 100, decimales: 2 },
+    { key: 'estado', label: 'Estado', width: 90 },
+  ],
+})
+const ceros12Pago = (t: string | null) => (t && /^\d+$/.test(t.trim()) ? t.trim().padStart(12, '0') : t)
+const fechaOrdenPago = (t: string | null) => {
+  const m = t ? /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t.trim()) : null
+  return m ? `${m[3]}${m[2].padStart(2, '0')}${m[1].padStart(2, '0')}` : t
+}
+
 export function PagoProveedorFichaPage() {
   const params = useParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const listaOrd = useListaOrdenada()
   const ruta = (params['*'] ?? '').split('/').filter(Boolean)
   const esNuevo = ruta[0] === 'nuevo'
   const claveTienda = !esNuevo && ruta.length >= 2 ? decodeURIComponent(ruta[0]) : null
@@ -393,6 +420,22 @@ export function PagoProveedorFichaPage() {
   if (cargando) return <div className="gw-label p-2">Cargando…</div>
 
   const p = pago
+  const irPago = (t: string, n: number) => navigate(`/pagos-proveedor/${encodeURIComponent(t)}/${n}`)
+  const lista = (campo: string, etiqueta: string, transformar: (t: string | null) => string | null = (t) => t) => (texto: string | null) =>
+    listaOrd.abrir(defPago(campo, etiqueta), {
+      texto: transformar(texto),
+      ancla: p && p.codigo_pago != null ? `${p.tienda_terminal_codigo}|${p.codigo_pago}|${(p as { id_pago?: number | null }).id_pago ?? 0}` : null,
+      onPick: (r) => irPago(String(r.tienda_terminal_codigo), Number(r.codigo_pago)),
+    })
+  const irANumero = async (texto: string) => {
+    const n = Number(texto.replace(/\D/g, ''))
+    if (!n) return
+    const { data } = await supabase.from('pago_proveedor').select('tienda_terminal_codigo, codigo_pago').eq('codigo_pago', n).limit(20)
+    const filas = (data ?? []) as { tienda_terminal_codigo: string; codigo_pago: number }[]
+    const k = filas.find((f) => f.tienda_terminal_codigo === p?.tienda_terminal_codigo) ?? filas[0]
+    if (k) irPago(k.tienda_terminal_codigo, Number(k.codigo_pago))
+  }
+  const fechaEsPago = (iso: string | null | undefined) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '')
   const docKey = p?.factura_relacionada_id != null
     ? `factura|${p.factura_relacionada_tienda_codigo}|${p.factura_relacionada_id}`
     : p?.pedido_relacionado_numero != null
@@ -425,15 +468,23 @@ export function PagoProveedorFichaPage() {
                 </GwSelect>
               </Campo>
               <Campo label={<><u>N</u>úmero</>}>
-                <GwInput
-                  className={`${I} gw-num`}
-                  readOnly
-                  value={p.codigo_pago ?? (mode === 'alta' ? (proximo ?? '') : '')}
-                  title="CODPAGO — en alta, el próximo libre; se confirma al guardar"
-                />
+                {editable ? (
+                  <GwInput
+                    className={`${I} gw-num`}
+                    readOnly
+                    value={p.codigo_pago ?? (mode === 'alta' ? (proximo ?? '') : '')}
+                    title="CODPAGO — en alta, el próximo libre; se confirma al guardar"
+                  />
+                ) : (
+                  <GwCampoBusqueda className={`${I} gw-num`} inputMode="numeric" title="CODPAGO" value={p.codigo_pago != null ? String(p.codigo_pago) : ''} onBuscar={irANumero} onLista={lista('numero_ord', 'Número', (x) => (x && /^\d+$/.test(x.trim()) ? `${ceros12Pago(x)}0000` : x))} />
+                )}
               </Campo>
               <Campo label="Fecha">
-                <GwDate className={I} value={p.fecha} disabled={!editable} onChange={(v) => patch({ fecha: v })} />
+                {editable ? (
+                  <GwDate className={I} value={p.fecha} onChange={(v) => patch({ fecha: v })} />
+                ) : (
+                  <GwCampoBusqueda className={I} value={fechaEsPago(p.fecha)} onLista={lista('fecha_ord', 'Fecha', fechaOrdenPago)} />
+                )}
               </Campo>
             </Grupo>
             <Grupo title="Tienda y Nº Fact. proveedor" apagado={!editable} className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-1.5">
@@ -468,12 +519,16 @@ export function PagoProveedorFichaPage() {
             </Campo>
             <Campo label="Nº Factura">
               <span className="flex">
-                <GwInput
-                  className={I}
-                  value={p.numero_factura_externa ?? ''}
-                  disabled={!editable}
-                  onChange={(e) => patch({ numero_factura_externa: e.target.value || null })}
-                />
+                {editable ? (
+                  <GwInput className={I} value={p.numero_factura_externa ?? ''} onChange={(e) => patch({ numero_factura_externa: e.target.value || null })} />
+                ) : (
+                  <GwCampoBusqueda
+                    className={I}
+                    value={p.numero_factura_externa ?? ''}
+                    onBuscar={(t) => lista('numero_factura', 'Nº Factura', (x) => (x ? x.toUpperCase() : x))(t)}
+                    onLista={lista('numero_factura', 'Nº Factura', (x) => (x ? x.toUpperCase() : x))}
+                  />
+                )}
                 <GwLookupButton disabled={!editable} onClick={() => setLookup('nfactura')} title="Buscar por nº de factura" />
               </span>
             </Campo>
@@ -508,6 +563,15 @@ export function PagoProveedorFichaPage() {
               }
               className="grid grid-cols-[150px_minmax(0,1fr)] gap-x-1.5"
             >
+              {!editable ? (
+                <GwCampoBusqueda
+                  className={I}
+                  value={p.receptor_codigo ?? ''}
+                  title="Código del receptor"
+                  onBuscar={(t) => lista('receptor_codigo', 'Receptor', (x) => (x ? gwConCeros(x) : x))(t)}
+                  onLista={lista('receptor_codigo', 'Receptor', (x) => (x ? gwConCeros(x) : x))}
+                />
+              ) : (
               <GwInput
                 className={I}
                 value={p.receptor_codigo ?? ''}
@@ -524,13 +588,18 @@ export function PagoProveedorFichaPage() {
                   }
                 }}
               />
+              )}
               <span className="flex">
-                <GwInput
-                  className={I}
-                  value={p.receptor_nombre ?? ''}
-                  disabled={!editable}
-                  onChange={(e) => patch({ receptor_nombre: e.target.value || null })}
-                />
+                {editable ? (
+                  <GwInput className={I} value={p.receptor_nombre ?? ''} onChange={(e) => patch({ receptor_nombre: e.target.value || null })} />
+                ) : (
+                  <GwCampoBusqueda
+                    className={I}
+                    value={p.receptor_nombre ?? ''}
+                    onBuscar={(t) => lista('receptor_nombre', 'Nombre del receptor')(t)}
+                    onLista={lista('receptor_nombre', 'Nombre del receptor')}
+                  />
+                )}
                 <GwLookupButton
                   disabled={!editable || p.tipo_receptor === 3 || p.tipo_receptor === 4}
                   onClick={() => setLookup('receptor')}
@@ -653,6 +722,7 @@ export function PagoProveedorFichaPage() {
         onExit={() => navigate('/')}
       />
 
+      {listaOrd.dialogo}
       {lookupDef && (
         <GwLookupDialog<Record<string, unknown>>
           title={lookupDef.title}

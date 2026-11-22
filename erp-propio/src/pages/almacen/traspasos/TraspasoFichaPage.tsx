@@ -5,6 +5,8 @@ import { supabase } from '../../../lib/supabase'
 import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { GwCheck, GwInput, GwLookupButton, GwNumber, GwSelect, GwWindow, formatGw } from '../../../components/gw'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
 import { FilasVacias } from '../../../components/gw/GwGridParts'
 import { BIG_INPUT, BIG_LABEL, type ArticuloStock, empleadoActual, fechaHora, resolverArticulo, stockDe } from './comun'
 import { GwDateTime } from '../../../components/gw/GwDateTime'
@@ -112,8 +114,31 @@ async function moverStock(cab: Cab, lineas: Linea[], signo: 1 | -1) {
   return error
 }
 
+// Ctrl+Intro (lista ordenada de GeminisWin) en Número, Fecha y Documento.
+const defTraspaso = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'traspaso_almacen',
+  campo,
+  etiqueta,
+  que: 'Traspasos',
+  columnas: [
+    { key: 'tienda_terminal_codigo', label: 'Ti.', width: 44 },
+    { key: 'numero', label: 'Número', width: 90 },
+    { key: 'fecha', label: 'Fecha', width: 100 },
+    { key: 'documento_externo', label: 'Documento', width: 140 },
+    { key: 'almacen_origen', label: 'Origen', width: 70 },
+    { key: 'almacen_destino', label: 'Destino', width: 70 },
+    { key: 'total', label: 'Total', width: 110, decimales: 2 },
+  ],
+})
+const ceros12T = (t: string | null) => (t && /^\d+$/.test(t.trim()) ? t.trim().padStart(12, '0') : t)
+const fechaOrdenT = (t: string | null) => {
+  const m = t ? /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t.trim()) : null
+  return m ? `${m[3]}${m[2].padStart(2, '0')}${m[1].padStart(2, '0')}` : t
+}
+
 export function TraspasoFichaPage() {
   const navigate = useNavigate()
+  const listaOrd = useListaOrdenada()
   const resto = useParams()['*'] ?? ''
   const partes = resto.split('/').filter(Boolean)
   const esNuevo = partes[0] === 'nuevo'
@@ -307,6 +332,20 @@ export function TraspasoFichaPage() {
   function irA(t: string, n: number) {
     navigate(`/traspasos/${encodeURIComponent(t)}/${n}`)
   }
+  const lista = (campo: string, etiqueta: string, transformar: (t: string | null) => string | null = (t) => t) => (texto: string | null) =>
+    listaOrd.abrir(defTraspaso(campo, etiqueta), {
+      texto: transformar(texto),
+      ancla: cab && cab.numero != null ? `${cab.tienda_terminal_codigo}|${cab.numero}` : null,
+      onPick: (r) => irA(String(r.tienda_terminal_codigo), Number(r.numero)),
+    })
+  async function irANumero(texto: string) {
+    const n = Number(texto.replace(/\D/g, ''))
+    if (!n) return
+    const { data } = await supabase.from('traspaso_almacen').select('tienda_terminal_codigo, numero').eq('numero', n).limit(20)
+    const filas = (data ?? []) as { tienda_terminal_codigo: string; numero: number }[]
+    const k = filas.find((f) => f.tienda_terminal_codigo === cab?.tienda_terminal_codigo) ?? filas[0]
+    if (k) irA(k.tienda_terminal_codigo, Number(k.numero))
+  }
   const idx = navIndice(nav, ordenDesc)
   const totalClaves = nav.total ?? 0
   async function navegar(d: NavDir) {
@@ -498,7 +537,11 @@ export function TraspasoFichaPage() {
               </GwSelect>
             </Campo>
             <Campo label="Número">
-              <GwInput className={`${BIG_INPUT} text-right`} readOnly value={c.numero ?? (modo === 'alta' ? (proximo ?? '') : '')} title="En alta, el próximo libre; se confirma al guardar" />
+              {editable ? (
+                <GwInput className={`${BIG_INPUT} text-right`} readOnly value={c.numero ?? (modo === 'alta' ? (proximo ?? '') : '')} title="En alta, el próximo libre; se confirma al guardar" />
+              ) : (
+                <GwCampoBusqueda className={`${BIG_INPUT} text-right`} inputMode="numeric" value={c.numero != null ? String(c.numero) : ''} onBuscar={irANumero} onLista={lista('numero_ord', 'Número', ceros12T)} />
+              )}
             </Campo>
             <Campo label="Fecha y Hora">
               {editable ? (
@@ -509,18 +552,22 @@ export function TraspasoFichaPage() {
                   onChange={(v) => v && patch({ fecha: v })}
                 />
               ) : (
-                <GwInput className={BIG_INPUT} readOnly value={sinDoc ? '' : fechaHora(c.fecha)} />
+                <GwCampoBusqueda className={BIG_INPUT} value={sinDoc ? '' : fechaHora(c.fecha)} onLista={lista('fecha_ord', 'Fecha', fechaOrdenT)} />
               )}
             </Campo>
             <Campo label="Documento">
               <span className="flex">
-                <GwInput
-                  className={BIG_INPUT}
-                  disabled={!editable}
-                  value={c.documento_externo ?? ''}
-                  onChange={(e) => patch({ documento_externo: e.target.value || null })}
-                  title="DOCUMENTO"
-                />
+                {editable ? (
+                  <GwInput className={BIG_INPUT} value={c.documento_externo ?? ''} onChange={(e) => patch({ documento_externo: e.target.value || null })} title="DOCUMENTO" />
+                ) : (
+                  <GwCampoBusqueda
+                    className={BIG_INPUT}
+                    value={c.documento_externo ?? ''}
+                    title="DOCUMENTO"
+                    onBuscar={(t) => lista('documento_externo', 'Documento')(t)}
+                    onLista={lista('documento_externo', 'Documento')}
+                  />
+                )}
                 <GwLookupButton disabled={!editable} onClick={() => setDialogo('documento')} title="Buscar documento" />
               </span>
             </Campo>
@@ -752,6 +799,7 @@ export function TraspasoFichaPage() {
         </BarBtn>
       </div>
 
+      {listaOrd.dialogo}
       {dialogo === 'buscar' && (
         <GwLookupDialog<Record<string, unknown>>
           title="Localizar traspaso"

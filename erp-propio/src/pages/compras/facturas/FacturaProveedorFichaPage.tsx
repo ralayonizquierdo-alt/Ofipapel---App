@@ -9,6 +9,8 @@ import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
 import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { gwConCeros, useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
 import { FilasVacias, GridMiniBar } from '../../../components/gw/GwGridParts'
 import { GenerarFacturasDialog } from './GenerarFacturasDialog'
 
@@ -136,6 +138,28 @@ function vacia(tienda: string): FacturaProveedor {
 }
 
 /** Totales de la factura a partir de sus albaranes y de los campos de pie. */
+// Ctrl+Intro (lista ordenada de GeminisWin) en Id., Nº de factura, Fecha de factura, Proveedor y Nombre.
+const defFacturaProv = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'factura_proveedor',
+  campo,
+  etiqueta,
+  que: 'Facturas de proveedor',
+  columnas: [
+    { key: 'tienda_terminal_codigo', label: 'Ti.', width: 44 },
+    { key: 'id', label: 'Id.', width: 80 },
+    { key: 'numero_factura', label: 'Nº de factura', width: 130 },
+    { key: 'fecha', label: 'Fecha', width: 100 },
+    { key: 'proveedor_codigo', label: 'Proveedor', width: 90 },
+    { key: 'proveedor_nombre', label: 'Nombre' },
+    { key: 'total', label: 'Total', width: 110, decimales: 2 },
+  ],
+})
+const ceros12FP = (t: string | null) => (t && /^\d+$/.test(t.trim()) ? t.trim().padStart(12, '0') : t)
+const fechaOrdenFP = (t: string | null) => {
+  const m = t ? /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t.trim()) : null
+  return m ? `${m[3]}${m[2].padStart(2, '0')}${m[1].padStart(2, '0')}` : t
+}
+
 export function calcularTotales(f: FacturaProveedor, albaranes: Albaran[], pagado: number) {
   const base = r2(albaranes.reduce((s, a) => s + n(a.base_imponible), 0))
   const igic = r2(albaranes.reduce((s, a) => s + n(a.total_igic), 0))
@@ -148,6 +172,7 @@ export function calcularTotales(f: FacturaProveedor, albaranes: Albaran[], pagad
 export function FacturaProveedorFichaPage() {
   const params = useParams()
   const navigate = useNavigate()
+  const listaOrd = useListaOrdenada()
   const [claveTienda, claveId] = (params['*'] ?? '').split('/')
   const esNuevo = claveTienda === 'nuevo'
 
@@ -155,6 +180,7 @@ export function FacturaProveedorFichaPage() {
   const [almacenes, setAlmacenes] = useState<string[]>([])
   const [orden, setOrden] = useState<'id' | 'fecha'>('id')
   const [mode, setMode] = useState<'consulta' | 'edicion' | 'alta'>('consulta')
+  const irFactura = (t: string, id: number) => navigate(`/facturas-proveedor/${t}/${id}`)
   const [cab, setCab] = useState<FacturaProveedor | null>(null)
   const [orig, setOrig] = useState<FacturaProveedor | null>(null)
   const [albaranes, setAlbaranes] = useState<Albaran[]>([])
@@ -511,6 +537,22 @@ export function FacturaProveedorFichaPage() {
   const num = 'text-right tabular-nums'
   const disabledCab = !editing
 
+  const lista = (campo: string, etiqueta: string, transformar: (t: string | null) => string | null = (t) => t) => (texto: string | null) =>
+    listaOrd.abrir(defFacturaProv(campo, etiqueta), {
+      texto: transformar(texto),
+      ancla: cab && mode !== 'alta' ? `${cab.tienda_terminal_codigo}|${cab.id}` : null,
+      onPick: (r) => irFactura(String(r.tienda_terminal_codigo), Number(r.id)),
+    })
+  const irAId = async (texto: string) => {
+    const n = Number(texto.replace(/\D/g, ''))
+    if (!n) return
+    const { data } = await supabase.from('factura_proveedor').select('tienda_terminal_codigo, id').eq('id', n).limit(20)
+    const filas = (data ?? []) as { tienda_terminal_codigo: string; id: number }[]
+    const k = filas.find((f) => f.tienda_terminal_codigo === cab?.tienda_terminal_codigo) ?? filas[0]
+    if (k) irFactura(k.tienda_terminal_codigo, Number(k.id))
+  }
+  const consultaFP = mode === 'consulta'
+
   return (
     <div className="flex flex-col gap-1">
       {/* Cabecera */}
@@ -524,27 +566,45 @@ export function FacturaProveedorFichaPage() {
             </GwSelect>
           </GwField>
           <GwField label={<span className="text-[15px]">Id. Factura</span>}>
-            <GwInput
-              readOnly
-              className="gw-num"
-              value={cab && mode !== 'alta' ? cab.id : mode === 'alta' ? (proximo ?? '') : ''}
-              title={mode === 'alta' ? 'ID — el próximo libre; se confirma al guardar' : 'ID'}
-            />
+            {consultaFP ? (
+              <GwCampoBusqueda className="gw-num" inputMode="numeric" title="ID" value={cab ? String(cab.id) : ''} onBuscar={irAId} onLista={lista('id_ord', 'Id. Factura', ceros12FP)} />
+            ) : (
+              <GwInput
+                readOnly
+                className="gw-num"
+                value={cab && mode !== 'alta' ? cab.id : mode === 'alta' ? (proximo ?? '') : ''}
+                title={mode === 'alta' ? 'ID — el próximo libre; se confirma al guardar' : 'ID'}
+              />
+            )}
           </GwField>
           <GwField label={<span className="text-[15px]">Fecha y Hora</span>}>
             <GwInput readOnly value={fechaHora(cab?.fecha_hora)} />
           </GwField>
           <GwField label={<span className="text-[15px]">Nº de Factura</span>}>
-            <GwInput
-              className="gw-num"
-              title="NUMFACTURA"
-              disabled={disabledCab}
-              value={cab?.numero_factura_externo ?? ''}
-              onChange={(e) => patch({ numero_factura_externo: e.target.value || null })}
-            />
+            {consultaFP ? (
+              <GwCampoBusqueda
+                className="gw-num"
+                title="NUMFACTURA"
+                value={cab?.numero_factura_externo ?? ''}
+                onBuscar={(t) => lista('numero_factura', 'Nº de Factura', (x) => (x ? x.toUpperCase() : x))(t)}
+                onLista={lista('numero_factura', 'Nº de Factura', (x) => (x ? x.toUpperCase() : x))}
+              />
+            ) : (
+              <GwInput
+                className="gw-num"
+                title="NUMFACTURA"
+                disabled={disabledCab}
+                value={cab?.numero_factura_externo ?? ''}
+                onChange={(e) => patch({ numero_factura_externo: e.target.value || null })}
+              />
+            )}
           </GwField>
           <GwField label={<span className="text-[15px]">Fec. Factura</span>}>
-            <GwDate disabled={disabledCab} value={cab?.fecha_factura} onChange={(v) => patch({ fecha_factura: v })} />
+            {consultaFP ? (
+              <GwCampoBusqueda value={cab?.fecha_factura ? `${cab.fecha_factura.slice(8, 10)}/${cab.fecha_factura.slice(5, 7)}/${cab.fecha_factura.slice(0, 4)}` : ''} onLista={lista('fecha_ord', 'Fecha de factura', fechaOrdenFP)} />
+            ) : (
+              <GwDate disabled={disabledCab} value={cab?.fecha_factura} onChange={(v) => patch({ fecha_factura: v })} />
+            )}
           </GwField>
           <GwField label={<span className="text-[15px]">Fec. Vencim.</span>}>
             <GwDate disabled={disabledCab} value={cab?.fecha_vencimiento} onChange={(v) => patch({ fecha_vencimiento: v })} />
@@ -552,13 +612,26 @@ export function FacturaProveedorFichaPage() {
         </div>
         <GwGroup title={<span className="text-[15px]">Proveedor</span>} className="min-w-0 max-w-[540px] flex-1">
           <div className="flex gap-1">
-            <GwInput
-              className="!w-[120px]"
-              disabled={mode !== 'alta'}
-              value={cab?.proveedor_codigo ?? ''}
-              onChange={(e) => patch({ proveedor_codigo: e.target.value })}
-            />
-            <GwInput readOnly value={nombreProv} tabIndex={-1} />
+            {consultaFP ? (
+              <GwCampoBusqueda
+                className="!w-[120px]"
+                value={cab?.proveedor_codigo ?? ''}
+                onBuscar={(t) => lista('proveedor_codigo', 'Proveedor', (x) => (x ? gwConCeros(x) : x))(t)}
+                onLista={lista('proveedor_codigo', 'Proveedor', (x) => (x ? gwConCeros(x) : x))}
+              />
+            ) : (
+              <GwInput
+                className="!w-[120px]"
+                disabled={mode !== 'alta'}
+                value={cab?.proveedor_codigo ?? ''}
+                onChange={(e) => patch({ proveedor_codigo: e.target.value })}
+              />
+            )}
+            {consultaFP ? (
+              <GwCampoBusqueda value={nombreProv} onBuscar={(t) => lista('proveedor_nombre', 'Nombre del proveedor')(t)} onLista={lista('proveedor_nombre', 'Nombre del proveedor')} />
+            ) : (
+              <GwInput readOnly value={nombreProv} tabIndex={-1} />
+            )}
             <GwLookupButton disabled={mode !== 'alta'} onClick={() => setLookup('proveedor')} title="Buscar proveedor" />
           </div>
         </GwGroup>
@@ -835,6 +908,7 @@ export function FacturaProveedorFichaPage() {
         {mensaje ?? `Orden: ${orden === 'id' ? 'por Id. factura' : 'por fecha'} · ${idx >= 0 ? `Registro ${idx + 1} de ${totalClaves}` : mode === 'alta' ? 'Alta de factura' : nav.total !== 0 ? '' : 'No hay facturas de proveedor'}`}
       </span>
 
+      {listaOrd.dialogo}
       {lookup === 'proveedor' && (
         <GwLookupDialog<Record<string, unknown>>
           title="Proveedores"

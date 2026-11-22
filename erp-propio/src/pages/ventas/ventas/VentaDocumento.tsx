@@ -11,6 +11,8 @@ import { useNexaContexto } from '../../../nexa/contexto'
 import { formatGw } from '../../../components/gw'
 import { seleccionAlPulsar, seleccionAlSoltar, useSeleccionAlEntrar } from '../../../components/gw/seleccionEntrada'
 import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLookupDialog'
+import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
+import { gwConCeros, useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
 import {
   NIVELES,
   anularVenta,
@@ -122,6 +124,29 @@ const fechaES = (iso: string) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDate
  * Ventana «Ventas» de GeminisWin. La usan el TPV (abre en alta y pide el empleado) y la ficha
  * Ventas / Facturas (abre en consulta). El número se asigna al guardar, nunca al abrir.
  */
+// Ctrl+Intro (lista ordenada de GeminisWin) en Número, Fecha, Cliente y Nombre: todas las ventas ordenadas por ese campo.
+const defVenta = (campo: string, etiqueta: string): GwListaOrdenadaDef => ({
+  fuente: 'venta',
+  campo,
+  etiqueta,
+  que: 'Ventas',
+  columnas: [
+    { key: 'tienda_terminal_codigo', label: 'Ti.', width: 44 },
+    { key: 'numero', label: 'Número', width: 90 },
+    { key: 'fecha', label: 'Fecha', width: 100 },
+    { key: 'hora', label: 'Hora', width: 60 },
+    { key: 'cliente_codigo', label: 'Cliente', width: 80 },
+    { key: 'cliente_nombre', label: 'Nombre' },
+    { key: 'tipo_credito', label: 'Tipo', width: 90 },
+    { key: 'total', label: 'Total', width: 110, decimales: 2 },
+  ],
+})
+const ceros12Venta = (t: string | null) => (t && /^\d+$/.test(t.trim()) ? t.trim().padStart(12, '0') : t)
+const fechaOrdenVenta = (t: string | null) => {
+  const m = t ? /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t.trim()) : null
+  return m ? `${m[3]}${m[2].padStart(2, '0')}${m[1].padStart(2, '0')}` : t
+}
+
 export function VentaDocumento({
   modoInicial,
   tiendaParam,
@@ -134,6 +159,7 @@ export function VentaDocumento({
   pedirEmpleado?: boolean
 }) {
   const navigate = useNavigate()
+  const listaOrd = useListaOrdenada()
   const { session, signOut } = useAuth()
   const [tiendas, setTiendas] = useState<Tienda[]>([])
   const [tienda, setTienda] = useState<string>(tiendaParam ?? '')
@@ -788,6 +814,25 @@ export function VentaDocumento({
 
   const filasVacias = Math.max(0, 10 - lineas.length)
   const consulta = modo === 'consulta'
+  const irVenta = (t: string, n: number) => {
+    setTienda(t)
+    void abrirVenta(t, n)
+    if (modoInicial === 'consulta') navigate(`/ventas/${t}/${n}`, { replace: true })
+  }
+  const lista = (campo: string, etiqueta: string, transformar: (t: string | null) => string | null = (t) => t) => (texto: string | null) =>
+    listaOrd.abrir(defVenta(campo, etiqueta), {
+      texto: transformar(texto),
+      ancla: cab.numero != null ? `${tienda}|${cab.numero}` : null,
+      onPick: (r) => irVenta(String(r.tienda_terminal_codigo), Number(r.numero)),
+    })
+  const irANumero = async (texto: string) => {
+    const n = Number(texto.replace(/\D/g, ''))
+    if (!n) return
+    const { data } = await supabase.from('venta').select('tienda_terminal_codigo, numero').eq('numero', n).limit(20)
+    const filas = (data ?? []) as { tienda_terminal_codigo: string; numero: number }[]
+    const k = filas.find((f) => f.tienda_terminal_codigo === tienda) ?? filas[0]
+    if (k) irVenta(k.tienda_terminal_codigo, Number(k.numero))
+  }
 
   return (
     // data-gw-f10: aquí F10 abre el cajón, no activa la barra de menús
@@ -817,15 +862,29 @@ export function VentaDocumento({
               </select>
             </Campo>
             <Campo label={<><u>N</u>úmero</>} ancho={172}>
-              <input
-                className="gw-input !h-[30px] text-right !text-[22px]"
-                readOnly
-                value={cab.numero ?? (modo === 'alta' ? (proximo ?? '') : '')}
-                title={modo === 'alta' ? 'Próximo número libre; se confirma al guardar la venta' : undefined}
-              />
+              {consulta ? (
+                <GwCampoBusqueda
+                  className="!h-[30px] text-right !text-[22px]"
+                  inputMode="numeric"
+                  value={cab.numero != null ? String(cab.numero) : ''}
+                  onBuscar={irANumero}
+                  onLista={lista('numero_ord', 'Número', ceros12Venta)}
+                />
+              ) : (
+                <input
+                  className="gw-input !h-[30px] text-right !text-[22px]"
+                  readOnly
+                  value={cab.numero ?? (modo === 'alta' ? (proximo ?? '') : '')}
+                  title={modo === 'alta' ? 'Próximo número libre; se confirma al guardar la venta' : undefined}
+                />
+              )}
             </Campo>
             <Campo label="Fecha" ancho={148}>
-              <input className="gw-input !h-[30px] !text-[22px]" readOnly value={fechaES(cab.fecha)} />
+              {consulta ? (
+                <GwCampoBusqueda className="!h-[30px] !text-[22px]" value={fechaES(cab.fecha)} onLista={lista('fecha_ord', 'Fecha', fechaOrdenVenta)} />
+              ) : (
+                <input className="gw-input !h-[30px] !text-[22px]" readOnly value={fechaES(cab.fecha)} />
+              )}
             </Campo>
             <Campo label="Hora" ancho={112}>
               <input className="gw-input !h-[30px] !text-[22px]" readOnly value={cab.hora} />
@@ -833,15 +892,33 @@ export function VentaDocumento({
           </fieldset>
           <fieldset className="gw-group flex items-center gap-1 px-1 pb-1 pt-0">
             <legend className="text-[19px] font-bold leading-[18px]">Cliente</legend>
-            <input
-              className="gw-input !h-[30px] !w-[92px] !text-[21px]"
-              value={cab.cliente_codigo}
-              readOnly={!editable}
-              onChange={(e) => setCab((c) => ({ ...c, cliente_codigo: e.target.value }))}
-              onBlur={(e) => editable && e.target.value !== guardadas?.cab.cliente_codigo && cambiarCliente(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            />
-            <input className="gw-input !h-[42px] !w-[408px] !text-[34px]" readOnly value={cab.cliente_nombre} title={cab.cliente_nombre} />
+            {editable ? (
+              <input
+                className="gw-input !h-[30px] !w-[92px] !text-[21px]"
+                value={cab.cliente_codigo}
+                onChange={(e) => setCab((c) => ({ ...c, cliente_codigo: e.target.value }))}
+                onBlur={(e) => e.target.value !== guardadas?.cab.cliente_codigo && cambiarCliente(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              />
+            ) : (
+              <GwCampoBusqueda
+                className="!h-[30px] !w-[92px] !text-[21px]"
+                value={cab.cliente_codigo}
+                onBuscar={(t) => lista('cliente_codigo', 'Cliente', (x) => (x ? gwConCeros(x) : x))(t)}
+                onLista={lista('cliente_codigo', 'Cliente', (x) => (x ? gwConCeros(x) : x))}
+              />
+            )}
+            {editable ? (
+              <input className="gw-input !h-[42px] !w-[408px] !text-[34px]" readOnly value={cab.cliente_nombre} title={cab.cliente_nombre} />
+            ) : (
+              <GwCampoBusqueda
+                className="!h-[42px] !w-[408px] !text-[34px]"
+                value={cab.cliente_nombre}
+                title={cab.cliente_nombre}
+                onBuscar={(t) => lista('cliente_nombre', 'Nombre del cliente')(t)}
+                onLista={lista('cliente_nombre', 'Nombre del cliente')}
+              />
+            )}
             <button
               type="button"
               className="gw-btn !h-[42px] !w-[94px] !text-[26px] !font-bold"
@@ -1155,6 +1232,7 @@ export function VentaDocumento({
           }}
         />
       )}
+      {listaOrd.dialogo}
       {dialogo?.tipo === 'buscarCliente' && (
         <GwLookupDialog<{ codigo: string }>
           title="Buscar cliente"
