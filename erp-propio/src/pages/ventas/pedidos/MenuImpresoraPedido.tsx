@@ -2,11 +2,14 @@
 // GeminisWin abre un menú sobre el botón con «Pedidos · Proforma · Presupuesto · Etiquetas Artic. ·
 // Etiqueta Reparto» y, al elegir el documento, un segundo menú pequeño «PAPEL A4 · PDF».
 // PAPEL A4 abre el PDF en una pestaña para imprimirlo (Ctrl+P); PDF lo descarga.
+// Añadidos (Rober, 22/11/2026): COMPARTIR (WhatsApp, Telegram, Gmail… del propio dispositivo, con el PDF y el texto) y
+// CORREO (lo envía el servidor desde el correo de quien lo manda, con el PDF adjunto). Ver EnvioDocumento.tsx.
 // Los listados («Informes») siguen en el botón Listados de la barra y en Ventas → Listados.
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { nombrePdf, presupuestoPdf, type DatosPdf } from './presupuestoPdf'
+import { DialogoCorreoDocumento, compartirDocumento, puedeCompartir, type TipoDocVenta } from './EnvioDocumento'
 
 type Doc = 'pedido' | 'proforma' | 'presupuesto'
 
@@ -32,6 +35,26 @@ export function MenuImpresoraPedido({
 }) {
   const [doc, setDoc] = useState<(typeof OPCIONES)[number] | null>(null)
   const [trabajando, setTrabajando] = useState(false)
+  const [correo, setCorreo] = useState<{ tipo: TipoDocVenta; datos: DatosPdf } | null>(null)
+  const compartible = puedeCompartir()
+
+  function datosDoc() {
+    const d = { ...datos(), tituloDoc: doc?.titulo }
+    if (doc?.k !== 'presupuesto') d.validoHasta = null
+    return d
+  }
+  async function compartir() {
+    if (!doc?.titulo) return
+    setTrabajando(true)
+    try {
+      onAviso(await compartirDocumento(doc.k as TipoDocVenta, datosDoc()))
+      onCerrar()
+    } catch (e) {
+      onAviso(`No se ha podido compartir: ${(e as Error).message}.`)
+    } finally {
+      setTrabajando(false)
+    }
+  }
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onCerrar()
@@ -43,8 +66,7 @@ export function MenuImpresoraPedido({
     if (!doc?.titulo) return
     setTrabajando(true)
     try {
-      const d = { ...datos(), tituloDoc: doc.titulo }
-      if (doc.k !== 'presupuesto') d.validoHasta = null
+      const d = datosDoc()
       const blob = await presupuestoPdf(d)
       const nombre = nombrePdf(d).replace(/^Presupuesto/, doc.label === 'Pedidos' ? 'Pedido' : doc.label)
       const url = URL.createObjectURL(blob)
@@ -67,6 +89,8 @@ export function MenuImpresoraPedido({
       setTrabajando(false)
     }
   }
+
+  if (correo) return <DialogoCorreoDocumento tipo={correo.tipo} datos={correo.datos} onCerrar={onCerrar} onAviso={onAviso} />
 
   const ancho = 150
   const izq = Math.max(4, Math.min(ancla.left, window.innerWidth - ancho - 4))
@@ -94,7 +118,7 @@ export function MenuImpresoraPedido({
       ) : (
         <div
           className="absolute flex flex-col border border-[#7a7a7a] bg-white py-[1px] text-[11px] shadow-[2px_2px_4px_rgba(0,0,0,0.35)]"
-          style={{ left: window.innerWidth / 2 - 34, top: window.innerHeight / 2 - 40, width: 68 }}
+          style={{ left: window.innerWidth / 2 - 50, top: window.innerHeight / 2 - 50, width: 100 }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <button type="button" disabled={trabajando} className="whitespace-nowrap px-1.5 text-left hover:bg-[#0078d7] hover:text-white" onClick={() => sacar('a4')}>
@@ -102,6 +126,24 @@ export function MenuImpresoraPedido({
           </button>
           <button type="button" disabled={trabajando} className="whitespace-nowrap px-1.5 text-left hover:bg-[#0078d7] hover:text-white" onClick={() => sacar('pdf')}>
             PDF
+          </button>
+          <button
+            type="button"
+            disabled={trabajando || !compartible}
+            title={compartible ? 'WhatsApp, Telegram, Gmail… de este dispositivo, con el PDF y el texto ya escrito' : 'Este navegador no puede compartir ficheros: usa el móvil, la tablet o Chrome/Edge en Windows'}
+            className="whitespace-nowrap px-1.5 text-left hover:bg-[#0078d7] hover:text-white disabled:text-[#9a9a9a] disabled:hover:bg-white"
+            onClick={compartir}
+          >
+            COMPARTIR
+          </button>
+          <button
+            type="button"
+            disabled={trabajando}
+            title="Correo con el PDF adjunto, desde tu correo de empleado"
+            className="whitespace-nowrap px-1.5 text-left hover:bg-[#0078d7] hover:text-white"
+            onClick={() => doc?.titulo && setCorreo({ tipo: doc.k as TipoDocVenta, datos: datosDoc() })}
+          >
+            CORREO
           </button>
         </div>
       )}

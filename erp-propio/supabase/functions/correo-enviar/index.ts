@@ -13,6 +13,9 @@
 // · Adjuntos (12/11/2026, Gestor de Roturas): correo_pendiente.adjuntos = [{ bucket, ruta, nombre }]. Se leen del
 //   almacenamiento PRIVADO con la clave de servicio. Como mucho 3 MB en total por correo (límite de Microsoft
 //   para un envío directo); si se pasa, el correo queda con error y no sale a medias.
+// · Remitente propio (22/11/2026, presupuestos de los comerciales): correo_pendiente.remitente = buzón de quien lo envía.
+//   Sale SOLO de ese buzón (queda en sus Enviados). Si Microsoft no lo deja, el correo queda con error: nunca sale de otro
+//   buzón (Rober: sin correo propio configurado no se envía).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
@@ -57,7 +60,7 @@ Deno.serve(async () => {
 
   const { data: cola, error } = await sb
     .from('correo_pendiente')
-    .select('id, para, asunto, cuerpo_html, intentos, buzon, adjuntos')
+    .select('id, para, asunto, cuerpo_html, intentos, buzon, adjuntos, remitente')
     .is('enviado_en', null)
     .lt('intentos', 5)
     .order('id')
@@ -92,14 +95,19 @@ Deno.serve(async () => {
         const desde = esCompras ? compras : esAdmin ? administracion : general
         if (!desde) throw new Error(`Falta el buzón ${esCompras ? 'de Compras' : esAdmin ? 'de Administración' : 'del ERP'} en Archivo → Datos de Empresa.`)
         const adjuntos = await cargarAdjuntos(c.adjuntos)
-        await enviarGraph({
-          desde,
+        const base = {
           para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean),
-          responderA: esCompras || esAdmin ? desde : emp?.correo_responder_a || null,
           asunto: c.asunto,
           html: c.cuerpo_html,
           adjuntos: adjuntos.map((a) => ({ nombre: a.nombre, base64: a.base64, tipo: a.tipo })),
-        })
+        }
+        // Remitente propio (22/11/2026: presupuestos de los comerciales): sale solo del buzón de quien lo envía.
+        const propio = String(c.remitente ?? '').trim()
+        if (propio) {
+          await enviarGraph({ ...base, desde: propio, responderA: propio })
+        } else {
+          await enviarGraph({ ...base, desde, responderA: esCompras || esAdmin ? desde : emp?.correo_responder_a || null })
+        }
         await sb.from('correo_pendiente').update({ enviado_en: new Date().toISOString(), intentos: c.intentos + 1, error: null }).eq('id', c.id)
         enviados++
       } catch (e) {
@@ -126,6 +134,8 @@ Deno.serve(async () => {
   let enviados = 0
   for (const c of cola) {
     try {
+      // Por SMTP solo hay una cuenta: un correo con remitente propio no sale por aquí.
+      if (c.remitente) throw new Error(`No se puede enviar desde ${c.remitente}: el correo de la empresa no está conectado a Microsoft 365.`)
       const adjuntos = await cargarAdjuntos(c.adjuntos)
       await transporte.sendMail({
         from: remitente,
