@@ -1,4 +1,4 @@
-"""Espejo de GeminisWin → ERP propio, tanda 1: maestros (docs/PLAN_ESPEJO_GEMINISWIN.md).
+"""Espejo de GeminisWin → ERP propio: maestros, pedidos, ventas, cobros y caja (docs/PLAN_ESPEJO_GEMINISWIN.md).
 
 Qué hace en cada pasada (pensado para lanzarse cada pocos minutos con el Programador de tareas):
   1. Mira, SOLO LECTURA, los ficheros de maestros de GeminisWin (artículos, clientes, proveedores…).
@@ -78,6 +78,19 @@ TABLAS = [
     ('PEDIDLIN', 'PEDIDLIN', ['IDOFICINA', 'NUMERO', 'LINEA', 'COD_INTERN']),
     ('PETICION', 'PETICION', ['IDOFICINA', 'NUMERO']),
     ('PETIDETA', 'PETIDETA', ['IDOFICINA', 'NUMERO', 'IDOFICPED', 'NUMEROPED', 'NUMLINPED', 'FECHAHORA']),
+    # Tanda 2 y lo que faltaba de la 3 (22/11/2026). Las tablas grandes solo desde la fecha de 'desde' (Rober:
+    # primero el año en curso; los años anteriores se traen después, bajando esa fecha poco a poco).
+    ('CLISUCUR', 'CLISUCUR', ['IDCLIENTE', 'IDCLISUCUR']),
+    ('VENTAS', 'VENTAS', ['IDOFICINA', 'IDVENTA']),
+    ('VENTDETA', 'VENTDETA', ['IDOFICINA', 'IDVENTA', 'NUMLINEA']),
+    ('FACTURAS', 'FACTURAS', ['IDOFICINA', 'IDFACTURA']),
+    ('PAGOS', 'PAGOS', ['IDOFICINA', 'COD_PAGO', 'IDPAGO']),
+    ('PAGOSGST', 'PAGOSGST', ['IDOFICINA', 'COD_PAGO', 'IDPAGO']),
+    ('CAJA', 'CAJA', ['IDOFICINA', 'IDMOV']),
+    ('CAJAAYC', 'CAJAAYC', ['IDOFICINA', 'N_EJERC']),
+    ('PEDIDOS', 'PEDIDOS', ['IDOFICINA', 'IDPEDIDO']),
+    ('PEDIDETA', 'PEDIDETA', ['IDOFICINA', 'IDPEDIDO', 'NUMLINEA']),
+    ('FACTPROV', 'FACTPROV', ['IDOFICINA', 'IDFACTPROV']),
 ]
 
 POR_DEFECTO = {
@@ -96,6 +109,15 @@ POR_DEFECTO = {
     # Pedidos a proveedor: solo los de los últimos N días, más los que siguen sin recibir y los que ya se habían
     # mandado alguna vez (para que el ERP se entere cuando se reciben). Las líneas siguen a su cabecera.
     'ventana_dias': {'PEDIDCAB': 400},
+    # Tablas muy grandes (ventas, caja, pedidos de clientes…): solo los registros con ese campo de fecha (tipo D)
+    # en esa fecha o después. Los años anteriores se traen bajando la fecha. Estas tablas se leen solo desde el
+    # primer registro de la ventana (GeminisWin escribe al final), salvo con --todo, que las repasa enteras.
+    'desde': {
+        'VENTAS': ['FECHA', '2026-01-01'], 'VENTDETA': ['FECHA', '2026-01-01'], 'FACTURAS': ['FECH_FRA', '2026-01-01'],
+        'PAGOS': ['FECHA', '2026-01-01'], 'PAGOSGST': ['FECHA', '2026-01-01'], 'CAJA': ['FECHA', '2026-01-01'],
+        'PEDIDOS': ['FECHA', '2026-01-01'], 'PEDIDETA': ['FECHA', '2026-01-01'],
+    },
+    'max_registros_desde': 6000000,  # el tope para las tablas con 'desde' (se leen solo en parte)
 }
 
 
@@ -220,17 +242,34 @@ class Dbf:
             return self._memo(b)
         return None                              # G, W, P y otros: no se traen
 
-    def registros(self, bloque=2000):
-        """Todos los registros vivos, como diccionarios sin los campos vacíos, 0 o falsos."""
-        self.f.seek(self.lcab)
-        quedan = self.n
+    def registros(self, bloque=2000, desde_reg=0, filtro=None):
+        """Todos los registros vivos, como diccionarios sin los campos vacíos, 0 o falsos.
+        desde_reg: empezar en ese número de registro. filtro: (campo de fecha tipo D, 'AAAA-MM-DD'): solo los de
+        esa fecha o después, mirado en los bytes del registro antes de leer el resto (así va rápido).
+        self.primero queda con el número del primer registro que pasa el filtro (None si ninguno)."""
+        prefiltro = None
+        self.primero = None
+        if filtro:
+            c = next((c for c in self.campos if c[0] == filtro[0] and c[3] == 'D'), None)
+            if c is None:
+                raise ValueError(f'no tiene el campo de fecha {filtro[0]}')
+            prefiltro = (c[1], c[1] + c[2], filtro[1].replace('-', '').encode('ascii'))
+        desde_reg = max(0, min(int(desde_reg or 0), self.n))
+        self.f.seek(self.lcab + desde_reg * self.lreg)
+        quedan = self.n - desde_reg
+        n_reg = desde_reg
         while quedan > 0:
             cuantos = min(bloque, quedan)
             trozo = self.f.read(cuantos * self.lreg)
             for i in range(len(trozo) // self.lreg):
                 reg = trozo[i * self.lreg:(i + 1) * self.lreg]
+                n_reg += 1
                 if reg[:1] == b'*':
                     continue
+                if prefiltro and reg[prefiltro[0]:prefiltro[1]] < prefiltro[2]:
+                    continue                     # fecha anterior a la ventana, vacía o mal escrita
+                if prefiltro and self.primero is None:
+                    self.primero = n_reg - 1
                 d = {}
                 for c in self.campos:
                     v = self._valor(reg, c)
@@ -302,6 +341,9 @@ def abrir_estado():
     con.execute('create table if not exists registro (tabla text, clave text, huella text, primary key (tabla, clave)) without rowid')
     # Tablas ya enviadas que el ERP todavía no ha podido pasar a sus tablas: se reintenta en la pasada siguiente.
     con.execute('create table if not exists pendiente (tabla text primary key)')
+    # Tablas con 'desde': nº del primer registro de la ventana y con qué fecha se calculó (para no releer el fichero
+    # entero en cada pasada).
+    con.execute('create table if not exists inicio (tabla text primary key, desde text, reg integer)')
     return con
 
 
@@ -387,9 +429,15 @@ def pasada(cfg, clave, todo=False, solo=None):
             if faltan:
                 resumen.append(f'{tabla}: le faltan los campos de la clave {faltan}')
                 continue
-            if d.n > cfg['max_registros']:
+            filtro = cfg.get('desde', {}).get(tabla)
+            if d.n > (cfg.get('max_registros_desde', 6000000) if filtro else cfg['max_registros']):
                 resumen.append(f'{tabla}: {d.n} registros, más de los esperados: no se lee')
                 continue
+            desde_reg = 0
+            if filtro:
+                fila = con.execute('select desde, reg from inicio where tabla = ?', (tabla,)).fetchone()
+                if fila and fila[0] == filtro[1] and not todo:
+                    desde_reg = max(0, fila[1] - 5000)  # un margen, por si se intercaló algo
             conocidas = dict(con.execute('select clave, huella from registro where tabla = ?', (tabla,)))
             # Ventana de los pedidos a proveedor (las tablas enteras son muy grandes y casi todo es historia).
             dentro = None
@@ -429,7 +477,12 @@ def pasada(cfg, clave, todo=False, solo=None):
                 con.commit()
                 return None
 
-            for reg in d.registros():
+            try:
+                lector = d.registros(desde_reg=desde_reg, filtro=filtro)
+            except ValueError as e:
+                resumen.append(f'{tabla}: {e}')
+                continue
+            for reg in lector:
                 if dentro is not None and not dentro(reg):
                     continue
                 vistos += 1
@@ -459,6 +512,9 @@ def pasada(cfg, clave, todo=False, solo=None):
                     enviados += len(lote)
             if not fallo and (enviados or por_cargar):
                 fallo = cargar()
+            if filtro and not fallo and d.primero is not None and (desde_reg == 0 or d.primero < (fila[1] if fila else d.primero)):
+                con.execute('insert or replace into inicio (tabla, desde, reg) values (?, ?, ?)', (tabla, filtro[1], d.primero))
+                con.commit()
             if fallo:
                 resumen.append(f'{tabla}: {enviados} enviados de {vistos} leídos; se cortó (sigue en la siguiente pasada): {fallo}')
                 continue
