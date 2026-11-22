@@ -248,6 +248,16 @@ proveedor) y la contabilidad de CONTANET (75.032 asientos). Falta, por este orde
 Pedido a Cowork: instalar el programa, cambiar la tarea y mandar la estructura (fichero, registros, campos, fechas
 extremas) de los ficheros de los puntos 2 y 3. Con eso se escriben las cargas del ERP.
 
+**22/11/2026 — hecho.** Cowork instaló el programa y la tarea lanza todas las tablas (menos CLIENART): entraron
+PEDIDLIN, PETICION y PETIDETA. PEDIDCAB fallaba porque algunos números imposibles salían como «NaN» (no es JSON);
+corregido, y quitado el filtro por RECIBIDO (vacío en todos). Con la estructura real de los DBF
+(`20261122_espejo_tanda2_ventas_cobros_caja.sql`): ventas, líneas, facturas, cobros (PAGOS), pagos de gastos
+(PAGOSGST), caja, aperturas y cierres (CAJAAYC), pedidos de clientes y presupuestos (PEDIDOS/PEDIDETA, PRESUP = T) y
+facturas de proveedor van a tablas de copia `gw_*` de solo consulta; las sucursales, a `cliente_sucursal`. Las tablas
+grandes, desde el 01/01/2026 (parámetro `desde` del programa); el programa las lee solo desde el primer registro de esa
+fecha. Para traer años anteriores: bajar esa fecha, de noche. Probado con datos inventados; falta la primera pasada real
+y comprobar totales (ventas por día y tienda, cobros, caja) contra GeminisWin.
+
 ## 10. Pendiente para después de la primera carga
 
 - **Lo que falta para que el Gestor de Pedidos 2.0 no pida de más** (18/11/2026), por este orden:
