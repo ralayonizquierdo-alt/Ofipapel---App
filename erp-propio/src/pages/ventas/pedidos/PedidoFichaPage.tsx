@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Binoculars, Check, FilePen, FilePlus2, FileX2, PackageSearch, Tag, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { textoPrevision, usePrevisionEntrada } from '../../../lib/previsionEntrada'
 import { aplicarArticulo, tocado, tocarLinea, type LineaEnEdicion } from '../../../lib/lineaEnEdicion'
 import { fechaTrabajo, horaTrabajo, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { useAuth } from '../../../lib/AuthContext'
@@ -455,6 +456,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   }, [esNuevo, claveTienda, claveNumero, presupuestos, tiendas.length])
 
   const lineaSel = editLinea?.l ?? lineas[sel]
+  const prevLinea = usePrevisionEntrada(lineaSel?.articulo_codigo ?? null)
 
   // «CC: … Stk: … UPd: …» de la línea seleccionada, como la barra roja/azul de GeminisWin.
   useEffect(() => {
@@ -1089,7 +1091,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
         </div>
         <div className="flex flex-col gap-[3px]">
           <div className={`h-[20px] truncate text-[16px] leading-[20px] ${colorInfo}`} title="CC = código de compra · Stk = stock en el almacén del pedido · UPd = unidades pedidas a proveedor">
-            {infoLinea ? `CC: ${infoLinea.cc}  Stk: ${formatGw(infoLinea.stk, 3)}  UPd: ${formatGw(infoLinea.upd, 3)}` : ''}
+            {infoLinea ? `CC: ${infoLinea.cc}  Stk: ${formatGw(infoLinea.stk, 3)}  UPd: ${formatGw(infoLinea.upd, 3)}${infoLinea.upd > 0 && prevLinea ? `  ${textoPrevision(prevLinea)}` : ''}` : ''}
           </div>
           <div className="grid grid-cols-[80px_110px_18px_minmax(0,1fr)] items-center gap-x-1">
             <span className="gw-label text-right !text-[17px] font-bold">Dto.:</span>

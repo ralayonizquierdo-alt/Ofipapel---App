@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { conTecla, useTeclasFicha } from '../../../components/gw/teclasFicha'
 import { FileMinus2, Hand, Inbox, Save, ScrollText, Tag, Triangle, Undo2, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
+import { textoPrevision, usePrevisionEntrada } from '../../../lib/previsionEntrada'
 import { elegirTienda, tiendaDeTrabajo } from '../../../lib/sesionTrabajo'
 import { useAuth } from '../../../lib/AuthContext'
 import { useNexaContexto } from '../../../nexa/contexto'
@@ -188,6 +189,8 @@ export function VentaDocumento({
   const proximo = useProximoNumero(modo === 'alta', tienda, 'venta', '', ventasGuardadas)
   const pie = useMemo(() => calcularPie(lineas, cab), [lineas, cab])
   const lineaSel = lineas[sel] ?? null
+  // Previsión de entrada de lo pedido a proveedor del artículo de la línea (para la barra de abajo).
+  const prevLinea = usePrevisionEntrada(lineaSel?.unidades_pendientes ? lineaSel.articulo_codigo : null)
 
   // Contexto para NEXA: la venta abierta (o la que se está haciendo en el TPV).
   useNexaContexto({
@@ -776,7 +779,7 @@ export function VentaDocumento({
     ? {
         texto: `${lineaSel.codigo_compra ? `CC: ${lineaSel.codigo_compra}` : '<<No tiene Cod. Compra>>'}  ${
           lineaSel.sin_control_stock ? '' : lineaSel.stock == null ? '<<Sin Stock>>' : `Stk: ${formatGw(lineaSel.stock, 3)}`
-        }  UPd: ${formatGw(lineaSel.unidades_pendientes, 3)}`,
+        }  UPd: ${formatGw(lineaSel.unidades_pendientes, 3)}${lineaSel.unidades_pendientes > 0 && prevLinea ? `  ${textoPrevision(prevLinea)}` : ''}`,
         rojo: !lineaSel.sin_control_stock && (lineaSel.stock ?? 0) - lineaSel.cantidad < 0,
       }
     : null

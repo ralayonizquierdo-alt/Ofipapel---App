@@ -14,6 +14,7 @@ import {
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
 import type { Articulo, ArticuloPrecioNivel } from '../types'
 import { costeBase, margenReal, type NivelPatch } from '../pricing'
+import { usePrevisionEntrada } from '../../../lib/previsionEntrada'
 
 type Patch = Partial<Articulo>
 
@@ -96,6 +97,8 @@ export function TabCaracteristicas({
   const preciosDisabled = disabled || !preciosCargados
   const [buscarPlantilla, setBuscarPlantilla] = useState(false)
   const base = costeBase(articulo)
+  // «Prev. Entrada Pedido»: la de GeminisWin si la tiene; si no, la estimada (pedido en camino + plazo del proveedor).
+  const prevEntrada = usePrevisionEntrada(articulo.fecha_prevista_venta ? null : articulo.codigo_interno)
 
   const num = (key: keyof Articulo, decimals = 3) => (
     <GwNumber
@@ -350,7 +353,9 @@ export function TabCaracteristicas({
         </GwGroup>
         <GwGroup title="Fechas" className="grid grid-cols-[auto_auto] gap-x-4 gap-y-0">
           <Fecha label="Última compra" value={articulo.ultima_compra_fecha} />
-          <Fecha label="Prev. Entrada Pedido" value={articulo.fecha_prevista_venta} labelWidth={140} />
+          <div title={!articulo.fecha_prevista_venta && prevEntrada ? `Estimada: fecha del pedido en camino + plazo de entrega del proveedor (${formatGw(prevEntrada.unidades, 0)} uds en camino)${prevEntrada.retrasado ? ' · ya debería haber llegado' : ''}` : undefined}>
+            <Fecha label="Prev. Entrada Pedido" value={articulo.fecha_prevista_venta ?? prevEntrada?.fecha ?? null} labelWidth={140} />
+          </div>
           <Fecha label="Última venta" value={articulo.ultima_venta_fecha} />
           <Fecha label="Últ. Modif. de Pvps" value={articulo.fecha_ultima_modificacion_pvp} conHora labelWidth={140} />
           <div className="flex items-center gap-2">
