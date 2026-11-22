@@ -10,7 +10,8 @@ import { supabase } from '../../../lib/supabase'
 import { valorParametro } from '../../../lib/parametros'
 import { GwOperativa } from '../../../components/gw/GwOperativa'
 import { SeguimientoFormulario } from './SeguimientoFormulario'
-import { enviarPresupuesto, type Medio } from './enviarPresupuesto'
+import { enviarPresupuesto } from './enviarPresupuesto'
+import { DialogoCorreoDocumento, compartirDocumento, puedeCompartir } from './EnvioDocumento'
 import type { DatosPdf } from './presupuestoPdf'
 import { ESTADOS_PRESUPUESTO, MOTIVOS_PERDIDA, type EstadoPresupuesto } from './estadosPresupuesto'
 
@@ -74,6 +75,7 @@ export function SeguimientoPresupuesto({
   const [ayuda, setAyuda] = useState(false)
   const [enviando, setEnviando] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  const [correo, setCorreo] = useState(false)
   useEffect(() => {
     supabase
       .from('empleado')
@@ -100,17 +102,30 @@ export function SeguimientoPresupuesto({
     onChange(p)
   }
 
-  async function enviar(medio: Medio) {
+  /** Ya enviado (por Compartir o Correo): en pantalla pasa a «Enviado» como lo hace la base de datos. */
+  function marcarEnviado() {
+    if (estado !== 'borrador') return
+    const dias = Number(valorParametro('pre.dias_seguimiento') ?? 3) || 3
+    onChange({ presupuesto_estado: 'enviado', enviado_en: new Date().toISOString(), proximo_contacto: d.proximo_contacto ?? masDias(hoy(), dias) })
+  }
+
+  // Rober, 22/11/2026: el envío vive SOLO aquí (la impresora solo imprime en papel).
+  //  📄 PDF lo descarga · 💬 Compartir abre WhatsApp, Telegram, Gmail… del propio dispositivo (en un ordenador que no
+  //  puede compartir: descarga el PDF y abre WhatsApp Web) · ✉ Correo lo envía el ERP desde el buzón del empleado.
+  async function enviar(medio: 'descargar' | 'compartir') {
     if (!datosPdf) return
     setError(null)
     setAviso(null)
     setEnviando(medio)
     try {
-      const r = await enviarPresupuesto(medio, datosPdf(), estado)
-      setAviso(r.texto)
-      if (r.enviado && estado === 'borrador') {
-        const dias = Number(valorParametro('pre.dias_seguimiento') ?? 3) || 3
-        onChange({ presupuesto_estado: 'enviado', enviado_en: new Date().toISOString(), proximo_contacto: d.proximo_contacto ?? masDias(hoy(), dias) })
+      if (medio === 'compartir' && puedeCompartir()) {
+        const t = await compartirDocumento('presupuesto', datosPdf())
+        setAviso(t)
+        if (t !== 'Envío cancelado.') marcarEnviado()
+      } else {
+        const r = await enviarPresupuesto(medio === 'compartir' ? 'whatsapp' : 'descargar', datosPdf(), estado)
+        setAviso(r.texto)
+        if (r.enviado) marcarEnviado()
       }
     } catch (e) {
       setError((e as Error).message)
@@ -222,15 +237,38 @@ export function SeguimientoPresupuesto({
             <button type="button" className="gw-btn !h-[24px]" disabled={numero == null || !!enviando} onClick={() => enviar('descargar')} title="Descargar el presupuesto en PDF">
               📄 PDF
             </button>
-            <button type="button" className="gw-btn !h-[24px]" disabled={numero == null || !!enviando} onClick={() => enviar('email')} title="Enviar el PDF por correo">
-              {enviando === 'email' ? 'Preparando…' : '✉ Enviar por correo'}
+            <button
+              type="button"
+              className="gw-btn !h-[24px]"
+              disabled={numero == null || !!enviando}
+              onClick={() => enviar('compartir')}
+              title="WhatsApp, Telegram, Gmail… de este dispositivo, con el PDF y el texto ya escrito. Sale de tu número o tu cuenta."
+            >
+              {enviando === 'compartir' ? 'Preparando…' : '💬 Compartir'}
             </button>
-            <button type="button" className="gw-btn !h-[24px]" disabled={numero == null || !!enviando} onClick={() => enviar('whatsapp')} title="Enviar el PDF por WhatsApp">
-              {enviando === 'whatsapp' ? 'Preparando…' : '💬 WhatsApp'}
+            <button
+              type="button"
+              className="gw-btn !h-[24px]"
+              disabled={numero == null || !!enviando}
+              onClick={() => setCorreo(true)}
+              title="El ERP lo envía con el PDF adjunto desde tu correo de empleado (queda en tus Enviados)"
+            >
+              ✉ Correo
             </button>
           </span>
           {aviso && <span className="max-w-[420px] text-[12px] text-[#185a18]">{aviso}</span>}
         </span>
+      )}
+      {correo && datosPdf && (
+        <DialogoCorreoDocumento
+          tipo="presupuesto"
+          datos={datosPdf()}
+          onCerrar={() => setCorreo(false)}
+          onAviso={(t) => {
+            setAviso(t)
+            marcarEnviado()
+          }}
+        />
       )}
       <button type="button" className="gw-btn font-bold" onClick={onRelacion} title="Todos los presupuestos abiertos, por fecha de contacto y vendedor">
         📋 Relación de seguimientos
@@ -259,7 +297,8 @@ export function SeguimientoPresupuesto({
               {
                 titulo: 'Seguimiento de un presupuesto',
                 pasos: [
-                  'Mandarlo al cliente: ✉ Enviar por correo o 💬 WhatsApp (va el PDF). Pasa solo a «Enviado» y se pone la fecha de volver a llamar (a los 3 días). 📄 PDF solo lo descarga.',
+                  'Mandarlo al cliente (los tres botones de aquí; la impresora solo imprime en papel): 💬 Compartir abre WhatsApp, Telegram, Gmail… de tu móvil, tablet u ordenador con el PDF y el texto ya escritos, y sale de tu número o tu cuenta. ✉ Correo lo envía el ERP con el PDF adjunto desde tu correo de empleado y queda en tus Enviados (si no tienes correo en tu ficha, pídeselo a un administrador; mientras, usa Compartir). 📄 PDF solo lo descarga.',
+                  'Al enviarlo pasa solo a «Enviado» y se pone la fecha de volver a llamar (a los 3 días).',
                   'Cuando llames o escribas: botón 📞 SEGUIMIENTO (debajo del Dto. %, junto a los totales) → rellena el 1.º (luego el 2.º y el 3.º): día, con quién hablaste, qué contesta y cuándo volver a contactar → 💾 Guardar.',
                   'Por correo: marca «E-mail» y pulsa ✉ Enviar correo: se abre tu correo con el texto hecho y queda apuntado.',
                   'Si lo acepta: Estado «Aceptado» y luego «➜ Pasar a pedido».',

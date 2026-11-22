@@ -16,10 +16,12 @@
 // · Remitente propio (22/11/2026, presupuestos de los comerciales): correo_pendiente.remitente = buzón de quien lo envía.
 //   Sale SOLO de ese buzón (queda en sus Enviados). Si Microsoft no lo deja, el correo queda con error: nunca sale de otro
 //   buzón (Rober: sin correo propio configurado no se envía).
+// · Firma (22/11/2026): si el HTML trae «cid:logo-ofipapel» (fn_firma_correo_html), se adjunta el logo incrustado.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
 import { enviarGraph, graphConfigurado } from './graph.ts'
+import { LOGO_FIRMA_PNG_BASE64 } from './logo.ts'
 
 interface AdjuntoCola {
   bucket: string
@@ -99,7 +101,12 @@ Deno.serve(async () => {
           para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean),
           asunto: c.asunto,
           html: c.cuerpo_html,
-          adjuntos: adjuntos.map((a) => ({ nombre: a.nombre, base64: a.base64, tipo: a.tipo })),
+          adjuntos: [
+            ...adjuntos.map((a) => ({ nombre: a.nombre, base64: a.base64, tipo: a.tipo })),
+            ...(String(c.cuerpo_html).includes('cid:logo-ofipapel')
+              ? [{ nombre: 'logo-ofipapel.png', base64: LOGO_FIRMA_PNG_BASE64, tipo: 'image/png', cid: 'logo-ofipapel' }]
+              : []),
+          ],
         }
         // Remitente propio (22/11/2026: presupuestos de los comerciales): sale solo del buzón de quien lo envía.
         const propio = String(c.remitente ?? '').trim()
@@ -142,7 +149,12 @@ Deno.serve(async () => {
         to: c.para,
         subject: c.asunto,
         html: c.cuerpo_html,
-        attachments: adjuntos.map((a) => ({ filename: a.nombre, content: a.base64, encoding: 'base64', contentType: a.tipo })),
+        attachments: [
+          ...adjuntos.map((a) => ({ filename: a.nombre, content: a.base64, encoding: 'base64', contentType: a.tipo })),
+          ...(String(c.cuerpo_html).includes('cid:logo-ofipapel')
+            ? [{ filename: 'logo-ofipapel.png', content: LOGO_FIRMA_PNG_BASE64, encoding: 'base64', contentType: 'image/png', cid: 'logo-ofipapel' }]
+            : []),
+        ],
       })
       await sb.from('correo_pendiente').update({ enviado_en: new Date().toISOString(), intentos: c.intentos + 1, error: null }).eq('id', c.id)
       enviados++

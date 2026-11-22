@@ -28,7 +28,8 @@ async function quienSoy(): Promise<Yo | null> {
 }
 
 /** Asunto y texto ya escritos para el cliente. */
-export async function textoEnvio(tipo: TipoDocVenta, d: DatosPdf) {
+/** conFirma: el correo del ERP ya lleva la firma (nombre, cargo, empresa…) debajo, así que el texto acaba en «Un saludo,». */
+export async function textoEnvio(tipo: TipoDocVenta, d: DatosPdf, conFirma = false) {
   const [{ data: cli }, yo] = await Promise.all([
     d.clienteCodigo ? supabase.from('cliente').select('email, contacto').eq('codigo', d.clienteCodigo).maybeSingle() : Promise.resolve({ data: null }),
     quienSoy(),
@@ -43,8 +44,7 @@ export async function textoEnvio(tipo: TipoDocVenta, d: DatosPdf) {
     'Quedamos a su disposición para cualquier duda.',
     '',
     'Un saludo,',
-    yo?.nombre || d.vendedor || '',
-    'Ofipapel',
+    ...(conFirma ? [] : [yo?.nombre || d.vendedor || '', 'Ofipapel']),
   ]
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -113,7 +113,7 @@ export function DialogoCorreoDocumento({
 
   useEffect(() => {
     let cancel = false
-    void textoEnvio(tipo, datos).then((t) => {
+    void textoEnvio(tipo, datos, true).then((t) => {
       if (cancel) return
       setPara(t.para)
       setAsunto(t.asunto)

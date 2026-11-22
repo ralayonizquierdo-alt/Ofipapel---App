@@ -25,6 +25,8 @@ interface Empleado {
   fax: string | null
   email: string | null
   web: string | null
+  nombre_firma: string | null
+  cargo: string | null
   fecha_alta: string | null
   fecha_baja: string | null
   activo: boolean
@@ -65,6 +67,8 @@ const VACIO: Empleado = {
   fax: null,
   email: null,
   web: null,
+  nombre_firma: null,
+  cargo: null,
   fecha_alta: null,
   fecha_baja: null,
   activo: true,
@@ -179,6 +183,11 @@ export function EmpleadoFichaPage() {
                   <div className="grid grid-cols-[minmax(0,665fr)_minmax(0,660fr)] gap-x-2">
                     <GwField label="Dirección E-mail (Correo Electrónico)">{txt('email', 'DIREMAIL')}</GwField>
                     <GwField label="Dirección Web (URL)">{txt('web', 'DIRWEB')}</GwField>
+                  </div>
+                  {/* Firma de los correos que envía el ERP desde su buzón (Rober, 22/11/2026). Vacíos: el nombre de la ficha y el grupo. */}
+                  <div className="grid grid-cols-[minmax(0,665fr)_minmax(0,660fr)] gap-x-2">
+                    <GwField label="Nombre en la firma del correo">{txt('nombre_firma', 'NOMBRE FIRMA')}</GwField>
+                    <GwField label="Cargo (firma del correo)">{txt('cargo', 'CARGO')}</GwField>
                   </div>
                 </GwGroup>
                 <div className="flex items-center gap-5 px-1 text-[17px]">

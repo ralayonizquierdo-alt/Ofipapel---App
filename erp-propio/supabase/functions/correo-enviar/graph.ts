@@ -35,7 +35,7 @@ export interface CorreoGraph {
   responderA?: string | null
   asunto: string
   html: string
-  adjuntos?: { nombre: string; base64: string; tipo?: string }[]
+  adjuntos?: { nombre: string; base64: string; tipo?: string; cid?: string }[]
 }
 
 export async function enviarGraph(c: CorreoGraph): Promise<void> {
@@ -58,6 +58,7 @@ export async function enviarGraph(c: CorreoGraph): Promise<void> {
                 name: a.nombre,
                 contentType: a.tipo ?? 'application/pdf',
                 contentBytes: a.base64,
+                ...(a.cid ? { isInline: true, contentId: a.cid } : {}),
               })),
             }
           : {}),
