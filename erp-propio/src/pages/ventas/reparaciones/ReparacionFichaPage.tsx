@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useNavigate, useParams } from 'react-router-dom'
 import { Check, FilePen, FilePlus2, FileX2, Binoculars, Tag, Package, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
-import { textoPrevision, usePrevisionEntrada } from '../../../lib/previsionEntrada'
 import { avisoNumero, dejarAvisoNumero, tomarAvisoNumero, useProximoNumero } from '../../../lib/proximoNumero'
 import { useNexaContexto } from '../../../nexa/contexto'
 import { GwDate, GwField, GwGroup, GwInput, GwLookupButton, GwNumber, GwSelect, GwTextArea, GwWindow, formatGw } from '../../../components/gw'
@@ -377,7 +376,6 @@ export function ReparacionFichaPage() {
   }, [rep.venta_tienda_codigo, rep.venta_numero])
 
   const lineaSel = lineas[selLinea]
-  const prevLinea = usePrevisionEntrada(lineaSel?.articulo_codigo ?? null)
   useEffect(() => {
     if (!lineaSel?.articulo_codigo) return setStock(null)
     Promise.all([
@@ -892,7 +890,7 @@ export function ReparacionFichaPage() {
               </MiniBtn>
             </div>
             <span className="gw-label truncate text-[#e00000]">
-              {lineaSel ? `CC: ${stock?.codigoCompra ?? 'solo usar para aviso'}  Stk: ${formatGw(stock?.stock ?? 0, 3)}  UPd: ${formatGw(stock?.pedido ?? 0, 3)}${(stock?.pedido ?? 0) > 0 && prevLinea ? `  ${textoPrevision(prevLinea)}` : ''}` : ''}
+              {lineaSel ? `CC: ${stock?.codigoCompra ?? 'solo usar para aviso'}  Stk: ${formatGw(stock?.stock ?? 0, 3)}  UPd: ${formatGw(stock?.pedido ?? 0, 3)}` : ''}
             </span>
           </div>
           <div className="flex items-center gap-2">
