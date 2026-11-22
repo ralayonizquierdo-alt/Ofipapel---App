@@ -199,8 +199,19 @@ async function lineasPedido(origen: 'ERP' | 'GW', tienda: string, numero: number
 const r4 = (n: number) => Math.round(n * 10000) / 10000
 const neto = (precio: number | null, dto: number | null) => (precio == null ? null : r4(precio * (1 - (dto ?? 0) / 100)))
 
-/** Factura/albarán contra su pedido: la IA empareja líneas; las diferencias se calculan aquí. */
+/** Margen de precio en el que no se avisa (Archivo → Parámetros): % y euros por unidad; avisa solo si pasa los dos. */
+async function toleranciaPrecio(): Promise<{ pct: number; eur: number }> {
+  const { data } = await sb.from('parametro').select('clave, valor').in('clave', ['compras.tolerancia_precio_pct', 'compras.tolerancia_precio_eur'])
+  const v = (k: string, def: number) => {
+    const n = Number((data ?? []).find((p) => p.clave === k)?.valor)
+    return Number.isFinite(n) && n >= 0 ? n : def
+  }
+  return { pct: v('compras.tolerancia_precio_pct', 5), eur: v('compras.tolerancia_precio_eur', 0.05) }
+}
+
+/** Propuesta/factura/albarán contra su pedido: la IA empareja líneas; las diferencias se calculan aquí. */
 async function comprobar(apiKey: string, modelo: string, nifPropio: string, pdf: string, tipo: string, pedido: LineaPedido[]) {
+  const tol = await toleranciaPrecio()
   const r = await new Anthropic({ apiKey }).messages.parse({
     model: modelo,
     max_tokens: 16000,
@@ -240,11 +251,15 @@ async function comprobar(apiKey: string, modelo: string, nifPropio: string, pdf:
     else if (s < p.cantidad) menos.push({ ...base, servido: s })
     else if (s > p.cantidad) mas.push({ ...base, servido: s })
     const pd = precioDoc.get(p.n)
-    // Precio: aviso si se aleja más de un 2 % del de nuestro pedido (el de GeminisWin puede no llevar el descuento).
-    if (pd != null && p.precio != null && p.precio > 0 && Math.abs(pd - p.precio) / p.precio > 0.02) precio.push({ ...base, precio_pedido: p.precio, precio_documento: pd })
+    // Precio: siempre hay pequeñas diferencias; solo avisa si pasa el % Y los euros por unidad de Archivo → Parámetros
+    // (compras.tolerancia_precio_pct y compras.tolerancia_precio_eur), al alza o a la baja.
+    if (pd != null && p.precio != null && p.precio > 0) {
+      const dif = Math.abs(pd - p.precio)
+      if ((dif / p.precio) * 100 > tol.pct && dif > tol.eur) precio.push({ ...base, precio_pedido: p.precio, precio_documento: pd })
+    }
   }
   const total = faltan.length + menos.length + mas.length + precio.length + anadidos.length
-  return { comprobacion: { faltan, menos, mas, precio, anadidos, lineas_pedido: pedido.length, lineas_documento: doc.length }, diferencias: total }
+  return { comprobacion: { faltan, menos, mas, precio, anadidos, lineas_pedido: pedido.length, lineas_documento: doc.length, tolerancia: tol }, diferencias: total }
 }
 
 const limpio = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60)

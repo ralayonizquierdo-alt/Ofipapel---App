@@ -57,7 +57,7 @@ demás, en la siguiente).
 
 Cuando el proveedor manda la factura de un pedido ya aceptado (o el albarán), el agente la compara línea a línea con
 el pedido: la IA dice qué línea es cuál y la función calcula las diferencias (falta, menos, más, precio distinto en más
-de un 2 %, añadido). Sale en rojo en la pestaña (filtro «Con diferencias») y en el informe de NEXA. Cada factura lleva
+del margen de Archivo → Parámetros: compras.tolerancia_precio_pct y compras.tolerancia_precio_eur, por defecto 5 % y 0,05 €; avisa solo si pasa los dos), añadido). Sale en rojo en la pestaña (filtro «Con diferencias») y en el informe de NEXA. Cada factura lleva
 su nombre ordenado («AAAA-MM · PROVEEDOR · Nº.pdf») para la carpeta de facturas del servidor; la copia la hará el
 programa del PC del espejo cuando se sepa la ruta.
 
