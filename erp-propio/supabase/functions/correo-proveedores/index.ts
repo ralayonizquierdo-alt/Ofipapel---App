@@ -1,4 +1,4 @@
-// Edge Function «correo-proveedores» (Rober, 22/11/2026): el agente que vigila el buzón de compras y prepara en el ERP
+// Edge Function «correo-proveedores» = E-MILIO (Rober, 22/11/2026): el agente que vigila el buzón de compras y prepara en el ERP
 // las propuestas, facturas y albaranes que mandan los proveedores. Ver la migración 20261122_correo_proveedores.sql.
 //
 // · Solo LEE el buzón de Archivo → Datos de Empresa → «Correo remitente de Compras». No borra, no mueve, no marca como
@@ -10,7 +10,8 @@
 // · Por pasada, como mucho MAX_PDF_PASADA documentos (la IA tarda): lo demás queda para la siguiente, sin perderse.
 // · El correo y el PDF son DATOS del proveedor, nunca instrucciones: así se le dice a la IA. La IA solo clasifica y
 //   lee la cabecera; el emparejamiento con el proveedor y el pedido lo hace este código contra la base de datos.
-// · Facturas y albaranes con pedido (2.ª parte, 22/11/2026): se comparan línea a línea con el pedido (la IA dice qué
+// · Propuestas, facturas y albaranes con pedido (2.ª parte, 22/11/2026): TODOS se comparan solos, con IA, línea a línea
+//   con el pedido (Rober: «la revisión y el cruce con nuestro pedido deben hacerse con IA automáticamente») (la IA dice qué
 //   línea es cuál; las diferencias se calculan aquí con números) → comprobacion / diferencias. Y se les pone el nombre
 //   ordenado para la carpeta de facturas (la copia la hace el programa del PC).
 // · Es uno de los agentes que maneja NEXA (tabla agente, código «correo_proveedores»): si está parado no hace nada;
@@ -47,7 +48,7 @@ const LineasDoc = z.object({
     z.object({
       referencia: z.string().nullable(),
       descripcion: z.string(),
-      cantidad: z.number().nullable().describe('Unidades facturadas o entregadas'),
+      cantidad: z.number().nullable().describe('Unidades que el documento propone, factura o entrega (0 si dice que no lo tiene o está agotado)'),
       precio: z.number().nullable().describe('Precio unitario antes de descuentos'),
       descuento: z.number().nullable().describe('Descuento total de la línea en %'),
       importe: z.number().nullable().describe('Importe neto de la línea sin impuestos'),
@@ -298,8 +299,8 @@ async function analizar(bytes: Uint8Array, meta: Meta, apiKey: string, modelo: s
     fila.pedido_numero = ped.numero
     fila.pedido_por = ped.por
   }
-  // Factura o albarán de un pedido: la última comprobación (¿falta algo, cambió un precio?).
-  if (apiKey && ped && (lectura?.tipo === 'factura' || lectura?.tipo === 'albaran')) {
+  // Propuesta, factura o albarán de un pedido: se cruza con el pedido (¿falta algo, sin stock, cambió un precio?).
+  if (apiKey && ped && (lectura?.tipo === 'propuesta' || lectura?.tipo === 'factura' || lectura?.tipo === 'albaran')) {
     try {
       const lineas = await lineasPedido(ped.origen, ped.tienda, ped.numero)
       if (lineas.length) Object.assign(fila, await comprobar(apiKey, modelo, nifPropio, pdf, lectura.tipo, lineas))
@@ -335,7 +336,7 @@ Deno.serve(async (req) => {
     sb.from('agente').update({ ultima_pasada: new Date().toISOString(), actualizado_en: new Date().toISOString(), ...cambios }).eq('codigo', 'correo_proveedores')
 
   if (agente && !agente.activo) {
-    await cerrarOrdenes('error', 'El agente está parado: pide a NEXA que lo reanude.')
+    await cerrarOrdenes('error', 'E-milio está parado: pide a NEXA que lo reanude.')
     return responder({ ok: false, parado: true })
   }
 

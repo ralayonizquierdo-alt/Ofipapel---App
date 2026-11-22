@@ -63,7 +63,7 @@ end $$;
 revoke all on public.agente, public.agente_orden from anon;
 
 insert into public.agente (codigo, nombre, que_hace, funcion, cada, permiso, ordenes)
-values ('correo_proveedores', 'Correo de proveedores',
+values ('correo_proveedores', 'E-milio',
         'Vigila el buzón de compras (solo lee) y deja en el Gestor 2.0 → «Correo de proveedores» los PDF de los proveedores: '
         || 'propuestas, facturas y albaranes, con su proveedor y su pedido. Las facturas de pedidos aceptados las compara con el pedido '
         || 'y avisa si falta algo. No contesta a nadie ni cambia pedidos.',

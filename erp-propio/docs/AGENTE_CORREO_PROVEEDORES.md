@@ -1,4 +1,4 @@
-# Agente de correo de proveedores
+# E-milio, el agente de correo de proveedores
 
 Rober, 22/11/2026. Vigila el buzón de compras y deja preparados en el ERP los PDF que mandan los proveedores
 (propuestas o confirmaciones de pedido, facturas y albaranes), emparejados con su proveedor y su pedido.

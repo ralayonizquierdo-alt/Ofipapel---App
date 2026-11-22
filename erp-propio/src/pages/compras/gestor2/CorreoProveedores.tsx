@@ -1,4 +1,4 @@
-// Gestor 2.0 → «Correo de proveedores» (Rober, 22/11/2026): lo que el agente «correo-proveedores» ha cogido del buzón de
+// Gestor 2.0 → «Correo de proveedores» (Rober, 22/11/2026): lo que E-MILIO (el agente «correo-proveedores») ha cogido del buzón de
 // compras (PDF de proveedores): propuestas, facturas y albaranes, con su proveedor y su pedido (del ERP o de GeminisWin).
 // Aquí se revisa: ver el PDF, abrir el pedido y marcarlo como revisado o descartarlo. El agente solo prepara: no
 // contesta a nadie ni cambia pedidos ni facturas. Ver la migración 20261122_correo_proveedores.sql.
@@ -211,7 +211,7 @@ export function CorreoProveedores() {
     <section className="flex flex-col gap-3">
       {sinClaves ? (
         <p className="rounded-xl border border-[#f1d58a] bg-[#fff8e1] px-4 py-2 text-[14px] text-[#6b4a00]">
-          <b>El agente está esperando la conexión de Microsoft.</b> Vigilará el buzón de compras cada 10 minutos (solo lee: no borra, no mueve ni contesta) en
+          <b>E-milio está esperando la conexión de Microsoft.</b> Vigilará el buzón de compras cada 10 minutos (solo lee: no borra, no mueve ni contesta) en
           cuanto estén puestas las claves de la app de solo lectura (secretos AZURE_LECTURA_CLIENT_ID y AZURE_LECTURA_CLIENT_SECRET).
         </p>
       ) : (
@@ -224,7 +224,7 @@ export function CorreoProveedores() {
             </>
           ) : (
             <>
-              <b>Vigilando el buzón de compras.</b> Última pasada: {fechaHora(vig?.ultima_pasada ?? null)} · {vig?.documentos_total ?? 0} documentos cogidos en
+              <b>E-milio está vigilando el buzón de compras.</b> Última pasada: {fechaHora(vig?.ultima_pasada ?? null)} · {vig?.documentos_total ?? 0} documentos cogidos en
               total.
             </>
           )}
@@ -352,7 +352,7 @@ export function CorreoProveedores() {
           })}
           {!vista.length && (
             <p className="rounded-2xl border border-dashed border-[#c9d3e8] bg-white p-8 text-center text-[15px] text-[#5b6680]">
-              {sinClaves ? 'Todavía no ha llegado nada: el agente empezará en cuanto tenga la conexión de Microsoft.' : 'No hay documentos con este filtro.'}
+              {sinClaves ? 'Todavía no ha llegado nada: E-milio empezará en cuanto tenga la conexión de Microsoft.' : 'No hay documentos con este filtro.'}
             </p>
           )}
         </div>
@@ -363,7 +363,7 @@ export function CorreoProveedores() {
 
 /** La última comprobación de la factura o albarán contra su pedido: lo que falta, cambia o sobra. */
 function DetalleComprobacion({ c, diferencias, tipo }: { c: Comprobacion; diferencias: number; tipo: string }) {
-  const doc = tipo === 'albaran' ? 'el albarán' : 'la factura'
+  const doc = tipo === 'albaran' ? 'el albarán' : tipo === 'propuesta' ? 'la propuesta' : 'la factura'
   if (!diferencias)
     return (
       <div className="mt-1 text-[13px] font-semibold text-[#185a18]">
