@@ -16,12 +16,13 @@
 // · Remitente propio (22/11/2026, presupuestos de los comerciales): correo_pendiente.remitente = buzón de quien lo envía.
 //   Sale SOLO de ese buzón (queda en sus Enviados). Si Microsoft no lo deja, el correo queda con error: nunca sale de otro
 //   buzón (Rober: sin correo propio configurado no se envía).
-// · Firma (22/11/2026): si el HTML trae «cid:logo-ofipapel» (fn_firma_correo_html), se adjunta el logo incrustado.
+// · Firma (22/11/2026): si el HTML trae «cid:logo-ofipapel» (fn_firma_correo_html), se adjunta el logo incrustado. El logo
+//   se descarga de la web del ERP (public/marca/logo-firma.png; otra dirección con el secreto LOGO_FIRMA_URL). Si no se
+//   puede descargar, el correo sale sin logo (se quita la imagen) en vez de con un hueco roto.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
 import { enviarGraph, graphConfigurado } from './graph.ts'
-import { LOGO_FIRMA_PNG_BASE64 } from './logo.ts'
 
 interface AdjuntoCola {
   bucket: string
@@ -29,6 +30,27 @@ interface AdjuntoCola {
   nombre?: string
 }
 const MAX_ADJUNTOS = 3 * 1024 * 1024
+const LOGO_URL = Deno.env.get('LOGO_FIRMA_URL') ?? 'https://ofipapel-erp-propio-preview.netlify.app/marca/logo-firma.png'
+let logoCache: string | null | undefined
+
+async function logoFirma(): Promise<string | null> {
+  if (logoCache !== undefined) return logoCache
+  try {
+    const r = await fetch(LOGO_URL)
+    const tipo = r.headers.get('content-type') ?? ''
+    logoCache = r.ok && tipo.startsWith('image/') ? aBase64(new Uint8Array(await r.arrayBuffer())) : null
+  } catch {
+    logoCache = null
+  }
+  return logoCache
+}
+
+/** Con firma: el logo incrustado, o el HTML sin la imagen si no se ha podido descargar. */
+async function prepararFirma(html: string): Promise<{ html: string; logo: string | null }> {
+  if (!html.includes('cid:logo-ofipapel')) return { html, logo: null }
+  const logo = await logoFirma()
+  return logo ? { html, logo } : { html: html.replace(/<img [^>]*cid:logo-ofipapel[^>]*>/g, ''), logo: null }
+}
 
 function aBase64(bytes: Uint8Array) {
   let binario = ''
@@ -97,15 +119,14 @@ Deno.serve(async () => {
         const desde = esCompras ? compras : esAdmin ? administracion : general
         if (!desde) throw new Error(`Falta el buzón ${esCompras ? 'de Compras' : esAdmin ? 'de Administración' : 'del ERP'} en Archivo → Datos de Empresa.`)
         const adjuntos = await cargarAdjuntos(c.adjuntos)
+        const firma = await prepararFirma(String(c.cuerpo_html))
         const base = {
           para: String(c.para).split(/[;,]/).map((x) => x.trim()).filter(Boolean),
           asunto: c.asunto,
-          html: c.cuerpo_html,
+          html: firma.html,
           adjuntos: [
             ...adjuntos.map((a) => ({ nombre: a.nombre, base64: a.base64, tipo: a.tipo })),
-            ...(String(c.cuerpo_html).includes('cid:logo-ofipapel')
-              ? [{ nombre: 'logo-ofipapel.png', base64: LOGO_FIRMA_PNG_BASE64, tipo: 'image/png', cid: 'logo-ofipapel' }]
-              : []),
+            ...(firma.logo ? [{ nombre: 'logo-ofipapel.png', base64: firma.logo, tipo: 'image/png', cid: 'logo-ofipapel' }] : []),
           ],
         }
         // Remitente propio (22/11/2026: presupuestos de los comerciales): sale solo del buzón de quien lo envía.
@@ -144,16 +165,15 @@ Deno.serve(async () => {
       // Por SMTP solo hay una cuenta: un correo con remitente propio no sale por aquí.
       if (c.remitente) throw new Error(`No se puede enviar desde ${c.remitente}: el correo de la empresa no está conectado a Microsoft 365.`)
       const adjuntos = await cargarAdjuntos(c.adjuntos)
+      const firma = await prepararFirma(String(c.cuerpo_html))
       await transporte.sendMail({
         from: remitente,
         to: c.para,
         subject: c.asunto,
-        html: c.cuerpo_html,
+        html: firma.html,
         attachments: [
           ...adjuntos.map((a) => ({ filename: a.nombre, content: a.base64, encoding: 'base64', contentType: a.tipo })),
-          ...(String(c.cuerpo_html).includes('cid:logo-ofipapel')
-            ? [{ filename: 'logo-ofipapel.png', content: LOGO_FIRMA_PNG_BASE64, encoding: 'base64', contentType: 'image/png', cid: 'logo-ofipapel' }]
-            : []),
+          ...(firma.logo ? [{ filename: 'logo-ofipapel.png', content: firma.logo, encoding: 'base64', contentType: 'image/png', cid: 'logo-ofipapel' }] : []),
         ],
       })
       await sb.from('correo_pendiente').update({ enviado_en: new Date().toISOString(), intentos: c.intentos + 1, error: null }).eq('id', c.id)
