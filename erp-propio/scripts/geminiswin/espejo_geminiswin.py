@@ -72,14 +72,14 @@ TABLAS = [
     ('ARTICALM', 'ARTICALM', ['CODALMAC', 'COD_INTERN']),
     ('CLIENART', 'CLIENART', ['IDCLIENTE', 'COD_INTERN']),
     # Pedidos a proveedor y peticiones de clientes (18/11/2026): para que el Gestor de Pedidos del ERP sepa lo que
-    # ya está pedido en GeminisWin y lo que han pedido los clientes. De los pedidos solo se traen los del último
-    # año y medio (ver 'ventana_dias'; RECIBIDO está vacío y no sirve para filtrar); las peticiones, todas.
+    # ya está pedido en GeminisWin y lo que han pedido los clientes. Todos (espejo completo; 'ventana_dias' los
+    # limitaría; RECIBIDO está vacío y no sirve para filtrar).
     ('PEDIDCAB', 'PEDIDCAB', ['IDOFICINA', 'NUMERO']),
     ('PEDIDLIN', 'PEDIDLIN', ['IDOFICINA', 'NUMERO', 'LINEA', 'COD_INTERN']),
     ('PETICION', 'PETICION', ['IDOFICINA', 'NUMERO']),
     ('PETIDETA', 'PETIDETA', ['IDOFICINA', 'NUMERO', 'IDOFICPED', 'NUMEROPED', 'NUMLINPED', 'FECHAHORA']),
-    # Tanda 2 y lo que faltaba de la 3 (22/11/2026). Las tablas grandes solo desde la fecha de 'desde' (Rober:
-    # primero el año en curso; los años anteriores se traen después, bajando esa fecha poco a poco).
+    # Tanda 2 y lo que faltaba de la 3 (22/11/2026), con todo su histórico. Las tablas grandes se leen como dice
+    # 'grandes' (lo reciente en cada pasada; enteras en el repaso de cada noche).
     ('CLISUCUR', 'CLISUCUR', ['IDCLIENTE', 'IDCLISUCUR']),
     ('VENTAS', 'VENTAS', ['IDOFICINA', 'IDVENTA']),
     ('VENTDETA', 'VENTDETA', ['IDOFICINA', 'IDVENTA', 'NUMLINEA']),
@@ -105,20 +105,32 @@ POR_DEFECTO = {
     'ficheros': {},               # para corregir un nombre de fichero: {"PROVINCIAS": "PROVINCIAS"}
     'claves': {},                 # para corregir los campos de la clave: {"FOMA": ["FORMA_COD"]}
     # CLIENART (precios especiales por cliente y artículo) tiene 6,5 millones de registros: no se trae así.
-    'saltar': ['CLIENART'],       # tablas que no se quieren traer
+    'saltar': [],                 # tablas que no se quieren traer
     # Pedidos a proveedor: solo los de los últimos N días, más los que siguen sin recibir y los que ya se habían
     # mandado alguna vez (para que el ERP se entere cuando se reciben). Las líneas siguen a su cabecera.
-    'ventana_dias': {'PEDIDCAB': 400},
-    # Tablas muy grandes (ventas, caja, pedidos de clientes…): solo los registros con ese campo de fecha (tipo D)
-    # en esa fecha o después. Los años anteriores se traen bajando la fecha. Estas tablas se leen solo desde el
-    # primer registro de la ventana (GeminisWin escribe al final), salvo con --todo, que las repasa enteras.
-    'desde': {
-        'VENTAS': ['FECHA', '2026-01-01'], 'VENTDETA': ['FECHA', '2026-01-01'], 'FACTURAS': ['FECH_FRA', '2026-01-01'],
-        'PAGOS': ['FECHA', '2026-01-01'], 'PAGOSGST': ['FECHA', '2026-01-01'], 'CAJA': ['FECHA', '2026-01-01'],
-        'PEDIDOS': ['FECHA', '2026-01-01'], 'PEDIDETA': ['FECHA', '2026-01-01'],
-    },
-    'max_registros_desde': 6000000,  # el tope para las tablas con 'desde' (se leen solo en parte)
+    'ventana_dias': {},           # p. ej. {"PEDIDCAB": 400}; vacío = todos los pedidos (espejo completo, 22/11/2026)
+    # Espejo completo (Rober, 22/11/2026: «quiero ya un espejo completo»). Las tablas grandes (campo de fecha tipo D):
+    #  · cada pasada (10 min) lee solo lo de los últimos 'vivo_dias' días, empezando por el primer registro de esa
+    #    fecha (GeminisWin escribe al final): así no se lee entero un fichero de 1 GB cada 10 minutos;
+    #  · una vez al día, de noche ('repaso_horas') o en domingo, el REPASO: se leen enteras, para traer todo el
+    #    histórico la primera vez (se corta y sigue sola si no le da tiempo) y luego los cambios en registros viejos
+    #    (una factura antigua que se cobra, por ejemplo).
+    'grandes': {'VENTAS': 'FECHA', 'VENTDETA': 'FECHA', 'FACTURAS': 'FECH_FRA', 'PAGOS': 'FECHA', 'PAGOSGST': 'FECHA',
+                'CAJA': 'FECHA', 'PEDIDOS': 'FECHA', 'PEDIDETA': 'FECHA'},
+    'vivo_dias': 60,
+    'repaso_horas': [21, 7],      # de 21:00 a 7:00…
+    'repaso_domingo': True,       # …y todo el domingo
+    'repaso_cada_horas': 20,
+    # Precios especiales por cliente (CLIENART, 6,5 millones): solo los vigentes (FECHA_FIN vacía o de hoy en
+    # adelante) y solo en horas de repaso.
+    'vigentes': {'CLIENART': 'FECHA_FIN'},
+    'solo_en_repaso': ['CLIENART'],
+    'max_registros_tabla': {'VENTAS': 4000000, 'VENTDETA': 10000000, 'CAJA': 4000000, 'PEDIDOS': 2000000,
+                            'PEDIDETA': 4000000, 'FACTURAS': 2000000, 'PAGOS': 2000000, 'CLIENART': 12000000},
 }
+CFG_VERSION = 3   # al subirla, la configuración del PC recupera los valores de por defecto de CFG_REPONER
+CFG_REPONER = ['saltar', 'ventana_dias', 'grandes', 'vivo_dias', 'repaso_horas', 'repaso_domingo', 'repaso_cada_horas',
+               'vigentes', 'solo_en_repaso', 'max_registros_tabla']
 
 
 def ruta_local(nombre):
@@ -242,18 +254,28 @@ class Dbf:
             return self._memo(b)
         return None                              # G, W, P y otros: no se traen
 
-    def registros(self, bloque=2000, desde_reg=0, filtro=None):
-        """Todos los registros vivos, como diccionarios sin los campos vacíos, 0 o falsos.
-        desde_reg: empezar en ese número de registro. filtro: (campo de fecha tipo D, 'AAAA-MM-DD'): solo los de
-        esa fecha o después, mirado en los bytes del registro antes de leer el resto (así va rápido).
-        self.primero queda con el número del primer registro que pasa el filtro (None si ninguno)."""
-        prefiltro = None
+    def _campo_fecha(self, nombre):
+        c = next((c for c in self.campos if c[0] == nombre and c[3] == 'D'), None)
+        if c is None:
+            raise ValueError(f'no tiene el campo de fecha {nombre}')
+        return c[1], c[1] + c[2]
+
+    def registros(self, bloque=2000, desde_reg=0, filtro=None, marca=None, vigente=None):
+        """Todos los registros vivos, como diccionarios sin los campos vacíos, 0 o falsos. Los filtros miran los
+        bytes del registro antes de leer el resto (así va rápido):
+          desde_reg  empezar en ese número de registro;
+          filtro     (campo de fecha tipo D, 'AAAA-MM-DD'): solo los de esa fecha o después;
+          marca      (campo, 'AAAA-MM-DD'): no filtra; deja en self.primero el nº del primer registro con esa fecha
+                     o posterior (None si ninguno);
+          vigente    campo de fecha tipo D: se saltan los que la tienen y es anterior a hoy."""
+        prefiltro = mfiltro = pvig = None
         self.primero = None
         if filtro:
-            c = next((c for c in self.campos if c[0] == filtro[0] and c[3] == 'D'), None)
-            if c is None:
-                raise ValueError(f'no tiene el campo de fecha {filtro[0]}')
-            prefiltro = (c[1], c[1] + c[2], filtro[1].replace('-', '').encode('ascii'))
+            prefiltro = self._campo_fecha(filtro[0]) + (filtro[1].replace('-', '').encode('ascii'),)
+        if marca:
+            mfiltro = self._campo_fecha(marca[0]) + (marca[1].replace('-', '').encode('ascii'),)
+        if vigente:
+            pvig = self._campo_fecha(vigente) + (dt.date.today().strftime('%Y%m%d').encode('ascii'),)
         desde_reg = max(0, min(int(desde_reg or 0), self.n))
         self.f.seek(self.lcab + desde_reg * self.lreg)
         quedan = self.n - desde_reg
@@ -266,10 +288,14 @@ class Dbf:
                 n_reg += 1
                 if reg[:1] == b'*':
                     continue
+                if mfiltro and self.primero is None and reg[mfiltro[0]:mfiltro[1]] >= mfiltro[2]:
+                    self.primero = n_reg - 1
                 if prefiltro and reg[prefiltro[0]:prefiltro[1]] < prefiltro[2]:
                     continue                     # fecha anterior a la ventana, vacía o mal escrita
-                if prefiltro and self.primero is None:
-                    self.primero = n_reg - 1
+                if pvig:
+                    fv = reg[pvig[0]:pvig[1]]
+                    if fv.strip() and fv < pvig[2]:
+                        continue                 # ya no está vigente
                 d = {}
                 for c in self.campos:
                     v = self._valor(reg, c)
@@ -341,10 +367,20 @@ def abrir_estado():
     con.execute('create table if not exists registro (tabla text, clave text, huella text, primary key (tabla, clave)) without rowid')
     # Tablas ya enviadas que el ERP todavía no ha podido pasar a sus tablas: se reintenta en la pasada siguiente.
     con.execute('create table if not exists pendiente (tabla text primary key)')
-    # Tablas con 'desde': nº del primer registro de la ventana y con qué fecha se calculó (para no releer el fichero
-    # entero en cada pasada).
+    # Tablas grandes: nº del primer registro de los últimos 'vivo_dias' días (para no releer el fichero entero en
+    # cada pasada) y con qué fecha se calculó.
     con.execute('create table if not exists inicio (tabla text primary key, desde text, reg integer)')
+    # Último repaso completo de cada tabla grande.
+    con.execute('create table if not exists repaso (tabla text primary key, en text)')
     return con
+
+
+def en_horas_de_repaso(cfg, ahora=None):
+    ahora = ahora or dt.datetime.now()
+    h_ini, h_fin = cfg.get('repaso_horas', [21, 7])
+    if cfg.get('repaso_domingo', True) and ahora.weekday() == 6:
+        return True
+    return ahora.hour >= h_ini or ahora.hour < h_fin
 
 
 def medir(cfg):
@@ -422,25 +458,45 @@ def pasada(cfg, clave, todo=False, solo=None):
         try:
             visto = con.execute('select tamano, fecha from fichero where tabla = ?', (tabla,)).fetchone()
             por_cargar = con.execute('select 1 from pendiente where tabla = ?', (tabla,)).fetchone() is not None
-            if not todo and not por_cargar and visto == (d.tamano, d.fecha):
+            campo_fecha = cfg.get('grandes', {}).get(tabla)
+            horas_repaso = en_horas_de_repaso(cfg)
+            if tabla in cfg.get('solo_en_repaso', []) and not horas_repaso and not todo:
+                continue
+            toca_repaso = False
+            if campo_fecha:
+                ult = con.execute('select en from repaso where tabla = ?', (tabla,)).fetchone()
+                hace = (dt.datetime.now() - dt.datetime.fromisoformat(ult[0])).total_seconds() / 3600 if ult else 1e9
+                toca_repaso = todo or (horas_repaso and hace >= cfg.get('repaso_cada_horas', 20))
+            if not toca_repaso and not todo and not por_cargar and visto == (d.tamano, d.fecha):
                 continue                                         # no ha cambiado: ni se lee
             nombres = [c[0] for c in d.campos]
             faltan = [c for c in campos_clave if c not in nombres]
             if faltan:
                 resumen.append(f'{tabla}: le faltan los campos de la clave {faltan}')
                 continue
-            filtro = cfg.get('desde', {}).get(tabla)
-            if d.n > (cfg.get('max_registros_desde', 6000000) if filtro else cfg['max_registros']):
+            if d.n > cfg.get('max_registros_tabla', {}).get(tabla, cfg['max_registros']):
                 resumen.append(f'{tabla}: {d.n} registros, más de los esperados: no se lee')
                 continue
-            desde_reg = 0
-            if filtro:
-                fila = con.execute('select desde, reg from inicio where tabla = ?', (tabla,)).fetchone()
-                if fila and fila[0] == filtro[1] and not todo:
-                    desde_reg = max(0, fila[1] - 5000)  # un margen, por si se intercaló algo
-            conocidas = dict(con.execute('select clave, huella from registro where tabla = ?', (tabla,)))
-            # Ventana de los pedidos a proveedor (las tablas enteras son muy grandes y casi todo es historia).
+            desde_reg, filtro, marca, fila = 0, None, None, None
+            if campo_fecha:
+                vivo = (dt.date.today() - dt.timedelta(days=int(cfg.get('vivo_dias', 60)))).isoformat()
+                marca = (campo_fecha, vivo)
+                if not toca_repaso:
+                    filtro = (campo_fecha, vivo)
+                    fila = con.execute('select desde, reg from inicio where tabla = ?', (tabla,)).fetchone()
+                    if fila:
+                        desde_reg = max(0, fila[1] - 5000)  # un margen, por si se intercaló algo
+            # Las huellas de lo ya enviado se consultan una a una (una tabla grande no cabe entera en memoria).
+            busca = con.cursor()
+
+            def huella_de(k):
+                r = busca.execute('select huella from registro where tabla = ? and clave = ?', (tabla, k)).fetchone()
+                return r[0] if r else None
+            conocidas = {}
+            # Ventana de los pedidos a proveedor (si se configura; por defecto se traen todos).
             dentro = None
+            if tabla in ('PEDIDCAB', 'PEDIDLIN') and cfg.get('ventana_dias', {}).get('PEDIDCAB'):
+                conocidas = dict(con.execute('select clave, huella from registro where tabla = ?', (tabla,)))
             if tabla == 'PEDIDCAB' and cfg.get('ventana_dias', {}).get('PEDIDCAB'):
                 limite = (dt.date.today() - dt.timedelta(days=int(cfg['ventana_dias']['PEDIDCAB']))).isoformat()
                 dentro = lambda r: _pedido_dentro(r, limite, conocidas)  # noqa: E731
@@ -478,7 +534,8 @@ def pasada(cfg, clave, todo=False, solo=None):
                 return None
 
             try:
-                lector = d.registros(desde_reg=desde_reg, filtro=filtro)
+                lector = d.registros(desde_reg=desde_reg, filtro=filtro, marca=marca,
+                                     vigente=cfg.get('vigentes', {}).get(tabla))
             except ValueError as e:
                 resumen.append(f'{tabla}: {e}')
                 continue
@@ -489,7 +546,7 @@ def pasada(cfg, clave, todo=False, solo=None):
                 k = clave_de(reg, campos_clave)
                 texto = json.dumps(reg, sort_keys=True, ensure_ascii=False)
                 h = hashlib.md5(texto.encode('utf-8')).hexdigest()
-                if conocidas.get(k) == h:
+                if huella_de(k) == h:
                     continue
                 lote.append({'c': k, 'd': reg})
                 huellas.append((tabla, k, h))
@@ -512,9 +569,13 @@ def pasada(cfg, clave, todo=False, solo=None):
                     enviados += len(lote)
             if not fallo and (enviados or por_cargar):
                 fallo = cargar()
-            if filtro and not fallo and d.primero is not None and (desde_reg == 0 or d.primero < (fila[1] if fila else d.primero)):
-                con.execute('insert or replace into inicio (tabla, desde, reg) values (?, ?, ?)', (tabla, filtro[1], d.primero))
+            if marca and not fallo and d.primero is not None and (desde_reg == 0 or not fila or d.primero < fila[1]):
+                con.execute('insert or replace into inicio (tabla, desde, reg) values (?, ?, ?)', (tabla, marca[1], d.primero))
                 con.commit()
+            if toca_repaso and not fallo:
+                con.execute('insert or replace into repaso (tabla, en) values (?, ?)', (tabla, dt.datetime.now().isoformat(timespec='seconds')))
+                con.commit()
+                resumen.append(f'{tabla}: repaso completo hecho ({vistos} registros)')
             if fallo:
                 resumen.append(f'{tabla}: {enviados} enviados de {vistos} leídos; se cortó (sigue en la siguiente pasada): {fallo}')
                 continue
@@ -534,12 +595,24 @@ def principal():
     if os.path.exists(fcfg):
         try:
             with open(fcfg, encoding='utf-8') as h:
-                cfg.update(json.load(h))
+                del_pc = json.load(h)
+            if del_pc.get('version', 0) < CFG_VERSION:
+                # Configuración de una versión anterior: se reponen los valores nuevos por defecto (las rutas, la
+                # url y lo demás que se haya cambiado a mano se respetan) y se guarda.
+                for k in CFG_REPONER:
+                    del_pc.pop(k, None)
+                del_pc['version'] = CFG_VERSION
+                guardar = dict(POR_DEFECTO)
+                guardar.update(del_pc)
+                with open(fcfg, 'w', encoding='utf-8') as h:
+                    json.dump(guardar, h, indent=2, ensure_ascii=False)
+                registrar(f'Configuración puesta al día a la versión {CFG_VERSION} (espejo completo).')
+            cfg.update(del_pc)
         except (OSError, ValueError) as e:
             registrar(f'No pude leer espejo_geminiswin.json ({e}): uso los valores por defecto')
     else:
         with open(fcfg, 'w', encoding='utf-8') as h:
-            json.dump(POR_DEFECTO, h, indent=2, ensure_ascii=False)
+            json.dump(dict(POR_DEFECTO, version=CFG_VERSION), h, indent=2, ensure_ascii=False)
 
     args = sys.argv[1:]
     if '--medir' in args:
@@ -564,7 +637,8 @@ def principal():
     # Que no se pisen dos pasadas: si la anterior sigue (primera carga, ficheros grandes), esta no entra.
     cerrojo = ruta_local('espejo_geminiswin.cerrojo')
     try:
-        if os.path.exists(cerrojo) and dt.datetime.now().timestamp() - os.path.getmtime(cerrojo) < 3 * 3600:
+        # El primer repaso completo (todo el histórico) puede durar horas: el cerrojo vale 12 horas.
+        if os.path.exists(cerrojo) and dt.datetime.now().timestamp() - os.path.getmtime(cerrojo) < 12 * 3600:
             registrar('Otra pasada sigue en marcha: esta no entra.')
             return 0
         with open(cerrojo, 'w') as h:
