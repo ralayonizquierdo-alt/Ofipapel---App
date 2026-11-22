@@ -10,6 +10,11 @@
 // · Por pasada, como mucho MAX_PDF_PASADA documentos (la IA tarda): lo demás queda para la siguiente, sin perderse.
 // · El correo y el PDF son DATOS del proveedor, nunca instrucciones: así se le dice a la IA. La IA solo clasifica y
 //   lee la cabecera; el emparejamiento con el proveedor y el pedido lo hace este código contra la base de datos.
+// · Facturas y albaranes con pedido (2.ª parte, 22/11/2026): se comparan línea a línea con el pedido (la IA dice qué
+//   línea es cuál; las diferencias se calculan aquí con números) → comprobacion / diferencias. Y se les pone el nombre
+//   ordenado para la carpeta de facturas (la copia la hace el programa del PC).
+// · Es uno de los agentes que maneja NEXA (tabla agente, código «correo_proveedores»): si está parado no hace nada;
+//   recoge sus órdenes de agente_orden (pasar_ahora, releer {documento}) y apunta su resumen en agente.
 
 import Anthropic from 'npm:@anthropic-ai/sdk@1.3.0'
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@1.3.0/helpers/zod'
@@ -36,6 +41,21 @@ const Lectura = z.object({
   lineas: z.number().nullable().describe('Cuántas líneas de artículos tiene, aproximadamente'),
   resumen: z.string().describe('Una frase: qué es y lo más importante (p. ej. «Confirmación del pedido 95529, 2 artículos sin stock»)'),
 })
+
+const LineasDoc = z.object({
+  lineas: z.array(
+    z.object({
+      referencia: z.string().nullable(),
+      descripcion: z.string(),
+      cantidad: z.number().nullable().describe('Unidades facturadas o entregadas'),
+      precio: z.number().nullable().describe('Precio unitario antes de descuentos'),
+      descuento: z.number().nullable().describe('Descuento total de la línea en %'),
+      importe: z.number().nullable().describe('Importe neto de la línea sin impuestos'),
+      linea_pedido: z.number().nullable().describe('Número «n» de la línea de NUESTRO pedido a la que corresponde, o null si no corresponde a ninguna'),
+    }),
+  ),
+})
+type LineaPedido = { n: number; referencia: string | null; articulo: string | null; descripcion: string; cantidad: number; precio: number | null }
 
 const sistema = (nifOfipapel: string) => `Ayudas al departamento de Compras de Ofipapel (papelería y material de oficina, Canarias${nifOfipapel ? `; el NIF de Ofipapel es ${nifOfipapel}: no lo confundas con el del proveedor` : ''}).
 Recibes un PDF que un proveedor ha mandado por correo al buzón de compras, junto con el asunto y el remitente del correo.
@@ -160,32 +180,221 @@ function aBase64(bytes: Uint8Array) {
   return btoa(b)
 }
 
-Deno.serve(async () => {
+async function lineasPedido(origen: 'ERP' | 'GW', tienda: string, numero: number): Promise<LineaPedido[]> {
+  const { data } =
+    origen === 'GW'
+      ? await sb.from('gw_pedido_proveedor_linea').select('linea, articulo_codigo, codigo_compra, descripcion, cantidad, total_unidades, precio_compra').eq('oficina', tienda).eq('numero', numero).order('linea')
+      : await sb.from('pedido_proveedor_linea').select('linea, articulo_codigo, codigo_compra, descripcion, cantidad, total_unidades, precio_compra').eq('tienda_terminal_codigo', tienda).eq('numero', numero).order('linea')
+  return (data ?? []).map((l, i) => ({
+    n: i + 1,
+    referencia: l.codigo_compra ?? null,
+    articulo: l.articulo_codigo ?? null,
+    descripcion: String(l.descripcion ?? ''),
+    cantidad: Number(l.total_unidades ?? l.cantidad ?? 0),
+    precio: l.precio_compra == null ? null : Number(l.precio_compra),
+  }))
+}
+
+const r4 = (n: number) => Math.round(n * 10000) / 10000
+const neto = (precio: number | null, dto: number | null) => (precio == null ? null : r4(precio * (1 - (dto ?? 0) / 100)))
+
+/** Factura/albarán contra su pedido: la IA empareja líneas; las diferencias se calculan aquí. */
+async function comprobar(apiKey: string, modelo: string, nifPropio: string, pdf: string, tipo: string, pedido: LineaPedido[]) {
+  const r = await new Anthropic({ apiKey }).messages.parse({
+    model: modelo,
+    max_tokens: 16000,
+    system:
+      sistema(nifPropio) +
+      `\nAhora tienes también las líneas de NUESTRO pedido (cada una con su número «n»). Lee TODAS las líneas de artículos del documento (${tipo}) y di a qué línea de nuestro pedido corresponde cada una (por referencia, código o descripción). Portes y gastos no son líneas de artículo.`,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdf } },
+          { type: 'text', text: `Líneas de NUESTRO pedido (JSON):\n${JSON.stringify(pedido.map(({ n, referencia, descripcion, cantidad }) => ({ n, referencia, descripcion, cantidad })))}` },
+        ],
+      },
+    ],
+    output_config: { effort: 'medium', format: zodOutputFormat(LineasDoc) },
+  })
+  const doc = r.parsed_output?.lineas ?? []
+  const servido = new Map<number, number>()
+  const precioDoc = new Map<number, number>()
+  const anadidos: { descripcion: string; cantidad: number | null; referencia: string | null }[] = []
+  for (const l of doc) {
+    const n = l.linea_pedido != null && l.linea_pedido >= 1 && l.linea_pedido <= pedido.length ? l.linea_pedido : null
+    if (n == null) {
+      anadidos.push({ descripcion: l.descripcion, cantidad: l.cantidad, referencia: l.referencia })
+      continue
+    }
+    servido.set(n, (servido.get(n) ?? 0) + Number(l.cantidad ?? 0))
+    const p = neto(l.precio, l.descuento) ?? (l.importe != null && l.cantidad ? r4(l.importe / l.cantidad) : null)
+    if (p != null) precioDoc.set(n, p)
+  }
+  const faltan: unknown[] = [], menos: unknown[] = [], mas: unknown[] = [], precio: unknown[] = []
+  for (const p of pedido) {
+    const s = servido.get(p.n)
+    const base = { n: p.n, articulo: p.articulo, referencia: p.referencia, descripcion: p.descripcion, pedido: p.cantidad }
+    if (s == null || s === 0) faltan.push(base)
+    else if (s < p.cantidad) menos.push({ ...base, servido: s })
+    else if (s > p.cantidad) mas.push({ ...base, servido: s })
+    const pd = precioDoc.get(p.n)
+    // Precio: aviso si se aleja más de un 2 % del de nuestro pedido (el de GeminisWin puede no llevar el descuento).
+    if (pd != null && p.precio != null && p.precio > 0 && Math.abs(pd - p.precio) / p.precio > 0.02) precio.push({ ...base, precio_pedido: p.precio, precio_documento: pd })
+  }
+  const total = faltan.length + menos.length + mas.length + precio.length + anadidos.length
+  return { comprobacion: { faltan, menos, mas, precio, anadidos, lineas_pedido: pedido.length, lineas_documento: doc.length }, diferencias: total }
+}
+
+const limpio = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60)
+
+interface Meta {
+  remitente: string
+  remitenteNombre: string | null
+  asunto: string
+  adjunto: string
+  recibido: string
+}
+
+/** Lee un PDF (ya guardado) y devuelve los campos del documento: tipo, proveedor, pedido, comprobación y nombre. */
+async function analizar(bytes: Uint8Array, meta: Meta, apiKey: string, modelo: string, nifPropio: string): Promise<Record<string, unknown>> {
+  const fila: Record<string, unknown> = {}
+  const pdf = aBase64(bytes)
+  let lectura: z.infer<typeof Lectura> | null = null
+  if (apiKey) {
+    const r = await new Anthropic({ apiKey }).messages.parse({
+      model: modelo,
+      max_tokens: 4000,
+      system: sistema(nifPropio),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdf } },
+            { type: 'text', text: `Correo de: ${meta.remitenteNombre ?? ''} <${meta.remitente}>\nAsunto: ${meta.asunto}\nAdjunto: ${meta.adjunto}` },
+          ],
+        },
+      ],
+      output_config: { effort: 'low', format: zodOutputFormat(Lectura) },
+    })
+    lectura = r.parsed_output ?? null
+  } else fila.error = 'Sin clave de la IA (ANTHROPIC_API_KEY): guardado sin leer.'
+  if (lectura) {
+    fila.lectura = lectura
+    fila.tipo = lectura.tipo
+    fila.documento_numero = lectura.documento_numero
+    fila.documento_fecha = /^\d{4}-\d{2}-\d{2}$/.test(lectura.documento_fecha ?? '') ? lectura.documento_fecha : null
+    fila.total = lectura.total
+  }
+  const prov = await buscarProveedor(meta.remitente, lectura?.proveedor_nif ?? null, nifPropio)
+  if (prov) {
+    fila.proveedor_codigo = prov.codigo
+    fila.proveedor_por = prov.por
+  }
+  const ped = await buscarPedido(prov?.codigo ?? null, lectura?.nuestros_pedidos ?? [])
+  if (ped) {
+    fila.pedido_origen = ped.origen
+    fila.pedido_tienda = ped.tienda
+    fila.pedido_numero = ped.numero
+    fila.pedido_por = ped.por
+  }
+  // Factura o albarán de un pedido: la última comprobación (¿falta algo, cambió un precio?).
+  if (apiKey && ped && (lectura?.tipo === 'factura' || lectura?.tipo === 'albaran')) {
+    try {
+      const lineas = await lineasPedido(ped.origen, ped.tienda, ped.numero)
+      if (lineas.length) Object.assign(fila, await comprobar(apiKey, modelo, nifPropio, pdf, lectura.tipo, lineas))
+    } catch (e) {
+      fila.error = `No se ha podido comparar con el pedido: ${String((e as Error).message ?? e).slice(0, 200)}`
+    }
+  }
+  if (lectura?.tipo === 'factura') {
+    let nombreProv = lectura.proveedor_nombre ?? meta.remitenteNombre ?? 'Proveedor'
+    if (prov) {
+      const { data } = await sb.from('proveedor').select('nombre').eq('codigo', prov.codigo).maybeSingle()
+      if (data?.nombre) nombreProv = data.nombre
+    }
+    const mes = String(fila.documento_fecha ?? meta.recibido).slice(0, 7)
+    fila.nombre_ordenado = `${mes} · ${limpio(nombreProv)} · ${limpio(lectura.documento_numero ?? meta.adjunto.replace(/\.pdf$/i, ''))}.pdf`
+  }
+  return fila
+}
+
+Deno.serve(async (req) => {
+  let cuerpo: { orden?: number } = {}
+  try {
+    cuerpo = await req.json()
+  } catch {
+    /* llamada del cron sin cuerpo */
+  }
+  const { data: agente } = await sb.from('agente').select('activo').eq('codigo', 'correo_proveedores').maybeSingle()
+  const { data: ordenes } = await sb.from('agente_orden').select('id, orden, parametros').eq('agente', 'correo_proveedores').eq('estado', 'pendiente').order('id')
+  const cerrarOrdenes = async (estado: 'hecha' | 'error', resultado: string, ids = (ordenes ?? []).map((o) => o.id)) => {
+    if (ids.length) await sb.from('agente_orden').update({ estado, resultado: resultado.slice(0, 500), hecha_en: new Date().toISOString() }).in('id', ids)
+  }
+  const resumenAgente = (cambios: Record<string, unknown>) =>
+    sb.from('agente').update({ ultima_pasada: new Date().toISOString(), actualizado_en: new Date().toISOString(), ...cambios }).eq('codigo', 'correo_proveedores')
+
+  if (agente && !agente.activo) {
+    await cerrarOrdenes('error', 'El agente está parado: pide a NEXA que lo reanude.')
+    return responder({ ok: false, parado: true })
+  }
+
   const { data: emp } = await sb.from('empresa').select('correo_remitente_compras, cif').order('codigo').limit(1).maybeSingle()
   const nifPropio = normNif(emp?.cif)
   const buzon = String(emp?.correo_remitente_compras ?? '').trim().toLowerCase()
-  if (!buzon) return responder({ ok: false, error: 'Falta el correo de Compras en Archivo → Datos de Empresa.' })
+  if (!buzon) {
+    await cerrarOrdenes('error', 'Falta el correo de Compras en Archivo → Datos de Empresa.')
+    return responder({ ok: false, error: 'Falta el correo de Compras en Archivo → Datos de Empresa.' })
+  }
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
+  const modelo = Deno.env.get('CORREO_PROVEEDORES_MODEL') || 'claude-sonnet-5-5'
+
+  // Orden «releer»: vuelve a leer documentos ya guardados (no necesita Microsoft).
+  for (const o of (ordenes ?? []).filter((x) => x.orden === 'releer')) {
+    try {
+      const id = Number((o.parametros as { documento?: number })?.documento)
+      const { data: d } = await sb.from('correo_proveedor_documento').select('*').eq('id', id).maybeSingle()
+      if (!d?.archivo) throw new Error(`No encuentro el documento ${id} o no tiene PDF guardado.`)
+      const { data: f, error: e } = await sb.storage.from('correo_proveedores').download(d.archivo)
+      if (e || !f) throw new Error('No se ha podido leer el PDF guardado.')
+      const fila = await analizar(new Uint8Array(await f.arrayBuffer()), { remitente: d.remitente ?? '', remitenteNombre: d.remitente_nombre, asunto: d.asunto ?? '', adjunto: d.adjunto_nombre, recibido: d.recibido_en ?? '' }, apiKey, modelo, nifPropio)
+      await sb.from('correo_proveedor_documento').update({ ...fila, estado: 'nuevo', error: fila.error ?? null }).eq('id', id)
+      await cerrarOrdenes('hecha', `Documento ${id} releído: ${String(fila.tipo ?? 'sin clasificar')}${fila.diferencias != null ? `, ${fila.diferencias} diferencias con el pedido` : ''}.`, [o.id])
+    } catch (e) {
+      await cerrarOrdenes('error', String((e as Error).message ?? e), [o.id])
+    }
+  }
+  const pendientesPasar = (ordenes ?? []).filter((x) => x.orden !== 'releer').map((x) => x.id)
+  // Si solo venía a releer (llamada por una orden), no hace falta mirar el buzón.
+  if (cuerpo.orden && !pendientesPasar.length) return responder({ ok: true })
+
   const { data: vig } = await sb.from('correo_vigilancia').select('*').eq('buzon', buzon).maybeSingle()
   const apunta = (cambios: Record<string, unknown>) =>
     sb.from('correo_vigilancia').upsert({ buzon, ultima_pasada: new Date().toISOString(), ...cambios }, { onConflict: 'buzon' })
 
   if (!Deno.env.get('AZURE_LECTURA_CLIENT_ID') || !Deno.env.get('AZURE_LECTURA_CLIENT_SECRET') || !Deno.env.get('AZURE_TENANT_ID')) {
-    await apunta({ ultimo_error: 'Sin claves de lectura (AZURE_LECTURA_CLIENT_ID / AZURE_LECTURA_CLIENT_SECRET): el agente está parado.' })
+    const msg = 'Sin claves de lectura (AZURE_LECTURA_CLIENT_ID / AZURE_LECTURA_CLIENT_SECRET): el agente está parado.'
+    await apunta({ ultimo_error: msg })
+    await resumenAgente({ ultimo_error: msg, ultimo_resumen: 'Esperando la conexión de Microsoft.' })
+    await cerrarOrdenes('error', 'Todavía no tengo la conexión de Microsoft para leer el buzón.', pendientesPasar)
     return responder({ ok: false, configurado: false })
   }
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
-  const modelo = Deno.env.get('CORREO_PROVEEDORES_MODEL') || 'claude-sonnet-5-5'
 
   let token: string
   try {
     token = await tokenLectura()
   } catch (e) {
-    await apunta({ ultimo_error: String((e as Error).message).slice(0, 500) })
-    return responder({ ok: false, error: (e as Error).message })
+    const msg = String((e as Error).message).slice(0, 500)
+    await apunta({ ultimo_error: msg })
+    await resumenAgente({ ultimo_error: msg })
+    await cerrarOrdenes('error', msg, pendientesPasar)
+    return responder({ ok: false, error: msg })
   }
 
   const desde = vig?.ultimo_recibido ?? new Date(Date.now() - DIAS_PRIMERA_VEZ * 86400000).toISOString()
   let procesados = 0
+  const tipos: Record<string, number> = {}
+  let conDiferencias = 0
   let ultimo = desde as string
   let error: string | null = null
   try {
@@ -212,14 +421,15 @@ Deno.serve(async () => {
         if (ya) continue
         if (procesados >= MAX_PDF_PASADA) break mensajes // el resto, en la siguiente pasada (no se avanza «ultimo»)
         procesados++
-        const fila: Record<string, unknown> = {
+        const meta: Meta = { remitente, remitenteNombre: m.from?.emailAddress?.name ?? null, asunto: (m.subject ?? '').slice(0, 300), adjunto: a.name, recibido: m.receivedDateTime }
+        let fila: Record<string, unknown> = {
           buzon,
           mensaje_id: idMensaje,
           adjunto_nombre: a.name,
           recibido_en: m.receivedDateTime,
           remitente,
-          remitente_nombre: m.from?.emailAddress?.name ?? null,
-          asunto: (m.subject ?? '').slice(0, 300),
+          remitente_nombre: meta.remitenteNombre,
+          asunto: meta.asunto,
           tamano: a.size ?? null,
         }
         try {
@@ -232,46 +442,9 @@ Deno.serve(async () => {
           const sube = await sb.storage.from('correo_proveedores').upload(ruta, bytes, { contentType: 'application/pdf' })
           if (sube.error) throw new Error(`No se ha podido guardar el PDF: ${sube.error.message}`)
           fila.archivo = ruta
-
-          let lectura: z.infer<typeof Lectura> | null = null
-          if (apiKey) {
-            const r = await new Anthropic({ apiKey }).messages.parse({
-              model: modelo,
-              max_tokens: 4000,
-              system: sistema(nifPropio),
-              messages: [
-                {
-                  role: 'user',
-                  content: [
-                    { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: aBase64(bytes) } },
-                    { type: 'text', text: `Correo de: ${m.from?.emailAddress?.name ?? ''} <${remitente}>\nAsunto: ${m.subject ?? ''}\nAdjunto: ${a.name}` },
-                  ],
-                },
-              ],
-              output_config: { effort: 'low', format: zodOutputFormat(Lectura) },
-            })
-            lectura = r.parsed_output ?? null
-          }
-          if (lectura) {
-            fila.lectura = lectura
-            fila.tipo = lectura.tipo
-            fila.documento_numero = lectura.documento_numero
-            fila.documento_fecha = /^\d{4}-\d{2}-\d{2}$/.test(lectura.documento_fecha ?? '') ? lectura.documento_fecha : null
-            fila.total = lectura.total
-          }
-          const prov = await buscarProveedor(remitente, lectura?.proveedor_nif ?? null, nifPropio)
-          if (prov) {
-            fila.proveedor_codigo = prov.codigo
-            fila.proveedor_por = prov.por
-          }
-          const ped = await buscarPedido(prov?.codigo ?? null, lectura?.nuestros_pedidos ?? [])
-          if (ped) {
-            fila.pedido_origen = ped.origen
-            fila.pedido_tienda = ped.tienda
-            fila.pedido_numero = ped.numero
-            fila.pedido_por = ped.por
-          }
-          if (!apiKey) fila.error = 'Sin clave de la IA (ANTHROPIC_API_KEY): guardado sin leer.'
+          fila = { ...fila, ...(await analizar(bytes, meta, apiKey, modelo, nifPropio)) }
+          tipos[String(fila.tipo ?? 'sin_clasificar')] = (tipos[String(fila.tipo ?? 'sin_clasificar')] ?? 0) + 1
+          if (Number(fila.diferencias ?? 0) > 0) conDiferencias++
         } catch (e) {
           fila.estado = 'error'
           fila.error = String((e as Error).message ?? e).slice(0, 500)
@@ -285,5 +458,11 @@ Deno.serve(async () => {
   }
   const { count } = await sb.from('correo_proveedor_documento').select('id', { count: 'exact', head: true }).eq('buzon', buzon)
   await apunta({ ultimo_recibido: ultimo, ultimo_error: error, documentos_total: count ?? 0 })
+  const nombres: Record<string, string> = { propuesta: 'propuestas', factura: 'facturas', albaran: 'albaranes', otro: 'otros', sin_clasificar: 'sin clasificar' }
+  const resumen = procesados
+    ? `${procesados} documentos nuevos (${Object.entries(tipos).map(([k, v]) => `${v} ${nombres[k] ?? k}`).join(', ')})${conDiferencias ? `; ${conDiferencias} con diferencias con su pedido` : ''}.`
+    : 'Sin documentos nuevos.'
+  await resumenAgente({ ultimo_error: error, ultimo_resumen: resumen })
+  await cerrarOrdenes(error ? 'error' : 'hecha', error ?? `Buzón repasado: ${resumen}`, pendientesPasar)
   return responder({ ok: !error, procesados, error })
 })

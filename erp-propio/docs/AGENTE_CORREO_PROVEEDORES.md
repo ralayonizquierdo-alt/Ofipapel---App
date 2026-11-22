@@ -52,3 +52,18 @@ demás, en la siguiente).
 - Comparar automáticamente la propuesta con el pedido (hoy la comparación línea a línea de «Propuestas de proveedor»
   se lanza a mano y solo con pedidos del ERP; casi todos se hacen en GeminisWin).
 - Facturas: dejarlas listas para la recepción / factura de proveedor del ERP.
+
+## Facturas finales (22/11/2026)
+
+Cuando el proveedor manda la factura de un pedido ya aceptado (o el albarán), el agente la compara línea a línea con
+el pedido: la IA dice qué línea es cuál y la función calcula las diferencias (falta, menos, más, precio distinto en más
+de un 2 %, añadido). Sale en rojo en la pestaña (filtro «Con diferencias») y en el informe de NEXA. Cada factura lleva
+su nombre ordenado («AAAA-MM · PROVEEDOR · Nº.pdf») para la carpeta de facturas del servidor; la copia la hará el
+programa del PC del espejo cuando se sepa la ruta.
+
+## NEXA, encargada de los agentes
+
+Tablas `agente` (registro) y `agente_orden` (cola). NEXA lo sabe por su memoria global: informe con
+`fn_agentes_estado()`, órdenes con `fn_agente_ordenar(agente, orden, parametros)` (nivel 2: propone y la persona dice
+«sí»). Órdenes de este agente: `pasar_ahora`, `releer {"documento": id}`, `pausar`, `reanudar`. Cada agente nuevo se da
+de alta en `agente` con sus órdenes y su permiso.
