@@ -626,15 +626,17 @@ export function ArticuloFichaPage() {
           ) : (
             <>
               {tab === 'caracteristicas' && (
-                <TabCaracteristicas
-                  articulo={draft}
-                  editing={editing}
-                  onChange={patchArticulo}
-                  plantillas={plantillas}
-                  niveles={niveles}
-                  onNivelChange={cambiarNivel}
-                  preciosCargados={preciosCargados}
-                />
+                <div className="overflow-x-auto">
+                  <TabCaracteristicas
+                    articulo={draft}
+                    editing={editing}
+                    onChange={patchArticulo}
+                    plantillas={plantillas}
+                    niveles={niveles}
+                    onNivelChange={cambiarNivel}
+                    preciosCargados={preciosCargados}
+                  />
+                </div>
               )}
               {tab === 'unidades' && enAvisoSatelite(<TabUnidadesVenta articuloCodigo={articulo.codigo_interno} articulo={draft} editing={editing} onChange={patchArticulo} />)}
               {tab === 'observaciones' && <TabObservaciones articulo={draft} editing={editing} onChange={patchArticulo} />}

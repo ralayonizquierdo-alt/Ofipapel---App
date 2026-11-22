@@ -126,9 +126,11 @@ export function TabCaracteristicas({
     )
   }
 
+  // En pantallas estrechas (móvil) la pestaña no se encoge por debajo de lo que ocupan los precios: se desplaza de lado.
+  // Antes las columnas se estrechaban hasta cero y los Pvps se montaban encima de Unidad de medida y Embalaje.
   return (
-    <div className="flex flex-col gap-0.5">
-      <div className="grid grid-cols-[170px_minmax(0,600px)_minmax(0,1fr)] gap-2">
+    <div className="flex min-w-[1180px] flex-col gap-0.5">
+      <div className="grid grid-cols-[170px_minmax(540px,600px)_minmax(420px,1fr)] gap-2">
         <GwGroup title="Precios de coste" className="flex flex-col gap-0.5">
           <CosteRow label="Coste Puro Prov." title="COSTE_PURO">
             {num('coste_puro')}
