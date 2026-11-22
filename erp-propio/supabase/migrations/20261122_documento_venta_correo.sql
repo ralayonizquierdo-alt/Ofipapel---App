@@ -53,6 +53,10 @@ begin
          || replace(replace(replace(p_texto, '&', '&amp;'), '<', '&lt;'), '>', '&gt;') || '</div>';
   select nullif(btrim(e.email), '') into v_remitente from empleado e where e.codigo = fn_empleado_actual();
   if v_remitente is not null and v_remitente !~ '^[^@\s;,]+@[^@\s;,]+\.[^@\s;,]+$' then v_remitente := null; end if;
+  -- Solo buzones de la empresa (mismo dominio que el correo remitente del ERP): Microsoft 365 no envía desde otros.
+  if v_remitente is not null and lower(split_part(v_remitente, '@', 2)) <> lower(split_part(coalesce((select correo_remitente from empresa order by codigo limit 1), ''), '@', 2)) then
+    raise exception 'Tu correo (%) no es de la empresa: el ERP solo puede enviar desde los buzones de Ofipapel. Usa «Compartir» para enviarlo con tu aplicación.', v_remitente using errcode = '22023';
+  end if;
   if v_remitente is null then
     raise exception 'No tienes correo en tu ficha de empleado: pide a un administrador que lo ponga (Archivo → Empleados) para poder enviar desde tu correo.' using errcode = '22023';
   end if;
