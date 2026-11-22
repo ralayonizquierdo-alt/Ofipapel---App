@@ -13,6 +13,8 @@ import { ESTADOS_TRAMITABLES } from '../peticiones/peticiones'
 
 interface PeticionRow {
   key: string
+  /** De GeminisWin (espejo, solo consulta) o del ERP. */
+  gw: boolean
   tienda: string
   numero: number
   articulo: string
@@ -39,6 +41,7 @@ interface PeticionRow {
 
 interface TramRow {
   key: string
+  gw: boolean
   of: string
   numPed: number
   linea: number
@@ -53,6 +56,13 @@ interface TramRow {
   empleado: string | null
   observ: string | null
 }
+
+// Peticiones de GeminisWin (espejo gw_peticion, Rober 22/11/2026): salen junto a las del ERP, marcadas «GeminisWin», solo
+// para consultar (no se tramitan ni se cambian desde aquí: siguen llevándose en GeminisWin). PETICION.ESTADO va en el
+// mismo orden que los botones: 1 Pendiente, 2 Atendida, 3 Parcial Tr., 4 Parc. Res., 5 Tramitada, 6 Resuelta,
+// 7 Entregada, 8 Anulada (deducido de los datos: las 1-2 sin seguimiento, las 4 y 6 con recepción, la 7 la mayoría).
+const ESTADO_GW = ['pendiente', 'atendida', 'parcial_tramitada', 'parcial_resuelta', 'tramitada', 'resuelta', 'entregada', 'anulada']
+const estadoGw = (n: number | null) => (n != null && n >= 1 && n <= 8 ? ESTADO_GW[n - 1] : String(n ?? ''))
 
 const etiquetaEstado = (v: string) => ESTADOS_PETICION.find((e) => e.value === v)?.label ?? v
 
@@ -94,8 +104,27 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
         setCargando(false)
         return
       }
-      if (cortado) onError(avisoTope(TOPE_PETICIONES))
-      const arts = [...new Set(lista.map((r) => r.articulo_codigo as string))]
+      const qGw = () => {
+        const b = supabase
+          .from('gw_peticion')
+          .select('oficina, numero, tipo, estado, fecha_hora, articulo_codigo, descripcion, cantidad, cantidad_tramitada, cliente_codigo, nombre_origen, proveedor_codigo, fecha_prevista, concepto')
+          .order('fecha_hora', { ascending: false })
+          .order('oficina')
+          .order('numero')
+        return est.size ? b.in('estado', [...est].map((e) => ESTADO_GW.indexOf(e) + 1).filter((n) => n > 0)) : b
+      }
+      const gw = await todasLasFilas(qGw, { tope: TOPE_PETICIONES })
+      if (gw.error) {
+        onError(gw.error)
+        setCargando(false)
+        return
+      }
+      if (cortado || gw.cortado) onError(avisoTope(TOPE_PETICIONES))
+      // Lo pedido y sin recibir, contando también los pedidos de GeminisWin (el mayor de los dos, como el Gestor 2.0).
+      const enCamino = new Map<string, number>()
+      const { data: ec } = await supabase.rpc('fn_compras_en_camino')
+      for (const r of (ec ?? []) as { articulo_codigo: string; uds: number }[]) enCamino.set(r.articulo_codigo, Number(r.uds ?? 0))
+      const arts = [...new Set([...lista.map((r) => r.articulo_codigo as string), ...gw.data.map((r) => r.articulo_codigo as string)].filter(Boolean))]
       const stock = new Map<string, number>()
       const pedido = new Map<string, number>()
       const ultCompra = new Map<string, string | null>()
@@ -119,8 +148,9 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           pedido.set(r.articulo_codigo, (pedido.get(r.articulo_codigo) ?? 0) + Math.max(0, Number(r.cantidad ?? 0) - Number(r.unidades_recibidas ?? 0)))
         for (const r of a.data ?? []) ultCompra.set(r.codigo_interno, r.ultima_compra_fecha as string | null)
       }
-      setRows(
-        lista.map((r) => ({
+      const udsPed = (a: string) => Math.max(pedido.get(a) ?? 0, enCamino.get(a) ?? 0)
+      const filasErp: PeticionRow[] = lista.map((r) => ({
+          gw: false,
           key: `${r.tienda_terminal_codigo}/${r.numero}`,
           tienda: r.tienda_terminal_codigo,
           numero: Number(r.numero),
@@ -133,7 +163,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           cantidad: Number(r.cantidad ?? 0),
           tramitada: Number(r.cantidad_tramitada ?? 0),
           stock: stock.get(r.articulo_codigo) ?? 0,
-          udsPed: pedido.get(r.articulo_codigo) ?? 0,
+          udsPed: udsPed(r.articulo_codigo),
           tipo: r.tipo,
           prevista: r.fecha_prevista_entrega,
           origenTipo: r.origen_tipo,
@@ -144,8 +174,34 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           vendedor: r.vendedor_codigo,
           origenTienda: r.origen_tienda_terminal_codigo,
           origenNumero: r.origen_movimiento_numero == null ? null : Number(r.origen_movimiento_numero),
-        })),
-      )
+        }))
+      const filasGw: PeticionRow[] = gw.data.map((r) => ({
+        gw: true,
+        key: `GW/${r.oficina}/${r.numero}`,
+        tienda: r.oficina,
+        numero: Number(r.numero),
+        articulo: r.articulo_codigo ?? '',
+        descripcion: r.descripcion ?? '',
+        estado: estadoGw(r.estado),
+        proveedor: r.proveedor_codigo,
+        ultCompra: ultCompra.get(r.articulo_codigo) ?? null,
+        fecha: r.fecha_hora,
+        cantidad: Number(r.cantidad ?? 0),
+        tramitada: Number(r.cantidad_tramitada ?? 0),
+        stock: stock.get(r.articulo_codigo) ?? 0,
+        udsPed: udsPed(r.articulo_codigo),
+        tipo: r.tipo,
+        prevista: r.fecha_prevista,
+        origenTipo: null,
+        concepto: r.concepto,
+        almacen: null,
+        cliente: [r.cliente_codigo, r.nombre_origen].filter(Boolean).join(' · ') || null,
+        empleado: null,
+        vendedor: null,
+        origenTienda: null,
+        origenNumero: null,
+      }))
+      setRows([...filasErp, ...filasGw].sort((a, b) => String(b.fecha ?? '').localeCompare(String(a.fecha ?? ''))))
       setSel(0)
       setCargando(false)
     },
@@ -168,6 +224,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
       { key: 'tramitada', label: 'Cant. Tram.', width: 120, align: 'right', value: (r) => r.tramitada, render: (r) => formatGw(r.tramitada, 3) },
       { key: 'stock', label: 'Stock', width: 110, align: 'right', value: (r) => r.stock, render: (r) => formatGw(r.stock, 3) },
       { key: 'udsPed', label: 'Uds. Ped.', width: 110, align: 'right', value: (r) => r.udsPed, render: (r) => formatGw(r.udsPed, 3) },
+      { key: 'origen', label: 'Origen', width: 110, value: (r) => (r.gw ? 'GeminisWin' : 'ERP'), title: 'Dónde se hizo la petición. Las de GeminisWin solo se consultan aquí.' },
     ],
     [],
   )
@@ -200,6 +257,39 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
       return
     }
     let cancel = false
+    if (actual.gw) {
+      supabase
+        .from('gw_peticion_seguimiento')
+        .select('clave, oficina_pedido, numero_pedido, linea_pedido, estado, fecha_hora, cantidad, proveedor_codigo, almacen_codigo, fecha_prevista, fecha_recepcion, fecha_entrega')
+        .eq('oficina', actual.tienda)
+        .eq('numero', actual.numero)
+        .then(({ data }) => {
+          if (cancel) return
+          setTram(
+            (data ?? []).map((t) => ({
+              gw: true,
+              key: String(t.clave),
+              of: t.oficina_pedido ?? '',
+              numPed: Number(t.numero_pedido ?? 0),
+              linea: Number(t.linea_pedido ?? 0),
+              estado: t.estado,
+              fecha: t.fecha_hora,
+              cantidad: Number(t.cantidad ?? 0),
+              prevista: t.fecha_prevista,
+              recepcion: t.fecha_recepcion,
+              entrega: t.fecha_entrega,
+              proveedor: t.proveedor_codigo,
+              almacen: t.almacen_codigo,
+              empleado: null,
+              observ: null,
+            })),
+          )
+          setSelT(0)
+        })
+      return () => {
+        cancel = true
+      }
+    }
     supabase
       .from('peticion_tramitacion')
       .select(
@@ -211,6 +301,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
         if (cancel) return
         setTram(
           (data ?? []).map((t) => ({
+            gw: false,
             key: `${t.pedido_proveedor_tienda_codigo}/${t.pedido_proveedor_numero}/${t.pedido_proveedor_linea}`,
             of: t.pedido_proveedor_tienda_codigo,
             numPed: Number(t.pedido_proveedor_numero),
@@ -235,7 +326,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
   }, [actual])
 
   async function notificarAtendidas() {
-    const pendientes = rows.filter((r) => r.estado === 'pendiente')
+    const pendientes = rows.filter((r) => !r.gw && r.estado === 'pendiente')
     if (!pendientes.length) return
     if (!confirm(`¿Marcar como Atendidas las ${pendientes.length} peticiones pendientes de la lista?`)) return
     onError(null)
@@ -311,9 +402,9 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           label="Notificar todas las peticiones Pendientes como Atendidas"
           value={false}
           onChange={notificarAtendidas}
-          disabled={!rows.some((r) => r.estado === 'pendiente')}
+          disabled={!rows.some((r) => !r.gw && r.estado === 'pendiente')}
           className="h-[34px]! w-[560px] text-[16px]!"
-          title="Cambia a «Atendida» todas las peticiones pendientes de la lista"
+          title="Cambia a «Atendida» todas las peticiones pendientes de la lista hechas en el ERP (las de GeminisWin se cambian en GeminisWin)"
         />
       </div>
 
@@ -329,7 +420,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
               rowKey={(r) => r.key}
               sel={selT}
               onSel={setSelT}
-              onOpen={(r) => navigate(`/pedidos-proveedor/${encodeURIComponent(r.of)}/${r.numPed}`)}
+              onOpen={(r) => navigate(`/${r.gw ? 'pedidos-geminiswin' : 'pedidos-proveedor'}/${encodeURIComponent(r.of)}/${r.numPed}`)}
               orden={ordT}
               onOrden={setOrdT}
               vacias={4}
@@ -340,7 +431,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
               title="Abrir el pedido a proveedor de la línea seleccionada"
               className="h-[34px]! w-[150px] text-[16px]! text-[#000]"
               disabled={!filasT[selT]}
-              onClick={() => filasT[selT] && navigate(`/pedidos-proveedor/${encodeURIComponent(filasT[selT].of)}/${filasT[selT].numPed}`)}
+              onClick={() => filasT[selT] && navigate(`/${filasT[selT].gw ? 'pedidos-geminiswin' : 'pedidos-proveedor'}/${encodeURIComponent(filasT[selT].of)}/${filasT[selT].numPed}`)}
             >
               <ShoppingCart size={16} className="text-[#2a9d2a]" /> Pedidos
             </BarButton>
@@ -385,15 +476,15 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
         <BarButton
           title="Abrir la ficha de la petición (Compras → Peticiones de Artículos)"
           className="w-[160px] text-[17px]! text-[#000]"
-          disabled={!actual}
-          onClick={() => actual && navigate(`/peticiones/${encodeURIComponent(actual.tienda)}/${actual.numero}`)}
+          disabled={!actual || actual.gw}
+          onClick={() => actual && !actual.gw && navigate(`/peticiones/${encodeURIComponent(actual.tienda)}/${actual.numero}`)}
         >
           <Link2 size={16} className="text-[#2a9d2a]" /> Peticiones
         </BarButton>
         <BarButton
           title="Tramitar las peticiones pendientes o atendidas de la lista a pedidos de proveedor (uno por proveedor)"
           className="w-[150px] text-[17px]! text-[#000]"
-          disabled={!rows.some((r) => ESTADOS_TRAMITABLES.includes(r.estado))}
+          disabled={!rows.some((r) => !r.gw && ESTADOS_TRAMITABLES.includes(r.estado))}
           onClick={() => setTramitar(true)}
         >
           <ShoppingCart size={16} className="text-[#2a9d2a]" /> Tramitar
@@ -402,7 +493,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
 
       {tramitar && (
         <TramitarPeticionesDialog
-          claves={rows.filter((r) => ESTADOS_TRAMITABLES.includes(r.estado)).map((r) => ({ t: r.tienda, n: r.numero }))}
+          claves={rows.filter((r) => !r.gw && ESTADOS_TRAMITABLES.includes(r.estado)).map((r) => ({ t: r.tienda, n: r.numero }))}
           onClose={() => setTramitar(false)}
           onHecho={() => cargar(estados)}
         />
