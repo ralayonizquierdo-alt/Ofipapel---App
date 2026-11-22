@@ -1,6 +1,6 @@
 -- Firma de los correos que envía el ERP desde el buzón de un empleado (Rober, 22/11/2026: «los pies de los mail deben
--- tener un formato bonito», como la firma de Outlook de la empresa). Logo a la izquierda, raya verde y a la derecha el
--- nombre, el cargo, la empresa, la dirección, el teléfono, el correo y la web.
+-- tener un formato bonito… una faldilla guapa con nuestros colores»). Arriba el logo, una raya verde, el nombre, el
+-- cargo, el correo y el teléfono; abajo una franja verde con la empresa, la dirección y la web.
 --  · Nombre y cargo: los de la ficha del empleado (Archivo → Empleados → «Nombre en la firma» y «Cargo»). Si están
 --    vacíos: el nombre de la ficha en mayúsculas/minúsculas y el grupo de permisos como cargo (menos «Administrador»).
 --  · Empresa, dirección, teléfono y web: Archivo → Datos de Empresa.
@@ -20,7 +20,7 @@ $$;
 
 create or replace function public.fn_firma_correo_html(p_empleado text)
 returns text language plpgsql stable security definer set search_path to 'public', 'pg_temp' as $$
-declare e record; m record; v_nombre text; v_cargo text; v_tel text; v_web text; v_dir text; v_pob text; v_email text;
+declare e record; m record; v_nombre text; v_cargo text; v_tel text; v_web text; v_dir text; v_email text; v_empresa text;
 begin
   select em.nombre, em.nombre_firma, em.cargo, em.email, r.nombre as rol into e
     from empleado em left join rol r on r.id = em.rol_id where em.codigo = p_empleado;
@@ -30,33 +30,41 @@ begin
     into m from empresa order by codigo limit 1;
 
   v_nombre := coalesce(nullif(btrim(e.nombre_firma), ''), initcap(lower(btrim(e.nombre))));
-  v_cargo := coalesce(nullif(btrim(e.cargo), ''), case when e.rol is null or e.rol ilike 'administrador%' then null else e.rol end);
+  -- Sin cargo en la ficha: el del grupo (los comerciales firman «Asesor Comercial»; los administradores, sin cargo).
+  v_cargo := coalesce(nullif(btrim(e.cargo), ''),
+                      case when e.rol is null or e.rol ilike 'administrador%' then null
+                           when e.rol ilike 'comercial%' then 'Asesor Comercial' else e.rol end);
   v_email := nullif(btrim(e.email), '');
   v_tel := coalesce(nullif(btrim(m.telefono_fijo), ''), nullif(btrim(m.telefono_movil), ''));
   v_web := regexp_replace(coalesce(nullif(btrim(m.web), ''), ''), '^https?://', '');
-  v_dir := nullif(btrim(m.direccion), '');
-  v_pob := nullif(btrim(concat_ws(' ', nullif(btrim(m.codigo_postal), ''), nullif(btrim(m.poblacion), ''))), '');
-  if m.provincia is not null and v_pob is not null and position(lower(m.provincia) in lower(v_pob)) = 0 then
-    v_pob := v_pob || ' · ' || m.provincia;
-  end if;
+  v_empresa := regexp_replace(replace(initcap(lower(m.nombre)), ' De ', ' de '), ',\s*S\.l\.$', ', S.L.');
+  v_dir := nullif(concat_ws(' &nbsp;·&nbsp; ',
+             fn_html_texto(nullif(btrim(m.direccion), '')),
+             fn_html_texto(nullif(btrim(concat_ws(' ', nullif(btrim(m.codigo_postal), ''), nullif(btrim(m.poblacion), ''))), '')),
+             fn_html_texto(m.provincia),
+             case when v_web <> '' then '<a href="https://' || fn_html_texto(v_web) || '" style="color:#ffffff;font-weight:bold;text-decoration:none">'
+                                        || fn_html_texto(v_web) || '</a>' end), '');
 
+  -- Arriba: logo, raya verde, nombre, cargo, correo y teléfono. Abajo: «faldilla» verde con la empresa, la dirección y la web.
   return
-    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;color:#2b2b2b">'
-    || '<tr><td style="padding:4px 18px 4px 0;vertical-align:middle">'
-    || '<img src="cid:logo-ofipapel" width="170" alt="Ofipapel" style="display:block;border:0;width:170px;height:auto"></td>'
-    || '<td style="border-left:3px solid #3DAF3D;padding:2px 0 2px 16px;vertical-align:middle;font-size:13px;line-height:19px">'
-    || '<div style="font-size:16px;line-height:21px;font-weight:bold;color:#1A5C1A">' || fn_html_texto(v_nombre) || '</div>'
-    || coalesce('<div style="font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#237523">' || fn_html_texto(v_cargo) || '</div>', '')
-    || '<div style="height:8px;line-height:8px;font-size:8px">&nbsp;</div>'
-    || '<div style="font-weight:bold;color:#2b2b2b">' || fn_html_texto(regexp_replace(replace(replace(initcap(lower(m.nombre)), ' De ', ' de '), ' S.l.', ' S.L.'), ',\s*S\.l\.$', ', S.L.')) || '</div>'
-    || coalesce('<div style="color:#5b6168">' || fn_html_texto(concat_ws(' · ', v_dir, v_pob)) || '</div>', '')
-    || coalesce('<div><span style="color:#237523;font-weight:bold">Tel.</span> <a href="tel:+34' || regexp_replace(v_tel, '\D', '', 'g')
-                || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_tel) || '</a></div>', '')
-    || '<div>'
-    || coalesce('<a href="mailto:' || fn_html_texto(v_email) || '" style="color:#1A5C1A;text-decoration:none">' || fn_html_texto(v_email) || '</a>', '')
-    || case when v_email is not null and v_web <> '' then ' <span style="color:#3DAF3D">&bull;</span> ' else '' end
-    || case when v_web <> '' then '<a href="https://' || fn_html_texto(v_web) || '" style="color:#1A5C1A;text-decoration:none">' || fn_html_texto(v_web) || '</a>' else '' end
-    || '</div></td></tr></table>';
+    '<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;color:#2b2b2b;width:560px">'
+    || '<tr><td style="padding:0 0 14px 0"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr>'
+    || '<td style="padding:0 20px 0 2px;vertical-align:middle"><img src="cid:logo-ofipapel" width="150" alt="Ofipapel" style="display:block;border:0;width:150px;height:auto"></td>'
+    || '<td style="border-left:3px solid #3DAF3D;padding:2px 0 2px 18px;vertical-align:middle">'
+    || '<div style="font-size:19px;line-height:24px;font-weight:bold;color:#1A5C1A">' || fn_html_texto(v_nombre) || '</div>'
+    || coalesce('<div style="font-size:11px;line-height:16px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:#3DAF3D">' || fn_html_texto(v_cargo) || '</div>', '')
+    || '<div style="height:10px;line-height:10px;font-size:10px">&nbsp;</div>'
+    || coalesce('<div style="font-size:13px;line-height:20px"><span style="color:#3DAF3D;font-weight:bold">&#9993;</span>&nbsp; <a href="mailto:'
+                || fn_html_texto(v_email) || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_email) || '</a></div>', '')
+    || coalesce('<div style="font-size:13px;line-height:20px"><span style="color:#3DAF3D;font-weight:bold">&#9742;</span>&nbsp; <a href="tel:+34'
+                || regexp_replace(v_tel, '\D', '', 'g') || '" style="color:#2b2b2b;text-decoration:none">' || fn_html_texto(v_tel) || '</a></div>', '')
+    || '</td></tr></table></td></tr>'
+    || '<tr><td bgcolor="#1A5C1A" style="background-color:#1A5C1A;background-image:linear-gradient(90deg,#1A5C1A 0%,#237523 55%,#3DAF3D 100%);border-radius:10px 10px 0 0;padding:11px 18px;color:#ffffff">'
+    || '<div style="font-size:13px;line-height:18px;font-weight:bold;letter-spacing:.3px;color:#ffffff">' || fn_html_texto(v_empresa) || '</div>'
+    || coalesce('<div style="font-size:12px;line-height:18px;color:#e4f4e2">' || v_dir || '</div>', '')
+    || '</td></tr>'
+    || '<tr><td bgcolor="#C1D48A" style="background-color:#C1D48A;height:5px;line-height:5px;font-size:0;border-radius:0 0 10px 10px">&nbsp;</td></tr>'
+    || '</table>';
 end $$;
 revoke all on function public.fn_firma_correo_html(text) from public, anon;
 grant execute on function public.fn_firma_correo_html(text) to authenticated;
