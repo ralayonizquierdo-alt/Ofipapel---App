@@ -259,6 +259,8 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   const [importTexto, setImportTexto] = useState('')
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  // Número tecleado para ir a ese pedido (en consulta). null = se enseña el del pedido abierto.
+  const [numIr, setNumIr] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [refresco, setRefresco] = useState(0)
   // «Otros gastos adicionales»: los tres bloques de la ventana «Gastos adicionales - Compras».
@@ -892,6 +894,27 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
   // F1 guarda, Alt+Retroceso cancela, AvPág/RePág navegan…: las teclas las pone CompraBar (teclasFicha).
 
   const ir = (k?: { t: string; n: number }) => k && navigate(rutaDoc(k))
+  // Ir a un pedido escribiendo su número (en el móvil la lupa es incómoda). Primero en la tienda del pedido abierto;
+  // si no, en cualquier tienda. Si solo existe en GeminisWin (llega por el espejo), se dice: esta ficha es la del ERP.
+  const irANumero = async (texto: string) => {
+    const n = Number(texto.replace(/\D/g, ''))
+    setNumIr(null)
+    if (!n) return
+    const { data } = await supabase.from('pedido_proveedor').select('tienda_terminal_codigo, numero').eq('numero', n).limit(20)
+    const filas = (data ?? []) as { tienda_terminal_codigo: string; numero: number }[]
+    const k = filas.find((f) => f.tienda_terminal_codigo === cab?.tienda_terminal_codigo) ?? filas[0]
+    if (k) {
+      ir({ t: k.tienda_terminal_codigo, n: Number(k.numero) })
+      return
+    }
+    const { data: gw } = await supabase.from('gw_pedido_proveedor').select('oficina, numero').eq('numero', n).limit(1)
+    const g = (gw ?? [])[0] as { oficina: string; numero: number } | undefined
+    setMensaje(
+      g
+        ? `El pedido ${g.oficina}-${g.numero} es de GeminisWin: está en el espejo pero esta ficha solo abre los pedidos hechos en el ERP.`
+        : `No hay ningún pedido con el número ${n}.`,
+    )
+  }
   const irNav = async (d: NavDir) => {
     const k = await nav.ir(d)
     if (k) ir({ t: k.tienda_terminal_codigo, n: Number(k.numero) })
@@ -935,7 +958,24 @@ export function PedidoProveedorFichaPage({ rapida = false }: { rapida?: boolean 
         </GwSelect>
       </Campo>
       <Campo label={<u>N</u>} labelRest="úmero" title="En alta, el próximo libre; se confirma al guardar">
-        <GwInput readOnly className="gw-num" value={String(cab?.numero ?? (mode === 'alta' ? (proximo ?? '') : ''))} />
+        <GwInput
+          readOnly={mode !== 'consulta'}
+          className="gw-num"
+          inputMode="numeric"
+          enterKeyHint="go"
+          title={mode === 'consulta' ? 'Escribe un número y pulsa Intro para ir a ese pedido' : undefined}
+          value={numIr ?? String(cab?.numero ?? (mode === 'alta' ? (proximo ?? '') : ''))}
+          onFocus={(e) => mode === 'consulta' && e.currentTarget.select()}
+          onChange={(e) => mode === 'consulta' && setNumIr(e.target.value)}
+          onKeyDown={(e) => {
+            if (mode !== 'consulta') return
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void irANumero(e.currentTarget.value)
+            } else if (e.key === 'Escape') setNumIr(null)
+          }}
+          onBlur={() => setNumIr(null)}
+        />
       </Campo>
       <Campo label="Fecha y Hora">
         <GwInput readOnly value={fechaHoraEs(cab?.fecha_hora)} />
