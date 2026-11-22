@@ -115,6 +115,7 @@ const OPERATIVA: BloqueOperativa[] = [
     titulo: 'Bueno es saber',
     notas: [
       'El aviso «más barato en…» compara el precio neto por unidad con el de los otros proveedores dados de alta en la ficha del artículo.',
+      'En camino: cuentan los pedidos del ERP pendientes o confirmados y los de GeminisWin sin actualizar (pendientes o aceptados, que llegan por el espejo), lo que falta por recibir de cada línea. Si un pedido está en los dos (el del ERP importado en GeminisWin) no se cuenta dos veces: de cada artículo se toma lo mayor.',
       'Peticiones de clientes: siguen pendientes mientras el pedido es una propuesta. Pasan solas a «tramitada» cuando el pedido se acepta, y a «resuelta» cuando se liquida, igual que con el Gestor de siempre.',
       'El pedido creado se ve y se cambia en Compras › Pedidos a Proveedores y en el Gestor de Pedidos a Proveedores.',
       'Los mínimos y máximos los calcula el ERP (los de las fichas de GeminisWin no se usan): venta media de los últimos 12 meses, más un margen para no quedarse sin stock durante el plazo de entrega (como mucho, lo que se vende en ese plazo: las subidas de temporada van por campañas); el máximo cubre tres semanas más de venta (parámetro compras.cobertura_dias), para no pedir cada semana al mismo proveedor. «Recalcular mínimos» los rehace con las ventas al día.',
