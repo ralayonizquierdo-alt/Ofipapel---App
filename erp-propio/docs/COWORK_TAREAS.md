@@ -1,5 +1,8 @@
 # Tareas de Cowork (GeminisWin)
 
+> Las tareas 2, 3 y 4 (PC de Rober) forman el agente **Geminio** (código `geminis_pc`), con su ficha en el hub y en
+> NEXA. Cómo conectarlo al ERP: apartado «Geminio: avisar al ERP», al final.
+
 Rober, 23/11/2026: «que quede constancia de todas las automatizaciones y agentes que tengo por ahí, por si me olvido
 de algo». Aquí solo está lo que hace **Cowork** (Claude con acceso al escritorio de un PC de la oficina, donde está
 GeminisWin). Los agentes del ERP (E-milio, Whacimara, Virgilio) tienen su propio documento.
@@ -63,3 +66,24 @@ LISTADOS AUTOMATIZADOS: dice cada cuánto se generan.
 GeminisWin solo se lee desde fuera: nunca se escribe en los DBF ni se instala nada en su servidor; no se guardan
 cambios en pantallas de GeminisWin salvo las tareas de esta lista que lo hacen a propósito (1 y 3); los datos de
 GeminisWin y CONTANET nunca van al repositorio.
+
+## Geminio: avisar al ERP (lo hace el Cowork del PC de Rober, una vez)
+
+Para que su ficha diga qué ha hecho y Virgilio sepa si un día no ha trabajado, el programa de
+`C:\Ofipapel\Herramientas` avisa al ERP al terminar cada trabajo. Clave propia de Geminio (no es la del puente):
+
+1. **Crear la clave en el PC** (nunca sale de él ni pasa por ningún chat): 48 caracteres aleatorios, por ejemplo
+   `python -c "import secrets; print(secrets.token_urlsafe(36))"`, guardada en `C:\Ofipapel\Herramientas\geminio.clave`.
+2. **Registrar su huella** (SHA-256 en hexadecimal) en el ERP, una sola vez. El registro está abierto hasta el
+   26/11/2026; después hay que pedir a un administrador que lo vuelva a abrir (parámetro `agentes.registro_abierto`):
+   `POST https://sufxvpiwcncnyltrvoun.supabase.co/rest/v1/rpc/fn_agente_registrar_clave`
+   con cabeceras `apikey` y `Content-Type: application/json` (la clave pública del ERP, la misma de `inicio.html`) y
+   cuerpo `{"p_agente": "geminis_pc", "p_huella": "<sha256 de la clave>"}`.
+3. **Avisar al terminar cada trabajo**:
+   `POST .../rest/v1/rpc/fn_agente_informar` con
+   `{"p_agente": "geminis_pc", "p_clave": "<clave>", "p_tarea": "<tarea>", "p_resumen": "<frase corta>", "p_ok": true, "p_equipo": "<nombre del PC>"}`.
+   Tareas: `diario` (ventas por caja y pedidos sin actualizar a Finanzas), `listados_mes` (día 10), `ventas_vendedor`
+   (día 20), `pedidos_sin_actualizar` (fin de mes), `inventarios` (lunes), `cifrado` (copia cifrada),
+   `pedido_informatica`, `importar_informatica`. Si algo falla: `"p_ok": false` y en `p_resumen` qué ha fallado.
+   El resumen **sin datos de clientes ni importes** (el hub es público): «Ventas por caja subidas a Finanzas».
+4. Si el ERP no contesta, no pasa nada: el trabajo sigue igual; solo no queda apuntado.
