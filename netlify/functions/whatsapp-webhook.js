@@ -69,6 +69,7 @@ const {
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
   mensajeIncidencia,
+  mensajeVendernos,
   preguntaSiEsNuestroCorreo,
   avisaQueEscribioA,
   mensajeSobreElCorreo,
@@ -114,8 +115,13 @@ const woocommerce = require('./woocommerce-client');
 const gestion = require('./gestion-pedidos');
 const { sendWhatsappMessage: entregarAlCliente, sendWhatsappTemplate } = require('./whatsapp-send');
 const { paraWhatsapp } = require('./whatsapp-formato');
-const { respuestaDeCatalogo, pareceUnaIncidencia, referenciaSinRespaldo } = require('./whatsapp-respuesta-catalogo');
-const { escalateQuestion, sendEscalateButtons } = require('./whatsapp-escalado');
+const { respuestaDeCatalogo, pareceUnaIncidencia, nosQuiereVenderAlgo, referenciaSinRespaldo } = require('./whatsapp-respuesta-catalogo');
+const {
+  escalateQuestion,
+  sendEscalateButtons,
+  esPreguntaDeEscalado,
+  respuestaALaPregunta,
+} = require('./whatsapp-escalado');
 
 // EL BOT TIENE QUE ENTERARSE DE QUE NO LE LLEGA AL CLIENTE.
 //
@@ -362,6 +368,47 @@ async function notifyOwnerByWhatsapp(customerPhone, lastCustomerMessage) {
   }
 }
 
+// EL "SÍ" A LA PREGUNTA, VENGA DEL BOTÓN O ESCRITO A MANO.
+//
+// Está en su propia función, y no dentro del manejador del botón, porque desde
+// el 23/11/2026 hay dos puertas: el `button_reply` y el cliente que contesta
+// «Si porfa» por texto. Las dos tienen que hacer exactamente lo mismo —avisar
+// al equipo, parar el bot y dejar la marca en el panel— y la única forma de que
+// no se separen con el tiempo es que sea el mismo código.
+//
+// `queDijo` es el mensaje con el que confirmó (el texto, o nada si fue el
+// botón): va al aviso del dueño para que vea qué se le contestó a qué.
+async function confirmarEscalado(from, idioma, queDijo = null) {
+  const reply = agenteInfoEn(idioma);
+  await sendWhatsappMessage(from, reply);
+  await appendToHistory(
+    from,
+    queDijo || '[El cliente confirmó que quiere hablar con una persona]',
+    reply
+  );
+  await pauseBot(from, 24);
+  await notifyOwner({
+    channel: 'Meta',
+    from,
+    customerMessage: queDijo
+      ? `(confirmó por texto que quiere hablar con una persona: "${queDijo}")`
+      : '(confirmó que quiere hablar con una persona del equipo)',
+    botReply: reply,
+  });
+  const history = await getHistory(from);
+  // El mensaje con el que confirmó no dice nada por sí solo («Si porfa»): al
+  // dueño le interesa lo ANTERIOR, que es la pregunta de verdad del cliente.
+  const mensajesCliente = [...history].reverse().filter((m) => m.role === 'user');
+  const deQueIba = mensajesCliente.find((m) => String(m.content || '').trim() !== String(queDijo || '').trim());
+  await notifyOwnerByWhatsapp(from, deQueIba ? deQueIba.content : queDijo || '(sin mensaje previo)');
+}
+
+async function rechazarEscalado(from, idioma) {
+  const reply = escalateDeclineReply(idioma);
+  await sendWhatsappMessage(from, reply);
+  await appendToHistory(from, '[El cliente prefirió seguir con el bot]', reply);
+}
+
 // Si el cliente confirma o rechaza los botones "¿Quieres hablar con una persona?".
 // Solo cuando confirma con "Sí" se avisa por email y se marca en el panel de
 // conversaciones (que detecta el aviso con isAgenteInfoMessage sobre el historial).
@@ -373,28 +420,8 @@ async function handleEscalateReply(message) {
   const ficha = await conversationStore.getFichaCliente(message.from);
   const idioma = ficha?.idioma || 'es';
 
-  if (buttonId === 'escalate_yes') {
-    const reply = agenteInfoEn(idioma);
-    await sendWhatsappMessage(message.from, reply);
-    await appendToHistory(message.from, '[El cliente confirmó que quiere hablar con una persona]', reply);
-    await pauseBot(message.from, 24);
-    await notifyOwner({
-      channel: 'Meta',
-      from: message.from,
-      customerMessage: '(confirmó que quiere hablar con una persona del equipo)',
-      botReply: reply,
-    });
-    const history = await getHistory(message.from);
-    const lastUserMessage = [...history].reverse().find((m) => m.role === 'user');
-    await notifyOwnerByWhatsapp(message.from, lastUserMessage ? lastUserMessage.content : '(sin mensaje previo)');
-    return;
-  }
-
-  if (buttonId === 'escalate_no') {
-    const reply = escalateDeclineReply(idioma);
-    await sendWhatsappMessage(message.from, reply);
-    await appendToHistory(message.from, '[El cliente prefirió seguir con el bot]', reply);
-  }
+  if (buttonId === 'escalate_yes') return confirmarEscalado(message.from, idioma);
+  if (buttonId === 'escalate_no') return rechazarEscalado(message.from, idioma);
 }
 
 // Botones "¿Web o tienda?" para sellos personalizados, en vez de soltar de golpe
@@ -1032,7 +1059,23 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // La marca solo va al historial, que es donde el panel la lee para pintar la
     // imagen. En el aviso al dueño sobra: se lee en un email o en WhatsApp, y
     // ahí "[ADJUNTO:1]" no significa nada.
-    const legible = `[El cliente envió ${queEs}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
+    // UNA FOTO MANDADA COMO FICHERO SIGUE SIENDO UNA FOTO (23/11/2026).
+    //
+    // Visto en real: un cliente que quería vendernos 19 armarios y 14 mesas
+    // mandó NUEVE fotos y las nueve llegaron como `document` —es lo que hace
+    // WhatsApp cuando se adjuntan desde el explorador de archivos, o se eligen
+    // «sin comprimir»—. Ninguna se miró, y nueve veces le llegó el mismo
+    // párrafo de «no puedo leer un documento por aquí», que además es falso:
+    // era un JPEG, y los JPEG se leen desde el 19/10.
+    //
+    // La regla, no la lista de extensiones: lo que decide es el `mime_type`
+    // real que da Meta (`adjunto.tipo`), no el tipo de mensaje con el que
+    // viene. Un PDF sigue yendo a una persona, como siempre.
+    const esFotoAunqueVengaComoFichero =
+      message.type === 'document' && String(adjunto?.tipo || '').startsWith('image/');
+    const queEsDeVerdad = esFotoAunqueVengaComoFichero ? QUE_ES.image : queEs;
+
+    const legible = `[El cliente envió ${queEsDeVerdad}]${pieDeFoto ? ` — "${pieDeFoto}"` : ''}`;
     const marca = adjunto?.mediaId ? marcaDeAdjunto(adjunto.mediaId, adjunto.tipo) : '';
     let registro = `${marca}${legible}`;
 
@@ -1091,7 +1134,11 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     // sigue por el camino de siempre. Nada de esto quita una respuesta: solo
     // añade una mejor cuando la hay.
     let lectura = null;
-    if (message.type === 'image' && adjunto?.buffer && sePuedeLeerLaFoto(adjunto.tipo, adjunto.bytes)) {
+    if (
+      (message.type === 'image' || esFotoAunqueVengaComoFichero) &&
+      adjunto?.buffer &&
+      sePuedeLeerLaFoto(adjunto.tipo, adjunto.bytes)
+    ) {
       lectura = await leerFoto({ buffer: adjunto.buffer, tipo: adjunto.tipo, pieDeFoto });
     }
 
@@ -1233,8 +1280,27 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
         ? `${presentacion}Thanks — I've seen the photo, but I can't confirm from here whether we have it. `
         : `${presentacion}Gracias, he visto la foto, pero no te puedo confirmar desde aquí si lo tenemos. `
       : idiomaFoto === 'en'
-        ? `${presentacion}Thanks for your message. I can't read ${QUE_ES_EN[message.type] || 'that'} here. `
-        : `${presentacion}Gracias por tu mensaje. No puedo leer ${queEs} por aquí. `;
+        ? `${presentacion}Thanks for your message. I can't read ${esFotoAunqueVengaComoFichero ? QUE_ES_EN.image : QUE_ES_EN[message.type] || 'that'} here. `
+        : `${presentacion}Gracias por tu mensaje. No puedo leer ${queEsDeVerdad} por aquí. `;
+
+    // NO SE PREGUNTA DOS VECES LO MISMO (23/11/2026).
+    //
+    // El cliente de los armarios recibió NUEVE veces el mismo párrafo entero
+    // —«no puedo leer un documento… ¿quieres que igualmente te pongamos en
+    // contacto?»— porque mandó las fotos de una en una y cada una entraba por
+    // aquí. Cada envío repetía la pregunta como si fuera la primera.
+    //
+    // Si la pregunta ya está hecha y el cliente no ha contestado todavía, lo
+    // que toca es callarse y archivar: el adjunto llega al panel igual (que es
+    // lo que el equipo necesita ver) y al cliente no se le repite nada. En
+    // cuanto conteste, el escalado sigue su curso normal.
+    const historialAntes = await getHistory(message.from);
+    const ultimoBot = [...historialAntes].reverse().find((m) => m.role === 'assistant');
+    if (ultimoBot && esPreguntaDeEscalado(ultimoBot.content)) {
+      await conversationStore.appendCustomerMessage(message.from, registro, message.id);
+      return;
+    }
+
     await sendEscalateButtons(message.from, prefijo, idiomaFoto);
 
     // El registro se guarda SIEMPRE, diga lo que diga después: es lo que hace
@@ -1414,6 +1480,31 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
     await appendToHistory(message.from, text, `[Dice que no ha recibido un pedido dado por entregado] ${prefijo}${escalateQuestion(idioma)}`);
     await notifyOwnerByWhatsapp(message.from, `📦 Dice que NO ha recibido un pedido que figura como entregado: ${text}`);
     return;
+  }
+
+  // «SI PORFA» ES UN SÍ (23/11/2026).
+  //
+  // Si el último mensaje del bot fue «¿quieres que te ponga en contacto con una
+  // persona?», este mensaje es la respuesta a ESA pregunta y no una consulta
+  // nueva. Hasta hoy solo se escuchaba el botón, así que quien contestaba
+  // escribiendo se quedaba sin que nadie se enterara (ver
+  // `respuestaALaPregunta` en whatsapp-escalado.js).
+  //
+  // Va antes del flujo de pedidos a propósito: la pregunta de escalado también
+  // se hace cuando un pedido no aparece (línea ~1900), y allí el marcador
+  // «ESPERANDO_NUMERO» puede seguir puesto. Un «sí» a «¿quieres una persona?»
+  // es inequívoco; tratarlo como un número de pedido no.
+  const ultimoDelBot = [...history].reverse().find((m) => m.role === 'assistant');
+  if (text && ultimoDelBot && esPreguntaDeEscalado(ultimoDelBot.content)) {
+    const respuesta = respuestaALaPregunta(text);
+    if (respuesta === 'si') {
+      await confirmarEscalado(message.from, idioma, text);
+      return;
+    }
+    if (respuesta === 'no') {
+      await rechazarEscalado(message.from, idioma);
+      return;
+    }
   }
 
   const pasoPedido = detectarPasoPedido(history);
@@ -1608,6 +1699,28 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   // damos nosotros y eso sí ayuda), después del escalado explícito y después
   // de las fotos en espera (una foto de lo roto sigue su camino, que ya acaba
   // en una persona cuando no puede confirmar nada).
+  // NOS QUIEREN VENDER ALGO: TAMBIÉN A UNA PERSONA (23/11/2026).
+  //
+  // «No se si ustedes compran mobiliario de oficina de segunda mano» se
+  // contestaba buscándolo en el catálogo —«no me aparece»—, que es responder a
+  // otra pregunta. Va aquí, junto a la incidencia y DELANTE de las respuestas
+  // fijas y de la IA, por el mismo motivo: no hay ni un dato en el bot con el
+  // que contestar esto, y lo que había detrás eran 19 armarios y 14 mesas.
+  if (text && nosQuiereVenderAlgo(text)) {
+    const reply = greeting + mensajeVendernos(idioma);
+    await sendWhatsappMessage(message.from, reply);
+    await appendToHistory(message.from, text, `[Nos quiere vender algo — pasado a una persona] ${reply}`);
+    await pauseBot(message.from, 24);
+    await notifyOwner({
+      channel: 'Meta',
+      from: message.from,
+      customerMessage: `💰 NOS QUIERE VENDER / NOS PREGUNTA SI COMPRAMOS: ${text}`,
+      botReply: reply,
+    });
+    await notifyOwnerByWhatsapp(message.from, `💰 Nos quiere vender algo: ${text}`);
+    return;
+  }
+
   if (text && pareceUnaIncidencia(text)) {
     const reply = greeting + mensajeIncidencia(idioma);
     await sendWhatsappMessage(message.from, reply);
