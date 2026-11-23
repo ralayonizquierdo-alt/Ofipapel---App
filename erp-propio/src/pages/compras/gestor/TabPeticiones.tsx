@@ -367,14 +367,25 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           <legend className="text-[17px]!">Estado Petición</legend>
           <div className="grid grid-cols-8 gap-1">
             {ESTADOS_PETICION.map((e) => (
-              <OptionButton
-                key={e.value}
-                label={e.boton}
-                value={estados.has(e.value)}
-                onChange={() => toggle(e.value)}
-                className="h-[34px]! text-[16px]!"
-                title="Marcados: estados que se muestran (ninguno marcado = todos)"
-              />
+              <div key={e.value} className="relative flex min-w-0 flex-col">
+                <OptionButton
+                  label={e.boton}
+                  value={estados.has(e.value)}
+                  onChange={() => toggle(e.value)}
+                  className="h-[34px]! text-[16px]!"
+                  title="Marcados: estados que se muestran (ninguno marcado = todos)"
+                />
+                {e.value === 'resuelta' && (
+                  <button
+                    type="button"
+                    onClick={() => setImprimirResueltas(true)}
+                    className="absolute -right-2 -top-2.5 flex items-center gap-0.5"
+                    title="Peticiones resueltas sin imprimir (la mercancía ya llegó): pulsa para verlas por proveedor e imprimirlas para el almacén"
+                  >
+                    {resueltasNuevas ? <Globo n={resueltasNuevas} /> : <Printer size={15} className="rounded bg-white text-[#2a9d2a]" />}
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </fieldset>
