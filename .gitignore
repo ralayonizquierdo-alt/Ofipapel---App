@@ -38,3 +38,6 @@ __pycache__/
 
 # Documentos generados para Luis (Word, PDF…): se entregan aparte, no se versionan.
 _documentos/
+
+# graphify: el grafo se reconstruye en cada sesión (~10 s, sin IA); pesa ~17 MB y cambia con cada commit
+graphify-out/
