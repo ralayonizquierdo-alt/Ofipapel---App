@@ -868,7 +868,7 @@ function DialogoTv({ onCerrar }: { onCerrar: () => void }) {
         <div className="font-bold">Vincular la TV con un código (lo más fácil)</div>
         <div>
           1) En el navegador de la TV escribe la dirección corta <b>{`${location.host}/tv`}</b>. 2) La TV enseña un código de 8 letras/números. 3) Escríbelo aquí y pulsa
-          «Vincular TV». No hace falta correo ni escribir el enlace largo.
+          «Vincular TV». No hace falta correo ni escribir el enlace largo. Si la TV es muy vieja y la pantalla se queda en blanco, usa la dirección <b>{`${location.host}/tv-simple.html`}</b> (versión simple, sin mapa); se vincula igual.
         </div>
         <div className="mt-1 flex gap-1">
           <input

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 
 // «? → Acerca de»: versión de package.json y, en Netlify, el commit publicado (COMMIT_REF).
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
@@ -14,6 +14,18 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    {
+      // tv-simple.html: pantalla de repartos para TVs con navegador muy viejo (JS de los de antes, sin mapa). Lleva dentro la
+      // URL y la clave pública de Supabase, que se toman aquí del entorno de la publicación: no se guardan en el repositorio.
+      name: 'tv-simple',
+      generateBundle() {
+        const env = loadEnv(process.env.NODE_ENV ?? 'production', process.cwd(), 'VITE_')
+        const url = env.VITE_SUPABASE_URL ?? ''
+        const key = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
+        const plantilla = readFileSync(new URL('./tv-simple.template.html', import.meta.url), 'utf8')
+        this.emitFile({ type: 'asset', fileName: 'tv-simple.html', source: plantilla.replace('__SUPABASE_URL__', url).replace('__SUPABASE_KEY__', key) })
+      },
+    },
     {
       name: 'version-json',
       generateBundle() {
