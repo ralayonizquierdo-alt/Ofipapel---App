@@ -41,7 +41,7 @@ Cada fichero de la carpeta se mete además en el archivo cifrado `LISTADOS GEMIN
   otra carpeta** para que el cifrado vuelva a funcionar.
 - Depende de que el PC de Rober esté encendido a las 9:50. Nadie lo vigila todavía (podría hacerlo Virgilio).
 
-## PC de Mónica (equipo MONICA)
+## PC de Mónica (equipo MONICA) — agente «Sr. Puente» (código `pc_monica`)
 
 Inventario hecho por su Cowork el 23/11/2026 (registros y lista de tareas de Windows, sin cambiar nada).
 
