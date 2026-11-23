@@ -330,6 +330,22 @@ function mensajeIncidencia(idioma = 'es') {
   return idioma === 'en' ? INCIDENCIA_INFO_EN : INCIDENCIA_INFO;
 }
 
+// NOS QUIEREN VENDER ALGO (23/11/2026). Caso hermano de la incidencia: el bot
+// no tiene ni un dato con el que contestar, así que no contesta. Y se le pide
+// lo único que de verdad adelanta trabajo a quien lo vaya a valorar —qué es,
+// cuántos y fotos—, que es lo que el cliente de los armarios estaba intentando
+// mandar por su cuenta mientras el bot le hablaba de sillas.
+const VENDERNOS_INFO =
+  'Eso no lo decido yo desde aquí: se lo paso a una persona del equipo. ' +
+  'Mientras tanto, si me cuentas qué es, cuántas unidades y me mandas fotos, lo tendrán todo delante cuando te contesten.';
+const VENDERNOS_INFO_EN =
+  "That's not something I can decide from here: I'm passing it to someone on the team. " +
+  'In the meantime, tell me what it is and how many, and send me photos — they will have everything in front of them when they get back to you.';
+
+function mensajeVendernos(idioma = 'es') {
+  return idioma === 'en' ? VENDERNOS_INFO_EN : VENDERNOS_INFO;
+}
+
 // «¿ES CORRECTA ESTA DIRECCIÓN?» — UNA PREGUNTA QUE EL BOT SABE CONTESTAR.
 //
 // Visto en real el 4/11/2026. Fabiana escribió:
@@ -1789,6 +1805,23 @@ const FAQ_RULES = [
     seApartaSiPidenOtroArticulo: true,
     reply: (normalizedText) => {
       if (!/\bsillas?\b|\bsillones?\b/.test(normalizedText)) return null;
+      // CUANDO EL CLIENTE DICE QUE LAS SILLAS *NO* (23/11/2026).
+      //
+      // Visto en real, en medio de la conversación de un cliente que nos
+      // ofrecía mobiliario usado: «Las sillas que se ven en las imágenes no
+      // van» — y se le contestó con el enlace de nuestras sillas de oficina y
+      // sus precios. Estaba excluyéndolas del lote, no pidiéndolas, y la
+      // respuesta deja ver que nadie ha leído la frase.
+      //
+      // Es el precio de no llevar `familiaDeProducto` (ver arriba): la palabra
+      // suelta decide el turno. Lo que se corrige es solo eso, la frase que
+      // NIEGA las sillas; «¿tenéis sillas?» sigue llevándose su enlace.
+      // Hace falta que el «no» sea DE las sillas, no que haya un «no» en la
+      // frase: «no sé si tenéis sillas ergonómicas» es una petición normal y
+      // tiene que llevarse su enlace, así que se pide el verbo negado detrás.
+      if (/\bsillas?\b[^.!?]{0,40}\bno\s+(?:van|entran|interesan|incluyen|cuentan|hacen falta|son|se\s+(?:venden|retiran|llevan))\b/.test(normalizedText)) return null;
+      if (/\bsillas?\b[^.!?]{0,40}\bno\s+(?:las|los|me|me las)\s+\w+/.test(normalizedText)) return null;
+      if (/\b(?:sin|menos|excepto|salvo|aparte de)\s+(?:las\s+|los\s+)?sillas?\b/.test(normalizedText)) return null;
       return /\bgaming\b|\bgamer\b/.test(normalizedText) ? SILLAS_GAMING_INFO : SILLAS_INFO;
     },
   },
@@ -2299,6 +2332,7 @@ module.exports = {
   esFalloDeLaWeb,
   mensajeFalloDeLaWeb,
   mensajeIncidencia,
+  mensajeVendernos,
   preguntaSiEsNuestroCorreo,
   avisaQueEscribioA,
   mensajeSobreElCorreo,

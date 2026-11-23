@@ -317,6 +317,43 @@ function pareceUnaIncidencia(texto) {
   return ES_UNA_INCIDENCIA.some((re) => re.test(t));
 }
 
+// QUIEN NOS QUIERE VENDER ALGO NO ES UN CLIENTE DEL CATÁLOGO (23/11/2026).
+//
+// Visto en real: «No se si ustedes compran mobiliario de oficina de segunda
+// mano». El bot lo buscó EN EL CATÁLOGO y contestó «no me aparece en nuestro
+// catálogo, así que no te lo puedo confirmar» — que no es una respuesta a lo
+// que preguntó: él no quería comprar un armario, quería vendernos diecinueve.
+//
+// Es el mismo razonamiento que las incidencias y que el pedido mínimo: el bot
+// no tiene NI UN DATO sobre si compramos usado, a qué precio, si vamos a
+// recogerlo ni quién lo valora. Todo lo que diga se lo está inventando, y aquí
+// encima hay dinero de por medio en el sentido contrario al habitual.
+//
+// La forma importa: lo que se busca es «VOSOTROS compráis» o «yo os vendo», no
+// la palabra «comprar» —que la dice todo el mundo que quiere comprar—. Por eso
+// solo entran las personas verbales que señalan a la casa como compradora
+// (compran, compráis, me compráis) y al cliente como vendedor (vendo, os
+// vendo, quiero vender).
+const NOS_QUIERE_VENDER = [
+  // «¿ustedes compran…?», «¿compráis…?», «¿me lo compran?»
+  /\b(?:ustedes|vosotros|vds?|uds?)\s+compr(?:an|ais|arian|arais)\b/,
+  /\bcompr(?:ais|an)\b/,
+  /\b(?:me|nos|os|les|lo|la|los|las)\s+compr(?:an|ais|aria|arian|arais)\b/,
+  // «os vendo», «quiero venderles», «tengo para vender»
+  /\b(?:os|les|te|le)\s+vendo\b/, /\bvendo\b/,
+  /\bquiero\s+vender\b/, /\bvender(?:les|los|le|os)\b/,
+  /\bme\s+interesa\s+vender\b/, /\bpara\s+vender\b/,
+  /\bquiero\s+deshacerme\b/, /\bme\s+deshago\b/,
+  // El negocio en sí: material usado que sale de una oficina
+  /\bsegunda\s+mano\b.{0,40}\bcompr/, /\bcompr.{0,40}\bsegunda\s+mano\b/,
+  /\b(?:recompr|tasa(?:is|n)|tasacion)\b/,
+];
+
+function nosQuiereVenderAlgo(texto) {
+  const t = sinAcentosNi(texto);
+  return NOS_QUIERE_VENDER.some((re) => re.test(t));
+}
+
 function sinAcentosNi(texto) {
   return String(texto || '')
     .toLowerCase()
@@ -345,5 +382,6 @@ module.exports = {
   referenciasFuertes,
   nadaEnElCatalogo,
   pareceUnaIncidencia,
+  nosQuiereVenderAlgo,
   MAXIMO_EN_LISTA,
 };
