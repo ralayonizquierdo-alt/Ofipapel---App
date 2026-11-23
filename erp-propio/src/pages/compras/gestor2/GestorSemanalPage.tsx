@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlarmClock, Calculator, ChevronDown, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
+import { AlarmClock, Calculator, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { Campanas } from './Campanas'
@@ -137,26 +137,23 @@ const OPERATIVA: BloqueOperativa[] = [
 
 type Vista = 'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas' | 'peticiones' | 'pedidos' | 'correo'
 
-/** Pestañas agrupadas (Rober, 23/11/2026: «hay muchas pestañas… agruparlas y que los submenús se vean al pulsar el menú principal»). */
-const GRUPOS: { id: string; titulo: string; vistas: Vista[]; subs: { vista: Vista; titulo: string }[] }[] = [
+/**
+ * Dos zonas separadas (Rober, 23/11/2026): «distinguir los pedidos automáticos a proveedores, donde entra E-milio, de las
+ * peticiones de clientes… cuando esté en peticiones no quiero ver los pedidos a proveedores y cuando esté en pedidos no
+ * quiero ver las peticiones, a no ser las que estén incluidas en los pedidos».
+ */
+const ZONAS: { id: 'pedidos' | 'peticiones'; titulo: string; vistas: Vista[]; subs: { vista: Vista; titulo: string }[] }[] = [
   {
-    id: 'semana',
-    titulo: 'Pedidos de la semana',
-    vistas: ['decidir', 'esperar', 'aplazados', 'raros'],
+    id: 'pedidos',
+    titulo: 'Pedidos a proveedores',
+    vistas: ['decidir', 'esperar', 'aplazados', 'raros', 'propuestas', 'correo', 'tarifas', 'campanas', 'pedidos'],
     subs: [
       { vista: 'decidir', titulo: 'Para decidir' },
       { vista: 'esperar', titulo: 'Pueden esperar' },
       { vista: 'aplazados', titulo: 'Aguantando' },
       { vista: 'raros', titulo: 'Raros por decidir' },
-    ],
-  },
-  {
-    id: 'proveedores',
-    titulo: 'Proveedores',
-    vistas: ['propuestas', 'correo', 'tarifas', 'campanas', 'pedidos'],
-    subs: [
       { vista: 'propuestas', titulo: 'Propuestas de proveedor' },
-      { vista: 'correo', titulo: 'Correo de proveedores' },
+      { vista: 'correo', titulo: 'Correo de proveedores (E-milio)' },
       { vista: 'tarifas', titulo: 'Tarifas' },
       { vista: 'campanas', titulo: 'Campañas' },
     ],
@@ -180,7 +177,7 @@ export function GestorSemanalPage() {
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const resueltasNuevas = useResueltasNuevas()
-  const [grupoAbierto, setGrupoAbierto] = useState<string | null>(null)
+  const enPeticiones = vista === 'peticiones'
   const [sinProveedor, setSinProveedor] = useState(0)
   const [estado, setEstado] = useState<Estado | null>(null)
   const [calculando, setCalculando] = useState(false)
@@ -245,17 +242,29 @@ export function GestorSemanalPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4 p-3 text-[#1b2540]">
+      <nav className="flex flex-wrap items-center gap-2 border-b border-[#d5dcec] pb-3 print:hidden">
+        {ZONAS.map((z) => (
+          <Pestana key={z.id} grande activa={z.vistas.includes(vista)} onClick={() => !z.vistas.includes(vista) && setVista(z.vistas[0])}>
+            {z.titulo}
+            {z.id === 'peticiones' && <Globo n={resueltasNuevas} className="absolute -right-2 -top-2" />}
+          </Pestana>
+        ))}
+      </nav>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[26px] font-bold leading-tight">Pedidos de la semana</h1>
-          <p className="text-[14px] text-[#5b6680]">Lo que el programa propone pedir a cada proveedor, según el stock mínimo y máximo. Tú decides: enviar o aguantar.</p>
-          {estado?.calculado_en && (
+          <h1 className="text-[26px] font-bold leading-tight">{enPeticiones ? 'Peticiones de clientes' : 'Pedidos de la semana'}</h1>
+          <p className="text-[14px] text-[#5b6680]">
+            {enPeticiones
+              ? 'Lo que piden los clientes y no hay en tienda: pendientes, tramitadas a un pedido y resueltas (la mercancía ya llegó, para preparar y repartir).'
+              : 'Lo que el programa propone pedir a cada proveedor, según el stock mínimo y máximo. Tú decides: enviar o aguantar.'}
+          </p>
+          {!enPeticiones && estado?.calculado_en && (
             <p className="text-[13px] text-[#7a849c]">
               Mínimos del ERP calculados el {fecha(estado.calculado_en.slice(0, 10))} · {estado.con_minimo} artículos con mínimo · {estado.raros_por_decidir} raros por decidir
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 print:hidden">
+        <div className={`flex items-center gap-2 print:hidden ${enPeticiones ? 'hidden' : ''}`}>
           <button type="button" onClick={() => void recalcular()} disabled={calculando} className="flex h-9 items-center gap-1.5 rounded-full border border-[#d5dcec] bg-white px-3 text-[14px] hover:bg-[#f1f5fd] disabled:opacity-50">
             <Calculator size={15} /> {calculando ? 'Calculando…' : 'Recalcular mínimos'}
           </button>
@@ -268,7 +277,7 @@ export function GestorSemanalPage() {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className={`grid grid-cols-2 gap-3 md:grid-cols-4 ${enPeticiones ? 'hidden' : ''}`}>
         <Dato titulo="Proveedores por decidir" valor={String(decidir.length)} />
         <Dato titulo="Importe propuesto" valor={eur0(decidir.reduce((s, r) => s + r.importe, 0))} />
         <Dato titulo="Artículos agotados" valor={String(decidir.reduce((s, r) => s + r.agotados, 0))} alerta />
@@ -276,27 +285,16 @@ export function GestorSemanalPage() {
       </section>
 
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        {GRUPOS.map((g) => {
-          const activo = g.vistas.includes(vista)
-          const sub = g.subs.find((x) => x.vista === vista)
-          return (
-            <Pestana
-              key={g.id}
-              activa={activo}
-              onClick={() => {
-                if (!g.subs.length) {
-                  setVista(g.vistas[0])
-                  setGrupoAbierto(null)
-                } else setGrupoAbierto((a) => (a === g.id ? null : g.id))
-              }}
-            >
-              {g.titulo}
-              {activo && sub && <span className="font-normal opacity-80"> · {sub.titulo}</span>}
-              {g.subs.length > 0 && <ChevronDown size={15} className={`ml-1 inline transition-transform ${grupoAbierto === g.id ? 'rotate-180' : ''}`} />}
-              {g.id === 'peticiones' && <Globo n={resueltasNuevas} className="absolute -right-2 -top-2" />}
-            </Pestana>
-          )
-        })}
+        {!enPeticiones &&
+          ZONAS[0].subs.map((x) => (
+            <SubPestana key={x.vista} activa={vista === x.vista} onClick={() => setVista(x.vista)}>
+              {x.titulo}
+              {x.vista === 'decidir' && ` · ${decidir.length}`}
+              {x.vista === 'esperar' && ` · ${esperar.length}`}
+              {x.vista === 'aplazados' && ` · ${aplazados.length}`}
+              {x.vista === 'raros' && ` · ${estado?.raros_por_decidir ?? '…'}`}
+            </SubPestana>
+          ))}
         {error && (
           <span role="alert" className="text-[14px] font-bold text-[#c42b1c]">
             {error}
@@ -319,28 +317,7 @@ export function GestorSemanalPage() {
         )}
       </div>
 
-      {grupoAbierto && (
-        <div className="-mt-1 flex flex-wrap items-center gap-2 rounded-2xl border border-[#d5dcec] bg-[#f6f8fd] px-3 py-2 print:hidden">
-          {GRUPOS.find((g) => g.id === grupoAbierto)!.subs.map((x) => (
-            <SubPestana
-              key={x.vista}
-              activa={vista === x.vista}
-              onClick={() => {
-                setVista(x.vista)
-                setGrupoAbierto(null)
-              }}
-            >
-              {x.titulo}
-              {x.vista === 'decidir' && ` · ${decidir.length}`}
-              {x.vista === 'esperar' && ` · ${esperar.length}`}
-              {x.vista === 'aplazados' && ` · ${aplazados.length}`}
-              {x.vista === 'raros' && ` · ${estado?.raros_por_decidir ?? '…'}`}
-            </SubPestana>
-          ))}
-        </div>
-      )}
-
-      {sinProveedor > 0 && (
+      {enPeticiones && sinProveedor > 0 && (
         <p className="rounded-xl border border-[#f1d58a] bg-[#fff8e1] px-4 py-2 text-[14px] text-[#6b4a00]">
           Hay <b>{sinProveedor}</b> {sinProveedor === 1 ? 'petición de cliente que no sale' : 'peticiones de clientes que no salen'} en ninguna propuesta: ni la petición ni el artículo tienen proveedor.{' '}
           <Link to="/peticiones" className="font-semibold underline">
@@ -373,7 +350,7 @@ export function GestorSemanalPage() {
       )}
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {lista.map((r) => (
+        {!enPeticiones && lista.map((r) => (
           <Ficha key={r.proveedor_codigo} r={r} pequeno={esPequeno(r) ? limiteDe(r) : null} onAbrir={() => setAbierto(r)} onAplazar={(d) => void aplazar(r, d)} onCondiciones={() => setCondiciones(r)} />
         ))}
       </section>
@@ -426,9 +403,9 @@ function SubPestana({ activa, onClick, children }: { activa: boolean; onClick: (
   )
 }
 
-function Pestana({ activa, onClick, children }: { activa: boolean; onClick: () => void; children: React.ReactNode }) {
+function Pestana({ activa, onClick, children, grande = false }: { activa: boolean; onClick: () => void; children: React.ReactNode; grande?: boolean }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={activa} className={`relative h-9 rounded-full px-4 text-[14px] font-semibold ${activa ? 'bg-[#1d3a8a] text-white' : 'border border-[#d5dcec] bg-white text-[#1b2540] hover:bg-[#f1f5fd]'}`}>
+    <button type="button" onClick={onClick} aria-pressed={activa} className={`relative rounded-full font-semibold ${grande ? 'h-11 px-6 text-[17px]' : 'h-9 px-4 text-[14px]'} ${activa ? 'bg-[#1d3a8a] text-white' : 'border border-[#d5dcec] bg-white text-[#1b2540] hover:bg-[#f1f5fd]'}`}>
       {children}
     </button>
   )
