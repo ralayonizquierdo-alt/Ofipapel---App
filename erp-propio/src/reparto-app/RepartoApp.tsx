@@ -1060,6 +1060,12 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
       </div>
       {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
 
+      {hist && apuntar.length === 0 && (
+        <div style={{ marginTop: 14, background: '#eef5fc', border: `2px solid ${AZUL}`, borderRadius: 16, padding: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 17, color: AZUL }}>Cobradas · falta apuntar en GeminisWin (0)</div>
+          <div style={{ color: V.gris, fontSize: 13 }}>Todo lo liquidado aquí ya está cobrado en GeminisWin.</div>
+        </div>
+      )}
       {apuntar.length > 0 && (
         <div style={{ marginTop: 14, background: '#eef5fc', border: `2px solid ${AZUL}`, borderRadius: 16, overflow: 'hidden' }}>
           <button type="button" onClick={() => setVerApuntar(!verApuntar)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 12 }}>
