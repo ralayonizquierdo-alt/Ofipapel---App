@@ -847,6 +847,13 @@ function DialogoTv({ onCerrar }: { onCerrar: () => void }) {
   const [enlace, setEnlace] = useState<string | null>(null)
   const [qr, setQr] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [codigoTv, setCodigoTv] = useState('')
+  const vincular = async () => {
+    const { error } = await supabase.rpc('fn_reparto_tv_vincular', { p_codigo: codigoTv })
+    if (error) return setMsg(error.message)
+    setCodigoTv('')
+    setMsg('TV vinculada: en unos segundos empieza a verse. Si ya había otra TV vinculada, esa deja de verse.')
+  }
   const generar = async () => {
     if (!confirm('Se crea un enlace nuevo y el anterior deja de funcionar (habrá que abrir el nuevo en la TV). ¿Seguir?')) return
     const { data, error } = await supabase.rpc('fn_reparto_tv_generar')
@@ -857,6 +864,26 @@ function DialogoTv({ onCerrar }: { onCerrar: () => void }) {
   }
   return (
     <Modal titulo="Pantalla de la TV" onCerrar={onCerrar}>
+      <div className="border border-[var(--gw-border)] bg-white p-2">
+        <div className="font-bold">Vincular la TV con un código (lo más fácil)</div>
+        <div>
+          1) En el navegador de la TV escribe la dirección corta <b>{`${location.host}/tv`}</b>. 2) La TV enseña un código de 8 letras/números. 3) Escríbelo aquí y pulsa
+          «Vincular TV». No hace falta correo ni escribir el enlace largo.
+        </div>
+        <div className="mt-1 flex gap-1">
+          <input
+            className="gw-input h-[28px] w-[170px] font-mono text-[16px] uppercase"
+            maxLength={8}
+            placeholder="CÓDIGO DE LA TV"
+            value={codigoTv}
+            onChange={(e) => setCodigoTv(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && codigoTv.trim().length === 8 && void vincular()}
+          />
+          <button type="button" className="gw-btn font-bold" disabled={codigoTv.trim().length !== 8} onClick={() => void vincular()}>
+            Vincular TV
+          </button>
+        </div>
+      </div>
       <div>
         La TV no usa el ERP: crea el enlace, cópialo o mándalo por correo, y ábrelo en el navegador de la TV en pantalla completa (o escanea el
         código con el móvil). Solo se crea desde aquí: los repartidores no tienen acceso. Allí se ven las rutas, el mapa, el ranking y los totales, y se alternan solos. El enlace solo se enseña una vez: guárdalo
