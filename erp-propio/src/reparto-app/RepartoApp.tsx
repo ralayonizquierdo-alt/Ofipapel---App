@@ -779,6 +779,7 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
   const [entrega, setEntrega] = useState('')
   const [hecha, setHecha] = useState<Liquidacion | null>(null)
   const [hist, setHist] = useState<{ liquidaciones: Liquidacion[]; apuntar: PorApuntar[] } | null>(null)
+  const [verApuntar, setVerApuntar] = useState(false)
   const [verHist, setVerHist] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [fallo, setFallo] = useState<string | null>(null)
@@ -1059,22 +1060,36 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
       </div>
       {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
 
+      {hist && apuntar.length === 0 && (
+        <div style={{ marginTop: 14, background: '#eef5fc', border: `2px solid ${AZUL}`, borderRadius: 16, padding: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 17, color: AZUL }}>Cobradas · falta apuntar en GeminisWin (0)</div>
+          <div style={{ color: V.gris, fontSize: 13 }}>Todo lo liquidado aquí ya está cobrado en GeminisWin.</div>
+        </div>
+      )}
       {apuntar.length > 0 && (
-        <div style={{ marginTop: 14, background: '#fff6e5', border: '2px solid #e0a030', borderRadius: 16, padding: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ flex: 1, fontWeight: 700, color: '#9a5b00' }}>Falta apuntar en GeminisWin · {apuntar.length}</span>
-            <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600 }}>{euros(suma(apuntar))}</span>
-          </div>
-          <div style={{ fontSize: 12, color: V.gris, margin: '2px 0 6px' }}>
-            Liquidadas aquí pero en GeminisWin todavía sin cobrar. Apunta el cobro allí (Pagos Factura): salen solas en unos minutos.
-          </div>
-          {apuntar.map((a) => (
-            <div key={`${a.vt}-${a.vn}`} style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, padding: '3px 0', borderTop: '1px solid #f0dcb4' }}>
-              <span style={{ width: 110, whiteSpace: 'nowrap' }}>{a.factura ? `Fra. ${a.factura}` : `Alb. ${a.vt}/${a.vn}`}</span>
-              <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.cliente}</span>
-              <span style={{ fontFamily: '"IBM Plex Mono", monospace', whiteSpace: 'nowrap' }}>{euros(a.importe)}</span>
+        <div style={{ marginTop: 14, background: '#eef5fc', border: `2px solid ${AZUL}`, borderRadius: 16, overflow: 'hidden' }}>
+          <button type="button" onClick={() => setVerApuntar(!verApuntar)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ flex: 1, fontWeight: 700, fontSize: 17, color: AZUL }}>Cobradas · falta apuntar en GeminisWin ({apuntar.length})</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: AZUL, whiteSpace: 'nowrap' }}>{euros(suma(apuntar))}</span>
             </div>
-          ))}
+            <div style={{ color: V.gris, fontSize: 13 }}>
+              Apunta el cobro en GeminisWin (Pagos Factura) a tu ritmo: cada una sale sola en unos minutos · {verApuntar ? 'toca para cerrar' : 'toca para ver la lista'}
+            </div>
+          </button>
+          {verApuntar && (
+            <div style={{ padding: '0 10px 10px' }}>
+              {apuntar.map((a) => (
+                <div key={`${a.vt}-${a.vn}`} style={{ background: '#fff', borderRadius: 10, padding: '6px 8px', marginTop: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.cliente}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{euros(a.importe)}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: V.gris }}>{a.factura ? `Factura ${a.factura}` : `Albarán ${a.vt}/${a.vn}`}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
