@@ -793,9 +793,12 @@ body{
   // la clave pública. Si no contesta, se dice que no hay registro: nunca se
   // inventa.
   var ERP_RPC = 'https://sufxvpiwcncnyltrvoun.supabase.co/rest/v1/rpc/fn_agente_resumen_publico';
+  // Funciones e intro de cada agente: las manda el ERP (agente_funcion). Lo escrito aquí es solo por si no contesta.
+  var ERP_RPC_FUNCIONES = 'https://sufxvpiwcncnyltrvoun.supabase.co/rest/v1/rpc/fn_agente_funciones_publico';
   var ERP_CLAVE_PUBLICA = 'sb_publishable_IArWyleDbhD_twn1W5-jHA_l9kECHap';
   var AGENTES = {
     emilio: {
+      codigo: 'correo_proveedores',
       nombre: 'E-milio',
       color: '#00A3FF', glow: 'rgba(0,163,255,.45)',
       intro: '¡Hola! Soy E-milio, el agente del correo de Ofipapel. Leo los e-mails de los proveedores para que nadie tenga que abrirlos uno a uno.',
@@ -805,11 +808,13 @@ body{
         'Reconozco al proveedor y busco su pedido, se hiciera en el ERP o en GeminisWin.',
         'Cruzo cada documento con su pedido, línea a línea, con IA: aviso de lo que falta, viene sin stock, de menos o de más, o cambia de precio por encima del margen.',
         'Preparo las facturas finales con su nombre ordenado y las copio a la carpeta de facturas de proveedores.|no',
+        'Puedo vigilar otros buzones de @ofipapelsl.com para la tarea que me encarguéis a través de NEXA (avisar de ciertos correos, recoger sus adjuntos…), siempre solo leyendo. Cada buzón nuevo lo autoriza quien administra Microsoft 365.|no',
         'Lo dejo todo en el Gestor de Pedidos 2.0 → «Correo de proveedores». Yo preparo; decidís vosotros. Me manda NEXA.'
       ],
       resumen: 'correo_proveedores'
     },
     bot: {
+      codigo: 'whatsapp_bot',
       nombre: 'Whacimara',
       color: '#25D366', glow: 'rgba(37,211,102,.45)',
       intro: '¡Hola! Soy Whacimara, quien atiende el WhatsApp de Ofipapel. Contesto a los clientes a cualquier hora, también en inglés.',
@@ -826,6 +831,7 @@ body{
       frases: frasesBot
     },
     virgilio: {
+      codigo: 'vigilante',
       nombre: 'Virgilio',
       color: '#FFAA00', glow: 'rgba(255,170,0,.45)',
       intro: '¡Hola! Soy Virgilio, el vigilante de Ofipapel. Vigilo lo que me pedís día y noche y aviso a quien le toca, sin que nadie tenga que estar mirando.',
@@ -845,6 +851,7 @@ body{
       frases: frasesVigilante
     },
     geminio: {
+      codigo: 'geminis_pc',
       nombre: 'Geminio',
       color: '#B07CFF', glow: 'rgba(176,124,255,.45)',
       intro: '¡Hola! Soy Geminio, el agente que trabaja dentro de GeminisWin desde el PC de Rober. Saco los listados y preparo los pedidos de informática para que nadie tenga que hacerlo a mano.',
@@ -967,6 +974,16 @@ body{
     ficha.querySelector('h2').textContent = ag.nombre;
     ficha.querySelector('.ficha-intro').textContent = ag.intro;
     liste(ficha.querySelector('.ficha-funciones'), ag.funciones, 'Sin funciones descritas todavía.');
+    if (ag.codigo){
+      fetch(ERP_RPC_FUNCIONES, {method:'POST', cache:'no-store', headers:{'apikey':ERP_CLAVE_PUBLICA, 'Content-Type':'application/json'}, body:JSON.stringify({p_agente: ag.codigo})})
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (!d || !d.funciones || !d.funciones.length || ficha.querySelector('h2').textContent !== ag.nombre) return;
+          if (d.intro) ficha.querySelector('.ficha-intro').textContent = d.intro;
+          liste(ficha.querySelector('.ficha-funciones'), d.funciones.map(function(f){ return f.activa ? f.t : f.t + '|no'; }), 'Sin funciones descritas todavía.');
+        })
+        .catch(function(){});
+    }
     var hoy = ficha.querySelector('.ficha-hoy');
     var pendT = ficha.querySelector('.ficha-pend-t'), pend = ficha.querySelector('.ficha-pendiente');
     pendT.hidden = pend.hidden = true;
