@@ -45,7 +45,8 @@ export function grupoPorCobrar(c: PorCobrar): string {
   if (f.includes('remesa')) return 'Remesa'
   if (f.includes('transfer')) return 'Transferencia'
   if (c.contado === false || tipoPago(c.forma_pago) === 'banco') return 'Otras formas por banco'
-  return c.no_cobro ? 'Contado · el repartidor no cobró' : 'Contado · entregada, sin liquidar todavía'
+  // Con incidencia tampoco se cobró (Rober, 23/11/2026).
+  return c.no_cobro || c.incidencia ? 'Contado · el repartidor no cobró' : 'Contado · entregada, sin liquidar todavía'
 }
 
 export function gruposPorCobrar(cobros: PorCobrar[]) {

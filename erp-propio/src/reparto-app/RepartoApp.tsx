@@ -121,7 +121,7 @@ const base = import.meta.env.BASE_URL
  * como contado en GeminisWin y pagarse por el banco.
  */
 const AZUL = '#1f6fb2'
-function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null; no_cobro?: string | null; medio?: 'efectivo' | 'tarjeta' | null }): [string, string] | null {
+function queHacer(l: { total: number | null; pagado: number | null; contado?: boolean | null; estado?: string; forma_pago?: string | null; no_cobro?: string | null; incidencia?: string | null; medio?: 'efectivo' | 'tarjeta' | null }): [string, string] | null {
   if (l.estado === 'liquidado') return ['Liquidada', AZUL]
   const tipo = tipoPago(l.forma_pago)
   if (tipo === 'pagada') return ['Solo revisar · Pagado', V.verdeMed]
@@ -129,6 +129,8 @@ function queHacer(l: { total: number | null; pagado: number | null; contado?: bo
   if (l.total == null) return null
   if (l.pagado != null && l.total - l.pagado > 0.005) {
     // Ya entregada: deja de ser una orden («cobrar») y pasa a decir cómo quedó.
+    // Con incidencia no se ha cobrado (Rober, 23/11/2026): pasa a administración, como «sin cobrar».
+    if (l.estado === 'entregado' && l.incidencia) return ['Incidencia · sin cobrar', V.naranja]
     if (l.estado === 'entregado') return l.no_cobro ? ['Sin cobrar', V.naranja] : [l.medio === 'tarjeta' ? 'Cobrado · 💳 tarjeta' : l.medio === 'efectivo' ? 'Cobrado · efectivo' : 'Cobrado', V.verdeMed]
     return ['Revisar y cobrar', V.rojo]
   }
@@ -685,11 +687,12 @@ function CajaRepartidor({ lineas }: { lineas: LineaApp[] }) {
   const pend = (l: LineaApp) => Math.max(0, (l.total ?? 0) - (l.pagado ?? 0))
   const suma = (ls: LineaApp[]) => ls.reduce((t, l) => t + pend(l), 0)
   const entregadas = lineas.filter((l) => l.estado === 'entregado')
-  const cobradas = entregadas.filter((l) => !l.no_cobro && hayQueCobrar(l))
+  // Una entrega con incidencia no se cobra: va con las «sin cobrar» (Rober, 23/11/2026).
+  const cobradas = entregadas.filter((l) => !l.no_cobro && !l.incidencia && hayQueCobrar(l))
   // Lo cobrado con tarjeta no se entrega en mano: va al banco por el datáfono.
   const enEfectivo = cobradas.filter((l) => l.medio !== 'tarjeta')
   const conTarjeta = cobradas.filter((l) => l.medio === 'tarjeta')
-  const sinCobrar = entregadas.filter((l) => !!l.no_cobro)
+  const sinCobrar = entregadas.filter((l) => !!l.no_cobro || (!!l.incidencia && hayQueCobrar(l)))
   const liquidadas = lineas.filter((l) => l.estado === 'liquidado')
   const porRepartir = lineas.filter((l) => ['pendiente', 'viene_anterior'].includes(l.estado) && hayQueCobrar(l))
   const fila = (l: LineaApp, extra?: ReactNode) => (
@@ -736,7 +739,7 @@ function CajaRepartidor({ lineas }: { lineas: LineaApp[] }) {
           </div>
           <div style={{ fontSize: 12, color: V.gris, margin: '2px 0 6px' }}>De estas no tienes que entregar dinero: pasan a administración.</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {sinCobrar.map((l) => fila(l, <div style={{ fontSize: 12, fontWeight: 700, color: V.rojo }}>{[textoDe(NO_COBRO, l.no_cobro), l.nota].filter(Boolean).join(' · ')}</div>))}
+            {sinCobrar.map((l) => fila(l, <div style={{ fontSize: 12, fontWeight: 700, color: V.rojo }}>{[l.no_cobro ? textoDe(NO_COBRO, l.no_cobro) : l.incidencia ? `Incidencia: ${textoDe(INCIDENCIAS, l.incidencia)}` : null, l.nota].filter(Boolean).join(' · ')}</div>))}
           </div>
         </>
       )}
@@ -788,7 +791,7 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
     cargarHist()
   }, [cargarHist, cobros])
 
-  const enMano = (cobros ?? []).filter((c) => !c.abono && c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro)
+  const enMano = (cobros ?? []).filter((c) => !c.abono && c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro && !c.incidencia)
   const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}`
   const rutas = [...new Set(enMano.map(clave))].map((k) => ({ k, filas: enMano.filter((c) => clave(c) === k) }))
   const suma = (fs: { pendiente?: number; importe?: number }[]) => fs.reduce((t, c) => t + (c.pendiente ?? c.importe ?? 0), 0)

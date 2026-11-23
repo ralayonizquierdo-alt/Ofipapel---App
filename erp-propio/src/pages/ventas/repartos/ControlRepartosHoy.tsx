@@ -781,7 +781,7 @@ function CuadroPorCobrar({ titulo, cobros, onValidar }: { titulo: string; cobros
                     {c.hora ? ` · ${c.abono ? 'recogido ' : c.nulo ? 'anulado ' : ''}${c.hora}` : ''}
                   </td>
                   <td className="px-1.5">{c.forma_pago ?? ''}</td>
-                  <td className="px-1.5 font-bold text-[#c42b1c]">{c.no_cobro ? `No cobró: ${c.no_cobro}` : c.nota ?? ''}</td>
+                  <td className="px-1.5 font-bold text-[#c42b1c]">{c.no_cobro ? `No cobró: ${c.no_cobro}` : c.incidencia ? `Incidencia: ${c.incidencia}` : c.nota ?? ''}</td>
                   <td className="whitespace-nowrap px-1.5 text-right font-bold">{eur(c.abono || c.nulo ? c.total : c.pendiente)}</td>
                   <td className="w-[100px] whitespace-nowrap px-1.5 text-right">
                     {(c.abono || c.nulo) && (
