@@ -28,6 +28,24 @@ body {
    seleccionar texto dentro de los campos (y en lo marcado como .gw-seleccionable, p. ej. los
    mensajes de NEXA, que se copian). */
 body {
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* Lo que se pulsa (botones, menús, títulos, etiquetas, cabeceras de rejilla) no se selecciona; el texto de datos sí,
+   para poder copiar números de factura, nombres, etc. (Rober, 23/11/2026). */
+button,
+select,
+label,
+th,
+nav,
+[role='menu'],
+[role='menuitem'],
+[role='tab'],
+[role='button'],
+.gw-btn,
+.gw-titulo,
+.gw-label,
+.select-none {
   -webkit-user-select: none;
   user-select: none;
 }
