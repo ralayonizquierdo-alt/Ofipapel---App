@@ -60,6 +60,8 @@ Lo vigila Virgilio (espejo parado o con errores). **No tocar nunca** `puente_rep
   pide**, no está programado. Controla la pantalla y necesita GeminisWin abierto con la contraseña de un empleado (la
   mete una persona).
 - Tareas programadas: solo «Informe del espejo completo», una vez (23/11, 08:47). Ninguna más.
+- **ContaNet**: el Sr. Puente es el encargado de sacar los datos de ContaNet que hagan falta. Todo lo necesario ya se
+  sacó en noviembre (ver `docs/PLAN_CONTANET.md`); si hace falta algo más, se le pide a su Cowork.
 
 ### Herramientas a mano (`C:\Ofipapel\puente_reparto\`, solo cuando alguien lo pide)
 
