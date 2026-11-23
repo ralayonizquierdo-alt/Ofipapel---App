@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, Link2, Package, ShoppingCart } from 'lucide-react'
+import { Check, Link2, Package, Printer, ShoppingCart } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { avisoTope, todasLasFilas } from '../../../lib/todasLasFilas'
 import { formatGw } from '../../../components/gw'
@@ -10,6 +10,8 @@ import { BarraGestor, buscarFila } from './barra'
 import { ESTADOS_PETICION, fechaHoraEs, type OpcionesGestorCompras } from './opciones'
 import { TramitarPeticionesDialog } from '../peticiones/TramitarPeticionesDialog'
 import { ESTADOS_TRAMITABLES } from '../peticiones/peticiones'
+import { Globo, ImprimirResueltasDialog } from '../peticiones/ImprimirResueltasDialog'
+import { useResueltasNuevas } from '../peticiones/resueltas'
 
 interface PeticionRow {
   key: string
@@ -81,6 +83,8 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
   const [cargando, setCargando] = useState(false)
   const [localizar, setLocalizar] = useState(false)
   const [tramitar, setTramitar] = useState(false)
+  const [imprimirResueltas, setImprimirResueltas] = useState(false)
+  const resueltasNuevas = useResueltasNuevas()
 
   const cargar = useCallback(
     async (est: Set<string>) => {
@@ -482,6 +486,14 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           <Link2 size={16} className="text-[#2a9d2a]" /> Peticiones
         </BarButton>
         <BarButton
+          title="Peticiones resueltas (la mercancía ya llegó) separadas por proveedor, para imprimirlas y que el almacén las prepare para reparto"
+          className="relative w-[150px] text-[17px]! text-[#000]"
+          onClick={() => setImprimirResueltas(true)}
+        >
+          <Printer size={16} className="text-[#2a9d2a]" /> Resueltas
+          <Globo n={resueltasNuevas} className="absolute -right-2 -top-2" />
+        </BarButton>
+        <BarButton
           title="Tramitar las peticiones pendientes o atendidas de la lista a pedidos de proveedor (uno por proveedor)"
           className="w-[150px] text-[17px]! text-[#000]"
           disabled={!rows.some((r) => !r.gw && ESTADOS_TRAMITABLES.includes(r.estado))}
@@ -498,6 +510,7 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           onHecho={() => cargar(estados)}
         />
       )}
+      {imprimirResueltas && <ImprimirResueltasDialog onClose={() => setImprimirResueltas(false)} />}
       {localizar && (
         <LocalizarDialog
           onBuscar={(t) => {

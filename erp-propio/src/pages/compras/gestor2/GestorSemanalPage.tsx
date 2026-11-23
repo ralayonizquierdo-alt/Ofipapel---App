@@ -23,6 +23,8 @@ import { Propuestas } from './Propuestas'
 import { PedidosControl } from './PedidosControl'
 import { CorreoProveedores } from './CorreoProveedores'
 import { TabPeticiones } from '../gestor/TabPeticiones'
+import { Globo } from '../peticiones/ImprimirResueltasDialog'
+import { useResueltasNuevas } from '../peticiones/resueltas'
 import { CLAVE_OPCIONES, OPCIONES_DEFECTO } from '../gestor/opciones'
 import { leerOpciones } from '../../ventas/gestores/comun'
 import { GwOperativa, type BloqueOperativa } from '../../../components/gw/GwOperativa'
@@ -148,6 +150,7 @@ export function GestorSemanalPage() {
   })
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
+  const resueltasNuevas = useResueltasNuevas()
   const [sinProveedor, setSinProveedor] = useState(0)
   const [estado, setEstado] = useState<Estado | null>(null)
   const [calculando, setCalculando] = useState(false)
@@ -266,6 +269,7 @@ export function GestorSemanalPage() {
         </Pestana>
         <Pestana activa={vista === 'peticiones'} onClick={() => setVista('peticiones')}>
           Peticiones de clientes
+          <Globo n={resueltasNuevas} className="absolute -right-2 -top-2" />
         </Pestana>
         <Pestana activa={vista === 'pedidos'} onClick={() => setVista('pedidos')}>
           Pedidos a proveedor
@@ -375,7 +379,7 @@ function Dato({ titulo, valor, alerta }: { titulo: string; valor: string; alerta
 
 function Pestana({ activa, onClick, children }: { activa: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={activa} className={`h-9 rounded-full px-4 text-[14px] font-semibold ${activa ? 'bg-[#1d3a8a] text-white' : 'border border-[#d5dcec] bg-white text-[#1b2540] hover:bg-[#f1f5fd]'}`}>
+    <button type="button" onClick={onClick} aria-pressed={activa} className={`relative h-9 rounded-full px-4 text-[14px] font-semibold ${activa ? 'bg-[#1d3a8a] text-white' : 'border border-[#d5dcec] bg-white text-[#1b2540] hover:bg-[#f1f5fd]'}`}>
       {children}
     </button>
   )
