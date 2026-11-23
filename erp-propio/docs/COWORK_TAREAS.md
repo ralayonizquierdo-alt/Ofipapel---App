@@ -11,7 +11,32 @@ Hay **más de un Cowork**, cada uno en un PC distinto. Cada tarea dice dónde co
 | 1 | **Cerrar los repartos del día** en GeminisWin a partir del parte de la app de repartidores y **generar los del día siguiente** (habilidad `cerrar-reparto-geminiswin`) | PC de Mónica | Por confirmar | Repartos cerrados en GeminisWin |
 | 2 | **Generar el pedido semanal de informática**: propuesta del Generador de Pedidos de GeminisWin con las ventas de domingo a domingo, unida en un Excel (habilidad `generar-pedido-informatica-geminiswin`) | PC de Rober | **A mano**: Rober se lo pide al chat de Cowork | Excel «PEDIDO dd--dd MMM» en la carpeta PEDIDOS INFORMATICA |
 | 3 | **Importar los pedidos de informática** en Compras de GeminisWin (Excel semanales de UFP, EXADI e INFORPOR), imprimir las hojas de control y archivar los ficheros en la carpeta de la semana (habilidad `importar-pedidos-informatica-geminiswin`) | PC de Rober | **A mano**: Rober se lo pide al chat de Cowork | Pedidos en GeminisWin, hojas impresas, ficheros archivados |
-| 4 | **Listados para Finanzas** (`Index.html`): ventas anuales, por vendedor, por tienda, por cliente, compras, pagos a proveedores, cierres de caja… Entre ellos «Totales Mensuales de Ventas agrupado por Vendedor» del año en curso (habilidad `listado-ventas-vendedor-geminiswin`). Formato de cada uno: `docs/ERP_PARA_FINANZAS.md` | **Por confirmar** | **Por confirmar** (Rober no recuerda cómo se automatizó) | `\\SERVER-OFIPAPEL\Aplicaciones\ARCHIVOS OFIPAPEL\LISTADOS AUTOMATIZADOS` (= `P:\ARCHIVOS OFIPAPEL\LISTADOS AUTOMATIZADOS`) |
+| 4 | **Listados de GeminisWin para Finanzas** (encargo de Luis). Detalle abajo | PC de Rober (`C:\Ofipapel\Herramientas`) | **Automático**: cada día laborable a las 9:50 | Carpeta LISTADOS AUTOMATIZADOS, app de Finanzas y correo |
+
+## 4 · Listados de GeminisWin para Finanzas (proceso automático del PC de Rober)
+
+Programa en `C:\Ofipapel\Herramientas` del PC de Rober. Arranca **cada día laborable a las 9:50**. Lo de cada día va
+solo a la app de Finanzas; a la carpeta `\\SERVER-OFIPAPEL\Aplicaciones\ARCHIVOS OFIPAPEL\LISTADOS AUTOMATIZADOS` solo
+va lo de los días que toca. Datos según el código que revisó el Cowork de Rober el 17/11/2026.
+
+| Cuándo | Qué hace |
+|---|---|
+| **Cada día laborable** | Sube a Finanzas las **ventas por caja** y los **pedidos sin actualizar** del día. No pasa por la carpeta |
+| **Día 10** (si cae en fin de semana, el lunes) | `LISTADOS GEMINISWIN <fecha>.xlsx`: el Excel completo, con todas las pestañas, del **mes anterior cerrado**. Se guarda en la carpeta, se envía por correo y se sube a Finanzas |
+| **Día 20** | `VENTAS POR VENDEDOR <fecha>.xlsx` (listado 17 de GeminisWin) |
+| **Último día laborable del mes** (o los 5 primeros días del siguiente, si el PC estuvo apagado) | `PEDIDOS PROVEEDOR SIN ACTUALIZAR <fecha>.xlsx` |
+| **Lunes** | Los 3 **inventarios semanales** (04, Aliz-1 y Aliz-2). **En pausa hasta el 01/12/2026** |
+
+Cada fichero de la carpeta se mete además en el archivo cifrado `LISTADOS GEMINISWIN.7z`, ordenado por tipo y mes.
+
+**Avisos (23/11/2026):**
+- **El cifrado falla desde el 09/11.** Puede haber copias sueltas sin cifrar en la carpeta. La causa probable son las
+  exportaciones de ContaNet que hay en esa misma carpeta (sin confirmar).
+- Las exportaciones de ContaNet de esa carpeta (ZIP de capturas, CSV de diarios y balances) **no las pone ningún
+  proceso programado**: vienen de la extracción manual de noviembre (desde el 05/11).
+- **Pendiente:** cuando el PC de Rober esté conectado a su Cowork, comprobar la carpeta y **mover lo de ContaNet a
+  otra carpeta** para que el cifrado vuelva a funcionar.
+- Depende de que el PC de Rober esté encendido a las 9:50. Nadie lo vigila todavía (podría hacerlo Virgilio).
 
 ## Programas del PC de Mónica que cuidó Cowork (no son Cowork: corren solos en Windows)
 
