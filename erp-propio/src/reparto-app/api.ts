@@ -171,6 +171,18 @@ export async function lineas(token: string, tienda: string, numero: number) {
 export const lineasEnCache = (tienda: string, numero: number) => leer<{ reparto: RepartoApp; lineas: LineaApp[] }>(K_CACHE + tienda + '-' + numero)
 export const guardarCache = (tienda: string, numero: number, datos: { reparto: RepartoApp; lineas: LineaApp[] }) => guardar(K_CACHE + tienda + '-' + numero, datos)
 
+/** Oficina (supervisor): pasa un pedido a otra ruta, sin que nadie tenga que aceptarlo. */
+export const oficinaCambiarRuta = (token: string, tienda: string, numero: number, vt: string, vn: number, destTienda: string, destNumero: number, motivo: string) =>
+  rpc<{ ok: boolean }>('fn_app_rep_oficina_cambiar_ruta', {
+    p_token: token,
+    p_tienda: tienda,
+    p_numero: numero,
+    p_vt: vt,
+    p_vn: vn,
+    p_dest_tienda: destTienda,
+    p_dest_numero: destNumero,
+    p_motivo: motivo,
+  })
 export const cambiarRuta = (token: string, tienda: string, numero: number, vt: string, vn: number, destTienda: string, destNumero: number, motivo: string) =>
   rpc<{ ok: boolean }>('fn_app_rep_cambiar_ruta', {
     p_token: token,

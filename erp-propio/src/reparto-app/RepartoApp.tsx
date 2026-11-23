@@ -3,6 +3,7 @@ import {
   cambiarTelefono,
   cancelarTraspaso,
   proponerTraspaso,
+  oficinaCambiarRuta,
   responderTraspaso,
   soltarRuta,
   traspasos,
@@ -467,6 +468,7 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
   const [error, setError] = useState<string | null>(null)
   const [abierta, setAbierta] = useState<RutaOficina | null>(null)
   const [lineas, setLineas] = useState<LineaOficina[] | null>(null)
+  const [cambiando, setCambiando] = useState<LineaOficina | null>(null)
   const [hora, setHora] = useState<string | null>(null)
   // «Por cobrar»: facturas entregadas con importe pendiente; se despliega debajo de las rutas.
   const [cobros, setCobros] = useState<PorCobrar[] | null>(null)
@@ -606,12 +608,34 @@ function Oficina({ sesion, onSalir, onCaducada }: { sesion: Sesion; onSalir: () 
                   </div>
                   {detalle && <div style={{ fontSize: 13, color: V.texto }}>{detalle}</div>}
                   {l.telefono_repartidor && <div style={{ fontSize: 13, color: '#1f6fb2' }}>📞 El repartidor usó otro teléfono: {l.telefono_repartidor}</div>}
+                  {sesion.supervisor && r.estado === 2 && (l.estado === 'pendiente' || l.estado === 'no_entregado') && (
+                    <div style={{ marginTop: 6 }}>
+                      <Boton claro onClick={() => setCambiando(l)} style={{ padding: '6px 12px', fontSize: 14 }}>
+                        ⇄ Cambiar de ruta
+                      </Boton>
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
           {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
         </Tarjeta>
+        {cambiando && (
+          <HojaCambioRutaOficina
+            sesion={sesion}
+            origen={r}
+            linea={cambiando}
+            rutas={rutas ?? []}
+            hoy={hoy}
+            onCerrar={() => setCambiando(null)}
+            onHecho={() => {
+              setCambiando(null)
+              void cargar()
+              void cargarLineas(r)
+            }}
+          />
+        )}
       </>
     )
   }
@@ -2612,6 +2636,80 @@ function HojaTelefono({ sesion, reparto, linea, onCerrar, onHecho }: { sesion: S
           </button>
         </div>
       )}
+    </Hoja>
+  )
+}
+
+/**
+ * Oficina: cambiar un pedido de ruta (Rober, 23/11/2026). Destinos: los repartos abiertos y, de las rutas ya cerradas que no tienen
+ * ninguno abierto en la lista, una por ruta (el servidor lo pasa al reparto abierto más nuevo de esa ruta; si no hay, avisa).
+ */
+function HojaCambioRutaOficina({ sesion, origen, linea, rutas, hoy, onCerrar, onHecho }: { sesion: Sesion; origen: RutaOficina; linea: LineaOficina; rutas: RutaOficina[]; hoy: string | null; onCerrar: () => void; onHecho: () => void }) {
+  const [destino, setDestino] = useState<RutaOficina | null>(null)
+  const [motivo, setMotivo] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [enviando, setEnviando] = useState(false)
+  const otras = rutas.filter((x) => !(x.tienda === origen.tienda && x.numero === origen.numero))
+  const abiertas = otras.filter((x) => x.estado === 2)
+  const conAbierta = new Set(abiertas.map((x) => x.ruta))
+  const cerradas: RutaOficina[] = []
+  for (const x of otras) {
+    if (x.estado !== 2 && !conAbierta.has(x.ruta)) {
+      conAbierta.add(x.ruta)
+      cerradas.push(x)
+    }
+  }
+  const lista = [...abiertas, ...cerradas].sort((a, b) => String(a.ruta).localeCompare(String(b.ruta)) || a.fecha.localeCompare(b.fecha))
+  const hacer = async () => {
+    if (!destino || enviando) return
+    setEnviando(true)
+    setError(null)
+    try {
+      await oficinaCambiarRuta(sesion.token, origen.tienda, origen.numero, linea.vt, linea.vn, destino.tienda, destino.numero, motivo.trim() || 'Cambio hecho desde la oficina')
+      onHecho()
+    } catch (e) {
+      setError((e as Error).message)
+      setEnviando(false)
+    }
+  }
+  return (
+    <Hoja titulo={`Cambiar de ruta: ${linea.cliente}`} onCerrar={onCerrar}>
+      <div style={{ fontWeight: 700, color: V.verde, marginBottom: 6 }}>¿A qué ruta lo pasas? Toca una:</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '38vh', overflow: 'auto' }}>
+        {lista.map((r) => {
+          const dia = r.fecha === hoy ? 'hoy' : `del ${r.fecha.slice(8, 10)}/${r.fecha.slice(5, 7)}`
+          return (
+            <Boton key={`${r.tienda}-${r.numero}`} claro={destino !== r} onClick={() => setDestino(r)} style={{ textAlign: 'left', fontSize: 15 }}>
+              <div>
+                {destino === r ? '✔ ' : ''}
+                {r.ruta ? `RUTA ${/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta} · ` : ''}
+                {r.ruta_nombre} {r.repartidor ? `· ${r.repartidor}` : '· sin repartidor'}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 400, opacity: 0.85 }}>
+                Reparto nº {r.numero} · {dia}
+                {r.estado !== 2 ? ' · cerrada: irá al próximo reparto abierto de esa ruta' : ''}
+              </div>
+            </Boton>
+          )
+        })}
+        {!lista.length && <div style={{ color: V.gris }}>No hay otras rutas a las que pasarlo.</div>}
+      </div>
+      <textarea
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+        placeholder="¿Por qué? (opcional)"
+        rows={2}
+        style={{ width: '100%', border: '2px solid #cfe0cf', borderRadius: 12, padding: 10, fontSize: 16, marginTop: 10 }}
+      />
+      {error && <div style={{ color: V.rojo, marginTop: 6 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <Boton claro color={V.gris} onClick={onCerrar} style={{ flex: 1 }}>
+          Cancelar
+        </Boton>
+        <Boton disabled={!destino || enviando} onClick={hacer} style={{ flex: 2 }}>
+          {enviando ? 'Pasando…' : 'Pasar el pedido'}
+        </Boton>
+      </div>
     </Hoja>
   )
 }
