@@ -67,3 +67,12 @@ Tablas `agente` (registro) y `agente_orden` (cola). NEXA lo sabe por su memoria 
 `fn_agentes_estado()`, órdenes con `fn_agente_ordenar(agente, orden, parametros)` (nivel 2: propone y la persona dice
 «sí»). Órdenes de este agente: `pasar_ahora`, `releer {"documento": id}`, `pausar`, `reanudar`. Cada agente nuevo se da
 de alta en `agente` con sus órdenes y su permiso.
+
+## Otros buzones de @ofipapelsl.com (23/11/2026, «No activa»)
+
+Rober: E-milio puede vigilar más buzones de la empresa para la tarea que se le pida a través de NEXA. Para cada uno:
+1. Quien administra Microsoft 365 añade el buzón al grupo `erp-lectura-compras@ofipapelsl.com` (si no, la política de
+   acceso no le deja leerlo) y lo comprueba con `Test-ApplicationAccessPolicy` (debe decir Granted).
+2. Se le enseña la tarea concreta (qué correos buscar, qué hacer con ellos) en `correo-proveedores` y se activa su
+   función 6 con `fn_agente_funcion_activar('correo_proveedores', 6, true)`.
+Siempre solo lectura: no contesta, no borra y no mueve correos.
