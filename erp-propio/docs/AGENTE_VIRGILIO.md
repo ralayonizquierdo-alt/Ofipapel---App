@@ -29,8 +29,9 @@ Cada persona solo recibe avisos de lo que su permiso le deja ver.
 | 8 | **Cuadre ERP–GeminisWin** de ventas y cobros por día, últimos 7 días (tolerancia 1 €). Solo los días con ventas o cobros en el ERP: hoy no vende y no hay nada que cuadrar; cuenta en cuanto empiece (`fn_virgilio_cuadre`) | Rober | **Activada** |
 | 9 | **Vigilancias personales**: cualquier empleado se las pide a NEXA con sus palabras («avísame cuando llegue el pedido de Apli», «cuando el artículo X tenga stock», «si el cliente Y hace un pedido») | Quien la pide | **Activada** |
 
-Encender o apagar una función: parámetro `vigilante.desactivadas` (lista de claves: resueltas, presupuestos, sistema,
-retrasados, correo, riesgo, recibos, cuadre, personales). Rober, 23/11/2026: 2, 6 y 7 «no activadas».
+Encender o apagar una función: `fn_agente_funcion_activar('vigilante', <nº>, true/false)` (o pedírselo a NEXA). Es el
+mismo interruptor que usa en sus pasadas (`agente_funcion.clave`) y lo que enseña su ficha del hub. El parámetro
+`vigilante.desactivadas` ya no se usa. Rober, 23/11/2026: 2, 6 y 7 «no activadas».
 
 ## Estado
 
