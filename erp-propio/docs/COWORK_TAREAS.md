@@ -1,7 +1,7 @@
 # Tareas de Cowork (GeminisWin)
 
-> Las tareas 2, 3 y 4 (PC de Rober) forman el agente **Geminio** (código `geminis_pc`), con su ficha en el hub y en
-> NEXA. Cómo conectarlo al ERP: apartado «Geminio: avisar al ERP», al final.
+> Las tareas 2, 3 y 4 (PC de Rober) forman la agente **Gemma** (código `geminis_pc`), con su ficha en el hub y en
+> NEXA. Cómo conectarlo al ERP: apartado «Gemma: avisar al ERP», al final.
 
 Rober, 23/11/2026: «que quede constancia de todas las automatizaciones y agentes que tengo por ahí, por si me olvido
 de algo». Aquí solo está lo que hace **Cowork** (Claude con acceso al escritorio de un PC de la oficina, donde está
@@ -108,10 +108,10 @@ GeminisWin solo se lee desde fuera: nunca se escribe en los DBF ni se instala na
 cambios en pantallas de GeminisWin salvo las tareas de esta lista que lo hacen a propósito (1 y 3); los datos de
 GeminisWin y CONTANET nunca van al repositorio.
 
-## Geminio: avisar al ERP (lo hace el Cowork del PC de Rober, una vez)
+## Gemma: avisar al ERP (lo hace el Cowork del PC de Rober, una vez)
 
 Para que su ficha diga qué ha hecho y Virgilio sepa si un día no ha trabajado, el programa de
-`C:\Ofipapel\Herramientas` avisa al ERP al terminar cada trabajo. Clave propia de Geminio (no es la del puente):
+`C:\Ofipapel\Herramientas` avisa al ERP al terminar cada trabajo. Clave propia de Gemma (no es la del puente):
 
 1. **Crear la clave en el PC** (nunca sale de él ni pasa por ningún chat): 48 caracteres aleatorios, por ejemplo
    `python -c "import secrets; print(secrets.token_urlsafe(36))"`, guardada en `C:\Ofipapel\Herramientas\geminio.clave`.
@@ -129,10 +129,10 @@ Para que su ficha diga qué ha hecho y Virgilio sepa si un día no ha trabajado,
    El resumen **sin datos de clientes ni importes** (el hub es público): «Ventas por caja subidas a Finanzas».
 4. Si el ERP no contesta, no pasa nada: el trabajo sigue igual; solo no queda apuntado.
 
-### Encargos de NEXA a Geminio (no activo hasta que lo conecte el Cowork)
+### Encargos de NEXA a Gemma (no activo hasta que lo conecte el Cowork)
 
 Si alguien pide a NEXA un dato de GeminisWin que **no está en el espejo** (un listado concreto), NEXA lo encarga a
-Geminio (`agente_orden`, orden `listado`, parámetros `{"que", "desde", "hasta"}`; lo puede pedir quien tenga el permiso
+Gemma (`agente_orden`, orden `listado`, parámetros `{"que", "desde", "hasta"}`; lo puede pedir quien tenga el permiso
 de Listados). El programa del PC de Rober, en cada vuelta:
 1. `POST .../rest/v1/rpc/fn_agente_ordenes_pendientes` con `{"p_agente": "geminis_pc", "p_clave": "<clave>"}`.
 2. Saca el listado de GeminisWin **solo leyendo** (sin guardar cambios en GeminisWin).
