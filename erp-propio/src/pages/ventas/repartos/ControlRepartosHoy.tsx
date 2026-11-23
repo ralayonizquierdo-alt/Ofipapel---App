@@ -485,7 +485,7 @@ export function ControlRepartosHoy({
             >
               <div onClick={(e) => e.stopPropagation()} className="w-[1000px] max-w-[97vw]">
                 <GwWindow title={`Pedidos · ${nombreRuta(r)} · nº ${r.numero} · ${r.repartidor_nombre ?? 'sin repartidor'}`} onClose={() => setDesplegada(null)}>
-                  <div className="max-h-[85vh] overflow-auto bg-[#f6f8f6] p-1.5 text-[13px]">
+                  <div className="gw-seleccionable max-h-[85vh] overflow-auto bg-[#f6f8f6] p-1.5 text-[13px]">
                     {mensaje && <div className="mb-1 border border-[var(--gw-border)] bg-white px-2 py-0.5 text-[#1a4fd0]">{mensaje}</div>}
                     {inc.length > 0 && (
                       <div className="mb-1.5">
