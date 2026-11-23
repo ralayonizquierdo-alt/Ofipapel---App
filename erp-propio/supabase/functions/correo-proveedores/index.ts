@@ -1,8 +1,10 @@
 // Edge Function «correo-proveedores» = E-MILIO (Rober, 22/11/2026): el agente que vigila el buzón de compras y prepara en el ERP
 // las propuestas, facturas y albaranes que mandan los proveedores. Ver la migración 20261122_correo_proveedores.sql.
 //
-// · Solo LEE el buzón de Archivo → Datos de Empresa → «Correo remitente de Compras». No borra, no mueve, no marca como
-//   leído y no contesta. App de Microsoft aparte, de solo lectura: secretos AZURE_TENANT_ID (el de siempre),
+// · LEE el buzón de Archivo → Datos de Empresa → «Correo remitente de Compras». No borra, no mueve, no marca como
+//   leído y no contesta; lo único que cambia es la categoría de Outlook «Procesado por E-milio» (parámetro
+//   compras.categoria_procesado) en los correos ya procesados (necesita Mail.ReadWrite; sin él, solo avisa).
+//   App de Microsoft aparte: secretos AZURE_TENANT_ID (el de siempre),
 //   AZURE_LECTURA_CLIENT_ID y AZURE_LECTURA_CLIENT_SECRET, limitada en Exchange a ese buzón. Sin esos secretos no hace
 //   nada (apunta «sin claves» en correo_vigilancia).
 // · La llama pg_cron cada 10 minutos. Se despliega con verify_jwt = false, como correo-enviar: solo procesa correos
@@ -97,12 +99,29 @@ async function graph<T>(token: string, ruta: string): Promise<T> {
   return (await r.json()) as T
 }
 
+// Marca el correo en Outlook con una categoría («Procesado por E-milio»), sin quitar las que ya tenga (Rober,
+// 23/11/2026: «cuando E-milio procese un email, tiene que ponerlo como procesado»). Necesita Mail.ReadWrite en la app
+// de lectura; si aún no lo tiene, no falla la pasada: devuelve el aviso.
+async function marcarProcesado(token: string, buzon: string, id: string, actuales: string[], categoria: string): Promise<string | null> {
+  if (actuales.includes(categoria)) return null
+  const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ categories: [...actuales, categoria] }),
+  })
+  if (r.ok) return null
+  const txt = await r.text()
+  if (r.status === 403 || /ErrorAccessDenied/i.test(txt)) return 'No puedo marcar los correos como procesados en Outlook: falta el permiso Mail.ReadWrite en la app de lectura.'
+  return `No he podido marcar un correo como procesado en Outlook (${r.status}).`
+}
+
 interface Mensaje {
   id: string
   internetMessageId?: string
   receivedDateTime: string
   subject?: string
   from?: { emailAddress?: { address?: string; name?: string } }
+  categories?: string[]
 }
 interface Adjunto {
   '@odata.type': string
@@ -413,11 +432,14 @@ Deno.serve(async (req) => {
   let conDiferencias = 0
   let ultimo = desde as string
   let error: string | null = null
+  let avisoMarcar: string | null = null
+  const { data: parCat } = await sb.from('parametro').select('valor').eq('clave', 'compras.categoria_procesado').maybeSingle()
+  const categoria = typeof parCat?.valor === 'string' && parCat.valor.trim() ? parCat.valor.trim() : 'Procesado por E-milio'
   try {
     const filtro = encodeURIComponent(`receivedDateTime ge ${new Date(desde).toISOString()} and hasAttachments eq true`)
     const lista = await graph<{ value: Mensaje[] }>(
       token,
-      `/users/${encodeURIComponent(buzon)}/mailFolders/inbox/messages?$filter=${filtro}&$orderby=receivedDateTime asc&$top=30&$select=id,internetMessageId,receivedDateTime,subject,from`,
+      `/users/${encodeURIComponent(buzon)}/mailFolders/inbox/messages?$filter=${filtro}&$orderby=receivedDateTime asc&$top=30&$select=id,internetMessageId,receivedDateTime,subject,from,categories`,
     )
     mensajes: for (const m of lista.value ?? []) {
       const remitente = String(m.from?.emailAddress?.address ?? '').toLowerCase()
@@ -432,10 +454,14 @@ Deno.serve(async (req) => {
       const pdfs = (adj.value ?? []).filter(
         (a) => a['@odata.type'] === '#microsoft.graph.fileAttachment' && (/pdf/i.test(a.contentType ?? '') || /\.pdf$/i.test(a.name)),
       )
+      let completoMensaje = true
       for (const a of pdfs) {
         const { data: ya } = await sb.from('correo_proveedor_documento').select('id').eq('mensaje_id', idMensaje).eq('adjunto_nombre', a.name).maybeSingle()
         if (ya) continue
-        if (procesados >= MAX_PDF_PASADA) break mensajes // el resto, en la siguiente pasada (no se avanza «ultimo»)
+        if (procesados >= MAX_PDF_PASADA) {
+          completoMensaje = false
+          break mensajes // el resto, en la siguiente pasada (no se avanza «ultimo»)
+        }
         procesados++
         const meta: Meta = { remitente, remitenteNombre: m.from?.emailAddress?.name ?? null, asunto: (m.subject ?? '').slice(0, 300), adjunto: a.name, recibido: m.receivedDateTime }
         let fila: Record<string, unknown> = {
@@ -467,6 +493,10 @@ Deno.serve(async (req) => {
         }
         await sb.from('correo_proveedor_documento').insert(fila)
       }
+      // Todos sus PDF ya están en el ERP: se marca en Outlook (una vez; si ya lo tiene, no se toca).
+      if (completoMensaje && pdfs.length && !avisoMarcar) {
+        avisoMarcar = await marcarProcesado(token, buzon, m.id, m.categories ?? [], categoria)
+      }
       ultimo = m.receivedDateTime
     }
   } catch (e) {
@@ -478,7 +508,7 @@ Deno.serve(async (req) => {
   const resumen = procesados
     ? `${procesados} documentos nuevos (${Object.entries(tipos).map(([k, v]) => `${v} ${nombres[k] ?? k}`).join(', ')})${conDiferencias ? `; ${conDiferencias} con diferencias con su pedido` : ''}.`
     : 'Sin documentos nuevos.'
-  await resumenAgente({ ultimo_error: error, ultimo_resumen: resumen })
+  await resumenAgente({ ultimo_error: error, ultimo_resumen: avisoMarcar ? `${resumen} Aviso: ${avisoMarcar}` : resumen })
   await cerrarOrdenes(error ? 'error' : 'hecha', error ?? `Buzón repasado: ${resumen}`, pendientesPasar)
   return responder({ ok: !error, procesados, error })
 })

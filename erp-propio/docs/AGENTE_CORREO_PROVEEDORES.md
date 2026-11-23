@@ -13,7 +13,8 @@ Rober, 22/11/2026. Vigila el buzón de compras y deja preparados en el ERP los P
   por el número que cita el documento o, si no cita ninguno, el único pedido abierto de ese proveedor.
 - Todo queda en Gestor 2.0 → **Correo de proveedores** (tabla `correo_proveedor_documento`, PDF en el almacén privado
   `correo_proveedores`). Allí se ve el PDF, se abre el pedido y se marca como revisado o se descarta.
-- **Solo lee.** No borra, no mueve, no marca como leído y no contesta. Nunca confirma nada al proveedor ni cambia
+- **Solo lee**, salvo una cosa: a cada correo procesado le pone en Outlook la categoría «Procesado por E-milio»
+  (parámetro `compras.categoria_procesado`). No borra, no mueve, no marca como leído y no contesta. Nunca confirma nada al proveedor ni cambia
   pedidos ni facturas. Los correos internos (`@ofipapelsl.com`) no se tocan.
 - Sin las claves de lectura no hace nada: la pestaña lo dice («esperando la conexión de Microsoft»).
 
@@ -24,8 +25,9 @@ toca.
 
 1. entra.microsoft.com → Aplicaciones → Registros de aplicaciones → **Nuevo registro**
    (`ERP Ofipapel - lectura compras`). Apuntar el **Id. de aplicación (cliente)**.
-2. Permisos de API → Agregar → Microsoft Graph → **Permisos de aplicación** → `Mail.Read` → Agregar →
-   **Conceder consentimiento de administrador**.
+2. Permisos de API → Agregar → Microsoft Graph → **Permisos de aplicación** → `Mail.ReadWrite` → Agregar →
+   **Conceder consentimiento de administrador**. (Con `Mail.Read` solo lee; `Mail.ReadWrite` le deja además poner la
+   categoría «Procesado por E-milio» a los correos ya procesados. No borra, no mueve y no contesta.)
 3. Certificados y secretos → **Nuevo secreto de cliente** (24 meses). Copiar el **Valor** (solo se ve una vez).
 4. Supabase → Project Settings → Edge Functions → Secrets:
    - `AZURE_LECTURA_CLIENT_ID` = Id. de aplicación
