@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Link2, Package, Printer, ShoppingCart } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
@@ -71,9 +71,20 @@ const etiquetaEstado = (v: string) => ESTADOS_PETICION.find((e) => e.value === v
 /** Máximo de peticiones de la pestaña; si hay más, avisa de que se afine el filtro. */
 const TOPE_PETICIONES = 5000
 
+/** Filtro de tipo de petición: Ped. = tipo 1 (o sin tipo, las del ERP); Dev. = tipo 2 y 3 (devoluciones/abonos, cantidades negativas). */
+function conTipos<T extends { or: (f: string) => T; gte: (c: string, v: number) => T }>(b: T, tp: Set<'ped' | 'dev'>): T {
+  if (tp.size !== 1) return b
+  return tp.has('ped') ? b.or('tipo.is.null,tipo.eq.1') : b.gte('tipo', 2)
+}
+
 export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorCompras; onError: (m: string | null) => void }) {
   const navigate = useNavigate()
   const [estados, setEstados] = useState<Set<string>>(() => new Set(['pendiente']))
+  // «Tipo Petición» de GeminisWin (Ped. / Dev.): por defecto solo las peticiones normales; las de devolución/abono
+  // (cantidad negativa) salen solo si se marca «Dev.». Ninguno marcado = las dos (Rober, 23/11/2026).
+  const [tipos, setTipos] = useState<Set<'ped' | 'dev'>>(() => new Set(['ped']))
+  const tiposRef = useRef(tipos)
+  tiposRef.current = tipos
   const [rows, setRows] = useState<PeticionRow[]>([])
   const [tram, setTram] = useState<TramRow[]>([])
   const [sel, setSel] = useState(0)
@@ -99,7 +110,8 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           .order('fecha_hora', { ascending: false })
           .order('tienda_terminal_codigo')
           .order('numero')
-        return est.size ? b.in('estado', [...est]) : b
+        const c = conTipos(b, tiposRef.current)
+        return est.size ? c.in('estado', [...est]) : c
       }
       // Supabase corta cada respuesta en 1000 filas: por bloques, con tope y aviso.
       const { data: lista, error, cortado } = await todasLasFilas(q, { tope: TOPE_PETICIONES })
@@ -115,7 +127,8 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
           .order('fecha_hora', { ascending: false })
           .order('oficina')
           .order('numero')
-        return est.size ? b.in('estado', [...est].map((e) => ESTADO_GW.indexOf(e) + 1).filter((n) => n > 0)) : b
+        const c = conTipos(b, tiposRef.current)
+        return est.size ? c.in('estado', [...est].map((e) => ESTADO_GW.indexOf(e) + 1).filter((n) => n > 0)) : c
       }
       const gw = await todasLasFilas(qGw, { tope: TOPE_PETICIONES })
       if (gw.error) {
@@ -377,6 +390,25 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
                 />
               </div>
             ))}
+          </div>
+        </fieldset>
+        <fieldset className="gw-group flex-none px-2 pb-1.5 pt-0.5">
+          <legend className="text-[17px]!">Tipo Petición</legend>
+          <div className="flex gap-1">
+            <OptionButton
+              label="Ped."
+              value={tipos.has('ped')}
+              onChange={() => setTipos((t) => { const n = new Set(t); if (n.has('ped')) n.delete('ped'); else n.add('ped'); return n })}
+              className="h-[34px]! w-[78px]! text-[16px]!"
+              title="Peticiones normales (de pedido). Pulsa «Aplicar Filtros» para ver el cambio."
+            />
+            <OptionButton
+              label="Dev."
+              value={tipos.has('dev')}
+              onChange={() => setTipos((t) => { const n = new Set(t); if (n.has('dev')) n.delete('dev'); else n.add('dev'); return n })}
+              className="h-[34px]! w-[78px]! text-[16px]!"
+              title="Peticiones de devolución o abono (cantidad negativa). Pulsa «Aplicar Filtros» para ver el cambio."
+            />
           </div>
         </fieldset>
         <button type="button" className="gw-btn h-[62px]! w-[170px] flex-none self-end text-[18px]!" disabled={cargando} onClick={() => cargar(estados)}>

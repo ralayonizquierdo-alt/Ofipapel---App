@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repartos de hoy · Ofipapel</title>
+<!--
+  Pantalla de repartos para TVs con navegador MUY viejo (23/11/2026, Rober: en la LG la pantalla normal se quedaba en blanco).
+  JavaScript de los de antes (sin módulos, ni flechas, ni let/const), sin mapa: solo las rutas de hoy, el ranking y los totales.
+  Misma vinculación por código que /tv (fn_reparto_tv_pedir / _recoger) y mismos datos (fn_reparto_tv). Los dos valores
+  de abajo los pone la publicación (vite.config.ts) desde las variables del entorno: no se guardan en el repositorio.
+-->
+<style>
+  html,body{margin:0;padding:0;background:#0f3d0f;color:#fff;font-family:Arial,Helvetica,sans-serif}
+  #cab{overflow:hidden;padding:14px 24px;background:#1a5c1a}
+  #cab .t{float:left;font-size:34px;font-weight:bold}
+  #cab .h{float:right;font-size:40px;font-weight:bold}
+  #msg{padding:60px 30px;text-align:center}
+  #msg .c{font-size:120px;font-weight:bold;letter-spacing:14px;margin:20px 0;font-family:"Courier New",monospace}
+  #msg p{font-size:26px;margin:8px 0}
+  #rutas{padding:14px 18px;overflow:hidden}
+  .r{float:left;width:31%;margin:1%;background:#17501b;border-radius:10px;padding:14px 16px;box-sizing:border-box;min-height:150px}
+  .r .n{font-size:30px;font-weight:bold}
+  .r .p{font-size:22px;opacity:.85;margin:2px 0 8px}
+  .r .b{height:22px;background:#0b2b0d;border-radius:11px;overflow:hidden}
+  .r .b div{height:22px;background:#8dc41e}
+  .r .d{font-size:24px;margin-top:8px}
+  .r .e{font-size:20px;margin-top:4px;color:#ffd27a}
+  .c4{opacity:.6}
+  #pie{clear:both;padding:10px 24px;font-size:24px;background:#1a5c1a;overflow:hidden}
+  #pie span{margin-right:30px}
+</style>
+</head>
+<body>
+<div id="cab"><div class="t">Repartos de hoy</div><div class="h" id="hora"></div></div>
+<div id="msg"></div>
+<div id="rutas"></div>
+<div id="pie"></div>
+<script>
+(function () {
+  var URL_API = '__SUPABASE_URL__';
+  var KEY_API = '__SUPABASE_KEY__';
+  var K = 'reparto.tv.clave', KC = 'reparto.tv.codigo';
+  var clave = null, codigo = null;
+  try { clave = localStorage.getItem(K); codigo = localStorage.getItem(KC); } catch (e) {}
+  var q = location.search.match(/[?&]k=([^&]+)/);
+  if (q) { clave = decodeURIComponent(q[1]); try { localStorage.setItem(K, clave); } catch (e) {} }
+
+  function $(id) { return document.getElementById(id); }
+  function rpc(fn, cuerpo, ok, ko) {
+    var x = new XMLHttpRequest();
+    x.open('POST', URL_API + '/rest/v1/rpc/' + fn, true);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.setRequestHeader('apikey', KEY_API);
+    x.setRequestHeader('Authorization', 'Bearer ' + KEY_API);
+    x.timeout = 15000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      var d = null;
+      try { d = JSON.parse(x.responseText); } catch (e) {}
+      if (x.status >= 200 && x.status < 300) ok(d); else ko(d && d.message ? String(d.message) : 'error', x.status);
+    };
+    x.send(JSON.stringify(cuerpo || {}));
+  }
+  function guardar(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function txt(el, t) { el.innerHTML = ''; el.appendChild(document.createTextNode(t)); }
+
+  function reloj() {
+    var d = new Date(), h = d.getHours(), m = d.getMinutes();
+    txt($('hora'), (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m);
+  }
+  reloj(); setInterval(reloj, 1000);
+
+  // ---- vincular con código
+  function mostrarCodigo() {
+    var m = $('msg'); m.style.display = 'block'; $('rutas').style.display = 'none'; $('pie').style.display = 'none';
+    m.innerHTML = '<p>Para ver los repartos, en el ERP escribe este código:</p><div class="c" id="cod"></div>' +
+      '<p>Ventas → Seguimiento de Repartos → Enlace para la TV → «Vincular TV».</p><p>Esta pantalla se pone sola cuando lo escribas.</p>';
+    txt($('cod'), codigo || '········');
+  }
+  function pedir() {
+    rpc('fn_reparto_tv_pedir', {}, function (c) { codigo = c; guardar(KC, c); mostrarCodigo(); }, function () { /* se reintenta */ });
+  }
+  function emparejar() {
+    mostrarCodigo();
+    if (!codigo) pedir();
+    setInterval(function () {
+      if (clave) return;
+      if (!codigo) return pedir();
+      rpc('fn_reparto_tv_recoger', { p_codigo: codigo }, function (k) {
+        if (k) { clave = k; guardar(K, k); guardar(KC, null); cargar(); }
+      }, function (mensaje) { if (/codigo_tv/.test(mensaje)) { codigo = null; guardar(KC, null); pedir(); } });
+    }, 3000);
+  }
+
+  // ---- datos
+  function n(v) { return String(v || 0); }
+  function pintar(d) {
+    $('msg').style.display = 'none'; $('rutas').style.display = 'block'; $('pie').style.display = 'block';
+    var rutas = (d.rutas || []).slice().sort(function (a, b) { return String(a.ruta) < String(b.ruta) ? -1 : 1; });
+    var html = '';
+    for (var i = 0; i < rutas.length; i++) {
+      var r = rutas[i], pc = r.total ? Math.round(100 * r.entregados / r.total) : 0;
+      html += '<div class="r' + (r.estado === 4 ? ' c4' : '') + '"><div class="n" data-i="' + i + '"></div><div class="p" data-p="' + i + '"></div>' +
+        '<div class="b"><div style="width:' + pc + '%"></div></div>' +
+        '<div class="d">' + n(r.entregados) + ' de ' + n(r.total) + ' entregados' + (r.estado === 4 ? ' · cerrada' : '') + '</div>' +
+        ((r.incidencias || r.no_entregados) ? '<div class="e">' + (r.incidencias ? n(r.incidencias) + ' incidencia(s) ' : '') + (r.no_entregados ? n(r.no_entregados) + ' no entregado(s)' : '') + '</div>' : '') + '</div>';
+    }
+    $('rutas').innerHTML = html || '<p style="font-size:28px">Hoy no hay rutas.</p>';
+    for (var j = 0; j < rutas.length; j++) {
+      var nn = document.querySelector('[data-i="' + j + '"]'), pp = document.querySelector('[data-p="' + j + '"]');
+      if (nn) txt(nn, rutas[j].ruta_nombre || rutas[j].ruta || '');
+      if (pp) txt(pp, rutas[j].repartidor_nombre || 'sin repartidor');
+    }
+    var t = d.totales || {}, rk = (d.ranking || [])[0];
+    $('pie').innerHTML = '<span>Semana: <b id="t1"></b></span><span>Mes: <b id="t2"></b></span><span>Año: <b id="t3"></b></span><span id="t4"></span>';
+    txt($('t1'), n(t.semana)); txt($('t2'), n(t.mes)); txt($('t3'), n(t.anio));
+    if (rk) txt($('t4'), 'Primero: ' + rk.repartidor + ' (' + n(rk.entregados) + ')');
+  }
+  function cargar() {
+    if (!clave) return;
+    rpc('fn_reparto_tv', { p_clave: clave }, pintar, function (mensaje) {
+      if (/clave_tv/.test(mensaje)) { clave = null; guardar(K, null); codigo = null; emparejar(); }
+    });
+  }
+
+  if (clave) { $('msg').style.display = 'none'; cargar(); } else emparejar();
+  setInterval(cargar, 20000);
+})();
+</script>
+</body>
+</html>

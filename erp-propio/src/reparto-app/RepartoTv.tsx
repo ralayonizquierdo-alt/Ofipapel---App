@@ -27,9 +27,10 @@ function claveInicial(): string | null {
  *  · /reparto-pantalla (interna) — desde el ERP, con la sesión del empleado que ya ha entrado: sin enlace ni código.
  */
 export function RepartoTv({ interna = false }: { interna?: boolean }) {
-  const [clave] = useState(() => (interna ? null : claveInicial()))
+  const [clave, setClave] = useState<string | null>(() => (interna ? null : claveInicial()))
+  const [codigo, setCodigo] = useState<string | null>(null)
   const [datos, setDatos] = useState<DatosSeg | null>(null)
-  const [error, setError] = useState<string | null>(clave || interna ? null : 'Falta el enlace de la pantalla: créalo en el ERP (Ventas → Seguimiento de Repartos → Enlace para la TV) y ábrelo aquí.')
+  const [error, setError] = useState<string | null>(null)
   const [vista, setVista] = useState<'rutas' | 'mapa'>('rutas')
   const [hora, setHora] = useState(() => new Date())
 
@@ -47,6 +48,58 @@ export function RepartoTv({ interna = false }: { interna?: boolean }) {
       document.title = titulo
     }
   }, [])
+
+  // Sin enlace: la TV pide un código corto y lo enseña en grande; en el ERP se escribe (Seguimiento de Repartos → Enlace para la
+  // TV → «Vincular TV») y la TV recoge sola su clave (fn_reparto_tv_pedir / _recoger / _vincular).
+  useEffect(() => {
+    if (clave || interna) return
+    let vivo = true
+    const KC = 'reparto.tv.codigo'
+    let actual: string | null = null
+    try {
+      actual = localStorage.getItem(KC)
+    } catch {
+      actual = null
+    }
+    const pedir = async () => {
+      const { data, error: e } = await supabase.rpc('fn_reparto_tv_pedir')
+      if (!vivo) return
+      if (e || typeof data !== 'string') return setError('Sin conexión: se reintenta solo.')
+      actual = data
+      try {
+        localStorage.setItem(KC, data)
+      } catch {
+        /* sin almacenamiento: el código vale mientras la pantalla siga abierta */
+      }
+      setError(null)
+      setCodigo(data)
+    }
+    if (actual) setCodigo(actual)
+    else void pedir()
+    const t = setInterval(async () => {
+      if (!actual) return void pedir()
+      const { data, error: e } = await supabase.rpc('fn_reparto_tv_recoger', { p_codigo: actual })
+      if (!vivo) return
+      if (e) {
+        if (/codigo_tv/.test(e.message)) void pedir()
+        return
+      }
+      if (typeof data === 'string' && data) {
+        try {
+          localStorage.setItem(K, data)
+          localStorage.removeItem(KC)
+        } catch {
+          /* se usa solo en esta sesión */
+        }
+        setCodigo(null)
+        setClave(data)
+      }
+    }, 3000)
+    return () => {
+      vivo = false
+      clearInterval(t)
+    }
+  }, [clave, interna])
 
   const cargar = useCallback(async () => {
     if (interna) {
@@ -102,7 +155,15 @@ export function RepartoTv({ interna = false }: { interna?: boolean }) {
           </>
         }
         avisos={
-          !datos && !error ? <div style={{ color: '#fff', fontSize: 22, textAlign: 'center', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>Cargando…</div> : null
+          !clave && !interna ? (
+            <div style={{ color: '#fff', textAlign: 'center', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
+              <div style={{ fontSize: 26 }}>Para ver los repartos, en el ERP escribe este código:</div>
+              <div style={{ fontFamily: '"IBM Plex Mono", monospace', fontSize: 110, fontWeight: 700, letterSpacing: 12, margin: '12px 0' }}>{codigo ?? '········'}</div>
+              <div style={{ fontSize: 20 }}>Ventas → Seguimiento de Repartos → Enlace para la TV → «Vincular TV». Esta pantalla se pone sola cuando lo escribas.</div>
+            </div>
+          ) : !datos && !error ? (
+            <div style={{ color: '#fff', fontSize: 22, textAlign: 'center', textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>Cargando…</div>
+          ) : null
         }
       />
     </div>
