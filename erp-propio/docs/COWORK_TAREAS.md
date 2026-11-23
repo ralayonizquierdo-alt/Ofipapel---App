@@ -41,12 +41,51 @@ Cada fichero de la carpeta se mete además en el archivo cifrado `LISTADOS GEMIN
   otra carpeta** para que el cifrado vuelva a funcionar.
 - Depende de que el PC de Rober esté encendido a las 9:50. Nadie lo vigila todavía (podría hacerlo Virgilio).
 
-## Programas del PC de Mónica que cuidó Cowork (no son Cowork: corren solos en Windows)
+## PC de Mónica (equipo MONICA)
 
-- **Espejo de GeminisWin → ERP** (`scripts/geminiswin/`, tarea de Windows «Ofipapel\Espejo GeminisWin», cada ~10
-  minutos en horario de tienda). Ver `docs/PLAN_ESPEJO_GEMINISWIN.md`. Lo vigila Virgilio.
-- **Puente del reparto** (`scripts/geminiswin/puente_reparto.py`, en `C:\Ofipapel\puente_reparto`): repartos de
-  GeminisWin a la app de repartidores. Ver `docs/REPARTO_PUENTE_GEMINISWIN.md`.
+Inventario hecho por su Cowork el 23/11/2026 (registros y lista de tareas de Windows, sin cambiar nada).
+
+### Tareas de Windows (carpeta «Ofipapel»: solo estas dos)
+
+| Tarea | Qué hace | Cuándo | Qué deja |
+|---|---|---|---|
+| **Ofipapel\Puente reparto** | Lee en solo lectura repartos, ventas, facturas y clientes de GeminisWin y manda a la app de repartidores los repartos abiertos y los cambios de las ventas. `pythonw.exe C:\Ofipapel\puente_reparto\puente_reparto.py` (sin ventana). Ver `docs/REPARTO_PUENTE_GEMINISWIN.md` | Todos los días (también fin de semana), **cada 5 min de 07:00 a 21:00**, y al iniciar sesión «Usuario» (entonces corre 14 h desde ese momento y puede pasar de las 21:00). Máximo 10 min; si sigue en marcha, la siguiente se salta | `C:\Ofipapel\puente_reparto\`: `puente_reparto.log`, `.estado` y `.cerrojo` mientras corre |
+| **Ofipapel\Espejo GeminisWin** | Copia al ERP maestros e histórico de GeminisWin (ventas, facturas, cobros, caja, pedidos, artículos, clientes…). `wscript.exe espejo_oculto.vbs` → `espejo_todas.bat` → `espejo_geminiswin.py`. Ver `docs/PLAN_ESPEJO_GEMINISWIN.md` | **Cada 10 min, día y noche**, y al iniciar sesión. Máximo 12 h. De día solo los últimos 60 días; de 21:00 a 07:00 y los domingos relee los ficheros enteros (de noche también CLIENART) | Misma carpeta: `espejo_geminiswin.log`, `.estado` (~586 MB), `.json`, `resultado_espejo_todas.txt` |
+
+Lo vigila Virgilio (espejo parado o con errores). **No tocar nunca** `puente_reparto.clave`, `.json` ni `.estado`.
+
+### Cowork del PC de Mónica
+
+- **Cerrar los repartos del día en GeminisWin** (habilidad `cerrar-reparto-geminiswin`): **solo cuando alguien se lo
+  pide**, no está programado. Controla la pantalla y necesita GeminisWin abierto con la contraseña de un empleado (la
+  mete una persona).
+- Tareas programadas: solo «Informe del espejo completo», una vez (23/11, 08:47). Ninguna más.
+
+### Herramientas a mano (`C:\Ofipapel\puente_reparto\`, solo cuando alguien lo pide)
+
+- `sacar_partes.bat`: saca el parte de la app para el cierre (en `partes\` y `resultado_partes.txt`).
+- `enviar_una_vez.bat`: una pasada manual del puente (`resultado_envio_manual.txt`).
+- `prueba_puente.bat`: prueba del puente sin enviar nada (`resultado_prueba_puente.txt`).
+- `crear_tarea_espejo.bat` + `tarea_espejo.xml`: rehacen la tarea del espejo si hiciera falta.
+
+### Diagnósticos de una sola vez (no se ejecutan solos; solo lectura)
+
+`C:\Ofipapel\diag_dbf\` (listar_dbf, estructura_tablas, leer_repartos, cuadre_dia2, ver_tareas; `cuadre_dia.py` es una
+copia rota) y `C:\Ofipapel\diag_cobro\` (cobros del 17/11).
+
+### Obsoleto (se puede borrar o archivar; pendiente del visto bueno de Rober)
+
+En `puente_reparto\`: pruebas (`paso2_espejo.bat`, `paso3_espejo.bat`, `medir_espejo.bat`, `diag_repartidor.*`), versiones
+viejas de la tarea (`modificar_tarea*.bat` v1–v4, `tarea_puente_reparto*.xml` v1–v4), `instalar_y_probar.bat`, el
+instalador de Python y los `resultado*.txt` antiguos. **`enviar_y_programar.bat` es peligroso** (vuelve a enviarlo
+todo): conviene borrarlo. Además `C:\Ofipapel\capturas_contanet\` y `entrega_contanet\` (ContaNet, 16–17/11).
+
+### Pendiente
+
+- Hora de fin del puente: si «Usuario» inicia sesión tarde, el puente sigue después de las 21:00. El arreglo está
+  preparado (`modificar_tarea_v4.bat`), sin aplicar.
+- 23/11: el puente ve **13 repartos abiertos** (estado 2 en GeminisWin); cuatro son antiguos (48281, 48300, 48338 y
+  48342) y hay que cerrarlos o revisarlos.
 
 ## Encargos puntuales ya hechos (no se repiten)
 
