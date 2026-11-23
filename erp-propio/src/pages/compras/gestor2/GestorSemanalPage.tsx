@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlarmClock, Calculator, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
+import { AlarmClock, Calculator, ChevronDown, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { Campanas } from './Campanas'
@@ -135,6 +135,35 @@ const OPERATIVA: BloqueOperativa[] = [
   },
 ]
 
+type Vista = 'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas' | 'peticiones' | 'pedidos' | 'correo'
+
+/** Pestañas agrupadas (Rober, 23/11/2026: «hay muchas pestañas… agruparlas y que los submenús se vean al pulsar el menú principal»). */
+const GRUPOS: { id: string; titulo: string; vistas: Vista[]; subs: { vista: Vista; titulo: string }[] }[] = [
+  {
+    id: 'semana',
+    titulo: 'Pedidos de la semana',
+    vistas: ['decidir', 'esperar', 'aplazados', 'raros'],
+    subs: [
+      { vista: 'decidir', titulo: 'Para decidir' },
+      { vista: 'esperar', titulo: 'Pueden esperar' },
+      { vista: 'aplazados', titulo: 'Aguantando' },
+      { vista: 'raros', titulo: 'Raros por decidir' },
+    ],
+  },
+  {
+    id: 'proveedores',
+    titulo: 'Proveedores',
+    vistas: ['propuestas', 'correo', 'tarifas', 'campanas', 'pedidos'],
+    subs: [
+      { vista: 'propuestas', titulo: 'Propuestas de proveedor' },
+      { vista: 'correo', titulo: 'Correo de proveedores' },
+      { vista: 'tarifas', titulo: 'Tarifas' },
+      { vista: 'campanas', titulo: 'Campañas' },
+    ],
+  },
+  { id: 'peticiones', titulo: 'Peticiones de clientes', vistas: ['peticiones'], subs: [] },
+]
+
 export function GestorSemanalPage() {
   const [busqueda] = useSearchParams()
   const pedidoInicial = useMemo(() => {
@@ -144,13 +173,14 @@ export function GestorSemanalPage() {
   const [datos, setDatos] = useState<Resumen[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ texto: string; pedido?: number; error?: boolean } | null>(null)
-  const [vista, setVista] = useState<'decidir' | 'esperar' | 'aplazados' | 'raros' | 'campanas' | 'tarifas' | 'propuestas' | 'peticiones' | 'pedidos' | 'correo'>(() => {
+  const [vista, setVista] = useState<Vista>(() => {
     const v = busqueda.get('vista')
     return v === 'propuestas' || v === 'peticiones' || v === 'pedidos' || v === 'correo' ? v : 'decidir'
   })
   const [abierto, setAbierto] = useState<Resumen | null>(null)
   const [ayuda, setAyuda] = useState(false)
   const resueltasNuevas = useResueltasNuevas()
+  const [grupoAbierto, setGrupoAbierto] = useState<string | null>(null)
   const [sinProveedor, setSinProveedor] = useState(0)
   const [estado, setEstado] = useState<Estado | null>(null)
   const [calculando, setCalculando] = useState(false)
@@ -246,34 +276,27 @@ export function GestorSemanalPage() {
       </section>
 
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <Pestana activa={vista === 'decidir'} onClick={() => setVista('decidir')}>
-          Para decidir · {decidir.length}
-        </Pestana>
-        <Pestana activa={vista === 'esperar'} onClick={() => setVista('esperar')}>
-          Pueden esperar · {esperar.length}
-        </Pestana>
-        <Pestana activa={vista === 'aplazados'} onClick={() => setVista('aplazados')}>
-          Aguantando · {aplazados.length}
-        </Pestana>
-        <Pestana activa={vista === 'raros'} onClick={() => setVista('raros')}>
-          Raros por decidir · {estado?.raros_por_decidir ?? '…'}
-        </Pestana>
-        <Pestana activa={vista === 'campanas'} onClick={() => setVista('campanas')}>
-          Campañas
-        </Pestana>
-        <Pestana activa={vista === 'tarifas'} onClick={() => setVista('tarifas')}>
-          Tarifas
-        </Pestana>
-        <Pestana activa={vista === 'propuestas'} onClick={() => setVista('propuestas')}>
-          Propuestas de proveedor
-        </Pestana>
-        <Pestana activa={vista === 'peticiones'} onClick={() => setVista('peticiones')}>
-          Peticiones de clientes
-          <Globo n={resueltasNuevas} className="absolute -right-2 -top-2" />
-        </Pestana>
-        <Pestana activa={vista === 'correo'} onClick={() => setVista('correo')}>
-          Correo de proveedores
-        </Pestana>
+        {GRUPOS.map((g) => {
+          const activo = g.vistas.includes(vista)
+          const sub = g.subs.find((x) => x.vista === vista)
+          return (
+            <Pestana
+              key={g.id}
+              activa={activo}
+              onClick={() => {
+                if (!g.subs.length) {
+                  setVista(g.vistas[0])
+                  setGrupoAbierto(null)
+                } else setGrupoAbierto((a) => (a === g.id ? null : g.id))
+              }}
+            >
+              {g.titulo}
+              {activo && sub && <span className="font-normal opacity-80"> · {sub.titulo}</span>}
+              {g.subs.length > 0 && <ChevronDown size={15} className={`ml-1 inline transition-transform ${grupoAbierto === g.id ? 'rotate-180' : ''}`} />}
+              {g.id === 'peticiones' && <Globo n={resueltasNuevas} className="absolute -right-2 -top-2" />}
+            </Pestana>
+          )
+        })}
         {error && (
           <span role="alert" className="text-[14px] font-bold text-[#c42b1c]">
             {error}
@@ -295,6 +318,27 @@ export function GestorSemanalPage() {
           </span>
         )}
       </div>
+
+      {grupoAbierto && (
+        <div className="-mt-1 flex flex-wrap items-center gap-2 rounded-2xl border border-[#d5dcec] bg-[#f6f8fd] px-3 py-2 print:hidden">
+          {GRUPOS.find((g) => g.id === grupoAbierto)!.subs.map((x) => (
+            <SubPestana
+              key={x.vista}
+              activa={vista === x.vista}
+              onClick={() => {
+                setVista(x.vista)
+                setGrupoAbierto(null)
+              }}
+            >
+              {x.titulo}
+              {x.vista === 'decidir' && ` · ${decidir.length}`}
+              {x.vista === 'esperar' && ` · ${esperar.length}`}
+              {x.vista === 'aplazados' && ` · ${aplazados.length}`}
+              {x.vista === 'raros' && ` · ${estado?.raros_por_decidir ?? '…'}`}
+            </SubPestana>
+          ))}
+        </div>
+      )}
 
       {sinProveedor > 0 && (
         <p className="rounded-xl border border-[#f1d58a] bg-[#fff8e1] px-4 py-2 text-[14px] text-[#6b4a00]">
@@ -371,6 +415,14 @@ function Dato({ titulo, valor, alerta }: { titulo: string; valor: string; alerta
       <div className="text-[13px] text-[#5b6680]">{titulo}</div>
       <div className={`text-[24px] font-bold tabular-nums ${alerta && valor !== '0' ? 'text-[#c42b1c]' : ''}`}>{valor}</div>
     </div>
+  )
+}
+
+function SubPestana({ activa, onClick, children }: { activa: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={activa} className={`h-8 rounded-full px-3 text-[13px] font-semibold ${activa ? 'bg-[#dbe5fb] text-[#1d3a8a]' : 'bg-white text-[#1b2540] hover:bg-[#eef3fd]'}`}>
+      {children}
+    </button>
   )
 }
 
