@@ -26,8 +26,8 @@ Cada persona solo recibe avisos de lo que su permiso le deja ver.
 | 5 | **Correo de proveedores**: facturas con diferencias y documentos sin revisar de E-milio | Compras | Próximamente |
 | 6 | **Clientes que pasan su límite de riesgo** | Administración y comercial | No activada |
 | 7 | **Recibos vencidos sin cobrar** | Administración | No activada |
-| 8 | **Cuadre ERP–GeminisWin** de ventas y cobros (diferencias de totales) | Rober | Próximamente |
-| 9 | **Vigilancias personales**: cualquier empleado se las pide a NEXA con sus palabras («avísame cuando llegue el pedido de Apli», «cuando el artículo X tenga stock», «si el cliente Y hace un pedido») | Quien la pide | Próximamente |
+| 8 | **Cuadre ERP–GeminisWin** de ventas y cobros por día, últimos 7 días (tolerancia 1 €). Solo los días con ventas o cobros en el ERP: hoy no vende y no hay nada que cuadrar; cuenta en cuanto empiece (`fn_virgilio_cuadre`) | Rober | **Activada** |
+| 9 | **Vigilancias personales**: cualquier empleado se las pide a NEXA con sus palabras («avísame cuando llegue el pedido de Apli», «cuando el artículo X tenga stock», «si el cliente Y hace un pedido») | Quien la pide | **Activada** |
 
 Encender o apagar una función: parámetro `vigilante.desactivadas` (lista de claves: resueltas, presupuestos, sistema,
 retrasados, correo, riesgo, recibos, cuadre, personales). Rober, 23/11/2026: 2, 6 y 7 «no activadas».
@@ -44,3 +44,8 @@ retrasados, correo, riesgo, recibos, cuadre, personales). Rober, 23/11/2026: 2, 
 - Ficha en el hub: `fn_agente_resumen_publico('vigilante')` (`20261123_virgilio_resumen_publico.sql`).
 - NEXA: «pasar_ahora» queda en la cola y se hace en la siguiente pasada (como mucho 10 minutos); «pausar»/«reanudar», al
   momento.
+- 23/11/2026: **8 y 9 activadas** (`20261123_virgilio_cuadre_personales.sql`). Avisos personales: tabla
+  `vigilancia_personal`; NEXA usa `fn_vigilancia_pedir(tipo, parametros)` (nivel 2), `fn_vigilancias_mias()` y
+  `fn_vigilancia_quitar(id)`. Tipos: `pedido_proveedor` {proveedor_codigo | pedido "oficina-numero"}, `articulo_stock`
+  {articulo_codigo}, `cliente_compra` {cliente_codigo}. Al cumplirse: tarea en «Mis tareas» de quien lo pidió (no se
+  cierra sola). Memoria de NEXA: ids 14 y 15.
