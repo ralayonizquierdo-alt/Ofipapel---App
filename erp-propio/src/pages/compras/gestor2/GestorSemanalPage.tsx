@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlarmClock, Calculator, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
+import { Calculator, CircleHelp, FileSpreadsheet, PackageX, RefreshCw, Send, Settings2, Sparkles, TrendingDown, Truck, UserRound, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { descargarExcelGw } from '../../../lib/excelGeminiswin'
 import { Campanas } from './Campanas'
@@ -115,7 +115,6 @@ const OPERATIVA: BloqueOperativa[] = [
       'Los consumibles de informática (cartuchos, tóner, tambores y cintas) no salen aquí: se piden aparte cada semana comparando entre tres proveedores. Se pueden volver a incluir desde el parámetro compras.familias_aparte.',
       '«No pedir solo» (en cada línea de la propuesta): marca el artículo «Bajo pedido». Deja de proponerse por mínimos y solo se pide cuando lo pide un cliente. Sirve para servicios (portes, fotocopias) y artículos que no se quieren tener en stock. Si el stock es negativo en GeminisWin se cuenta como 0.',
       '«Excel para GeminisWin»: al crear el pedido sale este enlace (y en la ficha del pedido, el botón verde de la barra de líneas). Descarga el Excel 5.0/95 con la hoja «fichero», el mismo que hace la app de Importación de Pedidos, listo para importarlo en Compras de GeminisWin. Sin tildes ni Ñ, porque ese formato no las admite.',
-      '«Aguantar»: lo quita de la lista una o dos semanas. Cuando vuelve trae lo que se haya sumado.',
     ],
   },
   {
@@ -150,7 +149,6 @@ const ZONAS: { id: 'pedidos' | 'peticiones'; titulo: string; vistas: Vista[]; su
     subs: [
       { vista: 'decidir', titulo: 'Para decidir' },
       { vista: 'esperar', titulo: 'Pueden esperar' },
-      { vista: 'aplazados', titulo: 'Aguantando' },
       { vista: 'raros', titulo: 'Raros por decidir' },
       { vista: 'propuestas', titulo: 'Propuestas de proveedor' },
       { vista: 'correo', titulo: 'Correo de proveedores (E-milio)' },
@@ -256,7 +254,7 @@ export function GestorSemanalPage() {
           <p className="text-[14px] text-[#5b6680]">
             {enPeticiones
               ? 'Lo que piden los clientes y no hay en tienda: pendientes, tramitadas a un pedido y resueltas (la mercancía ya llegó, para preparar y repartir).'
-              : 'Lo que el programa propone pedir a cada proveedor, según el stock mínimo y máximo. Tú decides: enviar o aguantar.'}
+              : 'Lo que el programa propone pedir a cada proveedor, según el stock mínimo y máximo. Tú decides qué se envía.'}
           </p>
           {!enPeticiones && estado?.calculado_en && (
             <p className="text-[13px] text-[#7a849c]">
@@ -277,11 +275,10 @@ export function GestorSemanalPage() {
         </div>
       </header>
 
-      <section className={`grid grid-cols-2 gap-3 md:grid-cols-4 ${enPeticiones ? 'hidden' : ''}`}>
+      <section className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${enPeticiones ? 'hidden' : ''}`}>
         <Dato titulo="Proveedores por decidir" valor={String(decidir.length)} />
         <Dato titulo="Importe propuesto" valor={eur0(decidir.reduce((s, r) => s + r.importe, 0))} />
         <Dato titulo="Artículos agotados" valor={String(decidir.reduce((s, r) => s + r.agotados, 0))} alerta />
-        <Dato titulo="Aguantando" valor={String(aplazados.length)} />
       </section>
 
       <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -291,7 +288,6 @@ export function GestorSemanalPage() {
               {x.titulo}
               {x.vista === 'decidir' && ` · ${decidir.length}`}
               {x.vista === 'esperar' && ` · ${esperar.length}`}
-              {x.vista === 'aplazados' && ` · ${aplazados.length}`}
               {x.vista === 'raros' && ` · ${estado?.raros_por_decidir ?? '…'}`}
             </SubPestana>
           ))}
@@ -412,7 +408,6 @@ function Pestana({ activa, onClick, children, grande = false }: { activa: boolea
 }
 
 function Ficha({ r, pequeno, onAbrir, onAplazar, onCondiciones }: { r: Resumen; pequeno: number | null; onAbrir: () => void; onAplazar: (dias: number) => void; onCondiciones: () => void }) {
-  const [menu, setMenu] = useState(false)
   const minimo = r.compra_minima && r.compra_minima > 0 ? r.compra_minima : null
   const llega = minimo == null || r.importe >= minimo
   const pct = minimo ? Math.min(100, Math.round((r.importe / minimo) * 100)) : 100
@@ -485,18 +480,6 @@ function Ficha({ r, pequeno, onAbrir, onAplazar, onCondiciones }: { r: Resumen; 
           <button type="button" onClick={onAbrir} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-[#1d3a8a] text-[15px] font-semibold text-white hover:bg-[#16306f]">
             <Send size={15} /> Revisar y enviar
           </button>
-          <button type="button" onClick={() => setMenu(!menu)} aria-expanded={menu} className="flex h-10 items-center justify-center gap-1.5 rounded-full border border-[#d5dcec] px-4 text-[15px] font-semibold hover:bg-[#f1f5fd]">
-            <AlarmClock size={15} /> Aguantar
-          </button>
-          {menu && (
-            <div className="absolute bottom-11 right-0 z-10 flex flex-col overflow-hidden rounded-xl border border-[#d5dcec] bg-white text-[14px] shadow-lg">
-              {[7, 14, 30].map((d) => (
-                <button key={d} type="button" className="px-4 py-2 text-left hover:bg-[#f1f5fd]" onClick={() => (setMenu(false), onAplazar(d))}>
-                  {d === 7 ? 'Una semana' : d === 14 ? 'Dos semanas' : 'Un mes'}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </article>
