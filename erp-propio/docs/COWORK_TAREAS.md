@@ -87,3 +87,14 @@ Para que su ficha diga qué ha hecho y Virgilio sepa si un día no ha trabajado,
    `pedido_informatica`, `importar_informatica`. Si algo falla: `"p_ok": false` y en `p_resumen` qué ha fallado.
    El resumen **sin datos de clientes ni importes** (el hub es público): «Ventas por caja subidas a Finanzas».
 4. Si el ERP no contesta, no pasa nada: el trabajo sigue igual; solo no queda apuntado.
+
+### Encargos de NEXA a Geminio (no activo hasta que lo conecte el Cowork)
+
+Si alguien pide a NEXA un dato de GeminisWin que **no está en el espejo** (un listado concreto), NEXA lo encarga a
+Geminio (`agente_orden`, orden `listado`, parámetros `{"que", "desde", "hasta"}`; lo puede pedir quien tenga el permiso
+de Listados). El programa del PC de Rober, en cada vuelta:
+1. `POST .../rest/v1/rpc/fn_agente_ordenes_pendientes` con `{"p_agente": "geminis_pc", "p_clave": "<clave>"}`.
+2. Saca el listado de GeminisWin **solo leyendo** (sin guardar cambios en GeminisWin).
+3. `POST .../rest/v1/rpc/fn_agente_orden_terminar` con
+   `{"p_agente": "geminis_pc", "p_clave": "<clave>", "p_orden": <n>, "p_ok": true, "p_resultado": "<frase>", "p_datos": [<filas>]}`
+   (como mucho ~2 MB; si no puede, `"p_ok": false` y el motivo).
