@@ -375,16 +375,6 @@ export function TabPeticiones({ opciones, onError }: { opciones: OpcionesGestorC
                   className="h-[34px]! text-[16px]!"
                   title="Marcados: estados que se muestran (ninguno marcado = todos)"
                 />
-                {e.value === 'resuelta' && (
-                  <button
-                    type="button"
-                    onClick={() => setImprimirResueltas(true)}
-                    className="absolute -right-2 -top-2.5 flex items-center gap-0.5"
-                    title="Peticiones resueltas sin imprimir (la mercancía ya llegó): pulsa para verlas por proveedor e imprimirlas para el almacén"
-                  >
-                    {resueltasNuevas ? <Globo n={resueltasNuevas} /> : <Printer size={15} className="rounded bg-white text-[#2a9d2a]" />}
-                  </button>
-                )}
               </div>
             ))}
           </div>

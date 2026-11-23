@@ -271,9 +271,6 @@ export function GestorSemanalPage() {
           Peticiones de clientes
           <Globo n={resueltasNuevas} className="absolute -right-2 -top-2" />
         </Pestana>
-        <Pestana activa={vista === 'pedidos'} onClick={() => setVista('pedidos')}>
-          Pedidos a proveedor
-        </Pestana>
         <Pestana activa={vista === 'correo'} onClick={() => setVista('correo')}>
           Correo de proveedores
         </Pestana>
