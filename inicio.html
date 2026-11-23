@@ -166,6 +166,8 @@ body{
   display:flex;flex-direction:column;align-items:flex-start;gap:6px;
   opacity:0;animation:fadeUp .8s ease 2.2s forwards;
 }
+.agente-ficha li.apagada{opacity:.6;}
+.agente-ficha .no-activa{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;border:1px solid rgba(255,120,120,.7);color:#ff9d9d;font:600 10px/1.5 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;}
 .agentes-titulo{
   font:600 13px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;
   color:rgba(234,245,234,.7);padding-left:6px;
@@ -800,7 +802,7 @@ body{
         'Cojo los PDF de los proveedores y digo qué son: propuesta o confirmación de pedido, factura o albarán.',
         'Reconozco al proveedor y busco su pedido, se hiciera en el ERP o en GeminisWin.',
         'Cruzo cada documento con su pedido, línea a línea, con IA: aviso de lo que falta, viene sin stock, de menos o de más, o cambia de precio por encima del margen.',
-        'Preparo las facturas finales con su nombre ordenado para la carpeta de facturas de proveedores.',
+        'Preparo las facturas finales con su nombre ordenado y las copio a la carpeta de facturas de proveedores.|no',
         'Lo dejo todo en el Gestor de Pedidos 2.0 → «Correo de proveedores». Yo preparo; decidís vosotros. Me manda NEXA.'
       ],
       resumen: 'correo_proveedores'
@@ -826,15 +828,15 @@ body{
       color: '#FFAA00', glow: 'rgba(255,170,0,.45)',
       intro: '¡Hola! Soy Virgilio, el vigilante de Ofipapel. Vigilo lo que me pedís día y noche y aviso a quien le toca, sin que nadie tenga que estar mirando.',
       funciones: [
-        '1. Peticiones de clientes que ya han llegado (resueltas) y están sin imprimir, para que el almacén las prepare y las ponga en reparto. Activada.',
-        '2. Presupuestos sin seguimiento en 7 días, a su comercial. No activada.',
-        '3. Que el sistema funcione: el espejo de GeminisWin, las tareas automáticas y E-milio. Si algo se para, aviso. Activada.',
-        '4. Pedidos a proveedor retrasados. Próximamente.',
-        '5. Facturas de proveedor con diferencias y documentos de E-milio sin revisar. Próximamente.',
-        '6. Clientes que pasan su límite de riesgo. No activada.',
-        '7. Recibos vencidos sin cobrar. No activada.',
-        '8. Cuadre de ventas y cobros entre el ERP y GeminisWin. Próximamente.',
-        '9. Lo que cada uno me pida a través de NEXA: «avísame cuando llegue el pedido de…». Próximamente.',
+        '1. Peticiones de clientes que ya han llegado (resueltas) y están sin imprimir, para que el almacén las prepare y las ponga en reparto.',
+        '2. Presupuestos sin seguimiento en 7 días, a su comercial.|no',
+        '3. Que el sistema funcione: el espejo de GeminisWin, las tareas automáticas y E-milio. Si algo se para, aviso.',
+        '4. Pedidos a proveedor retrasados.|no',
+        '5. Facturas de proveedor con diferencias y documentos de E-milio sin revisar.|no',
+        '6. Clientes que pasan su límite de riesgo.|no',
+        '7. Recibos vencidos sin cobrar.|no',
+        '8. Cuadre de ventas y cobros entre el ERP y GeminisWin.|no',
+        '9. Lo que cada uno me pida a través de NEXA: «avísame cuando llegue el pedido de…».|no',
         'Aviso con un globo rojo en la pantalla y con una tarea en «Mis tareas pendientes» del ERP, que se cierra sola cuando está hecho. Nada de correos. Solo miro y aviso: nunca cambio nada. Me manda NEXA.'
       ],
       resumen: 'vigilante',
@@ -905,7 +907,12 @@ body{
   function liste(ul, items, vacio){
     ul.innerHTML = '';
     if (!items || !items.length){ var li=document.createElement('li'); li.className='vacio'; li.textContent=vacio; ul.appendChild(li); return; }
-    items.forEach(function(t){ var li=document.createElement('li'); li.textContent=t; ul.appendChild(li); });
+    items.forEach(function(t){
+      var li=document.createElement('li'), no = /\|no$/.test(t);
+      li.textContent = no ? t.slice(0, -3) : t;
+      if (no){ var s=document.createElement('span'); s.className='no-activa'; s.textContent='No activa'; li.appendChild(document.createTextNode(' ')); li.appendChild(s); li.classList.add('apagada'); }
+      ul.appendChild(li);
+    });
   }
   function abrirFicha(id, img){
     var ag = AGENTES[id]; if (!ag || !ficha) return;
