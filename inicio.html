@@ -241,7 +241,7 @@ body{
         <img data-icono-de="WhatsApp BOT" alt="Whacimara">
       </a>
       <a class="agente" href="#" data-agente="virgilio" style="--c-glow:rgba(255,170,0,.6);" aria-label="Virgilio, el vigilante: qué vigila y qué tiene pendiente" title="Virgilio">
-        <img src="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 120 120%27%3E%3Cdefs%3E%3CradialGradient id=%27g%27 cx=%2750%25%27 cy=%2740%25%27 r=%2760%25%27%3E%3Cstop offset=%270%27 stop-color=%27%23FFE08A%27/%3E%3Cstop offset=%271%27 stop-color=%27%23FF9F00%27/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d=%27M60 8 L100 22 V58 C100 84 82 102 60 112 C38 102 20 84 20 58 V22 Z%27 fill=%27%231a1306%27 stroke=%27url%28%23g%29%27 stroke-width=%276%27/%3E%3Cpath d=%27M32 60 C42 46 51 40 60 40 C69 40 78 46 88 60 C78 74 69 80 60 80 C51 80 42 74 32 60 Z%27 fill=%27none%27 stroke=%27url%28%23g%29%27 stroke-width=%275%27/%3E%3Ccircle cx=%2760%27 cy=%2760%27 r=%2711%27 fill=%27url%28%23g%29%27/%3E%3Ccircle cx=%2756%27 cy=%2756%27 r=%273.5%27 fill=%27%23fff8e0%27/%3E%3C/svg%3E" alt="Virgilio">
+        <img src="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%27-22 -22 164 164%27%3E%3Cdefs%3E%3CradialGradient id=%27g%27 cx=%2750%25%27 cy=%2740%25%27 r=%2760%25%27%3E%3Cstop offset=%270%27 stop-color=%27%23FFE08A%27/%3E%3Cstop offset=%271%27 stop-color=%27%23FF9F00%27/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d=%27M60 8 L100 22 V58 C100 84 82 102 60 112 C38 102 20 84 20 58 V22 Z%27 fill=%27%231a1306%27 stroke=%27url%28%23g%29%27 stroke-width=%276%27/%3E%3Cpath d=%27M34 52 C43 40 51 35 60 35 C69 35 77 40 86 52 C77 64 69 69 60 69 C51 69 43 64 34 52 Z%27 fill=%27none%27 stroke=%27url%28%23g%29%27 stroke-width=%275%27/%3E%3Ccircle cx=%2760%27 cy=%2752%27 r=%2710%27 fill=%27url%28%23g%29%27/%3E%3Ccircle cx=%2756.5%27 cy=%2748.5%27 r=%273.5%27 fill=%27%23fff8e0%27/%3E%3Ctext x=%2760%27 y=%2790%27 text-anchor=%27middle%27 font-family=%27Arial,Helvetica,sans-serif%27 font-weight=%27700%27 font-size=%2711%27 letter-spacing=%27.5%27 fill=%27%23ffffff%27%3EVIRGILIO%3C/text%3E%3C/svg%3E" alt="Virgilio">
       </a>
     </div>
   </nav>
@@ -835,8 +835,8 @@ body{
         '5. Facturas de proveedor con diferencias y documentos de E-milio sin revisar.|no',
         '6. Clientes que pasan su límite de riesgo.|no',
         '7. Recibos vencidos sin cobrar.|no',
-        '8. Cuadre de ventas y cobros entre el ERP y GeminisWin.|no',
-        '9. Lo que cada uno me pida a través de NEXA: «avísame cuando llegue el pedido de…».|no',
+        '8. Cuadre de ventas y cobros entre el ERP y GeminisWin, día a día (cuenta en cuanto el ERP empiece a vender).',
+        '9. Lo que cada uno me pida a través de NEXA: «avísame cuando llegue el pedido de…», «cuando haya stock de…», «cuando este cliente compre».',
         'Aviso con un globo rojo en la pantalla y con una tarea en «Mis tareas pendientes» del ERP, que se cierra sola cuando está hecho. Nada de correos. Solo miro y aviso: nunca cambio nada. Me manda NEXA.'
       ],
       resumen: 'vigilante',
@@ -900,6 +900,8 @@ body{
     if (r.ultima_pasada) hoy.push('Mi última vuelta de vigilancia: ' + new Date(r.ultima_pasada).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', timeZone:'Atlantic/Canary'}) + '.');
     if (p.resueltas_sin_imprimir) pend.push(plural(p.resueltas_sin_imprimir, 'petición resuelta', 'peticiones resueltas') + ' sin imprimir para el almacén.');
     if (p.presupuestos_sin_seguimiento) pend.push(plural(p.presupuestos_sin_seguimiento, 'presupuesto', 'presupuestos') + ' sin seguimiento hace más de 7 días.');
+    if (p.dias_sin_cuadrar) pend.push(plural(p.dias_sin_cuadrar, 'día', 'días') + ' en que las ventas o los cobros del ERP no cuadran con GeminisWin.');
+    if (p.vigilancias_personales) pend.push('Vigilando ' + plural(p.vigilancias_personales, 'aviso que me habéis pedido', 'avisos que me habéis pedido') + '.');
     if (p.problemas_sistema) pend.push(plural(p.problemas_sistema, 'cosa del sistema parada', 'cosas del sistema paradas') + ': está avisado.');
     return { hoy: hoy, pend: pend };
   }
