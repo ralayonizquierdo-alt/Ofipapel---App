@@ -31,5 +31,13 @@ Cada persona solo recibe avisos de lo que su permiso le deja ver.
 
 ## Estado
 
-- 23/11/2026: dado de alta en la tabla `agente` (código `vigilante`), **apagado**, con estas funciones. Pendiente de
-  montar la fase 1.
+- 23/11/2026: dado de alta en la tabla `agente` (código `vigilante`) con estas funciones.
+- 23/11/2026: **fase 1 en marcha** (`20261123_virgilio_fase1.sql`). pg_cron `erp_vigilante` cada 10 minutos llama a
+  `fn_virgilio_pasada()`, que mantiene una tarea por vigilancia y persona en «Mis tareas pendientes» (tabla `incidencia`,
+  enlazada en `vigilancia_aviso`) y la da por resuelta sola. Parámetros (Archivo → Parámetros):
+  `vigilante.resueltas_para`, `vigilante.presupuestos_dias`, `vigilante.presupuestos_sin_comercial`,
+  `vigilante.sistema_para` (nombres como en «Le toca a…», varios con « / »). Los presupuestos de prueba (tienda 01,
+  clientes ZZ) no cuentan. Wasimara no se puede mirar desde la base de datos (otro servidor): fase 2.
+- Ficha en el hub: `fn_agente_resumen_publico('vigilante')` (`20261123_virgilio_resumen_publico.sql`).
+- NEXA: «pasar_ahora» queda en la cola y se hace en la siguiente pasada (como mucho 10 minutos); «pausar»/«reanudar», al
+  momento.
