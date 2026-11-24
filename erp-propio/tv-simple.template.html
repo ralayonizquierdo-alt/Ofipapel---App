@@ -145,6 +145,24 @@
     });
   }
 
+  // Se actualiza sola: cada 5 minutos mira si hay una versión nueva de la pantalla y, si la hay, se recarga (nadie toca la TV).
+  var miVersion = null;
+  function vigilarVersion() {
+    var x = new XMLHttpRequest();
+    x.open('GET', '/version.json?t=' + new Date().getTime(), true);
+    x.timeout = 15000;
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4 || x.status !== 200) return;
+      var v = null;
+      try { v = JSON.parse(x.responseText).build; } catch (e) {}
+      if (!v) return;
+      if (miVersion === null) miVersion = v; else if (v !== miVersion) location.reload();
+    };
+    x.send();
+  }
+  vigilarVersion();
+  setInterval(vigilarVersion, 300000);
+
   if (clave) { $('msg').style.display = 'none'; cargar(); } else emparejar();
   setInterval(cargar, 20000);
 })();
