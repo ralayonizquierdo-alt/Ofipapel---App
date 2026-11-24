@@ -1069,18 +1069,54 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {rutas.map((r) => (
-          <button key={r.k} type="button" onClick={() => abrir(r.k)} style={{ textAlign: 'left', background: '#fff', border: `2px solid ${AZUL}`, borderRadius: 16, padding: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 17, color: V.verde }}>{nombreRuta(r.filas[0])}</span>
-              <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 20, whiteSpace: 'nowrap' }}>{euros(suma(efectivo(r.filas)))}</span>
-            </div>
-            <div style={{ color: V.gris, fontSize: 13 }}>
-              {r.filas[0].repartidor ?? 'Sin repartidor apuntado'} · {r.filas.length} factura{r.filas.length === 1 ? '' : 's'}
-              {tarjeta(r.filas).length ? ` · 💳 ${euros(suma(tarjeta(r.filas)))} con tarjeta` : ''}
-            </div>
-          </button>
-        ))}
+        {/* Una tarjeta por ruta; si tiene cobros de más de un día (lo de ayer sin liquidar y lo de hoy), sale con su total y cada día aparte. */}
+        {[...new Set(rutas.map((r) => r.k.split('|')[0]))]
+          .map((rc) => ({ rc, dias: rutas.filter((r) => r.k.split('|')[0] === rc).sort((x, y) => x.k.localeCompare(y.k)) }))
+          .map((gr) => {
+            const unico = gr.dias.length === 1
+            const todas = gr.dias.flatMap((d) => d.filas)
+            const dia = (f: string) => {
+              const ayer = new Date(Date.now() - 86_400_000).toLocaleDateString('sv-SE', { timeZone: 'Atlantic/Canary' })
+              const ddmm = new Date(`${f}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })
+              return `${f === hoyIso ? 'Hoy' : f === ayer ? 'Ayer' : 'Día'} · ${ddmm}`
+            }
+            if (unico) {
+              const r = gr.dias[0]
+              return (
+                <button key={r.k} type="button" onClick={() => abrir(r.k)} style={{ textAlign: 'left', background: '#fff', border: `2px solid ${AZUL}`, borderRadius: 16, padding: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 17, color: V.verde }}>{nombreRuta(r.filas[0])}</span>
+                    <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 20, whiteSpace: 'nowrap' }}>{euros(suma(efectivo(r.filas)))}</span>
+                  </div>
+                  <div style={{ color: V.gris, fontSize: 13 }}>
+                    {r.filas[0].repartidor ?? 'Sin repartidor apuntado'} · {r.filas.length} factura{r.filas.length === 1 ? '' : 's'}
+                    {tarjeta(r.filas).length ? ` · 💳 ${euros(suma(tarjeta(r.filas)))} con tarjeta` : ''}
+                  </div>
+                </button>
+              )
+            }
+            return (
+              <div key={gr.rc} style={{ background: '#fff', border: `2px solid ${AZUL}`, borderRadius: 16, padding: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: 17, color: V.verde }}>{nombreRuta({ ruta: todas[0].ruta, ruta_nombre: todas[0].ruta_nombre })}</span>
+                  <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 20, whiteSpace: 'nowrap' }}>{euros(suma(efectivo(todas)))}</span>
+                </div>
+                <div style={{ color: V.gris, fontSize: 13, marginBottom: 6 }}>
+                  {todas[0].repartidor ?? 'Sin repartidor apuntado'} · {todas.length} facturas en {gr.dias.length} días · total
+                  {tarjeta(todas).length ? ` · 💳 ${euros(suma(tarjeta(todas)))} con tarjeta` : ''}
+                </div>
+                {gr.dias.map((d) => (
+                  <button key={d.k} type="button" onClick={() => abrir(d.k)} style={{ display: 'flex', alignItems: 'baseline', gap: 6, width: '100%', textAlign: 'left', background: '#eef5fc', border: `1px solid ${AZUL}`, borderRadius: 12, padding: '8px 10px', marginTop: 6 }}>
+                    <span style={{ flex: 1, fontWeight: 700, fontSize: 15, color: AZUL }}>
+                      {dia(d.filas[0].fecha)}
+                      <span style={{ fontWeight: 400, color: V.gris, fontSize: 13 }}> · {d.filas.length} factura{d.filas.length === 1 ? '' : 's'}{tarjeta(d.filas).length ? ` · 💳 ${euros(suma(tarjeta(d.filas)))}` : ''}</span>
+                    </span>
+                    <span style={{ fontFamily: '"IBM Plex Mono", monospace', fontWeight: 600, fontSize: 17, whiteSpace: 'nowrap' }}>{euros(suma(efectivo(d.filas)))}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          })}
       </div>
       {error && <div style={{ color: V.rojo, marginTop: 10 }}>{error}</div>}
 
