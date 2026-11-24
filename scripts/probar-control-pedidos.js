@@ -1212,3 +1212,25 @@ test('«Precio por 12 PCA»: a Géminis va el precio por unidad, sin descuento i
   assert.ok(Math.abs(g.dto) < 1, 'sin descuento del 91 %');
   assert.equal(CP.sinDudaPorPaquete({ ref: 'A', cant: 12, precio: 9.19, importe: 9.19, duda: 'Precio por 12 PCA · el importe 9,19 no sale de precio × cantidad − descuentos (110,28)' }).duda, '');
 });
+
+test('bloques con la referencia del proveedor («Su pedido: XX-509»): uno de un pedido y otro de varios', () => {
+  const L = (ref, cant) => ({ ref, cant, importe: 10 * cant });
+  const pedidos = [
+    { id: 'a', numero: '1', cliente: 'UNO', lineas: [L('111', 1), L('112', 1)] },
+    { id: 'b', numero: '2', cliente: 'DOS', lineas: [L('221', 1), L('222', 2)] },
+    { id: 'c', numero: '5', cliente: 'TIENDA', lineas: [L('501', 2), L('502', 1), L('503', 1)] },
+  ];
+  const doc = [
+    { ...L('501', 2), bloque: 'Su pedido: XX-509' }, { ...L('502', 1), bloque: 'Su pedido: XX-509' }, { ...L('503', 1), bloque: 'Su pedido: XX-509' },
+    { ...L('111', 1), bloque: 'Su pedido: XX-516' }, { ...L('112', 1), bloque: 'Su pedido: XX-516' },
+    { ...L('221', 1), bloque: 'Su pedido: XX-516' }, { ...L('222', 2), bloque: 'Su pedido: XX-516' }, { ...L('999', 1), bloque: 'Su pedido: XX-516' },
+  ];
+  const r = CP.repartirPorReferencias(doc, pedidos);
+  assert.equal(r.porPedido.get('c').length, 3);
+  assert.equal(r.porPedido.get('a').length, 2);
+  assert.equal(r.porPedido.get('b').length, 2);
+  assert.deepEqual(r.sobrantes.map((l) => l.ref), ['999']);
+  assert.equal(r.bloquesSinDueno.length, 0);
+  // Un nº que sí es de un pedido de la campaña sigue mandando el bloque entero
+  assert.equal(CP.bloqueDeVarios('Pedido 2_ B2F', doc.slice(3), pedidos), false);
+});
