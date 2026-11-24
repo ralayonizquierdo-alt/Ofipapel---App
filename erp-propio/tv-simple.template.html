@@ -6,37 +6,57 @@
 <title>Repartos de hoy · Ofipapel</title>
 <!--
   Pantalla de repartos para TVs con navegador MUY viejo (23/11/2026, Rober: en la LG la pantalla normal se quedaba en blanco).
-  JavaScript de los de antes (sin módulos, ni flechas, ni let/const), sin mapa: solo las rutas de hoy, el ranking y los totales.
+  JavaScript de los de antes (sin módulos, ni flechas, ni let/const), sin mapa: una fila por ruta con un punto por pedido
+  (verde entregado, naranja incidencia, rojo no entregado, azul contado por cobrar, gris por entregar), el ranking de la semana y los totales.
   Misma vinculación por código que /tv (fn_reparto_tv_pedir / _recoger) y mismos datos (fn_reparto_tv). Los dos valores
   de abajo los pone la publicación (vite.config.ts) desde las variables del entorno: no se guardan en el repositorio.
 -->
 <style>
   html,body{margin:0;padding:0;background:#0f3d0f;color:#fff;font-family:Arial,Helvetica,sans-serif;height:100%;overflow:hidden}
-  #cab{overflow:hidden;padding:1.2vh 2vw;background:#1a5c1a;height:7vh}
-  #cab .t{float:left;font-size:4vh;line-height:7vh;font-weight:bold}
-  #cab .h{float:right;font-size:4.6vh;line-height:7vh;font-weight:bold}
+  #cab{overflow:hidden;padding:0 2vw;background:#1a5c1a;height:8vh}
+  #cab .t{float:left;font-size:4.2vh;line-height:8vh;font-weight:bold}
+  #cab .h{float:right;font-size:4.8vh;line-height:8vh;font-weight:bold}
   #msg{padding:6vh 3vw;text-align:center}
   #msg .c{font-size:15vh;font-weight:bold;letter-spacing:1.5vh;margin:2vh 0;font-family:"Courier New",monospace}
   #msg p{font-size:3.4vh;margin:1vh 0}
-  #rutas{padding:0.8vh 1vw;overflow:hidden;box-sizing:border-box}
-  .r{float:left;margin:0.6vh 0.5%;background:#17501b;border-radius:10px;padding:0.8vh 1vw;box-sizing:border-box;overflow:hidden}
-  .r .n{font-size:1.25em;font-weight:bold;line-height:1.1}
-  .r .p{font-size:.9em;opacity:.85;margin:.1em 0 .3em}
-  .r .b{height:.8em;background:#0b2b0d;border-radius:.4em;overflow:hidden}
-  .r .b div{height:.8em;background:#8dc41e}
-  .r .d{font-size:1em;margin-top:.3em}
-  .r .e{font-size:.85em;margin-top:.1em;color:#ffd27a}
-  .c4{opacity:.6}
-  #pie{clear:both;padding:0 2vw;font-size:3vh;line-height:6vh;height:6vh;background:#1a5c1a;overflow:hidden;white-space:nowrap}
-  #pie span{margin-right:3vw}
+  #cuerpo{display:none;box-sizing:border-box;padding:1vh 1vw;overflow:hidden}
+  #rutas{float:left;width:69%;height:100%;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column}
+  #lado{float:right;width:29%;height:100%;overflow:hidden}
+  .f{-webkit-flex:1 1 0;flex:1 1 0;min-height:0;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;background:#17501b;border-radius:10px;margin:0 0 .8vh;padding:0 1vw;overflow:hidden}
+  .f .fi{width:30%;overflow:hidden}
+  .f .n{font-weight:bold;line-height:1.1;max-height:2.3em;overflow:hidden}
+  .f .p{opacity:.85;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .f .pt{-webkit-flex:1;flex:1;padding:0 1vw;line-height:1;overflow:hidden}
+  .f .nu{width:13%;text-align:right;white-space:nowrap}
+  .f .nu b{font-size:1.5em}
+  .f .nu span{display:block;font-size:.55em;opacity:.8}
+  .o{display:inline-block;border-radius:50%;margin:0 .2em .2em 0}
+  .e{background:#4cc04c}.i{background:#f5a623}.x{background:#d33a3a}.p0{background:#8fa08f}.cb{background:#3a8cf0}
+  .c4{opacity:.55}
+  .caja{background:#17501b;border-radius:10px;padding:1vh 1vw;margin-bottom:1vh}
+  .tit{font-size:2.6vh;font-weight:bold;margin-bottom:.8vh;color:#cfe8c0}
+  .rk{margin:.6vh 0;font-size:2.8vh;overflow:hidden;white-space:nowrap}
+  .rk .nm{display:inline-block;width:46%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+  .rk .br{display:inline-block;width:38%;height:1.8vh;background:#0b2b0d;border-radius:1vh;vertical-align:middle;overflow:hidden}
+  .rk .br div{height:1.8vh;background:#8dc41e}
+  .rk .vl{display:inline-block;width:14%;text-align:right;font-weight:bold;vertical-align:middle}
+  .tt{overflow:hidden}
+  .tt div{float:left;width:33.3%;text-align:center}
+  .tt b{display:block;font-size:4.4vh}
+  .tt span{font-size:2.2vh;opacity:.85}
 </style>
 </head>
 <body>
 <div id="cab"><div class="t">Repartos de hoy</div><div class="h" id="hora"></div></div>
 <div id="msg"><p>Cargando…</p><p style="font-size:22px;color:#ffd27a">Si solo ves este mensaje, el navegador de esta TV es demasiado antiguo para esta pantalla.</p></div>
 <div id="diag" style="display:none;position:fixed;left:0;right:0;bottom:0;background:#8a1010;color:#fff;font-size:22px;padding:8px 16px"></div>
-<div id="rutas"></div>
-<div id="pie"></div>
+<div id="cuerpo">
+  <div id="rutas"></div>
+  <div id="lado">
+    <div class="caja"><div class="tit">Ranking de la semana</div><div id="rank"></div></div>
+    <div class="caja"><div class="tit">Entregados</div><div class="tt" id="tot"></div></div>
+  </div>
+</div>
 <script>
 (function () {
   var URL_API = '__SUPABASE_URL__';
@@ -48,6 +68,11 @@
   if (q) { clave = decodeURIComponent(q[1]); try { localStorage.setItem(K, clave); } catch (e) {} }
 
   function $(id) { return document.getElementById(id); }
+  function diag(t) { var d = $('diag'); if (!d) return; if (t) { d.style.display = 'block'; d.innerHTML = ''; d.appendChild(document.createTextNode(t)); } else { d.style.display = 'none'; } }
+  window.onerror = function (m) { diag('Error en la pantalla: ' + m); };
+  function txt(el, t) { el.innerHTML = ''; el.appendChild(document.createTextNode(t)); }
+  function guardar(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+
   function rpc(fn, cuerpo, ok, ko) {
     var x = new XMLHttpRequest();
     x.open('POST', URL_API + '/rest/v1/rpc/' + fn, true);
@@ -64,10 +89,6 @@
     x.ontimeout = function () { diag('El servidor tarda demasiado en contestar. Se reintenta solo.'); };
     x.send(JSON.stringify(cuerpo || {}));
   }
-  function guardar(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
-  function diag(t) { var d = $('diag'); if (!d) return; if (t) { d.style.display = 'block'; d.innerHTML = ''; d.appendChild(document.createTextNode(t)); } else { d.style.display = 'none'; } }
-  window.onerror = function (m) { diag('Error en la pantalla: ' + m); };
-  function txt(el, t) { el.innerHTML = ''; el.appendChild(document.createTextNode(t)); }
 
   function reloj() {
     var d = new Date(), h = d.getHours(), m = d.getMinutes();
@@ -77,7 +98,7 @@
 
   // ---- vincular con código
   function mostrarCodigo() {
-    var m = $('msg'); m.style.display = 'block'; $('rutas').style.display = 'none'; $('pie').style.display = 'none';
+    var m = $('msg'); m.style.display = 'block'; $('cuerpo').style.display = 'none';
     m.innerHTML = '<p>Para ver los repartos, en el ERP escribe este código:</p><div class="c" id="cod"></div>' +
       '<p>Ventas → Seguimiento de Repartos → Enlace para la TV → «Vincular TV».</p><p>Esta pantalla se pone sola cuando lo escribas.</p>';
     txt($('cod'), codigo || '········');
@@ -97,47 +118,73 @@
     }, 3000);
   }
 
-  // ---- datos
+  // ---- pintar
   function n(v) { return String(v || 0); }
-  // Reparte el alto de la pantalla entre las filas de tarjetas, para que quepan todas y se vea el pie.
-  var ultimoN = 0;
-  function ajustar(cuantas) {
-    ultimoN = cuantas || ultimoN;
-    var c = $('rutas'); if (!c || !ultimoN) return;
-    var cols = ultimoN <= 4 ? 2 : (ultimoN <= 9 ? 3 : 4), filas = Math.ceil(ultimoN / cols);
-    var libre = window.innerHeight - $('cab').offsetHeight - $('pie').offsetHeight;
-    c.style.height = libre + 'px';
-    var alto = Math.floor((libre - 0.016 * window.innerHeight) / filas - 0.012 * window.innerHeight);
-    var ancho = Math.floor(100 / cols - 1.2);
-    var tarjetas = c.children;
-    for (var k = 0; k < tarjetas.length; k++) { tarjetas[k].style.height = alto + 'px'; tarjetas[k].style.width = ancho + '%'; }
-    c.style.fontSize = Math.max(10, Math.floor(alto * 0.125)) + 'px';
+  var ultimo = null;
+  function puntosDe(r) {
+    var lista = [], i, p = r.pedidos;
+    if (p && p.length) {
+      for (i = 0; i < p.length; i++) lista.push(p[i].e === 'entregado' ? 'e' : p[i].e === 'incidencia' ? 'i' : p[i].e === 'no_entregado' ? 'x' : (p[i].c ? 'cb' : 'p0'));
+    } else {
+      for (i = 0; i < (r.entregados || 0); i++) lista.push('e');
+      for (i = 0; i < (r.incidencias || 0); i++) lista.push('i');
+      for (i = 0; i < (r.no_entregados || 0); i++) lista.push('x');
+      for (i = 0; i < (r.pendientes || 0); i++) lista.push('p0');
+    }
+    return lista;
   }
-  window.onresize = function () { ajustar(0); };
   function pintar(d) {
-    $('msg').style.display = 'none'; $('rutas').style.display = 'block'; $('pie').style.display = 'block';
+    ultimo = d;
+    $('msg').style.display = 'none'; $('cuerpo').style.display = 'block';
     var rutas = (d.rutas || []).slice().sort(function (a, b) { return String(a.ruta) < String(b.ruta) ? -1 : 1; });
-    var html = '';
-    for (var i = 0; i < rutas.length; i++) {
-      var r = rutas[i], pc = r.total ? Math.round(100 * r.entregados / r.total) : 0;
-      html += '<div class="r' + (r.estado === 4 ? ' c4' : '') + '"><div class="n" data-i="' + i + '"></div><div class="p" data-p="' + i + '"></div>' +
-        '<div class="b"><div style="width:' + pc + '%"></div></div>' +
-        '<div class="d">' + n(r.entregados) + ' de ' + n(r.total) + ' entregados' + (r.estado === 4 ? ' · cerrada' : '') + '</div>' +
-        ((r.incidencias || r.no_entregados) ? '<div class="e">' + (r.incidencias ? n(r.incidencias) + ' incidencia(s) ' : '') + (r.no_entregados ? n(r.no_entregados) + ' no entregado(s)' : '') + '</div>' : '') + '</div>';
+    var html = '', i, j;
+    for (i = 0; i < rutas.length; i++) {
+      var r = rutas[i], pts = puntosDe(r), dots = '';
+      for (j = 0; j < pts.length; j++) dots += '<i class="o ' + pts[j] + '"></i>';
+      html += '<div class="f' + (r.estado === 4 ? ' c4' : '') + '"><div class="fi"><div class="n" data-i="' + i + '"></div><div class="p" data-p="' + i + '"></div></div>' +
+        '<div class="pt">' + dots + '</div>' +
+        '<div class="nu"><b>' + n(r.entregados) + '/' + n(r.total) + '</b><span>' + (r.estado === 4 ? 'cerrada' : 'entregados') + '</span></div></div>';
     }
     $('rutas').innerHTML = html || '<p style="font-size:28px">Hoy no hay rutas.</p>';
-    ajustar(rutas.length);
-    for (var j = 0; j < rutas.length; j++) {
+    for (j = 0; j < rutas.length; j++) {
       var nn = document.querySelector('[data-i="' + j + '"]'), pp = document.querySelector('[data-p="' + j + '"]');
       if (nn) txt(nn, rutas[j].ruta_nombre || rutas[j].ruta || '');
       if (pp) txt(pp, rutas[j].repartidor_nombre || 'sin repartidor');
     }
-    var t = d.totales || {}, rk = (d.ranking || [])[0];
-    $('pie').innerHTML = '<span>Semana: <b id="t1"></b></span><span>Mes: <b id="t2"></b></span><span>Año: <b id="t3"></b></span><span id="t4"></span>';
+    var rk = d.ranking || [], max = rk.length ? rk[0].entregados || 1 : 1, rh = '';
+    for (i = 0; i < rk.length && i < 8; i++) rh += '<div class="rk"><span class="nm" data-r="' + i + '"></span><span class="br"><div style="width:' + Math.round(100 * (rk[i].entregados || 0) / max) + '%"></div></span><span class="vl">' + n(rk[i].entregados) + '</span></div>';
+    $('rank').innerHTML = rh || '<div class="rk">Aún no hay entregas esta semana.</div>';
+    for (i = 0; i < rk.length && i < 8; i++) { var e = document.querySelector('[data-r="' + i + '"]'); if (e) txt(e, (i + 1) + ". " + rk[i].repartidor); }
+    var t = d.totales || {};
+    $('tot').innerHTML = '<div><b id="t1"></b><span>Semana</span></div><div><b id="t2"></b><span>Mes</span></div><div><b id="t3"></b><span>Año</span></div>';
     txt($('t1'), n(t.semana)); txt($('t2'), n(t.mes)); txt($('t3'), n(t.anio));
-    if (rk) txt($('t4'), 'Primero: ' + rk.repartidor + ' (' + n(rk.entregados) + ')');
-    ajustar(rutas.length);
+    ajustar();
   }
+
+  // Reparte el alto de la pantalla entre las filas y ajusta el tamaño de letra y de los puntos para que quepa todo.
+  function ajustar() {
+    var cu = $('cuerpo'); if (!ultimo || cu.style.display === 'none') return;
+    var alto = window.innerHeight - $('cab').offsetHeight;
+    cu.style.height = alto + 'px';
+    var filas = $('rutas').children, nf = filas.length; if (!nf) return;
+    var rutas = (ultimo.rutas || []);
+    var hFila = Math.floor((alto - 0.02 * window.innerHeight) / nf - 0.008 * window.innerHeight);
+    var ancho = Math.floor($('rutas').offsetWidth * 0.54 - 0.02 * window.innerWidth), maxP = 1, i;
+    for (i = 0; i < rutas.length; i++) { var c = puntosDe(rutas[i]).length; if (c > maxP) maxP = c; }
+    var dot = 26;
+    while (dot > 7) {
+      var porLinea = Math.max(1, Math.floor(ancho / (dot * 1.25)));
+      if (Math.ceil(maxP / porLinea) * dot * 1.25 <= hFila * 0.8) break;
+      dot -= 1;
+    }
+    var f = $('rutas').style; f.fontSize = Math.max(10, Math.min(hFila * 0.26, 0.034 * window.innerHeight)) + 'px';
+    for (i = 0; i < nf; i++) {
+      var pts = filas[i].querySelectorAll('.o');
+      for (var k = 0; k < pts.length; k++) { pts[k].style.width = dot + 'px'; pts[k].style.height = dot + 'px'; }
+    }
+  }
+  window.onresize = ajustar;
+
   function cargar() {
     if (!clave) return;
     rpc('fn_reparto_tv', { p_clave: clave }, pintar, function (mensaje) {
