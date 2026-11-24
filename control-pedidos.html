@@ -1968,6 +1968,7 @@ function vistaComparacion(p, filas) {
             <select onchange="decide(${js(f.ref)},'accion',this.value)">
               <option value="">— decidir —</option>
               ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${a === 'aceptar' && f.cantPropuesta > f.cantPedida ? (esRepo(p) ? 'Aceptar: nos lo quedamos' : '➕ Sumarlo al pedido del cliente') : nombres[a]}</option>`).join('')}
+              ${f.estado === 'extra' ? E.pedidos.filter((q) => q.id !== p.id && claveGrupo(q) === claveGrupo(p) && !q.sobrantes && !q.archivado).sort((a, b) => String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true })).map((q) => `<option value="pasar:${h(q.id)}">📦 Pasar al pedido ${h(nPed(q.numero))}${q.cliente ? ' (' + h(q.cliente) + ')' : ''}</option>`).join('') : ''}
               ${f.estado === 'falta' ? filas.filter((x) => x.estado === 'extra').map((x) => `<option value="eq:${h(x.ref)}">🔗 Es la «${h(x.ref)}» del proveedor (${h(String(x.desc || '').slice(0, 30))})</option>`).join('') : ''}
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
@@ -2617,6 +2618,8 @@ function decidirEnBloque(accion) {
 function decide(ref, campo, valor) {
   const p = pedidoActual();
   if (campo === 'accion' && String(valor).startsWith('eq:')) { emparejar(String(valor).slice(3), ref); return; }
+  // 24/11/2026, propietario: pasar a mano lo que viene sin pedir (o en «SIN CLIENTE») a un pedido de la campaña.
+  if (campo === 'accion' && String(valor).startsWith('pasar:')) { pasarAOtroPedido(ref, String(valor).slice(6)); return; }
   p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
   // La nota para el proveedor solo cambia el texto de la reclamación: no hay que revalidar.
   if (campo !== 'motivo') invalidar(p);
