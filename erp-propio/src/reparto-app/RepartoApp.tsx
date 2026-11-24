@@ -1684,9 +1684,11 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
       const err = e as ErrorApp
       if (err.caducada) onCaducada()
       else if (err.red) setAviso('Sin conexión: trabajas con la última lista guardada.')
+      // El móvil recordaba el reparto de ayer (ya cerrado) y se quedaba en él sin cargar el de hoy: se vuelve a la lista de rutas.
+      else if (/ya está cerrado|no la llevas tú|no existe/i.test(err.message)) onVolver()
       else setError(err.message)
     }
-  }, [sesion.token, reparto.tienda, reparto.numero, onCaducada])
+  }, [sesion.token, reparto.tienda, reparto.numero, onCaducada, onVolver])
 
   const enviar = useCallback(async () => {
     const r = await enviarCola(sesion.token)
