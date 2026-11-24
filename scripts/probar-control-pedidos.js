@@ -753,7 +753,7 @@ test('proveedor de netos con margen: se compara en precio de venta, al cliente l
   assert.equal(A.estado, 'ok', '7 de coste con 30 % de beneficio = 10, lo que apuntó el comercial');
   assert.equal(A.ventaPropuesta, 10);
   assert.equal(B.ventaPropuesta, 5.71);
-  assert.match(B.motivos.find((m) => m.tipo === 'precio').texto, /Precio de venta 5,00 → 5,71 .*coste del proveedor 4,00 con 30 % de beneficio/);
+  assert.match(B.motivos.find((m) => m.tipo === 'precio').texto, /Precio de venta: nuestro pedido 5,00 € · proveedor 5,71 € → 0,71 € más caro .*coste del proveedor 4,00 € con 30 % de beneficio/);
   const dec = { B: { accion: 'aceptar' }, C: { accion: 'mantener' } };
   const r = CP.aplicarDecisiones(filas, dec, { comercial: true });
   const l = (ref) => r.lineas.find((x) => x.ref === ref);

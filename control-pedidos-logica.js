@@ -322,9 +322,9 @@
           fila.estado = 'cambio';
           fila.motivos.push({
             tipo: 'precio',
-            texto: `${fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? 'Precio de tarifa' : 'Precio de venta') : neto ? 'Precio neto' : 'Precio'} ${fmt(antes)} → ${fmt(ahora)} (${dif > 0 ? '+' : ''}${fmt(dif)})` +
-              (fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? ` · neto del proveedor ${fmt(b.neto)}` : ` · coste del proveedor ${fmt(b.neto)} con ${textoAjuste(ajuste)}`) : '') +
-              (fila.precioDeHistorial ? ' respecto al último precio aceptado' : ''),
+            // 24/11/2026, propietario: «21,75 → 15,23 (-6,52)» no se entendía.
+            texto: `${fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? 'Precio de tarifa' : 'Precio de venta') : neto ? 'Precio neto' : 'Precio'}: ${fila.precioDeHistorial ? 'último aceptado' : 'nuestro pedido'} ${fmt(antes)} € · proveedor ${fmt(ahora)} € → ${fmt(Math.abs(dif))} € ${dif > 0 ? 'más caro' : 'más barato'}` +
+              (fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? ` · neto del proveedor ${fmt(b.neto)} €` : ` · coste del proveedor ${fmt(b.neto)} € con ${textoAjuste(ajuste)}`) : ''),
             revisar: fuera,
             informativo: !fuera,
           });
