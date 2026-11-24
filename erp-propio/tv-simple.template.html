@@ -33,7 +33,8 @@
 </head>
 <body>
 <div id="cab"><div class="t">Repartos de hoy</div><div class="h" id="hora"></div></div>
-<div id="msg"></div>
+<div id="msg"><p>Cargando…</p><p style="font-size:22px;color:#ffd27a">Si solo ves este mensaje, el navegador de esta TV es demasiado antiguo para esta pantalla.</p></div>
+<div id="diag" style="display:none;position:fixed;left:0;right:0;bottom:0;background:#8a1010;color:#fff;font-size:22px;padding:8px 16px"></div>
 <div id="rutas"></div>
 <div id="pie"></div>
 <script>
@@ -58,11 +59,14 @@
       if (x.readyState !== 4) return;
       var d = null;
       try { d = JSON.parse(x.responseText); } catch (e) {}
-      if (x.status >= 200 && x.status < 300) ok(d); else ko(d && d.message ? String(d.message) : 'error', x.status);
+      if (x.status >= 200 && x.status < 300) { diag(null); ok(d); } else { if (x.status === 0 || x.status >= 500) diag('Sin conexión con el servidor (código ' + x.status + '). Se reintenta solo.'); ko(d && d.message ? String(d.message) : 'error', x.status); }
     };
+    x.ontimeout = function () { diag('El servidor tarda demasiado en contestar. Se reintenta solo.'); };
     x.send(JSON.stringify(cuerpo || {}));
   }
   function guardar(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function diag(t) { var d = $('diag'); if (!d) return; if (t) { d.style.display = 'block'; d.innerHTML = ''; d.appendChild(document.createTextNode(t)); } else { d.style.display = 'none'; } }
+  window.onerror = function (m) { diag('Error en la pantalla: ' + m); };
   function txt(el, t) { el.innerHTML = ''; el.appendChild(document.createTextNode(t)); }
 
   function reloj() {
