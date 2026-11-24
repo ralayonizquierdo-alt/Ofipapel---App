@@ -11,24 +11,24 @@
   de abajo los pone la publicación (vite.config.ts) desde las variables del entorno: no se guardan en el repositorio.
 -->
 <style>
-  html,body{margin:0;padding:0;background:#0f3d0f;color:#fff;font-family:Arial,Helvetica,sans-serif}
-  #cab{overflow:hidden;padding:14px 24px;background:#1a5c1a}
-  #cab .t{float:left;font-size:34px;font-weight:bold}
-  #cab .h{float:right;font-size:40px;font-weight:bold}
-  #msg{padding:60px 30px;text-align:center}
-  #msg .c{font-size:120px;font-weight:bold;letter-spacing:14px;margin:20px 0;font-family:"Courier New",monospace}
-  #msg p{font-size:26px;margin:8px 0}
-  #rutas{padding:14px 18px;overflow:hidden}
-  .r{float:left;width:31%;margin:1%;background:#17501b;border-radius:10px;padding:14px 16px;box-sizing:border-box;min-height:150px}
-  .r .n{font-size:30px;font-weight:bold}
-  .r .p{font-size:22px;opacity:.85;margin:2px 0 8px}
-  .r .b{height:22px;background:#0b2b0d;border-radius:11px;overflow:hidden}
-  .r .b div{height:22px;background:#8dc41e}
-  .r .d{font-size:24px;margin-top:8px}
-  .r .e{font-size:20px;margin-top:4px;color:#ffd27a}
+  html,body{margin:0;padding:0;background:#0f3d0f;color:#fff;font-family:Arial,Helvetica,sans-serif;height:100%;overflow:hidden}
+  #cab{overflow:hidden;padding:1.2vh 2vw;background:#1a5c1a;height:7vh}
+  #cab .t{float:left;font-size:4vh;line-height:7vh;font-weight:bold}
+  #cab .h{float:right;font-size:4.6vh;line-height:7vh;font-weight:bold}
+  #msg{padding:6vh 3vw;text-align:center}
+  #msg .c{font-size:15vh;font-weight:bold;letter-spacing:1.5vh;margin:2vh 0;font-family:"Courier New",monospace}
+  #msg p{font-size:3.4vh;margin:1vh 0}
+  #rutas{padding:0.8vh 1vw;overflow:hidden;box-sizing:border-box}
+  .r{float:left;margin:0.6vh 0.5%;background:#17501b;border-radius:10px;padding:0.8vh 1vw;box-sizing:border-box;overflow:hidden}
+  .r .n{font-size:1.25em;font-weight:bold;line-height:1.1}
+  .r .p{font-size:.9em;opacity:.85;margin:.1em 0 .3em}
+  .r .b{height:.8em;background:#0b2b0d;border-radius:.4em;overflow:hidden}
+  .r .b div{height:.8em;background:#8dc41e}
+  .r .d{font-size:1em;margin-top:.3em}
+  .r .e{font-size:.85em;margin-top:.1em;color:#ffd27a}
   .c4{opacity:.6}
-  #pie{clear:both;padding:10px 24px;font-size:24px;background:#1a5c1a;overflow:hidden}
-  #pie span{margin-right:30px}
+  #pie{clear:both;padding:0 2vw;font-size:3vh;line-height:6vh;height:6vh;background:#1a5c1a;overflow:hidden;white-space:nowrap}
+  #pie span{margin-right:3vw}
 </style>
 </head>
 <body>
@@ -99,6 +99,21 @@
 
   // ---- datos
   function n(v) { return String(v || 0); }
+  // Reparte el alto de la pantalla entre las filas de tarjetas, para que quepan todas y se vea el pie.
+  var ultimoN = 0;
+  function ajustar(cuantas) {
+    ultimoN = cuantas || ultimoN;
+    var c = $('rutas'); if (!c || !ultimoN) return;
+    var cols = ultimoN <= 4 ? 2 : (ultimoN <= 9 ? 3 : 4), filas = Math.ceil(ultimoN / cols);
+    var libre = window.innerHeight - $('cab').offsetHeight - $('pie').offsetHeight;
+    c.style.height = libre + 'px';
+    var alto = Math.floor((libre - 0.016 * window.innerHeight) / filas - 0.012 * window.innerHeight);
+    var ancho = Math.floor(100 / cols - 1.2);
+    var tarjetas = c.children;
+    for (var k = 0; k < tarjetas.length; k++) { tarjetas[k].style.height = alto + 'px'; tarjetas[k].style.width = ancho + '%'; }
+    c.style.fontSize = Math.max(10, Math.floor(alto * 0.125)) + 'px';
+  }
+  window.onresize = function () { ajustar(0); };
   function pintar(d) {
     $('msg').style.display = 'none'; $('rutas').style.display = 'block'; $('pie').style.display = 'block';
     var rutas = (d.rutas || []).slice().sort(function (a, b) { return String(a.ruta) < String(b.ruta) ? -1 : 1; });
@@ -111,6 +126,7 @@
         ((r.incidencias || r.no_entregados) ? '<div class="e">' + (r.incidencias ? n(r.incidencias) + ' incidencia(s) ' : '') + (r.no_entregados ? n(r.no_entregados) + ' no entregado(s)' : '') + '</div>' : '') + '</div>';
     }
     $('rutas').innerHTML = html || '<p style="font-size:28px">Hoy no hay rutas.</p>';
+    ajustar(rutas.length);
     for (var j = 0; j < rutas.length; j++) {
       var nn = document.querySelector('[data-i="' + j + '"]'), pp = document.querySelector('[data-p="' + j + '"]');
       if (nn) txt(nn, rutas[j].ruta_nombre || rutas[j].ruta || '');
@@ -120,6 +136,7 @@
     $('pie').innerHTML = '<span>Semana: <b id="t1"></b></span><span>Mes: <b id="t2"></b></span><span>Año: <b id="t3"></b></span><span id="t4"></span>';
     txt($('t1'), n(t.semana)); txt($('t2'), n(t.mes)); txt($('t3'), n(t.anio));
     if (rk) txt($('t4'), 'Primero: ' + rk.repartidor + ' (' + n(rk.entregados) + ')');
+    ajustar(rutas.length);
   }
   function cargar() {
     if (!clave) return;
