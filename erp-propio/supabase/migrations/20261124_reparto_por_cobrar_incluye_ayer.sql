@@ -14,3 +14,14 @@ begin
     execute d2;
   end if;
 end $$;
+
+-- Y sin límite de días (Rober, 24/11/2026): lo de contado que un repartidor no liquida se le va acumulando hasta que lo entregue en administración.
+do $$
+declare d text := pg_get_functiondef('reparto_privado.por_cobrar(boolean,boolean)'::regprocedure);
+begin
+  if position('r.fecha >= fn_app_rep_hoy() - 1 and g.forma_pago = 1' in d) > 0 then
+    d := replace(d, 'r.estado <> 2 and r.fecha >= fn_app_rep_hoy() - 1 and g.forma_pago = 1', 'r.estado <> 2 and g.forma_pago = 1');
+    if position('fn_app_rep_hoy() - 1' in d) > 0 then raise exception 'No se pudo cambiar reparto_privado.por_cobrar.'; end if;
+    execute d;
+  end if;
+end $$;
