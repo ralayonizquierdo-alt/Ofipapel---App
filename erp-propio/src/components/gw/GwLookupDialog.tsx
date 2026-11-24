@@ -26,6 +26,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   ordenPrevio,
   filaRoja,
   filtroInicial = '',
+  descendente = false,
 }: {
   title: string
   table: string
@@ -43,6 +44,8 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   filaRoja?: (r: T) => boolean
   /** Texto con el que se abre ya filtrado (p. ej. lo escrito en «Ver Presup.»). */
   filtroInicial?: string
+  /** Lo más nuevo primero (p. ej. facturas: las de hoy arriba). */
+  descendente?: boolean
 }) {
   const [filtro, setFiltro] = useState(filtroInicial)
   const eqClave = JSON.stringify(eq ?? {})
@@ -54,7 +57,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
       const cols = [...new Set([...columns.map((c) => c.key), ...(ordenPrevio ? [ordenPrevio] : [])])].join(', ')
       let q = supabase.from(table).select(cols)
       if (ordenPrevio) q = q.order(ordenPrevio)
-      q = q.order(orderBy).limit(200)
+      q = q.order(orderBy, { ascending: !descendente }).limit(200)
       const f = filtro.trim().replace(/[,%()]/g, ' ')
       if (f) q = q.or(searchColumns.map((c) => `${c}.ilike.%${f}%`).join(','))
       for (const [c, v] of Object.entries(JSON.parse(eqClave) as Record<string, string>)) q = q.eq(c, v)

@@ -43,6 +43,8 @@ interface Reparto {
   total_ventas: number | null
   total_pagado: number | null
   observaciones: string | null
+  /** El reparto se generó en el ERP (los de GeminisWin se rellenan en GeminisWin). */
+  generado_erp?: boolean | null
 }
 
 interface Linea {
@@ -864,17 +866,25 @@ export function RepartoFichaPage() {
     setSel(0)
   }
 
-  async function anadirVenta(v: Record<string, unknown>) {
+  /** Añade una factura de GeminisWin a esta ruta (fn_reparto_erp_anadir_factura): se guarda al momento, no hace falta editar. */
+  async function anadirFactura(v: Record<string, unknown>) {
     setBuscar(null)
-    const k = `${v.tienda_terminal_codigo}-${v.numero}`
-    if (lineasDraft.some((l) => claveLinea(l) === k)) return setError(`La venta ${k} ya está en este reparto.`)
-    if (v.reparto_numero != null && Number(v.reparto_numero) !== cab.numero)
-      return setError(`La venta ${k} ya está en el reparto ${v.reparto_tienda_codigo}-${v.reparto_numero}.`)
-    const maxOrden = lineasDraft.reduce((m, l) => Math.max(m, l.orden ?? 0), 0)
-    const l = await lineaDesdeVenta(v, maxOrden + 1)
-    setLineasDraft((ls) => [...ls, l])
-    setSel(lineasDraft.length)
-    setSubTab('actual')
+    setError(null)
+    const numero = cab.numero
+    if (numero == null) return
+    const { error: e } = await supabase.rpc('fn_reparto_erp_anadir_factura', {
+      p_tienda: cab.tienda_terminal_codigo,
+      p_numero: numero,
+      p_vt: String(v.venta_tienda_codigo),
+      p_vn: Number(v.venta_numero),
+    })
+    if (e) return setError(e.message)
+    const ls = await cargarLineas(cab.tienda_terminal_codigo, numero)
+    setLineas(ls)
+    setLineasDraft(ls)
+    const i = ls.findIndex((l) => l.venta_tienda_codigo === String(v.venta_tienda_codigo) && Number(l.venta_numero) === Number(v.venta_numero))
+    setSel(i >= 0 ? i : 0)
+    setMensaje(`Factura ${v.factura_numero ?? `${v.venta_tienda_codigo}/${v.venta_numero}`} añadida a la ruta.`)
   }
 
   function quitarLinea() {
@@ -1114,7 +1124,7 @@ export function RepartoFichaPage() {
                   </MiniBtn>
                 </div>
                 <div className="flex border border-[var(--gw-border)] bg-[var(--gw-face)]">
-                  <MiniBtn title="Añadir una venta al reparto" disabled={!editing} onClick={() => setBuscar('venta')}>
+                  <MiniBtn title={cab.generado_erp ? 'Añadir una factura a esta ruta (se guarda al momento)' : 'Este reparto viene de GeminisWin: las facturas se le añaden en GeminisWin'} disabled={editing || cab.estado !== 2 || !cab.generado_erp} onClick={() => setBuscar('venta')}>
                     <GwNuevo />
                   </MiniBtn>
                   <MiniBtn title="Editar la línea actual" disabled={!actual} onClick={() => setSubTab('actual')}>
@@ -1213,23 +1223,23 @@ export function RepartoFichaPage() {
       )}
       {buscar === 'venta' && (
         <GwLookupDialog<Record<string, unknown>>
-          title="Añadir venta al reparto"
-          table="venta"
+          title="Añadir factura a esta ruta · busca por nº de factura, albarán o cliente"
+          table="reparto_gw_venta"
           columns={[
-            { key: 'tienda_terminal_codigo', label: 'Tie.', width: 50 },
-            { key: 'numero', label: 'Nº Venta', width: 90 },
-            { key: 'fecha', label: 'Fecha', width: 100 },
-            { key: 'cliente_codigo', label: 'Cliente', width: 70 },
-            { key: 'nombre_cliente', label: 'Nombre' },
+            { key: 'factura_numero', label: 'Factura', width: 100 },
+            { key: 'venta_tienda_codigo', label: 'Tie.', width: 45 },
+            { key: 'venta_numero', label: 'Albarán', width: 85 },
+            { key: 'fecha', label: 'Fecha', width: 95 },
+            { key: 'nombre_cliente', label: 'Cliente' },
             { key: 'total', label: 'Total', width: 80 },
-            { key: 'reparto_numero', label: 'En reparto', width: 80 },
-            { key: 'factura_numero', label: 'Factura', width: 70 },
-            { key: 'total_pagado', label: 'Pagado', width: 70 },
+            { key: 'total_pagado', label: 'Pagado', width: 80 },
+            { key: 'forma_pago_texto', label: 'Forma de pago', width: 150 },
           ]}
-          searchColumns={['nombre_cliente', 'cliente_codigo']}
-          orderBy="numero"
-          keyColumn="numero"
-          onPick={anadirVenta}
+          searchColumns={['nombre_cliente', 'factura_numero']}
+          orderBy="fecha"
+          descendente
+          keyColumn="venta_numero"
+          onPick={anadirFactura}
           onClose={() => setBuscar(null)}
         />
       )}

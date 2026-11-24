@@ -1,0 +1,6 @@
+-- Añadir una factura a una ruta desde el ERP (Rober, 24/11/2026): el botón «Añadir una venta al reparto» de la ficha del reparto buscaba en la
+-- tabla `venta` del ERP, que no tiene las facturas de GeminisWin, y no servía para nada. Ahora busca en las facturas de GeminisWin
+-- (reparto_gw_venta) y esta función mete la factura en la ruta con las mismas comprobaciones que el resto del circuito:
+-- permiso de Repartos, reparto abierto y generado en el ERP (los de GeminisWin se rellenan en GeminisWin), la factura no puede estar ya
+-- en esa ruta ni ir en otra ruta abierta ni haberse entregado. Queda en la auditoría con quién la añadió.
+-- (El texto de la función está en la migración reparto_erp_anadir_factura aplicada en Supabase.)
