@@ -703,7 +703,7 @@ function bloquePasos(g) {
   // Comercial: las entregas del proveedor en una tabla, siempre a la vista.
   const entregas = repo ? '' : tablaEntregas(g, por);
   if (por.has('geminis')) filas.push(fila('③', 'Subir a Géminis', '',
-    `<button class="btn peque" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel Géminis</button>` +
+    `<button class="btn peque" onclick="exportarSeleccionados(this.closest('details.grupo'))">📥 Excel Géminis</button>` +
     (por.get('geminis') || []).map(({ p }) => `<button class="btn peque" onclick="subidoAGeminis('${p.id}')">☐ Subido a Géminis${p.numero ? ' · nº ' + h(p.numero) : ''}</button>`).join('')));
   // Lo facturado que no acaba en ningún cliente también es algo por resolver.
   const cu = repo ? { difs: [] } : cuadreCampana(g.pedidos);
@@ -953,7 +953,7 @@ function vistaGrupo(g, i) {
         <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(ej.proveedor)}, ${js(ej.campana || '')}); this.value=''"></label>
       <button class="btn" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">✍️ Añadir pedido a mano a esta campaña</button>
       <button class="btn primario" onclick="avisarCompras(${js(g.clave)})">📣 Avisar a compras: pedidos listos</button>
-      ${esComercial() ? '' : `<button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details'))">📧 Enviar pedidos al proveedor</button>
+      ${esComercial() ? '' : `<button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details.grupo'))">📧 Enviar pedidos al proveedor</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas del proveedor de esta campaña
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="Para el proveedor que lo factura todo junto, sin separar por cliente: cada línea va al pedido que pidió esa referencia">🧩 Factura de todo junto: repartirla por referencias
@@ -962,7 +962,7 @@ function vistaGrupo(g, i) {
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       ${esComercial() ? '' : `${esRepo(ej) ? `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📄 Subir propuesta o factura del proveedor (PDF o Excel)
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>` : ''}
-      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
+      <button class="btn" onclick="exportarSeleccionados(this.closest('details.grupo'))">📥 Excel de la compra al proveedor (Géminis)</button>
       ${esRepo(ej) ? '' : `<label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="La «Propuesta de Pedido» de Géminis (PDF) de esta campaña: sus Cod.Venta salen en la guía de facturación">🏷️ Subir nuestra liquidación de Géminis (códigos internos)
         <input type="file" multiple class="oculto" onchange="cargarCodigosCampana(this.files, ${js(g.clave)}); this.value=''"></label>`}
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
