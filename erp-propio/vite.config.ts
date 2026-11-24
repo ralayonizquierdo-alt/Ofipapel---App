@@ -23,7 +23,21 @@ export default defineConfig({
         const url = env.VITE_SUPABASE_URL ?? ''
         const key = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? ''
         const plantilla = readFileSync(new URL('./tv-simple.template.html', import.meta.url), 'utf8')
-        this.emitFile({ type: 'asset', fileName: 'tv-simple.html', source: plantilla.replace('__SUPABASE_URL__', url).replace('__SUPABASE_KEY__', key) })
+        // Mapa de Tenerife para la TV vieja: los mismos municipios que la pantalla grande, ya proyectados a trazados SVG (sin librerías).
+        const fuente = readFileSync(new URL('./src/reparto-app/municipiosTenerife.ts', import.meta.url), 'utf8')
+        const lista = JSON.parse(fuente.slice(fuente.indexOf('= [') + 2).trim()) as { n: string; k: number; c: [number, number]; g: number[][][][] }[]
+        const minLng = -16.935, maxLng = -16.105, minLat = 27.985, maxLat = 28.6
+        const cos = Math.cos(((minLat + maxLat) / 2) * Math.PI / 180), k = 1000 / ((maxLng - minLng) * cos)
+        const X = (lng: number) => +((lng - minLng) * cos * k).toFixed(1)
+        const Y = (lat: number) => +((maxLat - lat) * k).toFixed(1)
+        const isla = {
+          W: 1000, H: Math.round((maxLat - minLat) * k), minLng, maxLat, cos, k,
+          m: lista.map((mu) => ({
+            n: mu.n, k: mu.k, c: [X(mu.c[1]), Y(mu.c[0])],
+            d: mu.g.map((pol) => pol.map((an) => 'M' + an.map(([lng, lat]) => X(lng) + ' ' + Y(lat)).join('L') + 'Z').join('')).join(''),
+          })),
+        }
+        this.emitFile({ type: 'asset', fileName: 'tv-simple.html', source: plantilla.replace('__SUPABASE_URL__', url).replace('__SUPABASE_KEY__', key).replace('__ISLA__', () => JSON.stringify(isla)) })
       },
     },
     {

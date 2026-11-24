@@ -259,7 +259,7 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
         <Leyenda color={C.naranja}>Con incidencia</Leyenda>
         <Leyenda color={C.rojo}>No entregado</Leyenda>
         <Leyenda color={C.gris}>Por entregar</Leyenda>
-        <Leyenda color={C.azul}>Contado por cobrar</Leyenda>
+        {!tv && <Leyenda color={C.azul}>Contado por cobrar</Leyenda>}
       </div>
     </div>
   )
@@ -286,7 +286,7 @@ export function BarraPuntos({
 }) {
   const COLOR = { entregado: C.verdeCl, incidencia: C.naranja, no_entregado: C.rojo, pendiente: C.gris } as const
   const puntos: { c: string; h: string | null }[] = r.pedidos
-    ? r.pedidos.map((p) => ({ c: p.e === 'pendiente' && p.c ? C.azul : (COLOR[p.e] ?? C.gris), h: p.h }))
+    ? r.pedidos.map((p) => ({ c: p.e === 'pendiente' && p.c && !horas ? C.azul : (COLOR[p.e] ?? C.gris), h: p.h })) // en la TV (horas) no se enseña nada de cobros: solo verde, naranja, rojo y gris
     : [
         ...Array<string>(r.entregados).fill(C.verdeCl),
         ...Array<string>(r.incidencias).fill(C.naranja),
@@ -428,7 +428,7 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
     rutas.forEach((r, i) => {
       const color = COLORES_RUTA[i % COLORES_RUTA.length]
       for (const p of r.puntos) {
-        const c = p.estado === 'liquidado' ? '#1f6fb2' : p.estado === 'no_entregado' ? C.rojo : p.estado === 'incidencia' ? C.naranja : C.verdeCl
+        const c = p.estado === 'liquidado' ? (tv ? C.verdeCl : '#1f6fb2') : p.estado === 'no_entregado' ? C.rojo : p.estado === 'incidencia' ? C.naranja : C.verdeCl
         // Al pulsar el punto: qué pedido se marcó ahí, cómo quedó y a qué hora (Rober, 17/11/2026).
         const que = p.estado === 'liquidado' ? 'Liquidada' : p.estado === 'no_entregado' ? 'No entregado' : p.estado === 'incidencia' ? 'Entregado con incidencia' : 'Entregado'
         const caja = document.createElement('div')

@@ -7,7 +7,7 @@
 <!--
   Pantalla de repartos para TVs con navegador MUY viejo (23/11/2026, Rober: en la LG la pantalla normal se quedaba en blanco).
   JavaScript de los de antes (sin módulos, ni flechas, ni let/const), sin mapa: una fila por ruta con un punto por pedido
-  (verde entregado, naranja incidencia, rojo no entregado, azul contado por cobrar, gris por entregar), el ranking de la semana y los totales.
+  (verde entregado, naranja incidencia, rojo no entregado, gris por entregar; nada de cobros), el ranking de la semana y los totales.
   Misma vinculación por código que /tv (fn_reparto_tv_pedir / _recoger) y mismos datos (fn_reparto_tv). Los dos valores
   de abajo los pone la publicación (vite.config.ts) desde las variables del entorno: no se guardan en el repositorio.
 -->
@@ -31,7 +31,7 @@
   .f .nu b{font-size:1.5em}
   .f .nu span{display:block;font-size:.55em;opacity:.8}
   .o{display:inline-block;border-radius:50%;margin:0 .2em .2em 0}
-  .e{background:#4cc04c}.i{background:#f5a623}.x{background:#d33a3a}.p0{background:#8fa08f}.cb{background:#3a8cf0}
+  .e{background:#4cc04c}.i{background:#f5a623}.x{background:#d33a3a}.p0{background:#8fa08f}
   .c4{opacity:.55}
   .caja{background:#17501b;border-radius:10px;padding:1vh 1vw;margin-bottom:1vh}
   .tit{font-size:2.6vh;font-weight:bold;margin-bottom:.8vh;color:#cfe8c0}
@@ -40,6 +40,13 @@
   .rk .br{display:inline-block;width:38%;height:1.8vh;background:#0b2b0d;border-radius:1vh;vertical-align:middle;overflow:hidden}
   .rk .br div{height:1.8vh;background:#8dc41e}
   .rk .vl{display:inline-block;width:14%;text-align:right;font-weight:bold;vertical-align:middle}
+  #vmapa{display:none;box-sizing:border-box;padding:1vh 1vw;overflow:hidden}
+  #mapa{float:left;width:69%;height:100%;border-radius:10px;overflow:hidden;background:#cfe3f1}
+  #ley{float:right;width:29%;height:100%;overflow:hidden}
+  .lr{background:#17501b;border-radius:8px;margin-bottom:.7vh;padding:.7vh .8vw;overflow:hidden;white-space:nowrap}
+  .lr i{display:inline-block;width:2.2vh;height:2.2vh;border-radius:4px;margin-right:.7vw;vertical-align:middle}
+  .lr b{font-size:2.6vh;vertical-align:middle}
+  .lr span{display:block;font-size:2.1vh;opacity:.85;margin-left:calc(2.2vh + .7vw);overflow:hidden;text-overflow:ellipsis}
   .tt{overflow:hidden}
   .tt div{float:left;width:33.3%;text-align:center}
   .tt b{display:block;font-size:4.4vh}
@@ -50,6 +57,7 @@
 <div id="cab"><div class="t">Repartos de hoy</div><div class="h" id="hora"></div></div>
 <div id="msg"><p>Cargando…</p><p style="font-size:22px;color:#ffd27a">Si solo ves este mensaje, el navegador de esta TV es demasiado antiguo para esta pantalla.</p></div>
 <div id="diag" style="display:none;position:fixed;left:0;right:0;bottom:0;background:#8a1010;color:#fff;font-size:22px;padding:8px 16px"></div>
+<div id="vmapa"><div id="mapa"></div><div id="ley"></div></div>
 <div id="cuerpo">
   <div id="rutas"></div>
   <div id="lado">
@@ -61,6 +69,7 @@
 (function () {
   var URL_API = '__SUPABASE_URL__';
   var KEY_API = '__SUPABASE_KEY__';
+  var ISLA = __ISLA__;
   var K = 'reparto.tv.clave', KC = 'reparto.tv.codigo';
   var clave = null, codigo = null;
   try { clave = localStorage.getItem(K); codigo = localStorage.getItem(KC); } catch (e) {}
@@ -124,7 +133,7 @@
   function puntosDe(r) {
     var lista = [], i, p = r.pedidos;
     if (p && p.length) {
-      for (i = 0; i < p.length; i++) lista.push(p[i].e === 'entregado' ? 'e' : p[i].e === 'incidencia' ? 'i' : p[i].e === 'no_entregado' ? 'x' : (p[i].c ? 'cb' : 'p0'));
+      for (i = 0; i < p.length; i++) lista.push(p[i].e === 'entregado' ? 'e' : p[i].e === 'incidencia' ? 'i' : p[i].e === 'no_entregado' ? 'x' : 'p0');
     } else {
       for (i = 0; i < (r.entregados || 0); i++) lista.push('e');
       for (i = 0; i < (r.incidencias || 0); i++) lista.push('i');
@@ -135,7 +144,7 @@
   }
   function pintar(d) {
     ultimo = d;
-    $('msg').style.display = 'none'; $('cuerpo').style.display = 'block';
+    $('msg').style.display = 'none'; mostrar();
     var rutas = (d.rutas || []).slice().sort(function (a, b) { return String(a.ruta) < String(b.ruta) ? -1 : 1; });
     var html = '', i, j;
     for (i = 0; i < rutas.length; i++) {
@@ -159,13 +168,65 @@
     $('tot').innerHTML = '<div><b id="t1"></b><span>Semana</span></div><div><b id="t2"></b><span>Mes</span></div><div><b id="t3"></b><span>Año</span></div>';
     txt($('t1'), n(t.semana)); txt($('t2'), n(t.mes)); txt($('t3'), n(t.anio));
     ajustar();
+    if (vista === 'mapa') pintarMapa();
   }
+
+  // ---- vista «Mapa» (Tenerife): los municipios, los pedidos marcados y dónde va cada furgón; alterna con las rutas cada 30 s
+  var vista = 'rutas';
+  var COLORES_RUTA = ['#237523', '#1f6fb2', '#c2185b', '#ef6c00', '#6a1b9a', '#00838f', '#5d4037', '#827717', '#283593', '#ad1457'];
+  var COLORES_MUN = ['#f9d5a7', '#b8dfc4', '#f4b6c2', '#bcd4f0', '#e3d0f0', '#f6efa6', '#c9e8e4', '#e9c9b1'];
+  function mostrar() {
+    $('cuerpo').style.display = vista === 'rutas' ? 'block' : 'none';
+    $('vmapa').style.display = vista === 'mapa' ? 'block' : 'none';
+    var t = document.querySelector('#cab .t'); if (t) txt(t, vista === 'mapa' ? 'Mapa de repartos' : 'Repartos de hoy');
+  }
+  function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function pintarMapa() {
+    if (!ISLA || !ultimo) return;
+    var rutas = (ultimo.rutas || []).slice().sort(function (a, b) { return String(a.ruta) < String(b.ruta) ? -1 : 1; });
+    var i, j, svg = '<svg viewBox="0 0 ' + ISLA.W + ' ' + ISLA.H + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">';
+    for (i = 0; i < ISLA.m.length; i++) svg += '<path d="' + ISLA.m[i].d + '" fill="' + COLORES_MUN[ISLA.m[i].k % COLORES_MUN.length] + '" stroke="#5b6b7a" stroke-width="1.2" fill-rule="evenodd"/>';
+    for (i = 0; i < ISLA.m.length; i++) svg += '<text x="' + ISLA.m[i].c[0] + '" y="' + ISLA.m[i].c[1] + '" font-size="10" font-weight="bold" fill="#22303c" text-anchor="middle" font-family="Arial,sans-serif">' + esc(String(ISLA.m[i].n).toUpperCase()) + '</text>';
+    function P(lat, lng) { return [((lng - ISLA.minLng) * ISLA.cos * ISLA.k).toFixed(1), ((ISLA.maxLat - lat) * ISLA.k).toFixed(1)]; }
+    for (i = 0; i < rutas.length; i++) {
+      var pu = rutas[i].puntos || [];
+      for (j = 0; j < pu.length; j++) {
+        var c = pu[j].estado === 'no_entregado' ? '#c62828' : pu[j].estado === 'incidencia' ? '#f5a623' : '#3daf3d', q = P(pu[j].lat, pu[j].lng);
+        svg += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="5" fill="' + c + '" stroke="#fff" stroke-width="1.5"/>';
+      }
+    }
+    for (i = 0; i < rutas.length; i++) {
+      var r = rutas[i];
+      if (r.posicion && r.estado === 2) {
+        var col = COLORES_RUTA[i % COLORES_RUTA.length], z = P(r.posicion.lat, r.posicion.lng), et = (r.repartidor_nombre || '') + ' · ' + (r.pendientes || 0), w = 9 * et.length + 20;
+        svg += '<g transform="translate(' + z[0] + ',' + z[1] + ')"><path d="M-6 -9 L6 -9 L0 0 Z" fill="' + col + '"/><rect x="' + (-w / 2) + '" y="-35" width="' + w + '" height="26" rx="12" fill="' + col + '" stroke="#fff" stroke-width="1.5"/><text x="0" y="-17" font-size="15" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial,sans-serif">' + esc(et) + '</text></g>';
+      }
+    }
+    svg += '</svg>';
+    $('mapa').innerHTML = svg;
+    var ley = '';
+    for (i = 0; i < rutas.length; i++) ley += '<div class="lr"><i style="background:' + COLORES_RUTA[i % COLORES_RUTA.length] + '"></i><b data-lr="' + i + '"></b><span data-ls="' + i + '"></span></div>';
+    $('ley').innerHTML = ley;
+    for (i = 0; i < rutas.length; i++) {
+      var a = document.querySelector('[data-lr="' + i + '"]'), b = document.querySelector('[data-ls="' + i + '"]');
+      if (a) txt(a, rutas[i].ruta_nombre || rutas[i].ruta || '');
+      if (b) txt(b, (rutas[i].repartidor_nombre || 'sin repartidor') + ' · ' + n(rutas[i].pendientes) + ' pendientes' + (rutas[i].posicion && rutas[i].estado === 2 ? '' : ' · sin posición'));
+    }
+    ajustar();
+  }
+  setInterval(function () {
+    if (!ultimo || !ISLA) return;
+    vista = vista === 'rutas' ? 'mapa' : 'rutas';
+    mostrar();
+    if (vista === 'mapa') pintarMapa(); else ajustar();
+  }, 30000);
 
   // Reparte el alto de la pantalla entre las filas y ajusta el tamaño de letra y de los puntos para que quepa todo.
   function ajustar() {
-    var cu = $('cuerpo'); if (!ultimo || cu.style.display === 'none') return;
+    var cu = $('cuerpo'); if (!ultimo) return;
     var alto = window.innerHeight - $('cab').offsetHeight;
-    cu.style.height = alto + 'px';
+    cu.style.height = alto + 'px'; $('vmapa').style.height = alto + 'px';
+    if (cu.style.display === 'none') return;
     var filas = $('rutas').children, nf = filas.length; if (!nf) return;
     var rutas = (ultimo.rutas || []);
     var hFila = Math.floor((alto - 0.02 * window.innerHeight) / nf - 0.008 * window.innerHeight);
