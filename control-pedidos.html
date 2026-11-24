@@ -2619,7 +2619,17 @@ function decide(ref, campo, valor) {
   const p = pedidoActual();
   if (campo === 'accion' && String(valor).startsWith('eq:')) { emparejar(String(valor).slice(3), ref); return; }
   // 24/11/2026, propietario: pasar a mano lo que viene sin pedir (o en «SIN CLIENTE») a un pedido de la campaña.
-  if (campo === 'accion' && String(valor).startsWith('pasar:')) { pasarAOtroPedido(ref, String(valor).slice(6)); return; }
+  // Un solo paso (propietario, 24/11/2026): queda sumada al cliente y los dos pedidos se revalidan solos si no les queda nada por decidir.
+  if (campo === 'accion' && String(valor).startsWith('pasar:')) {
+    const q = pedidoPorId(String(valor).slice(6));
+    if (!pasarAOtroPedido(ref, q.id, true)) return;
+    q.decisiones[ref] = { accion: 'aceptar' };
+    const okQ = validarPedido(q, true);
+    validarPedido(p, true);
+    guardar(); pintar();
+    alert(`«${ref}» sumada al pedido ${nPed(q.numero)}${q.cliente ? ' (' + q.cliente + ')' : ''}${okQ ? ' y validado.' : '. A ese pedido le quedan otras diferencias por decidir.'}`);
+    return;
+  }
   p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
   // La nota para el proveedor solo cambia el texto de la reclamación: no hay que revalidar.
   if (campo !== 'motivo') invalidar(p);
@@ -3607,11 +3617,11 @@ async function cargarFacturasVarias(files, clave) {
 }
 
 // ── Validar: restos y notas ──────────────────────────────────────────────────
-function validarPedido() {
-  const p = pedidoActual();
+function validarPedido(otro, silencioso) {
+  const p = otro || pedidoActual();
   let r;
   try { r = CP.aplicarDecisiones(comparar(p), p.decisiones, { comercial: !esRepo(p) }); }
-  catch (err) { alert(err.message); return; }
+  catch (err) { if (silencioso) return false; alert(err.message); return; }
 
   // Los restos de este pedido que ya tienen llegadas registradas no se tocan;
   // el resto se regenera desde las decisiones actuales. (Una reposición no
@@ -3640,6 +3650,7 @@ function validarPedido() {
     }
   }
   guardar(); pintar();
+  if (silencioso) return true;
   alert(esRepo(p)
     ? `Reposición validada: ${r.lineas.length} líneas, ${r.notas.length} notas. Precios netos guardados para la próxima comparación.`
     : `Pedido validado: ${r.lineas.length} líneas, ${r.restos.length} a restos, ${r.notas.length} notas de facturación.`);
