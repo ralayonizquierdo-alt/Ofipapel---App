@@ -38,6 +38,8 @@ interface Propuesta {
   /** Hecha después de la hora de corte: sale sin marcar (se puede marcar si es urgente). */
   tarde?: boolean
   de_ruta: 'venta' | 'ficha'
+  /** Es de la ruta de islas (08): va dentro de esta ruta, marcada «ISLAS». */
+  isla?: boolean
 }
 interface Ruta {
   ruta: string
@@ -411,6 +413,7 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
                       p.viene ? `Viene del anterior${p.antes ? ` (${p.antes.replace(/^Anterior: /, '')})` : ''}` : null,
                       p.tarde ? 'Después del corte: márcala si es urgente' : null,
                       !p.principal && !p.viene ? `Tienda ${p.vt}: ¿va en reparto?` : null,
+                      p.isla ? 'ISLAS (ruta 08): va dentro de esta ruta' : null,
                       p.de_ruta === 'venta' ? 'Ruta puesta en la venta' : null,
                       bloqueada ? `Ya en el reparto ${p.en_gw} de GeminisWin` : null,
                     ].filter(Boolean)

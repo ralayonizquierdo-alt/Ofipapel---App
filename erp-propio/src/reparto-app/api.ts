@@ -35,6 +35,8 @@ export interface LineaApp {
   estado: string
   orden: number | null
   prioritario: boolean
+  /** Venta de la ruta de islas (08) que se reparte dentro de esta ruta: el repartidor la ve marcada «ISLAS». */
+  isla?: boolean
   antes: string | null
   cliente: string
   cliente_codigo: string | null

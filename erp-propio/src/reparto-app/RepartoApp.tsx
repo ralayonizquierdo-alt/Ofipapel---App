@@ -2398,6 +2398,11 @@ function Lista({
                     {l.prioritario && '↻ '}
                     {l.cliente}
                   </span>
+                  {l.isla && (
+                    <span style={{ flex: 'none', background: '#0b6e99', color: '#fff', fontWeight: 800, fontSize: 11, padding: '1px 6px', borderRadius: 4, letterSpacing: 0.5 }}>
+                      ISLAS
+                    </span>
+                  )}
                   <Importe l={l} />
                 </div>
                 <QueHacer l={l} />
