@@ -1752,7 +1752,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
 
   // Posición para la pantalla de pedidos: solo mientras la ruta está abierta y si el repartidor ha aceptado.
   // Un solo aviso de ubicación (25/11/2026, Rober): sirve para el mapa y para marcar la posición de cada entrega.
-  //  · Cada 20 s como mucho mientras la app está abierta y se mueve.
+  //  · Cada 100 s como mucho mientras la app está abierta y se mueve.
   //  · Además, al instante: cuando se desbloquea el móvil / se vuelve a la app y cada vez que se marca un pedido (enviarPos(true)),
   //    para que en el mapa quede por dónde va aunque pase un rato sin avisos.
   const ultimaPos = useRef<{ lat: number; lng: number; precision: number | null } | null>(null)
@@ -1761,7 +1761,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     (ahoraMismo = false) => {
       const p = ultimaPos.current
       if (!p) return
-      if (!ahoraMismo && Date.now() - ultimoEnvioPos.current < 20_000) return
+      if (!ahoraMismo && Date.now() - ultimoEnvioPos.current < 100_000) return
       ultimoEnvioPos.current = Date.now()
       posicion(sesion.token, reparto.tienda, reparto.numero, p.lat, p.lng, p.precision).catch(() => {})
     },
@@ -1903,8 +1903,11 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
       {gps === null && (
         <Tarjeta>
           <div style={{ fontWeight: 700, color: V.verde, marginBottom: 6 }}>📍 Ubicación</div>
-          <div style={{ fontSize: 14, color: V.gris, marginBottom: 10 }}>
-            Mientras tengas la app abierta con tu ruta y estés fichado (entre la entrada y la salida, fuera de las pausas), la app enviará tu ubicación para la pantalla de pedidos de la oficina. Con la app cerrada o sin fichar no se envía nada.
+          <div style={{ fontSize: 14, color: V.gris, marginBottom: 10, lineHeight: 1.4 }}>
+            <div>• Solo se envía con la app <b>abierta en pantalla</b>, con tu ruta abierta y <b>fichado</b>.</div>
+            <div>• Con la app cerrada, el móvil bloqueado, en pausa o sin fichar, <b>no se envía nada</b>.</div>
+            <div>• Se manda cada pocos minutos, y al abrir la app o marcar un pedido.</div>
+            <div>• Solo la ve la oficina, para saber por dónde va cada ruta. Se borra a los 30 días.</div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <Boton onClick={() => (guardar('reparto.gps', 'si'), setGps('si'))} style={{ flex: 1 }}>
@@ -1915,6 +1918,16 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
             </Boton>
           </div>
         </Tarjeta>
+      )}
+
+      {gps === 'no' && (
+        // Sin insistir: una línea pequeña, sin ventana ni aviso, por si quien dijo «Ahora no» cambia de idea.
+        <div style={{ fontSize: 12.5, color: V.gris, margin: '0 4px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ flex: 1 }}>📍 Ubicación desactivada: la oficina no ve por dónde vas.</span>
+          <button type="button" onClick={() => (guardar('reparto.gps', 'si'), setGps('si'))} style={{ background: 'none', border: 'none', color: V.verde, fontWeight: 700, fontSize: 12.5, textDecoration: 'underline', padding: 4 }}>
+            Activar
+          </button>
+        </div>
       )}
 
       {fichaje === 'sin_vinculo' && (
