@@ -59,6 +59,8 @@ const fecha = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5,
 const uds = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 2 })
 const esc = (s: string | null | undefined) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 const clave = (l: Resuelta) => `${l.origen}/${l.oficina}/${l.numero}`
+/** Nº del pedido de cliente (o de la venta, si ya la hay) de la petición. */
+const numPedido = (l: Resuelta) => (l.doc_tipo && l.doc_oficina && l.doc_numero != null ? `${l.doc_tipo === 'venta' ? 'Vta. ' : ''}${l.doc_oficina}-${l.doc_numero}` : '')
 const euros = (n: number | null) => (n == null ? '' : `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
 
 export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
@@ -147,11 +149,11 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
   <h1>${esc(g.nombre)}${g.codigo ? ` <small>${esc(g.codigo)}</small>` : ''}</h1>
   <p class="sub">Peticiones de clientes RESUELTAS (mercancía recibida) · para separar y poner en reparto · ${g.lineas.length} ${g.lineas.length === 1 ? 'línea' : 'líneas'} · ${hoy}</p>
   <table>
-    <thead><tr><th class="c">✓</th><th>Cliente</th><th>Cód. venta</th><th>Ref. compra</th><th>Descripción</th><th class="n">Cant.</th><th>Petición</th><th>Compra</th><th>Llegó</th><th>Concepto</th></tr></thead>
+    <thead><tr><th class="c">✓</th><th>Cliente</th><th class="ped">Nº pedido</th><th>Cód. venta</th><th>Ref. compra</th><th>Descripción</th><th class="n">Cant.</th><th>Petición</th><th>Llegó</th><th>Concepto</th></tr></thead>
     <tbody>${g.lineas
       .map(
         (l) =>
-          `<tr><td class="c">☐</td><td><b>${esc(l.cliente_nombre ?? l.cliente_codigo ?? '')}</b></td><td><b>${esc(l.articulo_codigo)}</b></td><td>${esc(l.referencia)}</td><td>${esc(l.descripcion)}</td><td class="n"><b>${uds(l.cantidad)}</b></td><td>${esc(l.oficina)}-${l.numero}</td><td>${esc(l.compra ?? '')}</td><td>${fecha(l.recibida_en)}</td><td>${esc(l.concepto ?? '')}</td></tr>`,
+          `<tr><td class="c">☐</td><td><b>${esc(l.cliente_nombre ?? l.cliente_codigo ?? '')}</b></td><td class="ped">${esc(numPedido(l)) || '—'}</td><td><b>${esc(l.articulo_codigo)}</b></td><td>${esc(l.referencia)}</td><td>${esc(l.descripcion)}</td><td class="n"><b>${uds(l.cantidad)}</b></td><td>${esc(l.oficina)}-${l.numero}</td><td>${fecha(l.recibida_en)}</td><td>${esc(l.concepto ?? '')}</td></tr>`,
       )
       .join('')}</tbody>
   </table>
@@ -164,7 +166,7 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
       h1{font-size:18px;margin:0 0 2px} h1 small{font-size:12px;color:#666;font-weight:normal}
       .sub{font-size:11px;color:#555;margin:0 0 8px}
       table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #bbb;padding:4px 5px;text-align:left;vertical-align:top}
-      th{background:#eee} .n{text-align:right;white-space:nowrap} .c{text-align:center;width:22px;font-size:14px}
+      th{background:#eee} .n{text-align:right;white-space:nowrap} td.ped{font-weight:bold;font-size:14px;white-space:nowrap} th.ped{white-space:nowrap} .c{text-align:center;width:22px;font-size:14px}
     </style></head><body>${hojas}<script>window.onload=function(){window.print()}<\/script></body></html>`)
     w.document.close()
     setImpresas(lista.flatMap((g) => g.lineas).filter((l) => !l.impresa_en))
@@ -261,12 +263,12 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
                     <tr className="text-left text-[11px] font-bold uppercase text-[#5b6680]">
                       <th className="w-[26px] pl-3 py-1" />
                       <th className="px-2 py-1">Cliente</th>
+                      <th className="px-2 py-1" title="Pedido de cliente del que salió la petición (o la venta, si ya la hay)">Nº pedido</th>
                       <th className="px-2 py-1">Cód. venta</th>
                       <th className="px-2 py-1">Ref. compra</th>
                       <th className="px-2 py-1">Descripción</th>
                       <th className="px-2 py-1 text-right">Cant.</th>
                       <th className="px-2 py-1">Petición</th>
-                      <th className="px-2 py-1">Compra</th>
                       <th className="px-2 py-1">Llegó</th>
                       <th className="px-3 py-1 text-right" title="Importe de la venta; si aún no hay venta, el del pedido de cliente">Importe</th>
                     </tr>
@@ -285,6 +287,7 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
                         <td className="max-w-[240px] truncate px-2 py-1 font-semibold" title={l.cliente_nombre ?? ''}>
                           {l.cliente_nombre ?? l.cliente_codigo ?? '—'}
                         </td>
+                        <td className="whitespace-nowrap px-2 py-1 text-[14px] font-bold tabular-nums">{numPedido(l) || '—'}</td>
                         <td className="whitespace-nowrap px-2 py-1 font-semibold tabular-nums">{l.articulo_codigo}</td>
                         <td className="whitespace-nowrap px-2 py-1 tabular-nums">{l.referencia}</td>
                         <td className="max-w-[320px] px-2 py-1">
@@ -295,7 +298,6 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
                         <td className="whitespace-nowrap px-2 py-1 tabular-nums">
                           {l.oficina}-{l.numero}
                         </td>
-                        <td className="whitespace-nowrap px-2 py-1 tabular-nums">{l.compra ?? '—'}</td>
                         <td className="whitespace-nowrap px-2 py-1 tabular-nums">{fecha(l.recibida_en)}</td>
                         <td className="whitespace-nowrap px-3 py-1 text-right tabular-nums">
                           {euros(l.importe)}
