@@ -2,7 +2,9 @@
 // proponerla para imprimir: con ese pedido en papel el almacén separa la mercancía y la pone en ruta de reparto».
 // Las resueltas (GeminisWin y ERP) de los últimos 60 días, separadas por el proveedor de la compra por la que llegaron.
 // Cada proveedor sale en su hoja, con una casilla por línea para el almacén. Al terminar se marcan como impresas y dejan
-// de contar en el globo rojo de la pestaña Peticiones. Datos: fn_peticiones_resueltas / fn_peticiones_marcar_impresas.
+// de contar en el globo rojo de la pestaña Peticiones. Datos: fn_peticiones_resueltas_doc / fn_peticiones_marcar_impresas.
+// 25/11/2026 (Rober): casilla por línea (además de la del proveedor), importe y doble clic para ver el documento de origen:
+// la venta si ya la hay y, si no, el pedido de cliente del que salió la petición (GeminisWin, solo consulta).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Printer, X } from 'lucide-react'
@@ -28,6 +30,11 @@ interface Resuelta {
   recibida_en: string | null
   almacen: string | null
   impresa_en: string | null
+  /** Documento de origen: la venta si ya existe; si no, el pedido de cliente (solo peticiones de GeminisWin). */
+  doc_tipo: 'venta' | 'pedido' | null
+  doc_oficina: string | null
+  doc_numero: number | null
+  importe: number | null
 }
 interface Grupo {
   codigo: string
@@ -52,12 +59,16 @@ const fecha = (iso: string | null) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5,
 const uds = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 2 })
 const esc = (s: string | null | undefined) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 const clave = (l: Resuelta) => `${l.origen}/${l.oficina}/${l.numero}`
+const euros = (n: number | null) => (n == null ? '' : `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
 
 export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
   const [lineas, setLineas] = useState<Resuelta[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [conImpresas, setConImpresas] = useState(false)
+  /** Líneas desmarcadas (no se imprimen con «Imprimir marcados» ni con «Imprimir este»). */
   const [fuera, setFuera] = useState<Set<string>>(new Set())
+  /** Documento abierto con doble clic. */
+  const [doc, setDoc] = useState<Resuelta | null>(null)
   /** Lo que se acaba de mandar a la impresora, para preguntar si se marca como impreso. */
   const [impresas, setImpresas] = useState<Resuelta[] | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
@@ -65,13 +76,20 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
   const cargar = useCallback(async () => {
     setError(null)
     setLineas(null)
-    const { data, error: e } = await supabase.rpc('fn_peticiones_resueltas', { p_dias: 60, p_con_impresas: conImpresas })
+    const { data, error: e } = await supabase.rpc('fn_peticiones_resueltas_doc', { p_dias: 60, p_con_impresas: conImpresas })
     if (e) {
       setError(e.message)
       setLineas([])
       return
     }
-    setLineas(((data ?? []) as Resuelta[]).map((l) => ({ ...l, cantidad: Number(l.cantidad ?? 0) })))
+    setLineas(
+      ((data ?? []) as Resuelta[]).map((l) => ({
+        ...l,
+        cantidad: Number(l.cantidad ?? 0),
+        importe: l.importe == null ? null : Number(l.importe),
+        doc_numero: l.doc_numero == null ? null : Number(l.doc_numero),
+      })),
+    )
   }, [conImpresas])
 
   useEffect(() => {
@@ -89,14 +107,30 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
     return [...m.values()].sort((a, b) => (a.codigo === '' ? 1 : b.codigo === '' ? -1 : a.nombre.localeCompare(b.nombre)))
   }, [lineas])
 
-  const elegidos = grupos.filter((g) => !fuera.has(g.codigo))
+  /** Cada proveedor solo con sus líneas marcadas (los que se quedan sin ninguna no salen). */
+  const conMarcadas = (lista: Grupo[]) =>
+    lista.map((g) => ({ ...g, lineas: g.lineas.filter((l) => !fuera.has(clave(l))) })).filter((g) => g.lineas.length)
+  const elegidos = conMarcadas(grupos)
   const nElegidas = elegidos.reduce((s, g) => s + g.lineas.length, 0)
 
-  function alternar(codigo: string) {
+  function alternarLinea(l: Resuelta) {
     setFuera((f) => {
       const n = new Set(f)
-      if (n.has(codigo)) n.delete(codigo)
-      else n.add(codigo)
+      const k = clave(l)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  }
+  /** La casilla del proveedor marca o desmarca todas sus líneas. */
+  function alternarGrupo(g: Grupo) {
+    setFuera((f) => {
+      const n = new Set(f)
+      const todas = g.lineas.every((l) => !n.has(clave(l)))
+      for (const l of g.lineas) {
+        if (todas) n.add(clave(l))
+        else n.delete(clave(l))
+      }
       return n
     })
   }
@@ -195,44 +229,60 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
           )}
 
           <div className="flex min-h-0 flex-col gap-2 overflow-y-auto pr-1">
-            {grupos.map((g) => (
+            {grupos.map((g) => {
+              const marcadas = g.lineas.filter((l) => !fuera.has(clave(l))).length
+              return (
               <article key={g.codigo || 'sin'} className="rounded border border-[#c9d3e8] bg-white">
                 <header className="flex flex-wrap items-center gap-2 border-b border-[#e3e8f2] bg-[#f3f6fc] px-3 py-1.5">
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={!fuera.has(g.codigo)}
-                      onChange={() => alternar(g.codigo)}
-                      title="Incluir este proveedor al imprimir los marcados"
+                      checked={marcadas > 0}
+                      ref={(el) => {
+                        if (el) el.indeterminate = marcadas > 0 && marcadas < g.lineas.length
+                      }}
+                      onChange={() => alternarGrupo(g)}
+                      title="Marcar o desmarcar todas las líneas de este proveedor"
                     />
                     <b className={`text-[15px] ${g.codigo ? '' : 'text-[#a3123f]'}`}>{g.nombre}</b>
                   </label>
                   {g.codigo && <span className="text-[12px] text-[#7a849c]">{g.codigo}</span>}
                   <span className="text-[13px] text-[#5b6680]">
                     · {g.lineas.length} {g.lineas.length === 1 ? 'línea' : 'líneas'}
+                    {marcadas < g.lineas.length ? ` (${marcadas} marcadas)` : ''}
                   </span>
                   <span className="flex-1" />
-                  <button type="button" className="gw-btn h-[26px]! px-2 text-[13px]!" onClick={() => imprimir([g])}>
+                  <button type="button" className="gw-btn h-[26px]! px-2 text-[13px]!" disabled={!marcadas} onClick={() => imprimir(conMarcadas([g]))}>
                     <Printer size={14} className="text-[#1d3a8a]" /> Imprimir este
                   </button>
                 </header>
                 <table className="w-full border-collapse text-[13px]">
                   <thead>
                     <tr className="text-left text-[11px] font-bold uppercase text-[#5b6680]">
-                      <th className="px-3 py-1">Cliente</th>
+                      <th className="w-[26px] pl-3 py-1" />
+                      <th className="px-2 py-1">Cliente</th>
                       <th className="px-2 py-1">Cód. venta</th>
                       <th className="px-2 py-1">Ref. compra</th>
                       <th className="px-2 py-1">Descripción</th>
                       <th className="px-2 py-1 text-right">Cant.</th>
                       <th className="px-2 py-1">Petición</th>
                       <th className="px-2 py-1">Compra</th>
-                      <th className="px-3 py-1">Llegó</th>
+                      <th className="px-2 py-1">Llegó</th>
+                      <th className="px-3 py-1 text-right" title="Importe de la venta; si aún no hay venta, el del pedido de cliente">Importe</th>
                     </tr>
                   </thead>
                   <tbody>
                     {g.lineas.map((l) => (
-                      <tr key={clave(l)} className={`border-t border-[#eef2f8] ${l.impresa_en ? 'text-[#8a93a8]' : ''}`}>
-                        <td className="max-w-[240px] truncate px-3 py-1 font-semibold" title={l.cliente_nombre ?? ''}>
+                      <tr
+                        key={clave(l)}
+                        className={`cursor-default border-t border-[#eef2f8] hover:bg-[#f3f7ff] ${l.impresa_en ? 'text-[#8a93a8]' : ''} ${fuera.has(clave(l)) ? 'opacity-50' : ''}`}
+                        onDoubleClick={() => setDoc(l)}
+                        title={l.doc_tipo ? `Doble clic: ver ${l.doc_tipo === 'venta' ? 'la venta' : 'el pedido de cliente'} ${l.doc_oficina}-${l.doc_numero}` : 'No se ha encontrado la venta ni el pedido de esta petición'}
+                      >
+                        <td className="pl-3 py-1" onDoubleClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" checked={!fuera.has(clave(l))} onChange={() => alternarLinea(l)} title="Imprimir esta línea" />
+                        </td>
+                        <td className="max-w-[240px] truncate px-2 py-1 font-semibold" title={l.cliente_nombre ?? ''}>
                           {l.cliente_nombre ?? l.cliente_codigo ?? '—'}
                         </td>
                         <td className="whitespace-nowrap px-2 py-1 font-semibold tabular-nums">{l.articulo_codigo}</td>
@@ -246,14 +296,157 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
                           {l.oficina}-{l.numero}
                         </td>
                         <td className="whitespace-nowrap px-2 py-1 tabular-nums">{l.compra ?? '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-1 tabular-nums">{fecha(l.recibida_en)}</td>
+                        <td className="whitespace-nowrap px-2 py-1 tabular-nums">{fecha(l.recibida_en)}</td>
+                        <td className="whitespace-nowrap px-3 py-1 text-right tabular-nums">
+                          {euros(l.importe)}
+                          {l.doc_tipo && <span className="ml-1 text-[10px] text-[#7a849c]">{l.doc_tipo === 'venta' ? 'vta.' : 'ped.'}</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </article>
-            ))}
+              )
+            })}
           </div>
+        </div>
+      </GwWindow>
+      {doc && <DocumentoOrigen l={doc} onClose={() => setDoc(null)} />}
+    </div>
+  )
+}
+
+interface DocCab {
+  fecha: string | null
+  cliente_codigo: string | null
+  nombre: string | null
+  total: number | null
+  total_pagado: number | null
+  total_pendiente: number | null
+  forma_pago: string | number | null
+  estado: string
+}
+interface DocLinea {
+  linea: number
+  articulo_codigo: string | null
+  descripcion: string | null
+  cantidad: number | null
+  pvp: number | null
+  descuento: number | null
+  total: number
+}
+
+/** La venta o el pedido de cliente de GeminisWin de una petición, solo para mirar. */
+function DocumentoOrigen({ l, onClose }: { l: Resuelta; onClose: () => void }) {
+  const [cab, setCab] = useState<DocCab | null>(null)
+  const [lineas, setLineas] = useState<DocLinea[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const esVenta = l.doc_tipo === 'venta'
+
+  useEffect(() => {
+    if (!l.doc_tipo || !l.doc_oficina || l.doc_numero == null) return
+    const ofi = l.doc_oficina
+    const num = l.doc_numero
+    void (async () => {
+      const [c, ls] = esVenta
+        ? await Promise.all([
+            supabase.from('gw_venta').select('fecha, cliente_codigo, nombre, total, total_pagado, total_pendiente, forma_pago, factura_oficina, factura_id').eq('oficina', ofi).eq('id_venta', num).maybeSingle(),
+            supabase.from('gw_venta_linea').select('linea, articulo_codigo, descripcion, cantidad, pvp, descuento, total_base, total_igic').eq('oficina', ofi).eq('id_venta', num).order('linea'),
+          ])
+        : await Promise.all([
+            supabase.from('gw_pedido_cliente').select('fecha, cliente_codigo, nombre, total, total_pagado, total_pendiente, forma_pago, aceptado, preparado, entregado, liquidado, anulado').eq('oficina', ofi).eq('id_pedido', num).maybeSingle(),
+            supabase.from('gw_pedido_cliente_linea').select('linea, articulo_codigo, descripcion, cantidad, pvp, descuento, total_base, total_igic').eq('oficina', ofi).eq('id_pedido', num).order('linea'),
+          ])
+      if (c.error || ls.error) return setError((c.error ?? ls.error)!.message)
+      if (!c.data) return setError('No se encuentra el documento en los datos de GeminisWin.')
+      const d = c.data as Record<string, unknown>
+      const estado = esVenta
+        ? d.factura_id ? `Facturada (${d.factura_oficina}-${d.factura_id})` : 'Sin facturar'
+        : d.anulado ? 'Anulado' : d.liquidado ? 'Liquidado' : d.entregado ? 'Entregado' : d.preparado ? 'Preparado' : d.aceptado ? 'Aceptado' : 'Pendiente'
+      setCab({
+        fecha: (d.fecha as string) ?? null,
+        cliente_codigo: (d.cliente_codigo as string) ?? null,
+        nombre: (d.nombre as string) ?? null,
+        total: d.total == null ? null : Number(d.total),
+        total_pagado: d.total_pagado == null ? null : Number(d.total_pagado),
+        total_pendiente: d.total_pendiente == null ? null : Number(d.total_pendiente),
+        forma_pago: (d.forma_pago as string | number) ?? null,
+        estado,
+      })
+      setLineas(
+        ((ls.data ?? []) as Record<string, unknown>[]).map((x) => ({
+          linea: Number(x.linea),
+          articulo_codigo: (x.articulo_codigo as string) ?? null,
+          descripcion: (x.descripcion as string) ?? null,
+          cantidad: x.cantidad == null ? null : Number(x.cantidad),
+          pvp: x.pvp == null ? null : Number(x.pvp),
+          descuento: x.descuento == null ? null : Number(x.descuento),
+          total: Number(x.total_base ?? 0) + Number(x.total_igic ?? 0),
+        })),
+      )
+    })()
+  }, [l, esVenta])
+
+  const titulo = l.doc_tipo ? `${esVenta ? 'Venta' : 'Pedido de cliente'} ${l.doc_oficina}-${l.doc_numero} (GeminisWin, solo consulta)` : 'Documento de origen'
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/25 pt-16" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <GwWindow title={titulo} onClose={onClose} className="w-[860px] max-w-[95vw]">
+        <div className="flex max-h-[72vh] flex-col gap-2 overflow-y-auto p-1 text-[14px]">
+          {!l.doc_tipo ? (
+            <p>
+              No se ha encontrado la venta ni el pedido de cliente de esta petición ({l.oficina}-{l.numero}). Se buscan en GeminisWin por el mismo cliente y
+              artículo en los 3 días antes de la petición.
+            </p>
+          ) : error ? (
+            <p className="font-bold text-[#c42b1c]">{error}</p>
+          ) : !cab ? (
+            <p>Cargando…</p>
+          ) : (
+            <>
+              {!esVenta && <p className="text-[13px] text-[#5b6680]">Esta petición aún no tiene venta: se enseña el pedido de cliente del que salió.</p>}
+              <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-x-4 gap-y-1">
+                <span className="text-[#5b6680]">Cliente</span>
+                <b>
+                  {cab.cliente_codigo} · {cab.nombre ?? l.cliente_nombre}
+                </b>
+                <span className="text-[#5b6680]">Fecha</span>
+                <span>{fecha(cab.fecha)}</span>
+                <span className="text-[#5b6680]">Estado</span>
+                <span>{cab.estado}</span>
+                <span className="text-[#5b6680]">Total</span>
+                <b>{euros(cab.total)}</b>
+                <span className="text-[#5b6680]">Pagado</span>
+                <span>{euros(cab.total_pagado)}</span>
+                <span className="text-[#5b6680]">Pendiente</span>
+                <span>{euros(cab.total_pendiente)}</span>
+              </div>
+              <table className="gw-grid gw-seleccionable">
+                <thead>
+                  <tr>
+                    <th>Artículo</th>
+                    <th>Descripción</th>
+                    <th className="text-right">Cant.</th>
+                    <th className="text-right">PVP</th>
+                    <th className="text-right">Dto.</th>
+                    <th className="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineas.map((x) => (
+                    <tr key={x.linea} className={x.articulo_codigo === l.articulo_codigo ? 'font-bold' : ''}>
+                      <td className="whitespace-nowrap">{x.articulo_codigo}</td>
+                      <td>{x.descripcion}</td>
+                      <td className="text-right tabular-nums">{x.cantidad == null ? '' : uds(x.cantidad)}</td>
+                      <td className="text-right tabular-nums">{euros(x.pvp)}</td>
+                      <td className="text-right tabular-nums">{x.descuento ? `${uds(x.descuento)} %` : ''}</td>
+                      <td className="text-right tabular-nums">{euros(x.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[12px] text-[#5b6680]">En negrita, la línea del artículo de la petición.</p>
+            </>
+          )}
         </div>
       </GwWindow>
     </div>
