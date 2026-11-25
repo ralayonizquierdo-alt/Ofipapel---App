@@ -1234,3 +1234,12 @@ test('bloques con la referencia del proveedor («Su pedido: XX-509»): uno de un
   // Un nº que sí es de un pedido de la campaña sigue mandando el bloque entero
   assert.equal(CP.bloqueDeVarios('Pedido 2_ B2F', doc.slice(3), pedidos), false);
 });
+
+test('reposición: a Géminis solo va lo que manda el proveedor (Michel 95524)', () => {
+  const pedido = [{ ref: '00140403', cant: 20, precio: 1.12 }, { ref: '00140403', cant: 20, precio: 1.12 }, { ref: '05529229', cant: 10, precio: 14.25 }, { ref: '02390229', cant: 2, precio: 9.94 }];
+  const prop = [{ ref: '00140403', cant: 20, precio: 1.16, importe: 23.2 }, { ref: '02390229', cant: 2, precio: 9.942, importe: 19.88 }];
+  const filas = CP.compararPedido(pedido, prop, { tipo: 'reposicion' }).filas || CP.compararPedido(pedido, prop, { tipo: 'reposicion' });
+  const r = CP.aplicarDecisiones(filas, { '00140403': { accion: 'excluir' }, '05529229': { accion: 'mantener' }, '02390229': { accion: 'aceptar' } }, { comercial: false });
+  const refs = r.lineas.map((l) => l.ref + 'x' + l.cant).sort();
+  assert.deepEqual(refs, ['00140403x20', '02390229x2']);
+});
