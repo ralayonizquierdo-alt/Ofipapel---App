@@ -60,10 +60,26 @@ const {
 const { sendWhatsappMessage, sendWhatsappTemplate, uploadWhatsappMedia, sendWhatsappMedia, getBusinessProfile, getPhoneNumberStatus } = require('./whatsapp-send');
 
 // Tipos de adjunto admitidos desde el panel y su tope de tamaño. WhatsApp exige
-// imagen para jpeg/png y "documento" para el resto (pdf); el tope real lo pone
-// Netlify (~6MB por petición), así que nos quedamos algo por debajo para tener margen.
+// imagen para jpeg/png y "documento" para el resto (pdf).
+//
+// EL TOPE QUE PROMETÍAMOS ERA MÁS GRANDE QUE EL QUE EXISTE (25/11/2026,
+// propietario: «cuando adjunto una imagen se queda colgado error 413»).
+//
+// Estaba en 5 MB «para tener margen» sobre los ~6 MB de Netlify, y no había
+// margen ninguno: el cuerpo llega a la función **en base64**
+// (`event.isBase64Encoded`), y base64 engorda un tercio. Así que 5 MB de foto
+// son ~6,7 MB de petición y la plataforma la corta con un 413 ANTES de que esta
+// función arranque — con lo cual la comprobación de tamaño de aquí abajo, que
+// existe justamente para avisar con buenas palabras, era **inalcanzable** para
+// los ficheros que tenía que cazar. Lo que veía el propietario era el botón
+// puesto en «Enviando...» para siempre.
+//
+// 4 MB de binario son ~5,5 MB en base64, más el texto del mensaje y las
+// cabeceras del multipart: ahí sí cabe. Y, sobre todo, las fotos se **encogen
+// en el navegador** antes de salir (ver el script de `encogerImagen`), así que
+// en la práctica una foto del móvil nunca llega a acercarse a este tope.
 const ALLOWED_ATTACHMENT_TYPES = { 'image/jpeg': 'image', 'image/png': 'image', 'application/pdf': 'document' };
-const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
 
 // Parser mínimo de multipart/form-data (sin dependencias) para el formulario de
 // respuesta del panel, que necesita poder adjuntar un archivo binario.
@@ -2000,7 +2016,7 @@ function renderThread(phone, messages, { paused, error, ficha, entrega, falloDeE
     <button type="submit" class="btn btn-primary" style="margin-left:auto;">${ICON.send} Enviar</button>
   </div>
   ${panelDeEmojis()}
-  <div class="attach-hint">Imágenes (JPG/PNG) o PDF, máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB. También puedes pegar una imagen copiada (Ctrl+V) sin guardarla antes.</div>
+  <div class="attach-hint">Imágenes (JPG/PNG) o PDF. Las fotos grandes se reducen solas antes de enviarse; un PDF no puede pasar de ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB. También puedes pegar una imagen copiada (Ctrl+V) sin guardarla antes.</div>
 </form>
 <script>
 // El "Responder" de cada mensaje. Guarda el identificador del mensaje citado en
@@ -2121,17 +2137,47 @@ function copiarMensaje(boton) {
   var MAXIMO = ${MAX_ATTACHMENT_BYTES};
   var EXTENSIONES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'application/pdf': 'pdf' };
 
-  form.addEventListener('paste', function (evento) {
-    var pegados = (evento.clipboardData && evento.clipboardData.files) || [];
-    if (!pegados.length) return; // texto pegado: que se comporte como siempre
+  // PEGAR DENTRO DEL CUADRO DE TEXTO TAMBIÉN (25/11/2026, propietario).
+  //
+  // El oyente va en el FORMULARIO, no en el cuadro de texto, a propósito: el
+  // evento de pegar sube desde donde se pega, así que así valen las dos cosas
+  // —pegar en el cuadro de texto, que es lo natural, y pegar en cualquier otro
+  // sitio del formulario— con un solo sitio que mantener.
+  //
+  // Y se miran las DOS listas del portapapeles: "files" es la buena, pero hay
+  // navegadores (y capturas de algunas herramientas) que solo rellenan "items",
+  // y entonces no se pegaba nada sin decir por qué.
+  //
+  // Ojo: en este bloque no caben ni barras invertidas ni comillas invertidas.
+  // Viaja dentro de una plantilla de texto y una comilla invertida la CIERRA:
+  // al poner una en un comentario, el fichero entero dejó de compilar.
+  function delPortapapeles(datos) {
+    if (!datos) return null;
+    if (datos.files && datos.files.length) return datos.files[0];
+    var items = datos.items || [];
+    for (var i = 0; i < items.length; i += 1) {
+      if (items[i].kind === 'file') {
+        var f = items[i].getAsFile();
+        if (f) return f;
+      }
+    }
+    return null;
+  }
 
-    var archivo = pegados[0];
+  form.addEventListener('paste', function (evento) {
+    var archivo = delPortapapeles(evento.clipboardData);
+    if (!archivo) return; // texto pegado: que se comporte como siempre
+
     if (TIPOS.indexOf(archivo.type) === -1) {
       alert('Solo se pueden pegar imágenes JPG o PNG.');
       return;
     }
-    if (archivo.size > MAXIMO) {
-      alert('Esa imagen pesa demasiado (máximo ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))}MB).');
+    // Ya no se rechaza por peso: al enviar se encoge en el navegador (ver el
+    // bloque de encogerImagen), así que una captura grande pegada aquí sale
+    // perfectamente. Solo se corta lo absurdo, para no colgar la pestaña
+    // dibujando un lienzo gigantesco.
+    if (archivo.size > 40 * 1024 * 1024) {
+      alert('Esa imagen pesa demasiado para pegarla aquí (más de 40 MB).');
       return;
     }
 
@@ -2160,6 +2206,151 @@ function copiarMensaje(boton) {
     campo.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
+})();
+<\/script>
+<script>
+// LA FOTO SE ENCOGE AQUÍ, ANTES DE SALIR (25/11/2026).
+//
+// «Cuando adjunto una imagen se queda colgado error 413» (propietario). En los
+// registros de Netlify estaban los cinco intentos seguidos, todos 413, y la
+// causa es que el cuerpo viaja en base64 —un tercio más— así que una foto del
+// móvil de 4-5 MB se pasa de los 6 MB de la petición y la plataforma la corta
+// antes de llegar a la función. Subir el tope no es una opción: el tope no es
+// nuestro.
+//
+// Lo que sí es nuestro es el tamaño de la foto. Una imagen para WhatsApp no
+// necesita 5 MB —Meta la recomprime de todas formas—, así que se redibuja en un
+// lienzo a 2000 px de lado máximo y se guarda como JPEG: una foto de 4 MB se
+// queda en 300-600 KB, se manda al instante y el 413 deja de ser posible. Es el
+// mismo apaño que ya hace Control de Pedidos con las fotos de los pedidos.
+//
+// Si el navegador no sabe hacerlo, no se calla: se avisa del peso en vez de
+// mandar algo que se va a cortar. Y un PDF no se puede encoger, así que ahí lo
+// único honrado es decirlo antes de intentarlo.
+//
+// Sin barras invertidas ni expresiones regulares en este bloque: viaja dentro de
+// una plantilla de texto que se las come (ver el comentario del bloque de
+// pegar). Lo comprueba scripts/probar-panel-js.js.
+(function () {
+  var form = document.querySelector('.reply-form');
+  if (!form) return;
+
+  var MAXIMO = ${MAX_ATTACHMENT_BYTES};
+  var MAXIMO_MB = ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))};
+  // Por debajo de esto no se toca nada: una captura pequeña se manda tal cual y
+  // conserva su nitidez (y su PNG, que para texto se lee mejor).
+  var ENCOGER_DESDE = 1200 * 1024;
+  var LADO_MAXIMO = 2000;
+  var CALIDADES = [0.85, 0.7, 0.55];
+
+  function soltarBoton() {
+    var b = form.querySelector('button[type=submit]');
+    if (!b) return;
+    b.disabled = false;
+    if (b.lastChild) b.lastChild.textContent = ' Enviar';
+  }
+
+  function enMegas(bytes) {
+    return Math.round(bytes / 1024 / 1024 * 10) / 10;
+  }
+
+  function nombreJpg(nombre) {
+    var trozos = String(nombre || 'imagen').split('.');
+    if (trozos.length > 1) trozos.pop();
+    return trozos.join('.') + '.jpg';
+  }
+
+  function encogerImagen(archivo, hecho) {
+    var url = URL.createObjectURL(archivo);
+    var img = new Image();
+
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      hecho(null);
+    };
+
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var mayor = Math.max(img.width, img.height) || 1;
+      var escala = Math.min(1, LADO_MAXIMO / mayor);
+      var lienzo = document.createElement('canvas');
+      lienzo.width = Math.max(1, Math.round(img.width * escala));
+      lienzo.height = Math.max(1, Math.round(img.height * escala));
+      var ctx = lienzo.getContext('2d');
+      if (!ctx) { hecho(null); return; }
+      ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+
+      // Se baja la calidad por pasos solo si hace falta. Lo normal es que valga
+      // la primera: 2000 px a 0,85 ya baja de medio mega.
+      var paso = 0;
+      function probar() {
+        lienzo.toBlob(function (blob) {
+          if (!blob) { hecho(null); return; }
+          if (blob.size <= MAXIMO) {
+            hecho(new File([blob], nombreJpg(archivo.name), { type: 'image/jpeg' }));
+            return;
+          }
+          paso += 1;
+          if (paso >= CALIDADES.length) { hecho(null); return; }
+          probar();
+        }, 'image/jpeg', CALIDADES[paso]);
+      }
+      probar();
+    };
+
+    img.src = url;
+  }
+
+  function sePuede() {
+    if (typeof DataTransfer === 'undefined' || typeof File === 'undefined') return false;
+    var lienzo = document.createElement('canvas');
+    return Boolean(lienzo.getContext && lienzo.getContext('2d') && lienzo.toBlob);
+  }
+
+  form.addEventListener('submit', function (evento) {
+    var campo = form.querySelector('input[type=file]');
+    var archivo = campo && campo.files && campo.files.length ? campo.files[0] : null;
+    if (!archivo) return;
+
+    // Un PDF no se encoge. Lo único honrado es decir el peso y el tope.
+    if (archivo.type === 'application/pdf') {
+      if (archivo.size > MAXIMO) {
+        evento.preventDefault();
+        soltarBoton();
+        alert('Ese PDF pesa ' + enMegas(archivo.size) + ' MB y por aquí no entran mas de ' + MAXIMO_MB +
+          ' MB. Mandalo desde tu propio WhatsApp, o comprimelo antes.');
+      }
+      return;
+    }
+
+    if (archivo.size <= ENCOGER_DESDE) return;
+
+    if (!sePuede()) {
+      if (archivo.size > MAXIMO) {
+        evento.preventDefault();
+        soltarBoton();
+        alert('Esa imagen pesa ' + enMegas(archivo.size) + ' MB y este navegador no puede reducirla. ' +
+          'El tope por aqui son ' + MAXIMO_MB + ' MB.');
+      }
+      return;
+    }
+
+    evento.preventDefault();
+    encogerImagen(archivo, function (reducida) {
+      if (!reducida) {
+        soltarBoton();
+        alert('No he podido preparar esa imagen para enviarla. Prueba a guardarla de nuevo, ' +
+          'o mandala desde tu propio WhatsApp.');
+        return;
+      }
+      var traspaso = new DataTransfer();
+      traspaso.items.add(reducida);
+      campo.files = traspaso.files;
+      // form.submit() no vuelve a lanzar los manejadores de submit, así que no
+      // se entra aquí otra vez: se manda ya con la foto reducida.
+      form.submit();
+    });
+  });
 })();
 <\/script>`;
 
@@ -2697,3 +2888,6 @@ const manejarPanel = async (event) => {
 };
 
 module.exports.cuerpoDeBurbuja = cuerpoDeBurbuja;
+// Se exporta para que la prueba compruebe que el tope cabe de verdad en una
+// petición de Netlify una vez en base64 — que es lo que falló el 25/11/2026.
+module.exports.MAX_ATTACHMENT_BYTES = MAX_ATTACHMENT_BYTES;
