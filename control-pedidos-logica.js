@@ -810,6 +810,10 @@
       switch (d.accion) {
         case 'excluir':
         case 'anular':
+          // Reposición (24/11/2026, Michel 95524): a Géminis va lo que factura el
+          // proveedor. Si de una línea pedida viene parte (40 → 20), «excluir»
+          // quita lo que no viene, no lo que sí llega.
+          if (!comercial && d.accion === 'excluir' && f.cantPedida > 0 && f.cantPropuesta > 0) lineas.push(propuesta(Math.min(f.cantPropuesta, f.cantPedida)));
           break;
         case 'resto':
           if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
@@ -824,7 +828,8 @@
           break;
         }
         case 'mantener':
-          if (f.cantPedida > 0) lineas.push(pedido(f.cantPedida));
+          // Reposición: lo que el proveedor no manda no se compra, aunque se mantenga en nuestro pedido.
+          if (f.cantPedida > 0 && (comercial || f.cantPropuesta > 0)) lineas.push(pedido(f.cantPedida));
           break;
         case 'manual': {
           const cant = parseNum(d.cant);
