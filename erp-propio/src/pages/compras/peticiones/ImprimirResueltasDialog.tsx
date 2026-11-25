@@ -149,11 +149,11 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
   <h1>${esc(g.nombre)}${g.codigo ? ` <small>${esc(g.codigo)}</small>` : ''}</h1>
   <p class="sub">Peticiones de clientes RESUELTAS (mercancía recibida) · para separar y poner en reparto · ${g.lineas.length} ${g.lineas.length === 1 ? 'línea' : 'líneas'} · ${hoy}</p>
   <table>
-    <thead><tr><th class="c">✓</th><th>Cliente</th><th class="ped">Nº pedido</th><th>Cód. venta</th><th>Ref. compra</th><th>Descripción</th><th class="n">Cant.</th><th>Petición</th><th>Llegó</th><th>Concepto</th></tr></thead>
+    <thead><tr><th class="c">✓</th><th>Cliente</th><th class="ped">Nº pedido</th><th>Cód. venta</th><th>Ref. compra</th><th>Descripción</th><th class="n">Cant.</th><th>Petición</th><th>Llegó</th><th class="n">Importe</th></tr></thead>
     <tbody>${g.lineas
       .map(
         (l) =>
-          `<tr><td class="c">☐</td><td><b>${esc(l.cliente_nombre ?? l.cliente_codigo ?? '')}</b></td><td class="ped">${esc(numPedido(l)) || '—'}</td><td><b>${esc(l.articulo_codigo)}</b></td><td>${esc(l.referencia)}</td><td>${esc(l.descripcion)}</td><td class="n"><b>${uds(l.cantidad)}</b></td><td>${esc(l.oficina)}-${l.numero}</td><td>${fecha(l.recibida_en)}</td><td>${esc(l.concepto ?? '')}</td></tr>`,
+          `<tr><td class="c">☐</td><td><b>${esc(l.cliente_nombre ?? l.cliente_codigo ?? '')}</b></td><td class="ped">${esc(numPedido(l)) || '—'}</td><td><b>${esc(l.articulo_codigo)}</b></td><td>${esc(l.referencia)}</td><td>${esc(l.descripcion)}</td><td class="n"><b>${uds(l.cantidad)}</b></td><td>${esc(l.oficina)}-${l.numero}</td><td>${fecha(l.recibida_en)}</td><td class="n">${euros(l.importe)}${l.doc_tipo ? ` <small>${l.doc_tipo === 'venta' ? 'vta.' : 'ped.'}</small>` : ''}</td></tr>`,
       )
       .join('')}</tbody>
   </table>
