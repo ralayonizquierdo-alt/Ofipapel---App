@@ -264,6 +264,62 @@ export function instalarIntroAvanza() {
   })
 }
 
+let ctrlIntroInstalado = false
+/**
+ * Ctrl+Intro en CUALQUIER campo del ERP (Rober, 25/11/2026: «con lupa o sin lupa, todos»): abre su lista.
+ *  · Campos con su propia lista (GwCampoBusqueda, GwCodigoBuscador…) ya la abren y marcan el evento: aquí no actúa.
+ *  · Desplegable (select), fecha/hora y campo con lista de opciones (datalist): abre el desplegable del navegador.
+ *  · Campo con botón de lupa o «···» en su fila (se busque o no con su propio componente): pulsa ese botón.
+ *  · Si el campo no tiene ninguna lista que abrir, lo dice en la barra de estado.
+ * Va en el window en burbuja: los que ya gestionan Ctrl+Intro llaman a preventDefault y se respetan.
+ */
+export function instalarCtrlIntroLista() {
+  if (ctrlIntroInstalado) return
+  ctrlIntroInstalado = true
+  const esLupa = (b: HTMLButtonElement) =>
+    !b.disabled && b.getClientRects().length > 0 &&
+    (b.classList.contains('gw-lookup') || /^[·.…]{2,}$/.test((b.textContent ?? '').trim()) || /^buscar/i.test(b.title))
+  const editables = (zona: Element) =>
+    Array.from(zona.querySelectorAll<HTMLElement>('input, select, textarea')).filter((c) => {
+      if (c instanceof HTMLInputElement && ['hidden', 'checkbox', 'radio', 'button', 'submit'].includes(c.type)) return false
+      if ((c instanceof HTMLInputElement || c instanceof HTMLTextAreaElement) && (c.readOnly || c.disabled)) return false
+      return !(c instanceof HTMLSelectElement && c.disabled)
+    })
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.defaultPrevented || e.isComposing) return
+    const t = e.target
+    if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement) || !t.isConnected) return
+    if (t.disabled) return
+    const aviso = (txt: string) => window.dispatchEvent(new CustomEvent('gw-ayuda-temporal', { detail: txt }))
+    const abrirNavegador = () => {
+      try {
+        ;(t as HTMLSelectElement | HTMLInputElement).showPicker()
+        return true
+      } catch {
+        return false
+      }
+    }
+    if (t instanceof HTMLSelectElement || (t instanceof HTMLInputElement && (t.list || ['date', 'time', 'datetime-local', 'month', 'week', 'color'].includes(t.type)))) {
+      e.preventDefault()
+      if (!abrirNavegador()) aviso('Este navegador no abre la lista con Ctrl+Intro: usa la flecha abajo o Alt+↓.')
+      return
+    }
+    // Campo con lupa en su fila: el contenedor más pequeño donde este sea el único campo editable.
+    let zona: HTMLElement | null = t.parentElement
+    for (let i = 0; i < 4 && zona; i++, zona = zona.parentElement) {
+      const campos = editables(zona)
+      if (campos.length !== 1 || campos[0] !== t) break
+      const lupa = Array.from(zona.querySelectorAll<HTMLButtonElement>('button')).find(esLupa)
+      if (lupa) {
+        e.preventDefault()
+        lupa.click()
+        return
+      }
+    }
+    aviso('Este campo no tiene lista que abrir.')
+  })
+}
+
 // ---------------- Rejillas ----------------
 
 /**

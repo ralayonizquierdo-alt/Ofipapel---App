@@ -131,6 +131,7 @@ esté dentro de él; si hay dos fichas montadas (una dentro de otra), manda la d
 | (al entrar) | Se selecciona todo el número: lo tecleado lo sustituye (antes «2» en una cantidad 1 daba 12). Al salir sin teclear no se cambia el valor | Números (`GwNumber`, celdas y pie del TPV, números de Archivo) — `seleccionEntrada.ts` |
 | Intro | Busca lo escrito | Campos de búsqueda (código de cliente, artículo…) en consulta |
 | Ctrl+Intro / F4 / F2 | Lista ordenada o buscador del campo | Campos con lupa (`GwCampoBusqueda`, `GwCodigoBuscador`, listados) — la ayuda sale en la barra de estado |
+| Ctrl+Intro | **En cualquier campo del ERP** (Rober, 25/11/2026: «con lupa o sin lupa, todos») | Desplegables, fechas y campos con lista: abre el desplegable. Campo con lupa o «···» en su fila: pulsa esa lupa. Si no tiene ninguna lista, avisa en la barra de estado. Regla general en `teclado.ts` (`instalarCtrlIntroLista`): respeta a los campos que ya gestionan Ctrl+Intro por su cuenta |
 | Esc | Deshace lo escrito en el campo de búsqueda | Igual |
 | + / − | Un día más / menos | Fechas (`GwDate`, `GwDateTime`) |
 | H / T | Hoy | Fechas |

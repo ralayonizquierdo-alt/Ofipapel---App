@@ -26,7 +26,7 @@ import { GloboTareas } from './shell/MisTareas'
 import { ControlAcceso } from './shell/ControlAcceso'
 import { apuntarPantalla, instalarRegistroUso } from '../lib/registroUso'
 import { NuevaIncidencia } from '../pages/archivo/IncidenciasPage'
-import { comboDeEvento, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
+import { comboDeEvento, instalarCtrlIntroLista, instalarIntroAvanza, modalAlPulsar, normalizarAtajo } from './gw/teclado'
 
 /** Atajos de menú que no gestiona Layout: los de edición los hace el navegador en el campo;
  *  Ctrl+F/H/O, EdicionHerramientas; Ctrl+P, GenerarPeticionHost. */
@@ -202,6 +202,7 @@ export function Layout() {
   // navegador y Ctrl+F/H/O y Ctrl+P sus propios hosts (ver ATAJOS_PROPIOS).
   useEffect(() => {
     instalarIntroAvanza()
+    instalarCtrlIntroLista()
     const shortcuts = new Map<string, MenuItem>()
     const collect = (entries: MenuEntry[]) => {
       for (const e of entries) {
@@ -262,10 +263,20 @@ export function Layout() {
         if (!sel || !sel.anchorNode || !(sel.anchorNode.parentElement?.closest('.gw-seleccionable'))) ev.preventDefault()
       }
     }
+    // Avisos de dos segundos en la barra de estado (p. ej. Ctrl+Intro en un campo sin lista).
+    let reloj: number | undefined
+    const temporal = (ev: Event) => {
+      setAyuda(String((ev as CustomEvent).detail ?? ''))
+      window.clearTimeout(reloj)
+      reloj = window.setTimeout(() => setAyuda(null), 2500)
+    }
+    window.addEventListener('gw-ayuda-temporal', temporal)
     document.addEventListener('focusin', alEntrar)
     document.addEventListener('focusout', alSalir)
     document.addEventListener('keydown', teclas)
     return () => {
+      window.removeEventListener('gw-ayuda-temporal', temporal)
+      window.clearTimeout(reloj)
       document.removeEventListener('focusin', alEntrar)
       document.removeEventListener('focusout', alSalir)
       document.removeEventListener('keydown', teclas)
