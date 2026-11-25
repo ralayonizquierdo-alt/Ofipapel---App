@@ -65,7 +65,7 @@ const COLORES_RUTA = ['#237523', '#1f6fb2', '#c2185b', '#ef6c00', '#6a1b9a', '#0
 export const base = import.meta.env.BASE_URL
 export const n = (v: number) => v.toLocaleString('es-ES')
 /** Minutos sin recibir posición de un furgón (ruta abierta) a partir de los cuales sale en rojo. */
-const MINUTOS_SIN_SEÑAL = 15
+const MINUTOS_SIN_SEÑAL = 30
 
 const hace = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
@@ -232,7 +232,7 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
               <div style={{ color: '#5f6b5f', fontSize: tv ? 16 : 12 }}>
                 🚚 {r.repartidor_nombre ?? 'sin repartidor'}
               </div>
-              {/* Última posición recibida, en letra pequeña; en rojo si lleva más de 15 min sin avisar (ruta abierta). */}
+              {/* Última posición recibida, en letra pequeña; en rojo si lleva más de 30 min sin avisar (ruta abierta). */}
               {r.posicion && (
                 <div style={{ fontSize: tv ? 13 : 10, color: !cerrado && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000 ? C.rojo : '#8a948a', fontWeight: !cerrado && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000 ? 700 : 400 }}>
                   📍 última posición {new Date(r.posicion.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })} · {hace(r.posicion.en)}
@@ -451,7 +451,7 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
       }
       if (r.posicion) {
         // Cada furgón se queda siempre en su última posición conocida y dice a qué hora fue (Rober, 25/11/2026).
-        // Sin noticias desde hace más de 15 min (ruta abierta): sale en ROJO. Ruta cerrada: en gris.
+        // Sin noticias desde hace más de 30 min (ruta abierta): sale en ROJO. Ruta cerrada: en gris.
         const cerradaRuta = r.estado !== 2
         const viejo = !cerradaRuta && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000
         const hora = new Date(r.posicion.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })
