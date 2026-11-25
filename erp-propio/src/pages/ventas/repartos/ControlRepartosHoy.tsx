@@ -138,6 +138,7 @@ export function ControlRepartosHoy({
   const [datos, setDatos] = useState<DatosSeg | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
+  const [cambiandoRep, setCambiandoRep] = useState<RutaSeg | null>(null)
   const [plegado, setPlegado] = useState(() => {
     try {
       return localStorage.getItem('erp.repartos.controlPlegado') === '1'
@@ -399,6 +400,19 @@ export function ControlRepartosHoy({
                         </div>
                         <div className="text-[12px] text-[#555]">
                           🚚 {r.repartidor_nombre ?? 'sin repartidor'}
+                          {!cerrado && (
+                            <button
+                              type="button"
+                              className="gw-btn ml-1 !h-[18px] !px-1 text-[11px]"
+                              title="Cambiar el repartidor de esta ruta (solo cambia el repartidor, no toca los pedidos)"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setCambiandoRep(r)
+                              }}
+                            >
+                              Cambiar
+                            </button>
+                          )}
                           {r.posicion && ` · 📍 ${hace(r.posicion.en)}`}
                         </div>
                       </td>
@@ -483,6 +497,17 @@ export function ControlRepartosHoy({
         </div>
       )}
       {pines && <DialogoPines onCerrar={() => setPines(false)} />}
+      {cambiandoRep && (
+        <DialogoRepartidor
+          ruta={cambiandoRep}
+          onCerrar={() => setCambiandoRep(null)}
+          onHecho={(txt) => {
+            setMensaje(txt)
+            setCambiandoRep(null)
+            void cargar()
+          }}
+        />
+      )}
       {/* Pedidos de la ruta en su propia ventana, encima de todo (19/11/2026): desplegados dentro de la tabla no se le
           veían a Rober. Va con portal a <body> para que nada de la pantalla de abajo la tape ni la recorte. */}
       {desplegada &&
@@ -839,6 +864,53 @@ function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () =>
         </div>
       </GwWindow>
     </div>
+  )
+}
+
+// ------------------------------------------------------------------ Cambiar el repartidor de una ruta (25/11/2026)
+// Solo cambia el repartidor del reparto (fn_reparto_cambiar_repartidor): no guarda la ficha entera, así que no pisa nada.
+function DialogoRepartidor({ ruta, onCerrar, onHecho }: { ruta: RutaSeg; onCerrar: () => void; onHecho: (txt: string) => void }) {
+  const [lista, setLista] = useState<{ codigo: string; nombre: string }[] | null>(null)
+  const [quien, setQuien] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  useEffect(() => {
+    // Los mismos repartidores que salen en la pantalla de entrada de la app (los de las rutas), sin oficina, caja ni pruebas.
+    void supabase.rpc('fn_app_rep_repartidores').then(({ data, error: e }) => (e ? setError(e.message) : setLista((data ?? []) as typeof lista)))
+  }, [])
+  const nombreRutaTxt = nombreRuta(ruta)
+  const guardar = async () => {
+    setGuardando(true)
+    setError(null)
+    const { data, error: e } = await supabase.rpc('fn_reparto_cambiar_repartidor', { p_tienda: ruta.tienda, p_numero: ruta.numero, p_repartidor: quien || null })
+    setGuardando(false)
+    if (e) return setError(e.message)
+    const d = data as { nombre: string | null; otras_rutas_abiertas: number }
+    onHecho(
+      d.nombre
+        ? `${nombreRutaTxt}: ahora la lleva ${d.nombre}.${d.otras_rutas_abiertas ? ` Ojo: ${d.nombre} ya tiene otra ruta abierta ese día.` : ''}`
+        : `${nombreRutaTxt}: queda sin repartidor, lo elige quien la coja en la app.`,
+    )
+  }
+  const candidatos = (lista ?? []).filter((r) => !['OFI', 'PAG', 'PED', '11', '999', 'Z01', 'Z02'].includes(r.codigo))
+  return (
+    <Modal titulo={`Repartidor de la ${nombreRutaTxt}`} onCerrar={onCerrar}>
+      <div>
+        Ahora: <b>{ruta.repartidor_nombre ?? 'sin repartidor'}</b>. Solo cambia el repartidor: los pedidos no se tocan.
+      </div>
+      <select className="gw-input" value={quien} onChange={(e) => setQuien(e.target.value)} autoFocus>
+        <option value="">Sin repartidor (lo elige él en la app)</option>
+        {candidatos.map((r) => (
+          <option key={r.codigo} value={r.codigo}>
+            {r.nombre}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="gw-btn self-start font-bold" disabled={guardando || !lista} onClick={() => void guardar()}>
+        Guardar
+      </button>
+      {error && <div className="font-bold text-[#b00020]">{error}</div>}
+    </Modal>
   )
 }
 
