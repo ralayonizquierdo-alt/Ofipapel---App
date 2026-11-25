@@ -36,6 +36,10 @@ interface Resuelta {
   doc_oficina: string | null
   doc_numero: number | null
   importe: number | null
+  /** Parcialmente resuelta (GeminisWin estado 4): `cantidad` es lo que ha llegado; `cantidad_pedida`, lo que pidió el cliente. */
+  parcial: boolean
+  cantidad_pedida: number | null
+  cantidad_recibida: number | null
 }
 interface Grupo {
   codigo: string
@@ -62,6 +66,8 @@ const esc = (s: string | null | undefined) => String(s ?? '').replace(/[&<>"]/g,
 const clave = (l: Resuelta) => `${l.origen}/${l.oficina}/${l.numero}`
 /** Nº del pedido de cliente (o de la venta, si ya la hay) de la petición. */
 const numPedido = (l: Resuelta) => (l.doc_tipo && l.doc_oficina && l.doc_numero != null ? `${l.doc_tipo === 'venta' ? 'Vta. ' : ''}${l.doc_oficina}-${l.doc_numero}` : '')
+/** Cantidad a preparar; en las parciales, «1 de 2» (lo llegado de lo pedido). */
+const cantTexto = (l: Resuelta) => (l.parcial && l.cantidad_pedida != null ? `${uds(l.cantidad)} de ${uds(l.cantidad_pedida)}` : uds(l.cantidad))
 const euros = (n: number | null) => (n == null ? '' : `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`)
 
 export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
@@ -79,7 +85,7 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
   const cargar = useCallback(async () => {
     setError(null)
     setLineas(null)
-    const { data, error: e } = await supabase.rpc('fn_peticiones_resueltas_doc', { p_dias: 60, p_con_impresas: conImpresas })
+    const { data, error: e } = await supabase.rpc('fn_peticiones_resueltas_v3', { p_dias: 60, p_con_impresas: conImpresas })
     if (e) {
       setError(e.message)
       setLineas([])
@@ -91,6 +97,9 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
         cantidad: Number(l.cantidad ?? 0),
         importe: l.importe == null ? null : Number(l.importe),
         doc_numero: l.doc_numero == null ? null : Number(l.doc_numero),
+        parcial: !!l.parcial,
+        cantidad_pedida: l.cantidad_pedida == null ? null : Number(l.cantidad_pedida),
+        cantidad_recibida: l.cantidad_recibida == null ? null : Number(l.cantidad_recibida),
       })),
     )
   }, [conImpresas])
@@ -154,7 +163,7 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
     <tbody>${g.lineas
       .map(
         (l) =>
-          `<tr><td class="c">☐</td><td><b>${esc(l.cliente_nombre ?? l.cliente_codigo ?? '')}</b></td><td class="ped">${esc(numPedido(l)) || '—'}</td><td><b>${esc(l.articulo_codigo)}</b></td><td>${esc(l.referencia)}</td><td>${esc(l.descripcion)}</td><td class="n"><b>${uds(l.cantidad)}</b></td><td>${esc(l.oficina)}-${l.numero}</td><td>${fecha(l.recibida_en)}</td><td class="n">${euros(l.importe)}${l.doc_tipo ? ` <small>${l.doc_tipo === 'venta' ? 'vta.' : 'ped.'}</small>` : ''}</td></tr>`,
+          `<tr><td class="c">☐</td><td><b>${esc(l.cliente_nombre ?? l.cliente_codigo ?? '')}</b></td><td class="ped">${esc(numPedido(l)) || '—'}</td><td><b>${esc(l.articulo_codigo)}</b></td><td>${esc(l.referencia)}</td><td>${esc(l.descripcion)}</td><td class="n"><b>${cantTexto(l)}</b>${l.parcial ? '<br><small>PARCIAL</small>' : ''}</td><td>${esc(l.oficina)}-${l.numero}</td><td>${fecha(l.recibida_en)}</td><td class="n">${euros(l.importe)}${l.doc_tipo ? ` <small>${l.doc_tipo === 'venta' ? 'vta.' : 'ped.'}</small>` : ''}</td></tr>`,
       )
       .join('')}</tbody>
   </table>
@@ -170,13 +179,14 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
       th{background:#eee} .n{text-align:right;white-space:nowrap} td.ped{font-weight:bold;font-size:14px;white-space:nowrap} th.ped{white-space:nowrap} .c{text-align:center;width:22px;font-size:14px}
     </style></head><body>${hojas}<script>window.onload=function(){window.print()}<\/script></body></html>`)
     w.document.close()
-    setImpresas(lista.flatMap((g) => g.lineas).filter((l) => !l.impresa_en))
+    // Las parciales se vuelven a marcar aunque ya se imprimieran: se guarda la cantidad llegada de ahora.
+    setImpresas(lista.flatMap((g) => g.lineas).filter((l) => !l.impresa_en || l.parcial))
   }
 
   async function marcarImpresas() {
     if (!impresas?.length) return setImpresas(null)
     const { data, error: e } = await supabase.rpc('fn_peticiones_marcar_impresas', {
-      p_peticiones: impresas.map((l) => ({ origen: l.origen, oficina: l.oficina, numero: l.numero })),
+      p_peticiones: impresas.map((l) => ({ origen: l.origen, oficina: l.oficina, numero: l.numero, cantidad: l.cantidad })),
     })
     if (e) return setError(e.message)
     setAviso(`Marcadas como impresas: ${Number(data ?? impresas.length)}. Ya no cuentan en el globo rojo.`)
@@ -297,7 +307,10 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
                           {l.descripcion}
                           {l.impresa_en && <span className="ml-1.5 text-[11px]">· impresa {fecha(l.impresa_en)}</span>}
                         </td>
-                        <td className="px-2 py-1 text-right font-bold tabular-nums">{uds(l.cantidad)}</td>
+                        <td className="whitespace-nowrap px-2 py-1 text-right font-bold tabular-nums" title={l.parcial ? 'Parcialmente resuelta: ha llegado una parte; el resto sigue pendiente' : undefined}>
+                          {cantTexto(l)}
+                          {l.parcial && <span className="ml-1 rounded bg-[#fff1c2] px-1 text-[10px] font-bold text-[#7a5a00]">PARCIAL</span>}
+                        </td>
                         <td className="whitespace-nowrap px-2 py-1 tabular-nums">
                           {l.oficina}-{l.numero}
                         </td>
