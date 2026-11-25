@@ -8,3 +8,11 @@
 --     cantidad_recibida (suma de PETIDETA con fecha de recepción). Ver la definición viva para el texto completo.
 -- Comprobado: sale la 54-36633 (vitrina 58554, VALORIZA) como parcial, 1 de 2.
 alter table peticion_impresion add column if not exists cantidad_impresa numeric;
+
+-- El globo rojo cuenta lo mismo que la ventana (también las parciales). Aplicada como «peticiones_resueltas_nuevas_con_parciales».
+create or replace function public.fn_peticiones_resueltas_nuevas()
+ returns integer language sql stable
+ set search_path to 'public', 'pg_temp'
+as $function$
+  select count(*)::integer from public.fn_peticiones_resueltas_v3(60, false)
+$function$;
