@@ -7,6 +7,7 @@
 // la venta si ya la hay y, si no, el pedido de cliente del que salió la petición (GeminisWin, solo consulta).
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Printer, X } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwWindow } from '../../../components/gw'
@@ -184,8 +185,10 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
     void cargar()
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-10" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+  // En el body (portal), por encima de todo: dentro de la ventana del Gestor quedaba recortada y se movía al hacer scroll
+  // por debajo de la barra de menús (vídeo de Rober, 25/11/2026).
+  return createPortal(
+    <div className="fixed inset-0 z-[400] flex items-start justify-center bg-black/20 pt-10" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <GwWindow title="Peticiones resueltas para preparar (por proveedor)" onClose={onClose} className="w-[1100px] max-w-[96vw]">
         <div className="flex max-h-[78vh] flex-col gap-2 text-[14px]">
           <div className="flex flex-wrap items-center gap-2">
@@ -314,7 +317,8 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
         </div>
       </GwWindow>
       {doc && <DocumentoOrigen l={doc} onClose={() => setDoc(null)} />}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -391,7 +395,7 @@ function DocumentoOrigen({ l, onClose }: { l: Resuelta; onClose: () => void }) {
 
   const titulo = l.doc_tipo ? `${esVenta ? 'Venta' : 'Pedido de cliente'} ${l.doc_oficina}-${l.doc_numero} (GeminisWin, solo consulta)` : 'Documento de origen'
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/25 pt-16" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+    <div className="fixed inset-0 z-[410] flex items-start justify-center bg-black/25 pt-16" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
       <GwWindow title={titulo} onClose={onClose} className="w-[860px] max-w-[95vw]">
         <div className="flex max-h-[72vh] flex-col gap-2 overflow-y-auto p-1 text-[14px]">
           {!l.doc_tipo ? (
