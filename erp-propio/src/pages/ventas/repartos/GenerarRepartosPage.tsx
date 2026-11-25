@@ -3,7 +3,8 @@
 // ruta a ruta, en lugar de hacerlo en GeminisWin (migración 20261118_reparto_circuito_erp.sql).
 //  · Por cada ruta, la propuesta: ventas de clientes de esa ruta que no han ido en ningún reparto y las que no se
 //    entregaron en el anterior («viene del anterior», siempre marcadas). Las de otras tiendas salen sin marcar.
-//  · Repartidor: el de la última vez en esa ruta. «Generar reparto» cierra el anterior de esa ruta (lo sin entregar
+//  · Repartidor: sin asignar (25/11/2026, Rober: «ellos tienen que elegir la ruta»): lo elige el repartidor en la app. Se puede
+//    poner uno a mano. «Generar reparto» cierra el anterior de esa ruta (lo sin entregar
 //    vuelve a la propuesta) y crea el del día; si ya existe, le añade lo marcado.
 //  · Las rutas que siguen en GeminisWin solo se pueden comparar: lo que el ERP habría generado al lado de lo que hay
 //    en el reparto abierto de GeminisWin. «Pasar al ERP» cambia la ruta de sitio (y «Devolver a GeminisWin»).
@@ -259,12 +260,11 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
   }
 
   const generar = async () => {
-    if (!repartidor) return onHecho(`Elige el repartidor de la ${nombreRuta}.`, true)
     if (!elegidas.length && !r.anteriores) return onHecho(`Marca al menos una venta de la ${nombreRuta}.`, true)
     const d = await rpc('fn_reparto_erp_generar', {
       p_ruta: r.ruta,
       p_fecha: panel.fecha,
-      p_repartidor: repartidor,
+      p_repartidor: repartidor || null,
       p_ventas: elegidas.map((p) => ({ vt: p.vt, vn: p.vn })),
     })
     if (!d) return
@@ -337,7 +337,7 @@ function TarjetaRuta({ r, panel, onHecho }: { r: Ruta; panel: Panel; onHecho: (t
             <label className="flex items-center gap-2">
               Repartidor
               <select className="gw-input" value={repartidor} onChange={(e) => setRepartidor(e.target.value)}>
-                <option value="">— elige —</option>
+                <option value="">Sin asignar: lo elige el repartidor</option>
                 {panel.repartidores.map((d) => (
                   <option key={d.codigo} value={d.codigo}>
                     {d.nombre}
@@ -479,7 +479,7 @@ function Operativa() {
             'Si la venta no sale en ninguna ruta, mira que en GeminisWin tenga marcado que va a reparto y que el cliente tenga ruta. Si sale en otra ruta, añádela allí y luego, en Control de Repartos, «▾ Pedidos» → «⇄ Cambiar de ruta».',
             'En cada ruta «En el ERP» aparecen las ventas de sus clientes que todavía no han ido en ningún reparto, y en naranja las que no se entregaron en el anterior.',
             'Solo salen las ventas que en GeminisWin tienen marcado que van a reparto (y las que vienen del anterior). Repasa las marcas: las de otras tiendas salen sin marcar, porque a veces el cliente se lo lleva en mano.',
-            'Comprueba el repartidor (sale el de la última vez) y pulsa «Generar reparto».',
+            'El repartidor se deja sin asignar: lo elige él en la app (puedes ponerlo a mano si hace falta). Pulsa «Generar reparto».',
             'Al momento le sale al repartidor en la app. Si después entran más ventas, vuelve a pulsar: se añaden al mismo reparto («Añadir al reparto»).',
           ],
           notas: [

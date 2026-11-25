@@ -1,0 +1,10 @@
+-- Rober, 25/11/2026: «¿no habíamos quedado en que ellos tenían que elegir la ruta?». Hasta ahora, al generar los repartos el ERP
+-- asignaba solo el repartidor «de la última vez en esa ruta» y la app lo veía como suyo (los demás dejaban de verlo): el 25/11 dejó
+-- a Fran con dos rutas y a Walter sin ninguna.
+-- Ahora el repartidor va SIN ASIGNAR salvo que se ponga a mano (o ya lo tenga el reparto abierto de ese día): lo elige el repartidor
+-- en la app («Elige tu ruta de hoy»). Aplicada en Supabase como «reparto_erp_sin_repartidor_lo_elige_el_repartidor».
+--  · fn_reparto_erp_generar: el repartidor puede ir vacío (si viene, se valida como antes) y un vacío no pisa el que ya tenga.
+--  · fn_reparto_erp_generar_ruta: ya no busca «el de otras veces» ni exige repartidor.
+--  · fn_reparto_erp_panel: ya no propone el de la última vez; solo el del reparto abierto de ese día.
+-- Se aplicó con el método de siempre: leer la definición viva, sustituir el texto y comprobar que ha entrado. Para el texto
+-- completo de fn_reparto_erp_generar_ruta, ver la definición viva en la base de datos.
