@@ -10,12 +10,15 @@ export { GwDate, type GwDateProps } from './GwDate'
 
 /**
  * Ventana que se arrastra por su barra de título, como en Windows: `barra` va en la barra de
- * título y `estilo` en la ventana (propiedad CSS translate: no usar clases translate-* en ella).
+ * título y `estilo` en la ventana, que tiene que estar posicionada (relative / absolute).
+ * Se mueve con left/top y NO con translate/transform (25/11/2026): un translate convierte la ventana en el «marco» de todo lo
+ * que lleva dentro con position: fixed, y los diálogos que se abrían en una ventana movida se quedaban atrapados en ella
+ * (se iban con el scroll y se escondían bajo la barra de menús).
  */
 export function useArrastre(activo = true) {
   const [desplazado, setDesplazado] = useState({ x: 0, y: 0 })
   const arrastre = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null)
-  const estilo = activo && (desplazado.x || desplazado.y) ? { translate: `${desplazado.x}px ${desplazado.y}px` } : undefined
+  const estilo: CSSProperties | undefined = activo && (desplazado.x || desplazado.y) ? { left: desplazado.x, top: desplazado.y } : undefined
   const barra = {
     onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
       if (!activo || e.button !== 0 || (e.target as HTMLElement).closest('button, input, select, textarea')) return
@@ -30,7 +33,7 @@ export function useArrastre(activo = true) {
       arrastre.current = null
     },
   }
-  return { estilo, barra }
+  return { estilo, barra, desplazado: activo ? desplazado : { x: 0, y: 0 } }
 }
 
 export function GwWindow({
@@ -69,7 +72,7 @@ export function GwWindow({
   const ventana = useRef<HTMLDivElement>(null)
   const redimension = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
   const sePuedeMover = estado !== 'max' && (movible || principal)
-  const { estilo, barra } = useArrastre(sePuedeMover)
+  const { estilo, barra, desplazado } = useArrastre(sePuedeMover)
   const tinte = color ? ({ '--gw-face': color.fondo, '--sec-t1': color.t1, '--sec-t2': color.t2 } as CSSProperties) : undefined
 
   let disposicion: CSSProperties | undefined
@@ -78,10 +81,10 @@ export function GwWindow({
     // La principal llega con «absolute inset-1»: restaurada o minimizada, se coloca a mano.
     if (estado === 'normal') {
       clases = className.replace(/\binset-1\b/, '')
-      disposicion = { left: 24, top: 18, width: tam?.w ?? '82%', height: tam?.h ?? '82%' }
+      disposicion = { left: 24 + desplazado.x, top: 18 + desplazado.y, width: tam?.w ?? '82%', height: tam?.h ?? '82%' }
     } else if (estado === 'min') {
       clases = className.replace(/\binset-1\b/, '')
-      disposicion = { left: 6, bottom: 6, width: 300, height: 'auto' }
+      disposicion = { left: 6 + desplazado.x, bottom: 6 - desplazado.y, width: 300, height: 'auto' }
     }
   } else if (estado === 'max') {
     disposicion = { position: 'fixed', inset: 8, width: 'auto', height: 'auto', maxWidth: 'none', zIndex: 60 }
@@ -97,7 +100,7 @@ export function GwWindow({
     <div
       ref={ventana}
       className={`gw-ventana ${principal ? '' : 'relative'} flex flex-col border border-[#6f6f6f] bg-[var(--gw-face)] shadow-[2px_2px_6px_rgba(0,0,0,0.35)] ${clases}`}
-      style={{ ...tinte, ...(estado === 'max' ? undefined : estilo), ...disposicion }}
+      style={{ ...tinte, ...(estado === 'max' || principal ? undefined : estilo), ...disposicion }}
       data-seccion={color ? 'color' : (seccion ?? undefined)}
     >
       <div
