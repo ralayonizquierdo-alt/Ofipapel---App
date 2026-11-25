@@ -307,6 +307,17 @@ export function Layout() {
         >
           🐞
         </button>
+        {/* Actualizar el ERP (Rober, 25/11/2026): F5 es «Buscar» en las fichas, como en GeminisWin, así que no recarga la página. */}
+        <button
+          type="button"
+          className="flex-none rounded border border-[#d0d7e2] bg-white px-1.5 text-[12px] font-bold leading-[17px] text-[#1d3a8a] hover:bg-[#e5f1fb]"
+          onClick={() => {
+            if (window.confirm('¿Actualizar el ERP? Si estás escribiendo algo sin guardar, se perderá.')) window.location.reload()
+          }}
+          title="Actualizar el ERP (vuelve a cargar la página; guarda antes lo que estés escribiendo)"
+        >
+          ⟳ Actualizar
+        </button>
       </div>
       <AvisoVersion />
       <AvisoConformidad uid={session?.user.id ?? null} />
