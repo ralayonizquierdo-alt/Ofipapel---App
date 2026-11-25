@@ -1751,27 +1751,50 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   }, [enviar, recargar])
 
   // Posición para la pantalla de pedidos: solo mientras la ruta está abierta y si el repartidor ha aceptado.
+  // Un solo aviso de ubicación (25/11/2026, Rober): sirve para el mapa y para marcar la posición de cada entrega.
+  //  · Cada 20 s como mucho mientras la app está abierta y se mueve.
+  //  · Además, al instante: cuando se desbloquea el móvil / se vuelve a la app y cada vez que se marca un pedido (enviarPos(true)),
+  //    para que en el mapa quede por dónde va aunque pase un rato sin avisos.
+  const ultimaPos = useRef<{ lat: number; lng: number; precision: number | null } | null>(null)
+  const ultimoEnvioPos = useRef(0)
+  const enviarPos = useCallback(
+    (ahoraMismo = false) => {
+      const p = ultimaPos.current
+      if (!p) return
+      if (!ahoraMismo && Date.now() - ultimoEnvioPos.current < 20_000) return
+      ultimoEnvioPos.current = Date.now()
+      posicion(sesion.token, reparto.tienda, reparto.numero, p.lat, p.lng, p.precision).catch(() => {})
+    },
+    [sesion.token, reparto.tienda, reparto.numero],
+  )
   useEffect(() => {
     if (gps !== 'si' || !('geolocation' in navigator)) return
-    let ultimo = 0
     const id = navigator.geolocation.watchPosition(
       (p) => {
-        if (Date.now() - ultimo < 30_000) return
-        ultimo = Date.now()
-        posicion(sesion.token, reparto.tienda, reparto.numero, p.coords.latitude, p.coords.longitude, p.coords.accuracy).catch(() => {})
+        ultimaPos.current = { lat: p.coords.latitude, lng: p.coords.longitude, precision: p.coords.accuracy }
+        enviarPos()
       },
       () => {},
       { enableHighAccuracy: false, maximumAge: 30_000, timeout: 60_000 },
     )
-    return () => navigator.geolocation.clearWatch(id)
-  }, [gps, sesion.token, reparto.tienda, reparto.numero])
-
-  const ultimaPos = useRef<{ lat: number; lng: number } | null>(null)
-  useEffect(() => {
-    if (gps !== 'si' || !('geolocation' in navigator)) return
-    const id = navigator.geolocation.watchPosition((p) => (ultimaPos.current = { lat: p.coords.latitude, lng: p.coords.longitude }), () => {}, { maximumAge: 60_000 })
-    return () => navigator.geolocation.clearWatch(id)
-  }, [gps])
+    // Al volver a la app (desbloquear el móvil, cambiar de aplicación): se pide la posición de ahora y se manda.
+    const vuelve = () => {
+      if (document.visibilityState !== 'visible') return
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          ultimaPos.current = { lat: p.coords.latitude, lng: p.coords.longitude, precision: p.coords.accuracy }
+          enviarPos(true)
+        },
+        () => enviarPos(true),
+        { enableHighAccuracy: false, maximumAge: 15_000, timeout: 8_000 },
+      )
+    }
+    document.addEventListener('visibilitychange', vuelve)
+    return () => {
+      navigator.geolocation.clearWatch(id)
+      document.removeEventListener('visibilitychange', vuelve)
+    }
+  }, [gps, enviarPos])
 
   const cambiarLocal = (k: string, cambio: Partial<LineaApp>) => {
     if (!datos) return
@@ -1789,6 +1812,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     }
     const ahora = new Date().toISOString()
     const pos = ultimaPos.current
+    if (tipo !== 'deshacer') enviarPos(true) // cada pedido marcado deja también su posición en el mapa
     if (tipo === 'entregado') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: null, medio: detalle === 'tarjeta' || detalle === 'efectivo' ? detalle : null, entregado_en: ahora, nota: nota ?? null })
     if (tipo === 'sin_cobrar') cambiarLocal(clave(l), { estado: 'entregado', incidencia: null, motivo: null, no_cobro: detalle ?? null, medio: null, entregado_en: ahora, nota: nota ?? null })
     if (tipo === 'incidencia') cambiarLocal(clave(l), { estado: 'entregado', incidencia: detalle ?? null, motivo: null, no_cobro: null, medio: null, entregado_en: ahora, nota: nota ?? null })

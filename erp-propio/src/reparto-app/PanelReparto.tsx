@@ -442,11 +442,14 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
         L.circleMarker([p.lat, p.lng], { radius: tv ? 7 : 6, color: '#fff', weight: 1.5, fillColor: c, fillOpacity: 0.95 }).bindPopup(caja).addTo(g)
       }
       if (r.posicion && r.estado === 2) {
+        // Se queda en su última posición conocida y dice a qué hora fue; si hace más de 15 min, sale más apagado.
+        const viejo = Date.now() - new Date(r.posicion.en).getTime() > 15 * 60_000
+        const hora = new Date(r.posicion.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })
         const icono = L.divIcon({
           className: '',
           iconSize: [0, 0],
-          html: `<div style="transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center">
-                   <div style="background:${color};color:#fff;border-radius:12px;padding:3px 8px;font:700 ${tv ? 15 : 12}px Inter,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">🚚 ${r.repartidor_nombre ?? ''} · ${r.pendientes}</div>
+          html: `<div style="transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;opacity:${viejo ? 0.6 : 1}">
+                   <div style="background:${color};color:#fff;border-radius:12px;padding:3px 8px;font:700 ${tv ? 15 : 12}px Inter,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">🚚 ${r.repartidor_nombre ?? ''} · ${r.pendientes} · ${hora}</div>
                    <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${color}"></div>
                  </div>`,
         })
