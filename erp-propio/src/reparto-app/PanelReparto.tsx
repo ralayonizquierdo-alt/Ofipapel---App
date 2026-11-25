@@ -64,6 +64,9 @@ const COLORES_MUNICIPIO = ['#f9d5a7', '#b8dfc4', '#f4b6c2', '#bcd4f0', '#e3d0f0'
 const COLORES_RUTA = ['#237523', '#1f6fb2', '#c2185b', '#ef6c00', '#6a1b9a', '#00838f', '#5d4037', '#827717', '#283593', '#ad1457']
 export const base = import.meta.env.BASE_URL
 export const n = (v: number) => v.toLocaleString('es-ES')
+/** Minutos sin recibir posición de un furgón (ruta abierta) a partir de los cuales sale en rojo. */
+const MINUTOS_SIN_SEÑAL = 15
+
 const hace = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
   return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h`
@@ -228,8 +231,13 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
               </div>
               <div style={{ color: '#5f6b5f', fontSize: tv ? 16 : 12 }}>
                 🚚 {r.repartidor_nombre ?? 'sin repartidor'}
-                {r.posicion && <span> · 📍 {hace(r.posicion.en)}</span>}
               </div>
+              {/* Última posición recibida, en letra pequeña; en rojo si lleva más de 15 min sin avisar (ruta abierta). */}
+              {r.posicion && (
+                <div style={{ fontSize: tv ? 13 : 10, color: !cerrado && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000 ? C.rojo : '#8a948a', fontWeight: !cerrado && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000 ? 700 : 400 }}>
+                  📍 última posición {new Date(r.posicion.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })} · {hace(r.posicion.en)}
+                </div>
+              )}
             </div>
             <BarraPuntos r={r} alto={tv ? 34 : 20} horas={tv} />
             <div style={{ textAlign: 'right', minWidth: tv ? 130 : 90 }}>
@@ -441,16 +449,19 @@ export function VistaMapa({ rutas, tv }: { rutas: RutaSeg[]; tv: boolean }) {
         caja.append(nombre, detalle)
         L.circleMarker([p.lat, p.lng], { radius: tv ? 7 : 6, color: '#fff', weight: 1.5, fillColor: c, fillOpacity: 0.95 }).bindPopup(caja).addTo(g)
       }
-      if (r.posicion && r.estado === 2) {
-        // Se queda en su última posición conocida y dice a qué hora fue; si hace más de 15 min, sale más apagado.
-        const viejo = Date.now() - new Date(r.posicion.en).getTime() > 15 * 60_000
+      if (r.posicion) {
+        // Cada furgón se queda siempre en su última posición conocida y dice a qué hora fue (Rober, 25/11/2026).
+        // Sin noticias desde hace más de 15 min (ruta abierta): sale en ROJO. Ruta cerrada: en gris.
+        const cerradaRuta = r.estado !== 2
+        const viejo = !cerradaRuta && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000
         const hora = new Date(r.posicion.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })
+        const fondo = cerradaRuta ? '#7a847a' : viejo ? C.rojo : color
         const icono = L.divIcon({
           className: '',
           iconSize: [0, 0],
-          html: `<div style="transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;opacity:${viejo ? 0.6 : 1}">
-                   <div style="background:${color};color:#fff;border-radius:12px;padding:3px 8px;font:700 ${tv ? 15 : 12}px Inter,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">🚚 ${r.repartidor_nombre ?? ''} · ${r.pendientes} · ${hora}</div>
-                   <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${color}"></div>
+          html: `<div style="transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center">
+                   <div style="background:${fondo};color:#fff;border-radius:12px;padding:3px 8px;font:700 ${tv ? 15 : 12}px Inter,sans-serif;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4)">🚚 ${r.repartidor_nombre ?? ''} · ${cerradaRuta ? 'cerrada' : r.pendientes} · ${hora}</div>
+                   <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${fondo}"></div>
                  </div>`,
         })
         const clave = `${r.tienda}-${r.numero}`
