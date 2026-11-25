@@ -101,7 +101,25 @@ const ok = (cond, etiqueta, extra) => {
   ok(html.includes('function encogerImagen('), 'el panel manda la función que encoge la foto');
   ok(html.includes('se reducen solas'), 'y lo dice en el texto de ayuda');
 
-  const { chromium } = require('playwright');
+  // SIN NAVEGADOR SE PARA AQUÍ, PERO NO EN ROJO.
+  //
+  // Playwright no está en el runner normal del CI, y esta batería va en el
+  // mismo bucle que las demás: si se cayera con error, tumbaría la puerta de
+  // todo el bot por una dependencia que no tiene nada que ver. Lo de arriba
+  // —la cuenta del base64 y que el panel mande la función— sí se comprueba
+  // siempre, porque ahí está la causa del 413.
+  //
+  // La parte de navegador corre en su propio trabajo de `bot.yml`
+  // («navegador»), que instala Chromium. Si esta línea sale en el registro del
+  // trabajo normal es lo esperado; si sale en el de navegador, está mal.
+  let chromium;
+  try {
+    ({ chromium } = require('playwright'));
+  } catch {
+    console.log('\n  —    sin Playwright aquí: la parte de navegador se salta (corre en el trabajo «navegador» del CI)');
+    console.log(fallos === 0 ? '\n✔ Sin fallos (sin la parte de navegador)\n' : `\n✗ ${fallos} fallo(s)\n`);
+    process.exit(fallos === 0 ? 0 : 1);
+  }
   const navegador = await chromium.launch();
   const pagina = await navegador.newPage();
   const consola = [];

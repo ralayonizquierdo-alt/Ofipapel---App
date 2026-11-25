@@ -111,3 +111,45 @@ jobs:
           name: sondeo-informe
           path: sondeo-informe.txt
           retention-days: 30
+
+  # LO QUE SOLO SE VE EN UN NAVEGADOR (25/11/2026).
+  #
+  # El 413 al adjuntar una foto desde el panel era código de navegador: en el
+  # servidor se veía perfecto, y la comprobación de tamaño del propio código
+  # no llegaba a ejecutarse nunca. La batería que lo cubre abre Chromium de
+  # verdad, adjunta una foto de móvil y mide qué fichero habría salido.
+  #
+  # Va en su propio trabajo y no en el de arriba porque descargar Chromium
+  # tarda más que TODAS las baterías juntas, y la puerta del bot conviene que
+  # siga siendo rápida. Corren en paralelo, así que no retrasa nada.
+  navegador:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Dependencias de las funciones
+        run: npm ci
+        working-directory: netlify/functions
+
+      # Solo Chromium: no hacen falta Firefox ni WebKit, y cada uno es otra
+      # descarga de más de cien megas.
+      - name: Playwright con Chromium
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+
+      - name: Adjuntos del panel, en un navegador de verdad
+        run: |
+          salida=$(node scripts/probar-panel-adjuntos.js 2>&1) || { echo "$salida"; exit 1; }
+          echo "$salida"
+          if printf '%s' "$salida" | grep -q '✗'; then
+            echo "::error::hay comprobaciones en rojo"; exit 1
+          fi
+          # Aquí Playwright SÍ está: si la batería dice que se la salta, el
+          # trabajo no está haciendo su trabajo.
+          if printf '%s' "$salida" | grep -q 'sin Playwright aquí'; then
+            echo "::error::este trabajo tenía que correr la parte de navegador y se la ha saltado"; exit 1
+          fi
