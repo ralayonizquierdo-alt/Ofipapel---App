@@ -2181,14 +2181,42 @@ async function handleIncomingMessage(event, message, nombreWhatsapp) {
   await sendWhatsappMessage(message.from, reply);
 }
 
-// Acuses de recibo de los mensajes que MANDAMOS: entregado y leído. Meta los
-// manda por el mismo webhook que los mensajes entrantes, en un array aparte.
+// Acuses de recibo de los mensajes que MANDAMOS: entregado, leído y FALLIDO.
+// Meta los manda por el mismo webhook que los mensajes entrantes, en un array
+// aparte.
 //
-// De los cuatro estados que existen solo interesan dos. "sent" no aporta nada
-// (si estamos aquí es que se envió) y "failed" ya se detecta al enviar, con la
-// respuesta de la API.
+// «FAILED YA SE DETECTA AL ENVIAR» ERA MENTIRA (26/11/2026, propietario:
+// «cuando un cliente me solicita hablar con un agente me sigue sin llegar el
+// mensaje de WhatsApp a mí con la alerta»).
+//
+// Eso es lo que decía este comentario, y por eso el bucle de abajo se saltaba
+// `failed`. Pero la API de Meta devuelve **200 cuando ACEPTA** el mensaje, no
+// cuando lo entrega: el fallo de entrega llega después, por aquí, con su
+// motivo. Así que pasaba esto, sin dejar rastro en ningún sitio:
+//
+//   1. El escalado salta bien y `notifyOwnerByWhatsapp` manda la plantilla.
+//   2. Meta contesta 200 → `enviado.ok` → se vuelve sin más, sin probar el
+//      texto libre y sin apuntar nada.
+//   3. Minutos después Meta avisa de que el mensaje FALLÓ… y se tiraba.
+//
+// Comprobado antes de tocar nada: `OWNER_ALERT_TEMPLATE` sí está puesta, no hay
+// ni un fallo apuntado (`ultimo_fallo` vacío) y al número del dueño le constan
+// entregas hasta el 16/11 y ninguna después. Es decir, no es que el aviso no se
+// mande: es que se da por bueno un «aceptado» y nadie se entera de lo que pasa
+// luego. Tercera vez que aparece el mismo patrón de esta casa: **tener
+// resultados no es tener el resultado**.
+//
+// Motivo típico cuando una plantilla se entrega durante semanas y de pronto
+// deja de hacerlo: el código 131049 de Meta («para mantener la salud del
+// ecosistema»), que descarta plantillas de categoría MARKETING. Si sale ese
+// código, la plantilla hay que recrearla como UTILITY. Ahora, al menos, el
+// código sale escrito en el panel en vez de perderse.
 async function registrarAcusesDeRecibo(statuses) {
   for (const estado of statuses) {
+    if (estado.status === 'failed') {
+      await registrarEnvioFallido(estado);
+      continue;
+    }
     if (estado.status !== 'delivered' && estado.status !== 'read') continue;
     const telefono = estado.recipient_id;
     if (!telefono) continue;
@@ -2204,6 +2232,52 @@ async function registrarAcusesDeRecibo(statuses) {
     } catch (err) {
       console.error('No se pudo guardar el acuse de recibo:', err);
     }
+  }
+}
+
+// UN MENSAJE QUE META ACEPTÓ Y LUEGO NO ENTREGÓ (26/11/2026).
+//
+// Sale en rojo en el panel con el motivo que da Meta, y si el que se ha
+// quedado sin recibirlo es el DUEÑO —o sea, el aviso de que un cliente pide
+// una persona— se intenta otra vez en texto libre, que es un camino distinto
+// al de la plantilla y puede funcionar donde el otro no (dentro de la ventana
+// de 24 h de Meta). No se reintenta la plantilla: si ha fallado una vez por su
+// categoría o su calidad, va a volver a fallar.
+//
+// El texto libre NO vuelve a entrar aquí si falla: `sendWhatsappMessage`
+// devuelve el fallo en el momento y se apunta, sin bucle.
+async function registrarEnvioFallido(estado) {
+  const telefono = estado.recipient_id || 'desconocido';
+  const fallo = (estado.errors && estado.errors[0]) || {};
+  const codigo = fallo.code ? `[${fallo.code}] ` : '';
+  const porQue = fallo.title || fallo.message || 'sin motivo';
+  const detalle = fallo.error_data?.details ? ` — ${fallo.error_data.details}` : '';
+
+  const owner = process.env.OWNER_WHATSAPP_NUMBER;
+  const esElDueno = Boolean(owner) && String(telefono) === String(owner);
+  const quien = esElDueno ? 'EL AVISO AL DUEÑO' : `un mensaje a ${telefono}`;
+
+  try {
+    await conversationStore.registrarFalloDelBot(
+      `WhatsApp aceptó ${quien} y luego NO lo entregó: ${codigo}${porQue}${detalle}` +
+        (esElDueno ? ' · Si el código es 131049, la plantilla es de categoría MARKETING y hay que rehacerla como UTILITY.' : ''),
+      esElDueno ? null : telefono
+    );
+  } catch (err) {
+    console.error('No se pudo apuntar el envío fallido:', err);
+  }
+
+  if (!esElDueno) return;
+
+  const panelUrl = `${process.env.URL || ''}/.netlify/functions/conversations`;
+  const segundoIntento = await sendWhatsappMessage(
+    owner,
+    `🔔 *Ofipapel Bot* — un cliente pide hablar con una persona.\n\n` +
+      `(La plantilla de aviso no se entregó: ${codigo}${porQue}. Esto va en texto libre.)\n\n` +
+      `👉 Ver conversaciones: ${panelUrl}`
+  );
+  if (!segundoIntento?.ok) {
+    console.error('El segundo intento del aviso al dueño tampoco salió:', segundoIntento?.error);
   }
 }
 
