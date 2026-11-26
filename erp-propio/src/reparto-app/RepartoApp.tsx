@@ -47,6 +47,7 @@ import {
   anularLiquidacion,
   type RepartoApp,
   type Sesion,
+  type DocDeuda,
 } from './api'
 import { GRUPO_ABONOS, GRUPO_NULOS, gruposPorCobrar, listaPorCobrar, sumaPorCobrar, tipoPago } from './porCobrar'
 import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
@@ -2058,6 +2059,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
           puedeCambiarRuta
           onRetirar={retirar}
           bloqueado={!puedeEntregar}
+          deuda={datos.reparto.deuda}
         />
       )}
 
@@ -2333,6 +2335,33 @@ function AvisosTraspaso({ sesion, onCambio }: { sesion: Sesion; onCambio?: () =>
 }
 
 // ------------------------------------------------------------------ Lista con arrastre
+/**
+ * Todo lo que el cliente tiene pendiente de cobro (contado) en GeminisWin, no solo lo de esta
+ * entrega (Rober, 26/11/2026): así el repartidor lo reclama. Solo sale si hay algo más que lo de esta ruta.
+ */
+function DeudaCliente({ docs, enRuta }: { docs?: DocDeuda[]; enRuta: Set<string> }) {
+  if (!docs?.length || docs.every((d) => enRuta.has(`${d.vt}-${d.vn}`))) return null
+  const total = docs.reduce((t, d) => t + Number(d.pendiente), 0)
+  return (
+    <div style={{ background: '#fdecea', border: `1px solid ${V.rojo}`, borderRadius: 10, padding: '6px 8px', marginTop: 6, fontSize: 13 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontWeight: 700, color: V.rojo }}>
+        <span style={{ flex: 1 }}>💶 Pendiente de pago del cliente ({docs.length})</span>
+        <span style={{ fontFamily: '"IBM Plex Mono", monospace' }}>{euros(total)}</span>
+      </div>
+      {docs.map((d) => (
+        <div key={`${d.vt}-${d.vn}`} style={{ display: 'flex', gap: 6, color: '#333' }}>
+          <span style={{ width: 44 }}>{d.fecha.slice(8, 10)}/{d.fecha.slice(5, 7)}</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            {d.factura ? `Fra. ${d.factura}` : `Alb. ${d.vt}/${d.vn}`}
+            {enRuta.has(`${d.vt}-${d.vn}`) ? <i style={{ color: V.gris }}> · en esta ruta</i> : Number(d.pendiente) < 0 ? <i style={{ color: V.gris }}> · abono</i> : null}
+          </span>
+          <span style={{ fontFamily: '"IBM Plex Mono", monospace' }}>{euros(Number(d.pendiente))}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function Lista({
   lineas,
   modo,
@@ -2345,7 +2374,9 @@ function Lista({
   puedeCambiarRuta,
   onRetirar,
   bloqueado,
+  deuda,
 }: {
+  deuda?: Record<string, DocDeuda[]>
   lineas: LineaApp[]
   modo: 'comprobar' | 'repartir'
   abierta: string | null
@@ -2360,6 +2391,7 @@ function Lista({
   bloqueado: boolean
 }) {
   const [orden, setOrden] = useState<LineaApp[]>(lineas)
+  const enRuta = useMemo(() => new Set(lineas.map((x) => `${x.vt}-${x.vn}`)), [lineas])
   const [arrastrando, setArrastrando] = useState<string | null>(null)
   const filas = useRef(new Map<string, HTMLDivElement>())
   useEffect(() => {
@@ -2532,6 +2564,7 @@ function Lista({
                   )}
                 </div>
                 {l.antes && <div style={{ fontSize: 13, color: V.rojo, marginTop: 4 }}>{l.antes}</div>}
+                {l.cliente_codigo && <DeudaCliente docs={deuda?.[l.cliente_codigo]} enRuta={enRuta} />}
                 <div style={{ fontSize: 13, color: V.gris, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span>
                     📞 {l.telefono || 'Sin teléfono'}

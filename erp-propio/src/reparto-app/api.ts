@@ -16,7 +16,18 @@ export interface Sesion {
   caduca: number
 }
 
+/** Documento de contado pendiente de cobro de un cliente (copia de GeminisWin). */
+export interface DocDeuda {
+  vt: string
+  vn: number
+  fecha: string
+  factura: string | null
+  pendiente: number
+}
+
 export interface RepartoApp {
+  /** Todo lo que debe cada cliente de la ruta (contado, último año), no solo lo de esta entrega. */
+  deuda?: Record<string, DocDeuda[]>
   tienda: string
   numero: number
   fecha: string
