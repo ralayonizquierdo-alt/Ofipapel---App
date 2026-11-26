@@ -410,6 +410,36 @@ export function RepartoApp() {
       })
   }, [])
 
+  // Versión nueva publicada (Rober, 26/11/2026: «que salga automáticamente, sin tener que recargar»): cada 2 minutos y al volver
+  // a la app se mira version.json; si hay otra, la app se recarga sola en cuanto no se está escribiendo nada. Lo pendiente de
+  // enviar está guardado en el móvil (cola), así que no se pierde.
+  useEffect(() => {
+    if (import.meta.env.DEV) return
+    let nueva = false
+    const recargarSiSePuede = () => {
+      const enCampo = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement
+      if (nueva && document.visibilityState === 'visible' && !enCampo) window.location.reload()
+    }
+    const mirar = async () => {
+      try {
+        const r = await fetch(`${import.meta.env.BASE_URL}version.json?t=${Date.now()}`, { cache: 'no-store' })
+        if (!r.ok) return
+        const { build } = (await r.json()) as { build?: string }
+        if (build && build !== __APP_BUILD_ID__) nueva = true
+        recargarSiSePuede()
+      } catch {
+        /* sin cobertura: se vuelve a mirar en la siguiente vuelta */
+      }
+    }
+    const alVolver = () => document.visibilityState === 'visible' && void mirar()
+    const t = setInterval(() => void mirar(), 120_000)
+    document.addEventListener('visibilitychange', alVolver)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', alVolver)
+    }
+  }, [])
+
   // Aviso de ubicación: se enseña una vez por repartidor y versión del texto (también queda en el servidor).
   const [, setAvisoVisto] = useState(0)
   const avisoLeido = !!sesion && leer<string>(`reparto.aviso.${sesion.repartidor}`) === AVISO_VERSION
@@ -1684,7 +1714,15 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   const [modo, setModo] = useState<'comprobar' | 'repartir'>(() => (leer<string>(`reparto.modo.${reparto.tienda}-${reparto.numero}`) as 'comprobar' | 'repartir') ?? 'comprobar')
   // Tercera pestaña (Rober, 17/11/2026): la caja del repartidor, qué ha cobrado y cuánto tiene que entregar.
   const [caja, setCaja] = useState(false)
-  const [gps, setGps] = useState<'si' | 'no' | null>(() => leer<'si' | 'no'>('reparto.gps'))
+  // Quien dijo «Ahora no» antes del 26/11/2026 vuelve a ver el aviso una vez (Rober): «reparto.gps.v2» marca que ya se le preguntó de nuevo.
+  const [gps, setGpsEstado] = useState<'si' | 'no' | null>(() => {
+    const v = leer<'si' | 'no'>('reparto.gps')
+    return v === 'si' || leer<string>('reparto.gps.v2') ? v : null
+  })
+  const setGps = (v: 'si' | 'no') => {
+    guardar('reparto.gps.v2', '1')
+    setGpsEstado(v)
+  }
   // Fichaje: sin la entrada fichada hoy no se puede entregar (sí ver, comprobar, ordenar y cambiar de ruta).
   const [fichaje, setFichaje] = useState<EstadoFichaje | 'comprobando' | 'sin_conexion'>(() => estadoGuardado(sesion.repartidor) ?? 'comprobando')
   const mirarFichaje = useCallback(async () => {
