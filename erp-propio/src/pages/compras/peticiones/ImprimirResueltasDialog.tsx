@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Printer, X } from 'lucide-react'
+import { Printer } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { GwWindow } from '../../../components/gw'
 import { EVENTO_RESUELTAS } from './resueltas'
@@ -78,8 +78,6 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
   const [fuera, setFuera] = useState<Set<string>>(new Set())
   /** Documento abierto con doble clic. */
   const [doc, setDoc] = useState<Resuelta | null>(null)
-  /** Lo que se acaba de mandar a la impresora, para preguntar si se marca como impreso. */
-  const [impresas, setImpresas] = useState<Resuelta[] | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
@@ -179,18 +177,19 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
       th{background:#eee} .n{text-align:right;white-space:nowrap} td.ped{font-weight:bold;font-size:14px;white-space:nowrap} th.ped{white-space:nowrap} .c{text-align:center;width:22px;font-size:14px}
     </style></head><body>${hojas}<script>window.onload=function(){window.print()}<\/script></body></html>`)
     w.document.close()
+    // Al imprimir quedan marcadas como impresas en el momento (Rober, 25/11/2026: antes había que confirmarlo en una barra
+    // amarilla y, al imprimir otro proveedor antes de contestar, las primeras se quedaban sin marcar y volvían a salir).
     // Las parciales se vuelven a marcar aunque ya se imprimieran: se guarda la cantidad llegada de ahora.
-    setImpresas(lista.flatMap((g) => g.lineas).filter((l) => !l.impresa_en || l.parcial))
+    void marcarImpresas(lista.flatMap((g) => g.lineas).filter((l) => !l.impresa_en || l.parcial))
   }
 
-  async function marcarImpresas() {
-    if (!impresas?.length) return setImpresas(null)
+  async function marcarImpresas(impresas: Resuelta[]) {
+    if (!impresas.length) return
     const { data, error: e } = await supabase.rpc('fn_peticiones_marcar_impresas', {
       p_peticiones: impresas.map((l) => ({ origen: l.origen, oficina: l.oficina, numero: l.numero, cantidad: l.cantidad })),
     })
-    if (e) return setError(e.message)
-    setAviso(`Marcadas como impresas: ${Number(data ?? impresas.length)}. Ya no cuentan en el globo rojo.`)
-    setImpresas(null)
+    if (e) return setError(`No se han podido marcar como impresas: ${e.message}`)
+    setAviso(`Impresas y marcadas: ${Number(data ?? impresas.length)}. Ya no salen como nuevas; para volver a imprimir alguna, marca «Incluir las ya impresas».`)
     window.dispatchEvent(new Event(EVENTO_RESUELTAS))
     void cargar()
   }
@@ -222,19 +221,6 @@ export function ImprimirResueltasDialog({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          {impresas && (
-            <div className="flex flex-wrap items-center gap-2 rounded border border-[#e7c66b] bg-[#fff7dc] px-3 py-2">
-              <span className="font-semibold">¿Ha salido bien la impresión?</span>
-              <span className="text-[13px] text-[#5b4a10]">Si las marcas, dejan de salir como nuevas y bajan del globo rojo.</span>
-              <span className="flex-1" />
-              <button type="button" className="gw-btn h-[28px]! px-3 text-[14px]!" onClick={() => void marcarImpresas()} disabled={!impresas.length}>
-                Sí, marcar {impresas.length} como impresas
-              </button>
-              <button type="button" className="gw-btn h-[28px]! px-3 text-[14px]!" onClick={() => setImpresas(null)}>
-                <X size={14} /> No
-              </button>
-            </div>
-          )}
           {aviso && <p className="font-semibold text-[#1A5C1A]">{aviso}</p>}
           {error && <p className="font-bold text-[#c42b1c]">{error}</p>}
           {lineas !== null && !grupos.length && !error && (
