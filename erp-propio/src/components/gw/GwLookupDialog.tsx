@@ -27,6 +27,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   filaRoja,
   filtroInicial = '',
   descendente = false,
+  filtroOr,
 }: {
   title: string
   table: string
@@ -46,6 +47,9 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   filtroInicial?: string
   /** Lo más nuevo primero (p. ej. facturas: las de hoy arriba). */
   descendente?: boolean
+  /** Búsqueda a medida: recibe lo tecleado y devuelve la expresión `or` de PostgREST (o null = sin
+   *  filtro). Sustituye al «contiene» sobre searchColumns. Debe ser una función estable (de módulo). */
+  filtroOr?: (texto: string) => string | null
 }) {
   const [filtro, setFiltro] = useState(filtroInicial)
   const eqClave = JSON.stringify(eq ?? {})
@@ -58,15 +62,16 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
       let q = supabase.from(table).select(cols)
       if (ordenPrevio) q = q.order(ordenPrevio)
       q = q.order(orderBy, { ascending: !descendente }).limit(200)
-      const f = filtro.trim().replace(/[,%()]/g, ' ')
-      if (f) q = q.or(searchColumns.map((c) => `${c}.ilike.%${f}%`).join(','))
+      const f = filtro.trim().replace(/[,%()"]/g, ' ')
+      const expr = !f ? null : filtroOr ? filtroOr(f) : searchColumns.map((c) => `${c}.ilike.%${f}%`).join(',')
+      if (expr) q = q.or(expr)
       for (const [c, v] of Object.entries(JSON.parse(eqClave) as Record<string, string>)) q = q.eq(c, v)
       const { data } = await q
       setRows((data ?? []) as unknown as T[])
       setSel(0)
     }, 200)
     return () => clearTimeout(t)
-  }, [filtro, table, orderBy, columns, searchColumns, eqClave, ordenPrevio])
+  }, [filtro, table, orderBy, columns, searchColumns, eqClave, ordenPrevio, filtroOr, descendente])
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/20 pt-24" onKeyDown={(e) => e.key === 'Escape' && onClose()}>

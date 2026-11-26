@@ -1278,6 +1278,7 @@ export function RepartoFichaPage() {
             { key: 'forma_pago_texto', label: 'Forma de pago', width: 150 },
           ]}
           searchColumns={['nombre_cliente', 'factura_numero']}
+          filtroOr={filtroDocumentoReparto}
           orderBy="fecha"
           descendente
           keyColumn="venta_numero"
@@ -1287,6 +1288,31 @@ export function RepartoFichaPage() {
       )}
     </div>
   )
+}
+
+/**
+ * Buscador de «Añadir factura a esta ruta». Con un número solo sale ESE documento:
+ *  · «2.470.348-54» / «2470348-54» (albarán tal como sale impreso: número-tienda) → ese albarán de esa tienda;
+ *  · «2470348» → el albarán con ese número (o la factura con ese número);
+ *  · «42332 02» / «42332/02» → esa factura (número y serie);
+ *  · «08403» (5 cifras con cero delante) → además, los documentos de ese cliente;
+ *  · texto → los documentos cuyo cliente contiene ese texto («Valero»).
+ */
+function filtroDocumentoReparto(texto: string): string | null {
+  const s = texto.trim().replace(/\s+/g, ' ')
+  const par = /^([\d.]+)\s*[-/ ]\s*(\w{1,3})$/.exec(s)
+  if (par) {
+    const n = par[1].replace(/\D/g, '')
+    return `and(venta_numero.eq.${n},venta_tienda_codigo.eq.${par[2].toUpperCase()}),factura_numero.eq."${n} ${par[2]}"`
+  }
+  const d = s.replace(/[.\s]/g, '')
+  if (/^\d+$/.test(d)) {
+    const n = String(Number(d))
+    const partes = [`venta_numero.eq.${n}`, `factura_numero.eq.${n}`, `factura_numero.like."${n} *"`]
+    if (/^0\d{4}$/.test(d)) partes.push(`cliente_codigo.eq.${d}`)
+    return partes.join(',')
+  }
+  return `nombre_cliente.ilike.*${s}*`
 }
 
 function RejillaLineas({
