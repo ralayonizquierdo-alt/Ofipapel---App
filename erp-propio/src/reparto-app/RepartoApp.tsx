@@ -92,6 +92,7 @@ const NO_COBRO: [string, string][] = [
   ['no_responsable', 'No estaba quien paga'],
   ['importe', 'No está de acuerdo con el importe'],
   ['ya_pagado', 'Dice que ya la pagó'],
+  ['abono', 'Se descuenta de un abono a su favor'],
   ['otro', 'Otro'],
 ]
 
