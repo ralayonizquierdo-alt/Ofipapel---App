@@ -30,7 +30,7 @@ import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
-import { GwWindow } from '../../../components/gw'
+import { GwDate, GwWindow } from '../../../components/gw'
 import { BarraPuntos, VistaMapa, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
 import { GenerarRepartosPage } from './GenerarRepartosPage'
 import type { PorCobrar } from '../../../reparto-app/api'
@@ -136,6 +136,8 @@ export function ControlRepartosHoy({
   onAbrir: (tienda: string, numero: number) => void
 }) {
   const [datos, setDatos] = useState<DatosSeg | null>(null)
+  /** Día que se ve: null = hoy (lo de siempre). Con otra fecha, el panel de ese día. */
+  const [dia, setDia] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
   const [cambiandoRep, setCambiandoRep] = useState<RutaSeg | null>(null)
@@ -174,14 +176,14 @@ export function ControlRepartosHoy({
     )
 
   const cargar = useCallback(async () => {
-    const { data, error: e } = await supabase.rpc('fn_reparto_seguimiento', {})
+    const { data, error: e } = await supabase.rpc('fn_reparto_seguimiento', dia ? { p_fecha: dia } : {})
     if (e) return setError(e.message)
     setError(null)
     setDatos(data as DatosSeg)
-    const [l, c] = await Promise.all([supabase.rpc('fn_reparto_control_lineas', {}), supabase.rpc('fn_reparto_control_por_cobrar', {})])
+    const [l, c] = await Promise.all([supabase.rpc('fn_reparto_control_lineas', dia ? { p_fecha: dia } : {}), supabase.rpc('fn_reparto_control_por_cobrar', {})])
     if (!l.error) setLineas((l.data ?? {}) as Record<string, LineaCtl[]>)
     if (!c.error) setCobros((c.data ?? []) as PorCobrar[])
-  }, [])
+  }, [dia])
 
   const comprobar = async (r: RutaSeg, l: LineaCtl) => {
     const k = `${r.tienda}-${r.numero}`
@@ -310,8 +312,16 @@ export function ControlRepartosHoy({
     <div className="border border-[var(--gw-border)] bg-[var(--gw-face)] text-[13px]">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--gw-border-light)] px-1.5 py-1">
         <button type="button" className="gw-btn h-[24px] font-bold" onClick={() => plegar(!plegado)} title={plegado ? 'Ver las rutas de hoy' : 'Plegar'}>
-          {plegado ? '▸' : '▾'} Repartos de hoy
+          {plegado ? '▸' : '▾'} {dia ? `Repartos del ${dia.split('-').reverse().join('/')}` : 'Repartos de hoy'}
         </button>
+        <span className="w-[120px]" title="Ver los repartos de otro día">
+          <GwDate className="h-[24px] w-full border border-[var(--gw-border)] bg-white px-1 text-[13px]" value={dia ?? datos?.fecha ?? null} onChange={(v) => (setDia(v), plegar(false))} />
+        </span>
+        {dia && (
+          <button type="button" className="gw-btn h-[24px]" onClick={() => setDia(null)} title="Volver a los repartos de hoy">
+            Hoy
+          </button>
+        )}
         <span className="text-[#333]">
           {rutas.length} ruta(s) · <b>{quedan}</b> pedido(s) por entregar
         </span>
@@ -374,7 +384,7 @@ export function ControlRepartosHoy({
             </div>
           )}
           {!datos && !error && <div>Cargando…</div>}
-          {datos && !rutas.length && <div>No hay repartos hoy.</div>}
+          {datos && !rutas.length && <div>{dia ? 'No hay repartos ese día.' : 'No hay repartos hoy.'}</div>}
           {!!rutas.length && (
             <table className="w-full table-fixed border-collapse bg-white">
               <tbody>

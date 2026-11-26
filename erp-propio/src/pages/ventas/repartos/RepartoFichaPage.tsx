@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ControlRepartosHoy } from './ControlRepartosHoy'
 import { ListOrdered, ReceiptText, Truck } from 'lucide-react'
@@ -11,6 +11,7 @@ import { GwRecordBar } from '../../../components/gw/GwRecordBar'
 import { GwCampoBusqueda } from '../../../components/gw/GwCampoBusqueda'
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { GwLookupDialog } from '../../../components/gw/GwLookupDialog'
+import { useListaOrdenada, type GwListaOrdenadaDef } from '../../../components/gw/GwListaOrdenada'
 import { GwAnterior, GwBuscar, GwEliminar, GwModificar, GwNuevo, GwPrimero, GwSiguiente, GwUltimo } from '../../../components/gw/GwIconos'
 
 // Control de Repartos (Ventas → Repartos en GeminisWin): REPARTOS + REPARLIN. Arriba, el control de hoy (todas las
@@ -555,6 +556,42 @@ export function RepartoFichaPage() {
     nulos: orden === 'fecha',
   })
   const ir = (c?: Clave | null) => c && navigate(`/repartos/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`)
+
+  // Ctrl+Intro en Número, Fecha, Ruta o Repartidor (en consulta): lista de todos los repartos
+  // ordenada por ese campo, abierta en el reparto que se ve (o en lo tecleado). Elegir uno lo abre.
+  const listaOrd = useListaOrdenada()
+  function listaRepartos(campo: string, etiqueta: string, texto?: string | null) {
+    const def: GwListaOrdenadaDef = {
+      fuente: 'reparto',
+      rpc: 'gw_lista_ordenada_reparto',
+      campo,
+      etiqueta,
+      que: 'Repartos',
+      numerico: campo === 'numero',
+      columnas: [
+        { key: 'tienda_terminal_codigo', label: 'Tienda', width: 60 },
+        { key: 'numero', label: 'Número', width: 90 },
+        { key: 'fecha', label: 'Fecha', width: 110 },
+        { key: 'ruta_codigo', label: 'Ruta', width: 55 },
+        { key: 'ruta', label: 'Nombre ruta', width: 170 },
+        { key: 'repartidor_codigo', label: 'Rep.', width: 60 },
+        { key: 'repartidor', label: 'Repartidor', width: 230 },
+        { key: 'estado', label: 'Estado', width: 80 },
+        { key: 'total_ventas', label: 'Importe', width: 100, decimales: 2 },
+      ],
+    }
+    listaOrd.abrir(def, {
+      texto: texto || null,
+      ancla: cab.numero != null ? `${cab.tienda_terminal_codigo}|${cab.numero}` : null,
+      onPick: (f) => ir({ tienda_terminal_codigo: String(f.tienda_terminal_codigo), numero: Number(f.numero) }),
+    })
+  }
+  const ctrlIntro = (campo: string, etiqueta: string) => (e: KeyboardEvent) => {
+    if (editing || !e.ctrlKey || e.key !== 'Enter') return
+    e.preventDefault()
+    e.stopPropagation()
+    listaRepartos(campo, etiqueta)
+  }
   const irNav = async (d: NavDir) => {
     setError(null)
     const k = await nav.ir(d)
@@ -934,14 +971,16 @@ export function RepartoFichaPage() {
                   <u>N</u>úmero
                 </span>
                 {mode === 'consulta' && !sinRepartos ? (
-                  <GwCampoBusqueda className={`${inp} w-full text-right`} value={vista.numero != null ? String(vista.numero) : ''} onBuscar={buscarNumero} title="Número de reparto" />
+                  <GwCampoBusqueda className={`${inp} w-full text-right`} value={vista.numero != null ? String(vista.numero) : ''} onBuscar={buscarNumero} onLista={(t) => listaRepartos('numero', 'Número', t)} title="Número de reparto · Ctrl+Intro: lista de repartos por número" />
                 ) : (
                   <input className={`${inp} w-full text-right`} disabled value={vista.numero ?? (mode === 'alta' ? (proximo ?? '') : '')} title="En alta, el próximo libre; se confirma al guardar" readOnly />
                 )}
               </div>
               <div className="flex w-[160px] flex-col">
                 <span className={lbl}>Fecha</span>
-                <GwDate className={`${inp} w-full`} disabled={!editing} value={vista.fecha} onChange={(v) => patch({ fecha: v })} />
+                <div onKeyDownCapture={ctrlIntro('fecha', 'Fecha')} title={editing ? undefined : 'Ctrl+Intro: lista de repartos por fecha'}>
+                  <GwDate className={`${inp} w-full`} readOnly={!editing} value={vista.fecha} onChange={(v) => patch({ fecha: v })} />
+                </div>
               </div>
             </div>
           </Grupo>
@@ -966,7 +1005,8 @@ export function RepartoFichaPage() {
             <div className="flex gap-1">
               <input
                 className={`${inp} w-[90px]`}
-                disabled={!editing}
+                readOnly={!editing}
+                onKeyDown={ctrlIntro('ruta_codigo', 'Ruta')}
                 value={vista.ruta_codigo ?? ''}
                 onChange={(e) => patch({ ruta_codigo: e.target.value || null })}
                 title="RUTA"
@@ -979,7 +1019,8 @@ export function RepartoFichaPage() {
             <div className="flex gap-1">
               <input
                 className={`${inp} w-[90px]`}
-                disabled={!editing}
+                readOnly={!editing}
+                onKeyDown={ctrlIntro('repartidor_codigo', 'Repartidor')}
                 value={vista.repartidor_codigo ?? ''}
                 onChange={(e) => patch({ repartidor_codigo: e.target.value || null })}
                 title="REPARTIDOR"
@@ -1164,6 +1205,7 @@ export function RepartoFichaPage() {
         {mode === 'alta' ? ' · Alta de reparto (el número se asigna al guardar)' : ''}
       </div>
 
+      {listaOrd.dialogo}
       {buscar === 'reparto' && (
         <GwLookupDialog<Record<string, unknown>>
           title="Localizar reparto"
