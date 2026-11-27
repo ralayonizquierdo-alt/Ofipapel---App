@@ -81,6 +81,9 @@ export interface LineaApp {
   /** Repartidor que marcó el pedido (ruta compartida: cada uno liquida lo suyo). */
   marcado_por?: string | null
   marcado_por_nombre?: string | null
+  /** Ruta compartida: quién lleva este albarán (lo pone quien lo comprueba). */
+  asignado_a?: string | null
+  asignado_nombre?: string | null
   /** El repartidor ha puesto otro teléfono para esta entrega (telefono_original es el que venía). */
   telefono_cambiado?: boolean
   /** El teléfono no es de esta entrega: se guardó para este cliente en una entrega anterior. */

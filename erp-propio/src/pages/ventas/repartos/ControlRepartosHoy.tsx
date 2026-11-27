@@ -42,6 +42,8 @@ interface LineaCtl {
   estado: 'entregado' | 'liquidado' | 'incidencia' | 'no_entregado' | 'pendiente'
   cliente: string
   poblacion: string | null
+  /** Ruta compartida: repartidor que lleva (o entregó) el albarán. */
+  lleva?: string | null
   factura: string | number | null
   total: number | null
   pagado: number | null
@@ -673,7 +675,10 @@ function ListaPedidos({
             <div className="text-[12px] text-[#444]">
               {[l.forma_pago, cobro(l)].filter(Boolean).join(' · ')}
             </div>
-            <div className="text-[12px] text-[#555]">{[docDe(l), l.poblacion].filter(Boolean).join(' · ')}</div>
+            <div className="text-[12px] text-[#555]">
+              {[docDe(l), l.poblacion].filter(Boolean).join(' · ')}
+              {l.lleva && <b className="ml-1 text-[#7a5a00]">· 👤 {l.lleva}</b>}
+            </div>
             <div className="text-[12px] font-bold" style={{ color: ESTADO_COLOR[l.estado] }}>
               {ESTADO_TXT[l.estado]}
               {l.hora ? ` · ${l.hora}` : ''}

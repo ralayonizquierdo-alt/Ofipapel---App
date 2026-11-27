@@ -1774,6 +1774,10 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   // Los pedidos que ya lleva un compañero (pasados y aceptados) salen de la lista; quedan anotados al final.
   const pasados = useMemo(() => (datos?.lineas ?? []).filter((l) => l.traspaso?.estado === 'aceptado'), [datos])
   const ls = useMemo(() => (datos?.lineas ?? []).filter((l) => l.traspaso?.estado !== 'aceptado'), [datos])
+  // Ruta compartida (Rober, 27/11/2026): cada repartidor ve qué albaranes lleva él (los que comprueba) y, al
+  // repartir, por defecto solo los suyos y los que nadie ha cogido.
+  const compartida = !!(reparto.de || reparto.con) || ls.some((l) => l.asignado_a && l.asignado_a !== sesion.repartidor)
+  const [soloMios, setSoloMios] = useState(true)
   const clave = (l: LineaApp) => `${l.vt}-${l.vn}`
 
   const recargar = useCallback(async () => {
@@ -2059,11 +2063,23 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
 
       <AvisosTraspaso sesion={sesion} onCambio={alCambiarTraspaso} />
 
+      {!caja && compartida && modo === 'repartir' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 4px 8px', fontSize: 13.5 }}>
+          <span style={{ flex: 1, color: V.gris }}>
+            Ruta compartida · {soloMios ? 'ves solo los tuyos y los que nadie ha cogido' : 'ves todos los pedidos de la ruta'}
+          </span>
+          <button type="button" onClick={() => setSoloMios(!soloMios)} style={{ background: 'none', border: `1px solid ${V.verdeMed}`, borderRadius: 10, padding: '4px 10px', color: V.verde, fontWeight: 700 }}>
+            {soloMios ? 'Ver todos' : 'Solo los míos'}
+          </button>
+        </div>
+      )}
       {caja ? null : !datos ? (
         <Tarjeta>Cargando…</Tarjeta>
       ) : (
         <Lista
-          lineas={ls}
+          lineas={compartida && soloMios && modo === 'repartir' ? ls.filter((l) => !l.asignado_a || l.asignado_a === sesion.repartidor) : ls}
+          yo={sesion.repartidor}
+          compartida={compartida}
           modo={modo}
           abierta={abierta}
           onAbrir={(k) => setAbierta(abierta === k ? null : k)}
@@ -2390,7 +2406,11 @@ function Lista({
   onRetirar,
   bloqueado,
   deuda,
+  yo,
+  compartida,
 }: {
+  yo?: string
+  compartida?: boolean
   deuda?: Record<string, DocDeuda[]>
   lineas: LineaApp[]
   modo: 'comprobar' | 'repartir'
@@ -2610,6 +2630,14 @@ function Lista({
                 </div>
                 <QueHacer l={l} />
                 {l.viene_de && <div style={{ fontSize: 12, color: '#1f6fb2', fontWeight: 700 }}>📦 Te lo pasa: {l.viene_de}</div>}
+                {compartida &&
+                  (l.asignado_a === yo ? (
+                    <div style={{ fontSize: 12, color: V.verde, fontWeight: 800 }}>✋ Lo llevas tú</div>
+                  ) : l.asignado_a ? (
+                    <div style={{ fontSize: 12, color: '#7a5a00', fontWeight: 800 }}>👤 Lo lleva {l.asignado_nombre ?? l.asignado_a}</div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: V.gris }}>Sin repartir: márcalo como comprobado si el albarán lo llevas tú</div>
+                  ))}
                 {l.traspaso?.estado === 'propuesto' && <div style={{ fontSize: 12, color: V.naranja, fontWeight: 700 }}>⏳ Ofrecido a {l.traspaso.a}: esperando respuesta</div>}
                 {l.traspaso?.estado === 'aceptado' && <div style={{ fontSize: 12, color: V.gris, fontWeight: 700 }}>➡ Lo lleva {l.traspaso.a}</div>}
                 {marcado && (
