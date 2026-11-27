@@ -2400,37 +2400,101 @@ function Lista({
   }, [lineas, arrastrando])
 
   const k = (l: LineaApp) => `${l.vt}-${l.vn}`
+  // Refs para que los manejadores de window (arrastre iniciado con pulsación larga) vean el estado al día.
+  const ordenRef = useRef(orden)
+  ordenRef.current = orden
+  const lineasRef = useRef(lineas)
+  lineasRef.current = lineas
+  const arrRef = useRef<string | null>(null)
+  arrRef.current = arrastrando
+  const onReordenarRef = useRef(onReordenar)
+  onReordenarRef.current = onReordenar
 
   const empezar = (e: PEvent, l: LineaApp) => {
     e.preventDefault()
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    arrRef.current = k(l)
     setArrastrando(k(l))
   }
-  const mover = (e: PEvent) => {
-    if (!arrastrando) return
-    const y = e.clientY
-    const actual = orden.findIndex((l) => k(l) === arrastrando)
+  const moverA = useCallback((y: number) => {
+    const clave = arrRef.current
+    if (!clave) return
+    const ord = ordenRef.current
+    const actual = ord.findIndex((l) => k(l) === clave)
     let destino = actual
-    orden.forEach((l, i) => {
+    ord.forEach((l, i) => {
       const el = filas.current.get(k(l))
-      if (!el || k(l) === arrastrando) return
+      if (!el || k(l) === clave) return
       const r = el.getBoundingClientRect()
       const medio = r.top + r.height / 2
       if (i > actual && y > medio) destino = i
       if (i < actual && y < medio && destino >= actual) destino = i
     })
     if (destino !== actual) {
-      const n = [...orden]
+      const n = [...ord]
       const [x] = n.splice(actual, 1)
       n.splice(destino, 0, x)
+      ordenRef.current = n
       setOrden(n)
     }
-  }
-  const soltar = () => {
-    if (!arrastrando) return
+  }, [])
+  const mover = (e: PEvent) => moverA(e.clientY)
+  const soltar = useCallback(() => {
+    if (!arrRef.current) return
+    arrRef.current = null
     setArrastrando(null)
-    if (orden.some((l, i) => k(l) !== k(lineas[i]))) onReordenar(orden)
+    const ord = ordenRef.current
+    if (ord.some((l, i) => k(l) !== k(lineasRef.current[i]))) onReordenarRef.current(ord)
+    // El «clic» que llega al levantar el dedo no debe abrir la casilla.
+    window.setTimeout(() => (trasArrastre.current = false), 350)
+  }, [])
+
+  // Pulsación larga (0,4 s) en CUALQUIER parte de la casilla = cogerla y arrastrarla (lo pidieron los
+  // repartidores, 27/11/2026). Un toque corto sigue abriéndola, y deslizar sin esperar sigue haciendo scroll.
+  const pulsacion = useRef<{ timer: number; x: number; y: number } | null>(null)
+  const trasArrastre = useRef(false)
+  const cancelarPulsacion = () => {
+    if (pulsacion.current) window.clearTimeout(pulsacion.current.timer)
+    pulsacion.current = null
   }
+  const iniciarPulsacion = (e: PEvent, l: LineaApp) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    cancelarPulsacion()
+    const timer = window.setTimeout(() => {
+      pulsacion.current = null
+      trasArrastre.current = true
+      arrRef.current = k(l)
+      setArrastrando(k(l))
+      navigator.vibrate?.(30)
+    }, 400)
+    pulsacion.current = { timer, x: e.clientX, y: e.clientY }
+  }
+  const moverPulsacion = (e: PEvent) => {
+    const p = pulsacion.current
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) cancelarPulsacion()
+  }
+  // Mientras se arrastra: la pantalla no hace scroll y el dedo mueve la casilla.
+  useEffect(() => {
+    if (!arrastrando) return
+    const tm = (e: TouchEvent) => {
+      e.preventDefault()
+      if (e.touches[0]) moverA(e.touches[0].clientY)
+    }
+    const pm = (e: globalThis.PointerEvent) => moverA(e.clientY)
+    const fin = () => soltar()
+    window.addEventListener('touchmove', tm, { passive: false })
+    window.addEventListener('pointermove', pm)
+    window.addEventListener('pointerup', fin)
+    window.addEventListener('touchend', fin)
+    window.addEventListener('touchcancel', fin)
+    return () => {
+      window.removeEventListener('touchmove', tm)
+      window.removeEventListener('pointermove', pm)
+      window.removeEventListener('pointerup', fin)
+      window.removeEventListener('touchend', fin)
+      window.removeEventListener('touchcancel', fin)
+    }
+  }, [arrastrando, moverA, soltar])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2457,9 +2521,26 @@ function Lista({
               opacity: marcado && modo === 'repartir' && !abiertaEsta ? 0.75 : 1,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', minHeight: 52 }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', minHeight: 52, userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+              onPointerDown={(e) => iniciarPulsacion(e, l)}
+              onPointerMove={moverPulsacion}
+              onPointerUp={cancelarPulsacion}
+              onPointerCancel={cancelarPulsacion}
+              onContextMenu={(e) => e.preventDefault()}
+              onClickCapture={(e) => {
+                if (trasArrastre.current) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  trasArrastre.current = false
+                }
+              }}
+            >
               <div
-                onPointerDown={(e) => empezar(e, l)}
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  empezar(e, l)
+                }}
                 onPointerMove={mover}
                 onPointerUp={soltar}
                 onPointerCancel={soltar}
