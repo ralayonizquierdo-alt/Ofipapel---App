@@ -172,8 +172,10 @@ body{
   font:600 13px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;
   color:rgba(234,245,234,.7);text-align:center;padding-left:.22em;
 }
-.agentes-lista{display:flex;flex-wrap:wrap;gap:4px;max-width:min(94vw,520px);}
-.agente{display:block;width:clamp(64px,12vmin,112px);text-decoration:none;}
+/* Todos en una sola fila (propietario, 27/11/2026): no se parte en dos;
+   si no caben, encoge cada icono para que quepan los que haya. */
+.agentes-lista{display:flex;flex-wrap:nowrap;gap:4px;}
+.agente{display:block;flex:0 0 auto;width:max(46px,min(112px,10.5vmin,calc((94vw - 24px) / 5)));text-decoration:none;}
 .agente img{
   display:block;width:100%;height:auto;
   filter:drop-shadow(0 0 8px var(--c-glow));
@@ -208,7 +210,7 @@ body{
   background:var(--ficha-c,#00A3FF);box-shadow:0 0 6px var(--ficha-c,#00A3FF);}
 .agente-ficha li.vacio{opacity:.6;font-style:italic;}
 .agente-ficha li.vacio::before{display:none;}
-@media (max-width:480px){ .agente{width:clamp(54px,15vw,66px);} }
+@media (max-width:480px){ .agente{width:max(46px,min(66px,calc((94vw - 24px) / 5)));} }
 
 @media (max-width:480px){
   .orbit-shell{width:96vmin;}
