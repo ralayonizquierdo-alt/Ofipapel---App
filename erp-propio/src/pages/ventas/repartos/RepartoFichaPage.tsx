@@ -1310,6 +1310,9 @@ export function RepartoFichaPage() {
  */
 function filtroDocumentoReparto(texto: string): string | null {
   const s = texto.trim().replace(/\s+/g, ' ')
+  // «54-2467688» (tienda delante, como sale en el ERP) → ese albarán de esa tienda.
+  const alReves = /^(\w{1,3})\s*[-/]\s*([\d.]{4,})$/.exec(s)
+  if (alReves) return `and(venta_numero.eq.${alReves[2].replace(/\D/g, '')},venta_tienda_codigo.eq.${alReves[1].toUpperCase()})`
   const par = /^([\d.]+)\s*[-/ ]\s*(\w{1,3})$/.exec(s)
   if (par) {
     const n = par[1].replace(/\D/g, '')

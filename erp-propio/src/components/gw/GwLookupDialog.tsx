@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { GwInput, GwWindow } from './index'
 import { filaPorTecla } from './teclado'
@@ -55,8 +55,12 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
   const eqClave = JSON.stringify(eq ?? {})
   const [rows, setRows] = useState<T[]>([])
   const [sel, setSel] = useState(0)
+  // Cada búsqueda lleva su número: si llega tarde la respuesta de una búsqueda anterior (p. ej. la lista completa
+  // del principio, que es la más lenta), se descarta. Antes tapaba el resultado filtrado (Rober, 27/11/2026).
+  const busqueda = useRef(0)
 
   useEffect(() => {
+    const yo = ++busqueda.current
     const t = setTimeout(async () => {
       const cols = [...new Set([...columns.map((c) => c.key), ...(ordenPrevio ? [ordenPrevio] : [])])].join(', ')
       let q = supabase.from(table).select(cols)
@@ -67,6 +71,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
       if (expr) q = q.or(expr)
       for (const [c, v] of Object.entries(JSON.parse(eqClave) as Record<string, string>)) q = q.eq(c, v)
       const { data } = await q
+      if (yo !== busqueda.current) return
       setRows((data ?? []) as unknown as T[])
       setSel(0)
     }, 200)
@@ -115,7 +120,7 @@ export function GwLookupDialog<T extends Record<string, unknown>>({
                 )}
                 {rows.map((r, i) => (
                   <tr
-                    key={String(r[keyColumn])}
+                    key={`${i}-${String(r[keyColumn])}`}
                     className={i === sel ? 'gw-selected' : filaRoja?.(r) ? 'font-bold text-[#c42b1c]' : ''}
                     onClick={() => setSel(i)}
                     onDoubleClick={() => onPick(r)}
