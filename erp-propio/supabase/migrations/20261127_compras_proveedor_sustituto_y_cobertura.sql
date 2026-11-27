@@ -62,3 +62,9 @@ update public.articulo a set proveedor_habitual_codigo = s.nuevo
 insert into compra_proveedor_condicion (proveedor_codigo, plazo_dias, cobertura_dias, actualizado_por, actualizado_en)
 values ('06518', 20, 60, 'Claude Code · Rober 27/11', now())
 on conflict (proveedor_codigo) do update set cobertura_dias = 60, actualizado_en = now(), actualizado_por = 'Claude Code · Rober 27/11';
+
+-- 4) Relleno solo de los CERCANOS al mínimo (migración compras_relleno_solo_cercanos_al_minimo): entra si
+--    stock + camino − pedidas <= mínimo + (máximo − mínimo) × compras.relleno_pct / 100 (50 por defecto).
+insert into parametro (clave, valor, descripcion) values ('compras.relleno_pct', '50'::jsonb,
+  'Gestor de compras: al hacer pedido a un proveedor, se rellenan hasta el máximo los artículos cuyo stock esté por debajo de este % entre mínimo y máximo (50 = la mitad baja; 100 = todo lo que no llegue al máximo).')
+on conflict (clave) do nothing;
