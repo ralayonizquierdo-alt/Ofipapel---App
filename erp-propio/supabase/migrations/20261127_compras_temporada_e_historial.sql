@@ -1,0 +1,17 @@
+-- Gestor de compras (Rober, 27/11/2026). Aplicado en la base como: compras_historial_proveedor_articulo,
+-- compras_temporada, compras_temporada_calcular.
+--
+-- 1) TEMPORADA: compra_articulo_politica.factor_temporada (0,3–3) y temporada_meses. La venta media del año se
+--    multiplica por el peso medio de los meses que cubre el pedido (desde que llega, hoy + plazo, hasta plazo +
+--    cobertura), sacado del historial de 36 meses (venta_historico_mensual). Artículos con poca venta (< 24 uds/año
+--    o < 6 meses del año con venta) usan el peso de su familia. Pesos en compra_temporada_mes (clase 'art'/'fam').
+--    fn_compras_temporada_recalcular() se ejecuta dentro de fn_compras_politica_calcular(); fn_compras_politica_aplicar
+--    usa venta_mes × factor_temporada para mínimo y máximo.
+--    Ej. a 27/11: BLOCS DIBUJO 108581 factor 0,30 (dic-ene, temporada en jul-sep) → máximo 59 (antes ~260);
+--    CUADERNO 80135 factor 1,34 (diciembre fuerte) → máximo 670.
+--
+-- 2) HISTORIAL DE COMPRAS por artículo y proveedor (compra_articulo_proveedor_hist, fn_compras_historial_recalcular):
+--    pedidos de GeminisWin recibidos en los últimos 4 años (pedidos en 3 años, en 1 año, unidades, última compra),
+--    con los códigos de proveedor dados de baja ya traducidos (compra_proveedor_sustituto). Base para recalcular
+--    el proveedor habitual y los secundarios.
+-- Ver el cuerpo aplicado con pg_get_functiondef.
