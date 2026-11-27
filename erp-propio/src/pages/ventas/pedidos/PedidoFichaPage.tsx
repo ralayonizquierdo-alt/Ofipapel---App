@@ -12,6 +12,7 @@ import { GwLookupDialog, type GwLookupColumn } from '../../../components/gw/GwLo
 import { textoRegistro, useNavRegistro, type NavDir } from '../../../components/gw/useNavRegistro'
 import { PedidoBar } from './PedidoBar'
 import { MenuImpresoraPedido } from './MenuImpresoraPedido'
+import type { DatosPdf } from './presupuestoPdf'
 import { SeguimientoPresupuesto, type EstadoPresupuesto } from './SeguimientoPresupuesto'
 import { RelacionSeguimientos } from './RelacionSeguimientos'
 import { entregarPedido } from './entregar'
@@ -492,6 +493,43 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
   const igicPie = Number(cab?.igic_pie_pct ?? 0)
   const lineasCalculo = editLinea ? (editLinea.idx === 'nuevo' ? [...lineas, editLinea.l] : lineas.map((l, i) => (i === editLinea.idx ? editLinea.l : l))) : lineas
   const tot = useMemo(() => calcular(lineasCalculo, dtoPie, igicPie), [lineasCalculo, dtoPie, igicPie])
+  // Datos del documento impreso / PDF (formato PEDIDOSDAV3 de GeminisWin, presupuestoPdf.ts).
+  const datosDocumento = (vendedor: string | null): DatosPdf => {
+    const c = cab as Cabecera
+    return {
+      tienda: c.tienda_terminal_codigo,
+      numero: c.numero as number,
+      fecha: c.fecha,
+      validoHasta: c.fecha_fin,
+      clienteCodigo: c.cliente_codigo,
+      clienteNombre: c.nombre_cliente,
+      nif: c.nif_cliente,
+      vendedor,
+      empleado: c.empleado_codigo,
+      formaPagoCodigo: c.forma_pago_codigo,
+      ruta: c.ruta_codigo,
+      sucursalCodigo: c.cliente_sucursal_codigo,
+      observaciones: c.observaciones,
+      lineas: lineas.map((l, i) => ({
+        codigo: l.codigo_venta || l.articulo_codigo,
+        descripcion: l.descripcion,
+        cantidad: l.cantidad,
+        precio: l.precio,
+        descuento_pct: l.descuento_pct,
+        importe: tot.porLinea[i]?.sub ?? 0,
+        igic_pct: l.igic_pct,
+        base: tot.porLinea[i]?.base,
+        cuota_igic: tot.porLinea[i]?.igicLinea,
+      })),
+      subtotal: tot.subtotal,
+      dtoPiePct: dtoPie,
+      totalDtoPie: tot.totalDto,
+      igicPiePct: igicPie,
+      base: tot.subtotal2 + tot.canon,
+      igic: tot.igic,
+      total: tot.total,
+    }
+  }
 
   const tipoDoc = cab?.es_presupuesto ? 'Presupuesto' : 'Pedido'
   const estado = (() => {
@@ -1176,28 +1214,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           formulario={seguimiento}
           setFormulario={setSeguimiento}
           onRelacion={() => setRelacion(true)}
-          datosPdf={() => ({
-            tienda: cab.tienda_terminal_codigo,
-            numero: cab.numero as number,
-            fecha: cab.fecha,
-            validoHasta: cab.fecha_fin,
-            clienteCodigo: cab.cliente_codigo,
-            clienteNombre: cab.nombre_cliente,
-            nif: cab.nif_cliente,
-            vendedor: cab.responsable_codigo,
-            observaciones: cab.observaciones,
-            lineas: lineas.map((l, i) => ({
-              codigo: l.codigo_venta || l.articulo_codigo,
-              descripcion: l.descripcion,
-              cantidad: l.cantidad,
-              precio: l.precio,
-              descuento_pct: l.descuento_pct,
-              importe: tot.porLinea[i]?.sub ?? 0,
-            })),
-            base: tot.subtotal2 + tot.canon,
-            igic: tot.igic,
-            total: tot.total,
-          })}
+          datosPdf={() => datosDocumento(cab.responsable_codigo)}
         />
       )}
 
@@ -1323,28 +1340,7 @@ export function PedidoFichaPage({ presupuestos = false }: { presupuestos?: boole
           ancla={menuImpresora}
           onCerrar={() => setMenuImpresora(null)}
           onAviso={setMensaje}
-          datos={() => ({
-            tienda: cab.tienda_terminal_codigo,
-            numero: cab.numero as number,
-            fecha: cab.fecha,
-            validoHasta: cab.fecha_fin,
-            clienteCodigo: cab.cliente_codigo,
-            clienteNombre: cab.nombre_cliente,
-            nif: cab.nif_cliente,
-            vendedor: cab.vendedor_codigo,
-            observaciones: cab.observaciones,
-            lineas: lineas.map((l, i) => ({
-              codigo: l.codigo_venta || l.articulo_codigo,
-              descripcion: l.descripcion,
-              cantidad: l.cantidad,
-              precio: l.precio,
-              descuento_pct: l.descuento_pct,
-              importe: tot.porLinea[i]?.sub ?? 0,
-            })),
-            base: tot.subtotal2 + tot.canon,
-            igic: tot.igic,
-            total: tot.total,
-          })}
+          datos={() => datosDocumento(cab.vendedor_codigo)}
         />
       )}
       <div className="flex justify-between text-[12px] text-[#444]">
