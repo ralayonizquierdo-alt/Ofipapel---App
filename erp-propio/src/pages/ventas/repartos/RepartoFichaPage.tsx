@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ControlRepartosHoy } from './ControlRepartosHoy'
+import { VentaGeminisDialog } from './VentaGeminisDialog'
 import { ListOrdered, ReceiptText, Truck } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 import { todasLasFilas } from '../../../lib/todasLasFilas'
@@ -555,6 +556,14 @@ export function RepartoFichaPage() {
     select: 'tienda_terminal_codigo, numero',
     nulos: orden === 'fecha',
   })
+  // «Ir a la venta Actual»: si la venta es del ERP, su ficha; si es de GeminisWin (lo normal en los repartos), se
+  // enseña la de GeminisWin en consulta (antes abría la pantalla de Ventas vacía).
+  const [ventaGw, setVentaGw] = useState<{ oficina: string; numero: number } | null>(null)
+  async function irAVenta(tienda: string, numero: number) {
+    const { data } = await supabase.from('venta').select('numero').eq('tienda_terminal_codigo', tienda).eq('numero', numero).maybeSingle()
+    if (data) navigate(`/ventas/${encodeURIComponent(tienda)}/${numero}`)
+    else setVentaGw({ oficina: tienda, numero })
+  }
   const ir = (c?: Clave | null) => c && navigate(`/repartos/${encodeURIComponent(c.tienda_terminal_codigo)}/${c.numero}`)
 
   // Ctrl+Intro en Número, Fecha, Ruta o Repartidor (en consulta): lista de todos los repartos
@@ -1108,7 +1117,7 @@ export function RepartoFichaPage() {
               </BotonGrande>
               <BotonGrande
                 icon={<ReceiptText size={18} />}
-                onClick={() => actual && navigate(`/ventas/${encodeURIComponent(actual.venta_tienda_codigo)}/${actual.venta_numero}`)}
+                onClick={() => actual && void irAVenta(actual.venta_tienda_codigo, Number(actual.venta_numero))}
                 disabled={!actual || editing}
               >
                 <span>
@@ -1206,6 +1215,7 @@ export function RepartoFichaPage() {
       </div>
 
       {listaOrd.dialogo}
+      {ventaGw && <VentaGeminisDialog oficina={ventaGw.oficina} numero={ventaGw.numero} onClose={() => setVentaGw(null)} />}
       {buscar === 'reparto' && (
         <GwLookupDialog<Record<string, unknown>>
           title="Localizar reparto"
