@@ -51,3 +51,10 @@ begin
     || '''deuda'', reparto_privado.deuda_clientes(r.tienda_terminal_codigo, r.numero))');
   execute v_def;
 end $$;
+
+-- ARREGLO 27/11/2026 08:10: reparto.numero es bigint y la función se creó con integer →
+-- «function reparto_privado.deuda_clientes(text, bigint) does not exist» y la app de reparto no
+-- cargaba ningún pedido. Sobrecarga con bigint.
+create or replace function reparto_privado.deuda_clientes(p_tienda text, p_numero bigint)
+ returns jsonb language sql stable security definer set search_path to 'public'
+as $$ select reparto_privado.deuda_clientes(p_tienda, p_numero::integer) $$;
