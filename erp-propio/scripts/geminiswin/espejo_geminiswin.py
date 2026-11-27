@@ -44,6 +44,11 @@ import urllib.request
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 
+# Tablas en las que, tras leer el fichero ENTERO sin fallos, se borran de la copia del ERP las claves que ya no
+# están en GeminisWin (27/11/2026). Al editar un pedido a proveedor, GeminisWin marca como borradas las líneas
+# viejas de PEDIDLIN y añade las nuevas al final: sin esto, las viejas se quedaban para siempre en el ERP.
+RECONCILIAR = {'PEDIDLIN'}
+
 # Tabla del ERP (carga_dbf.tabla) → fichero de GeminisWin y campos que forman la clave.
 # El orden es el de dependencias: primero lo que otros necesitan.
 TABLAS = [
@@ -270,6 +275,7 @@ class Dbf:
           vigente    campo de fecha tipo D: se saltan los que la tienen y es anterior a hoy."""
         prefiltro = mfiltro = pvig = None
         self.primero = None
+        self.completo = False            # True solo si se llegó al último registro del fichero
         if filtro:
             prefiltro = self._campo_fecha(filtro[0]) + (filtro[1].replace('-', '').encode('ascii'),)
         if marca:
@@ -306,6 +312,7 @@ class Dbf:
             if len(trozo) < cuantos * self.lreg:
                 break
             quedan -= cuantos
+        self.completo = n_reg >= self.n
 
 
 def buscar_fichero(cfg, nombre):
@@ -539,11 +546,15 @@ def pasada(cfg, clave, todo=False, solo=None):
             except ValueError as e:
                 resumen.append(f'{tabla}: {e}')
                 continue
+            reconciliar = tabla in RECONCILIAR and filtro is None and desde_reg == 0 and dentro is None
+            leidas = set()
             for reg in lector:
                 if dentro is not None and not dentro(reg):
                     continue
                 vistos += 1
                 k = clave_de(reg, campos_clave)
+                if reconciliar:
+                    leidas.add(k)
                 texto = json.dumps(reg, sort_keys=True, ensure_ascii=False)
                 h = hashlib.md5(texto.encode('utf-8')).hexdigest()
                 if huella_de(k) == h:
@@ -569,6 +580,26 @@ def pasada(cfg, clave, todo=False, solo=None):
                     enviados += len(lote)
             if not fallo and (enviados or por_cargar):
                 fallo = cargar()
+            if reconciliar and not fallo and d.completo:
+                # Lo que el ERP tiene de esta tabla (lo confirmado) y ya no está en el fichero.
+                enviadas = [r[0] for r in con.execute('select clave from registro where tabla = ?', (tabla,))]
+                faltan = [c for c in enviadas if c not in leidas]
+                # Seguridad: si no se leyó nada, o faltaría más de la mitad, algo raro pasa: no se borra nada.
+                if leidas and len(faltan) <= len(enviadas) // 2:
+                    borradas = 0
+                    for i in range(0, len(faltan), 5000):
+                        trozo = faltan[i:i + 5000]
+                        r = llamar(cfg, clave, {'tabla': tabla, 'borrar': trozo, 'equipo': equipo})
+                        if not r.get('ok') or r.get('ignorada'):
+                            resumen.append(f'{tabla}: no se pudo borrar ({corto(r.get("error", "") or "el ERP no la admite")})')
+                            break
+                        con.executemany('delete from registro where tabla = ? and clave = ?', [(tabla, c) for c in trozo])
+                        con.commit()
+                        borradas += len(trozo)
+                    if borradas:
+                        resumen.append(f'{tabla}: {borradas} líneas que ya no existen, borradas de la copia')
+                elif faltan:
+                    resumen.append(f'{tabla}: faltarían {len(faltan)} de {len(enviadas)}; no se borra nada por seguridad')
             if marca and not fallo and d.primero is not None and (desde_reg == 0 or not fila or d.primero < fila[1]):
                 con.execute('insert or replace into inicio (tabla, desde, reg) values (?, ?, ?)', (tabla, marca[1], d.primero))
                 con.commit()
