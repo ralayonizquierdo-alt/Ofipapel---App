@@ -6,7 +6,7 @@
 
 ## ACTUALIZACIÓN: el cambio ya está hecho en el repositorio
 
-Claude Code ya ha hecho el cambio en `espejo_geminiswin.py` (rama `erp`, commit «espejo: reconciliar PEDIDLIN»).
+Claude Code ya ha hecho el cambio en `espejo_geminiswin.py` (rama `erp`, commit «feat(espejo): reconciliar PEDIDLIN tras lectura completa»).
 **Al Cowork del PC de Mónica le queda solo esto:**
 1. Traer la versión nueva de `erp-propio/scripts/geminiswin/espejo_geminiswin.py` de la rama `erp` y ponerla en el sitio de la que usa ahora en el PC de Mónica, después de hacer una copia de la actual.
 2. Reiniciar el espejo como se haga normalmente (tarea programada o programa abierto).
