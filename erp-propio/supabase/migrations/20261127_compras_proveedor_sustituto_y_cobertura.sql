@@ -68,3 +68,7 @@ on conflict (proveedor_codigo) do update set cobertura_dias = 60, actualizado_en
 insert into parametro (clave, valor, descripcion) values ('compras.relleno_pct', '50'::jsonb,
   'Gestor de compras: al hacer pedido a un proveedor, se rellenan hasta el máximo los artículos cuyo stock esté por debajo de este % entre mínimo y máximo (50 = la mitad baja; 100 = todo lo que no llegue al máximo).')
 on conflict (clave) do nothing;
+
+-- 5) Artículos comunes a varios proveedores (migración compras_relleno_articulos_comunes, aplicada en la base):
+--    con p_proveedor, también entran los artículos que ese proveedor tiene en articulo_proveedor aunque el habitual
+--    sea otro (columna «alterno»): solo como relleno (si el proveedor ya tiene pedido y están cerca del mínimo).
