@@ -1,0 +1,8 @@
+-- Rober, 27/11/2026: «Lo que se marque con incidencia debe salir en el reparto del siguiente día. Solo quiero
+-- validar los abonos y las que están a importe cero.» (aplicada en la base con este mismo nombre)
+--  · reparto_privado.erp_candidatas: una entrega con incidencia de un reparto ya CERRADO vuelve a ser candidata
+--    (con la nota de la incidencia en «antes»), igual que un no entregado; mientras su reparto siga abierto, no.
+--    En la exclusión, «entregado» solo cuenta como hecho si NO tiene incidencia.
+--  · reparto_privado.por_cobrar: las entregas con incidencia ya no salen en «Todas las incidencias» para validar;
+--    allí quedan los cobros pendientes, los abonos y los de importe cero.
+-- Ver el cuerpo aplicado con pg_get_functiondef de ambas funciones.
