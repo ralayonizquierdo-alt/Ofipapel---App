@@ -49,6 +49,7 @@ import {
   type Sesion,
   type DocDeuda,
   compartir,
+  gpsEstado as gpsEstadoServidor,
 } from './api'
 import { GRUPO_ABONOS, GRUPO_NULOS, gruposPorCobrar, listaPorCobrar, sumaPorCobrar, tipoPago } from './porCobrar'
 import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
@@ -1733,14 +1734,22 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
   // Tercera pestaña (Rober, 17/11/2026): la caja del repartidor, qué ha cobrado y cuánto tiene que entregar.
   const [caja, setCaja] = useState(false)
   // Quien dijo «Ahora no» antes del 26/11/2026 vuelve a ver el aviso una vez (Rober): «reparto.gps.v2» marca que ya se le preguntó de nuevo.
-  const [gps, setGpsEstado] = useState<'si' | 'no' | null>(() => {
-    const v = leer<'si' | 'no'>('reparto.gps')
-    return v === 'si' || leer<string>('reparto.gps.v2') ? v : null
-  })
-  const setGps = (v: 'si' | 'no') => {
-    guardar('reparto.gps.v2', '1')
-    setGpsEstado(v)
-  }
+  // Ubicación SIEMPRE (Rober, 27/11/2026): sin aviso propio ni «Ahora no». Al abrir la ruta se pide directamente;
+  // la única pregunta es la del móvil (no se puede saltar: es del navegador). El estado se manda a la oficina
+  // (Control de repartos) para saber quién la tiene bloqueada.
+  const gps = 'si' as const
+  useEffect(() => guardar('reparto.gps', 'si'), [])
+  const [gpsEstado, setGpsEstadoLocal] = useState<'activa' | 'bloqueada' | 'sin_senal' | 'no_disponible' | null>(null)
+  const gpsEnviado = useRef<string | null>(null)
+  const ponerGps = useCallback(
+    (e: 'activa' | 'bloqueada' | 'sin_senal' | 'no_disponible') => {
+      setGpsEstadoLocal(e)
+      if (gpsEnviado.current === e) return
+      gpsEnviado.current = e
+      gpsEstadoServidor(sesion.token, e, navigator.userAgent).catch(() => (gpsEnviado.current = null))
+    },
+    [sesion.token],
+  )
   // Fichaje: sin la entrada fichada hoy no se puede entregar (sí ver, comprobar, ordenar y cambiar de ruta).
   const [fichaje, setFichaje] = useState<EstadoFichaje | 'comprobando' | 'sin_conexion'>(() => estadoGuardado(sesion.repartidor) ?? 'comprobando')
   const mirarFichaje = useCallback(async () => {
@@ -1824,13 +1833,14 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     [sesion.token, reparto.tienda, reparto.numero],
   )
   useEffect(() => {
-    if (gps !== 'si' || !('geolocation' in navigator)) return
+    if (!('geolocation' in navigator)) return ponerGps('no_disponible')
     const id = navigator.geolocation.watchPosition(
       (p) => {
         ultimaPos.current = { lat: p.coords.latitude, lng: p.coords.longitude, precision: p.coords.accuracy }
+        ponerGps('activa')
         enviarPos()
       },
-      () => {},
+      (err) => ponerGps(err.code === 1 ? 'bloqueada' : 'sin_senal'),
       { enableHighAccuracy: false, maximumAge: 30_000, timeout: 60_000 },
     )
     // Al volver a la app (desbloquear el móvil, cambiar de aplicación): se pide la posición de ahora y se manda.
@@ -1850,7 +1860,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
       navigator.geolocation.clearWatch(id)
       document.removeEventListener('visibilitychange', vuelve)
     }
-  }, [gps, enviarPos])
+  }, [gps, enviarPos, ponerGps])
 
   const cambiarLocal = (k: string, cambio: Partial<LineaApp>) => {
     if (!datos) return
@@ -1956,34 +1966,22 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
     <>
       <Cabecera sub={`${nombreRuta(datos?.reparto.ruta ?? reparto.ruta, datos?.reparto.ruta_nombre ?? reparto.ruta_nombre).toUpperCase()} · ${sesion.nombre.toUpperCase()}`} derecha={<BotonCabecera onClick={onVolver}>Rutas</BotonCabecera>} />
 
-      {gps === null && (
-        <Tarjeta>
-          <div style={{ fontWeight: 700, color: V.verde, marginBottom: 6 }}>📍 Ubicación</div>
-          <div style={{ fontSize: 14, color: V.gris, marginBottom: 10, lineHeight: 1.4 }}>
-            <div>• Solo se envía con la app <b>abierta en pantalla</b>, con tu ruta abierta y <b>fichado</b>.</div>
-            <div>• Con la app cerrada, el móvil bloqueado, en pausa o sin fichar, <b>no se envía nada</b>.</div>
-            <div>• Se manda cada pocos minutos, y al abrir la app o marcar un pedido.</div>
-            <div>• Solo la ve la oficina, para saber por dónde va cada ruta. Se borra a los 30 días.</div>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Boton onClick={() => (guardar('reparto.gps', 'si'), setGps('si'))} style={{ flex: 1 }}>
-              De acuerdo
-            </Boton>
-            <Boton claro color={V.gris} onClick={() => (guardar('reparto.gps', 'no'), setGps('no'))} style={{ flex: 1 }}>
-              Ahora no
-            </Boton>
+      {(gpsEstado === 'bloqueada' || gpsEstado === 'no_disponible') && (
+        <Tarjeta style={{ borderTopColor: V.rojo, background: '#fdecea' }}>
+          <div style={{ fontWeight: 800, color: V.rojo, fontSize: 16 }}>📍 La ubicación está bloqueada en este móvil</div>
+          <div style={{ fontSize: 14, color: '#333', marginTop: 4, lineHeight: 1.45 }}>
+            La oficina necesita ver por dónde va la ruta. Actívala así y vuelve a abrir la app:
+            {/iPhone|iPad|iPod/i.test(navigator.userAgent) ? (
+              <div style={{ marginTop: 4 }}>
+                <b>iPhone:</b> Ajustes → Privacidad y seguridad → Localización (activada) → Safari (o Chrome) → <b>Mientras se usa la app</b>. Después, en Safari: Ajustes → Safari → Ubicación → <b>Permitir</b>.
+              </div>
+            ) : (
+              <div style={{ marginTop: 4 }}>
+                <b>Android:</b> toca el candado 🔒 que hay junto a la dirección web → Permisos → Ubicación → <b>Permitir</b>. Comprueba también que la ubicación del móvil está encendida (desliza desde arriba → Ubicación).
+              </div>
+            )}
           </div>
         </Tarjeta>
-      )}
-
-      {gps === 'no' && (
-        // Sin insistir: una línea pequeña, sin ventana ni aviso, por si quien dijo «Ahora no» cambia de idea.
-        <div style={{ fontSize: 12.5, color: V.gris, margin: '0 4px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ flex: 1 }}>📍 Ubicación desactivada: la oficina no ve por dónde vas.</span>
-          <button type="button" onClick={() => (guardar('reparto.gps', 'si'), setGps('si'))} style={{ background: 'none', border: 'none', color: V.verde, fontWeight: 700, fontSize: 12.5, textDecoration: 'underline', padding: 4 }}>
-            Activar
-          </button>
-        </div>
       )}
 
       {fichaje === 'sin_vinculo' && (

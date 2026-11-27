@@ -151,6 +151,10 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 /** Unirse a la ruta de un compañero: los dos la llevan (Rober, 27/11/2026). */
 export const compartir = (token: string, tienda: string, numero: number) => rpc<{ ok: boolean }>('fn_app_rep_compartir', { p_token: token, p_tienda: tienda, p_numero: numero })
 
+/** Estado de la ubicación del móvil (activa / bloqueada / sin señal), para Control de repartos. */
+export const gpsEstado = (token: string, estado: string, dispositivo: string) =>
+  rpc<{ ok: boolean }>('fn_app_rep_gps_estado', { p_token: token, p_estado: estado, p_dispositivo: dispositivo })
+
 export const repartidores = () => rpc<{ codigo: string; nombre: string }[]>('fn_app_rep_repartidores', {})
 
 /** Entra con el PIN. Si debeCambiar, la sesión NO se guarda todavía: antes hay que poner un PIN nuevo (cambiarPin + guardarSesion). */

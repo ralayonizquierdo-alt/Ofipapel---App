@@ -31,7 +31,7 @@ import QRCode from 'qrcode'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
 import { GwDate, GwWindow } from '../../../components/gw'
-import { BarraPuntos, VistaMapa, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
+import { BarraPuntos, VistaMapa, textoGps, type DatosSeg, type RutaSeg } from '../../../reparto-app/PanelReparto'
 import { GenerarRepartosPage } from './GenerarRepartosPage'
 import type { PorCobrar } from '../../../reparto-app/api'
 import { GRUPO_ABONOS, GRUPO_NULOS, gruposPorCobrar, listaPorCobrar, sumaPorCobrar } from '../../../reparto-app/porCobrar'
@@ -408,6 +408,10 @@ export function ControlRepartosHoy({
                           {esActual ? '▸ ' : ''}
                           {rutaCorta(r)}
                         </div>
+                        {!cerrado && r.repartidor && (() => {
+                          const g = textoGps(r)
+                          return <div className={`text-[11px] ${g.mal ? 'font-bold text-[#c42b1c]' : 'text-[#6d6d6d]'}`}>{g.texto}</div>
+                        })()}
                         <div className="text-[12px] text-[#555]">
                           🚚 {r.repartidor_nombre ?? 'sin repartidor'}
                           {!cerrado && (

@@ -7,6 +7,17 @@ import { MUNICIPIOS_TENERIFE } from './municipiosTenerife'
 // y la pantalla de la TV del departamento de pedidos (/reparto-tv, sin ERP). Datos: reparto_privado.seguimiento()
 // vía fn_reparto_seguimiento (ERP) o fn_reparto_tv (TV, con el código del enlace).
 
+/** «📍 activa» / «📍 BLOQUEADA en el móvil»… para la tarjeta de cada ruta (ERP y TV). */
+export function textoGps(r: Pick<RutaSeg, 'gps'>): { texto: string; mal: boolean } {
+  const g = r.gps
+  if (!g) return { texto: '📍 ubicación: sin datos (no ha abierto la app nueva)', mal: true }
+  const h = new Date(g.en).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Atlantic/Canary' })
+  if (g.estado === 'activa') return { texto: `📍 ubicación activa (${h})`, mal: false }
+  if (g.estado === 'bloqueada') return { texto: `📍 ubicación BLOQUEADA en el móvil (${h})`, mal: true }
+  if (g.estado === 'no_disponible') return { texto: `📍 este móvil no da ubicación (${h})`, mal: true }
+  return { texto: `📍 sin señal GPS (${h})`, mal: true }
+}
+
 export interface RutaSeg {
   tienda: string
   numero: number
@@ -24,6 +35,8 @@ export interface RutaSeg {
   pendientes: number
   comprobados: number
   posicion: { lat: number; lng: number; en: string } | null
+  /** Estado de la ubicación del móvil del repartidor (lo manda la app al abrir la ruta). */
+  gps?: { estado: 'activa' | 'bloqueada' | 'sin_senal' | 'no_disponible'; en: string } | null
   /** Dónde estaba el repartidor al marcar cada pedido, con el cliente y la hora. */
   puntos: { lat: number; lng: number; estado: string; cliente?: string | null; hora?: string | null }[]
   /** Un elemento por pedido (marcados por hora y luego los que quedan): estado y hora de entrega o del intento. */
@@ -232,6 +245,10 @@ function VistaRutas({ rutas, tv, onCerrar, onAbrir }: { rutas: RutaSeg[]; tv: bo
               <div style={{ color: '#5f6b5f', fontSize: tv ? 16 : 12 }}>
                 🚚 {r.repartidor_nombre ?? 'sin repartidor'}
               </div>
+              {!cerrado && r.repartidor && (() => {
+                const g = textoGps(r)
+                return <div style={{ fontSize: tv ? 13 : 10, color: g.mal ? C.rojo : '#8a948a', fontWeight: g.mal ? 700 : 400 }}>{g.texto}</div>
+              })()}
               {/* Última posición recibida, en letra pequeña; en rojo si lleva más de 30 min sin avisar (ruta abierta). */}
               {r.posicion && (
                 <div style={{ fontSize: tv ? 13 : 10, color: !cerrado && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000 ? C.rojo : '#8a948a', fontWeight: !cerrado && Date.now() - new Date(r.posicion.en).getTime() > MINUTOS_SIN_SEÑAL * 60_000 ? 700 : 400 }}>
