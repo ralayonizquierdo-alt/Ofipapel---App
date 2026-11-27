@@ -152,6 +152,40 @@ el repo:
   todavía) — credenciales OAuth Server-to-Server de Adobe Developer Console
   para `design-studio/scripts/firefly-generate.js`. Ver `design-studio/README.md`.
 
+**Las credenciales del sitio del bot están marcadas como «secretas» en Netlify**
+(27/11/2026, a petición del propietario, hecho por él desde el panel): las 9 que
+son credenciales de verdad (`ANTHROPIC_API_KEY`, `WHATSAPP_TOKEN`,
+`WHATSAPP_APP_SECRET`, `WOOCOMMERCE_CONSUMER_KEY`/`_SECRET`,
+`UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY`, `OPENAI_API_KEY`,
+`SUPABASE_BOT_PASSWORD`). Lo que no es una credencial sigue a la vista a
+propósito, porque hace falta leerlo para diagnosticar: nombres de plantilla,
+`OWNER_WHATSAPP_NUMBER`, `WHATSAPP_PHONE_NUMBER_ID`, `UPSTASH_REDIS_REST_URL`
+y los correos.
+
+Dos consecuencias prácticas:
+
+- **Una variable secreta NO se puede volver a leer**, ni desde el panel ni por
+  API. Si hay que diagnosticar algo que dependa de una de esas claves, el
+  camino es **sustituirla**, no consultarla. Y marcarla no desexpone lo que ya
+  estuvo visible: para eso hay que **rotarla**.
+- **Netlify busca el valor de cada variable secreta en lo que se publica y
+  tumba el despliegue si lo encuentra.** Comprobado el 27/11 que ninguno de
+  esos valores está escrito en el repo, así que no rompe nada; pero si algún
+  día un despliegue falla por el escaneo de secretos, eso es lo que ha pasado
+  (se arregla quitando el valor del código, nunca desmarcando la variable).
+
+**`DASHBOARD_PASSWORD` se deja a propósito SIN marcar**: su valor son seis
+dígitos, y al marcarla Netlify empezaría a buscar esa cadena en todo lo que
+compila — seis dígitos aparecen por casualidad en cualquier bundle y dejarían
+el repo sin poder desplegar. Ahí el arreglo no es la marca, es una contraseña
+más larga.
+
+**La herramienta MCP de Netlify no sabe poner esa marca** (tres intentos, 422
+sin detalle): hay que hacerlo en el panel. Un `upsert` desde ella, además,
+**aplica a medias aunque devuelva error** — convirtió una variable de contexto
+único a cuatro contextos y dejó uno con el valor en claro. Si hay que tocar
+variables de entorno, el panel.
+
 Los HTML monolíticos llevan la URL y la clave `publishable`/`anon` de
 Supabase **hardcodeadas en el propio fichero** (modelo esperado en Supabase
 para clientes puramente frontend, protegido por RLS — no es una key
