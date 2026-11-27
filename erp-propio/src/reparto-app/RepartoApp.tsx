@@ -48,6 +48,7 @@ import {
   type RepartoApp,
   type Sesion,
   type DocDeuda,
+  compartir,
 } from './api'
 import { GRUPO_ABONOS, GRUPO_NULOS, gruposPorCobrar, listaPorCobrar, sumaPorCobrar, tipoPago } from './porCobrar'
 import { estadoFichaje, estadoGuardado, type EstadoFichaje } from './fichaje'
@@ -849,7 +850,8 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
   }, [cargarHist, cobros])
 
   const enMano = (cobros ?? []).filter((c) => !c.abono && c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro && !c.incidencia)
-  const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}`
+  // Ruta compartida: cada repartidor liquida lo que cobró él (c.repartidor = quien marcó la factura).
+  const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}|${c.repartidor ?? ''}`
   const rutas = [...new Set(enMano.map(clave))].map((k) => ({ k, filas: enMano.filter((c) => clave(c) === k) }))
   const suma = (fs: { pendiente?: number; importe?: number }[]) => fs.reduce((t, c) => t + (c.pendiente ?? c.importe ?? 0), 0)
   // Efectivo (se entrega en mano) y tarjeta (va al banco por el datáfono: se liquida, pero no se cuenta con el dinero).
@@ -1671,7 +1673,9 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
       <AvisosTraspaso sesion={sesion} />
       <Tarjeta>
         <div style={{ fontWeight: 700, fontSize: 18, color: V.verde }}>Elige tu ruta de hoy</div>
-        <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>Toca la ruta que vas a repartir. Al cogerla pasa a ser tuya y los demás dejan de verla.</div>
+        <div style={{ color: V.gris, fontSize: 13, marginBottom: 10 }}>
+          Toca la ruta que vas a repartir. Al cogerla pasa a ser tuya. Si vas a llevar pedidos de la ruta de un compañero, toca su ruta para compartirla: la lleváis los dos y cada uno entrega lo que cobra.
+        </div>
         {!lista && !error && <div style={{ color: V.gris }}>Cargando…</div>}
         {lista && !lista.length && <div style={{ color: V.gris }}>No hay rutas abiertas para ti. Si esperabas una, avisa en la oficina.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1679,11 +1683,22 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
             <button
               key={`${r.tienda}-${r.numero}`}
               type="button"
-              onClick={() => {
+              onClick={async () => {
+                if (!r.mio && r.de) {
+                  if (!window.confirm(`¿Compartes la ${nombreRuta(r.ruta, r.ruta_nombre)} con ${r.de}? La llevaréis los dos: cada uno marca los pedidos que entrega y liquida lo que cobra.`)) return
+                  try {
+                    await compartir(sesion.token, r.tienda, r.numero)
+                  } catch (e) {
+                    const x = e as ErrorApp
+                    if (x.caducada) return onCaducada()
+                    return setError(x.red ? 'Sin conexión.' : x.message)
+                  }
+                  return onElegir({ ...r, mio: true })
+                }
                 if (!r.mio && !window.confirm(`¿Coges la ${nombreRuta(r.ruta, r.ruta_nombre)}${r.manana ? ' (mañana)' : ''}? Será tuya. Si te equivocas, dentro puedes soltarla.`)) return
                 onElegir(r)
               }}
-              style={{ textAlign: 'left', background: r.mio ? V.pale : '#fff', border: `2px solid ${r.mio ? V.verdeMed : '#cfe0cf'}`, borderRadius: 16, padding: 14 }}
+              style={{ textAlign: 'left', background: r.mio ? V.pale : '#fff', border: `2px ${!r.mio && r.de ? 'dashed' : 'solid'} ${r.mio ? V.verdeMed : '#cfe0cf'}`, borderRadius: 16, padding: 14 }}
             >
               <div style={{ fontSize: 18, color: V.verde }}>
                 🚚 {r.ruta && <b style={{ fontWeight: 800 }}>RUTA {/^\d+$/.test(r.ruta) ? Number(r.ruta) : r.ruta}</b>}
@@ -1692,7 +1707,8 @@ function ElegirRuta({ sesion, onElegir, onSalir, onCaducada }: { sesion: Sesion;
               </div>
               <div style={{ color: V.gris, fontSize: 14 }}>
                 {r.manana ? 'Mañana · ' : ''}
-                {r.pedidos} pedidos · {r.pendientes} por entregar{r.mio ? ' · TUYA' : ' · libre'}
+                {r.pedidos} pedidos · {r.pendientes} por entregar
+                {r.mio ? (r.de ? ` · COMPARTIDA con ${r.de}${r.con ? ` + ${r.con}` : ''}` : r.con ? ` · TUYA, compartida con ${r.con}` : ' · TUYA') : r.de ? ` · la lleva ${r.de}${r.con ? ` + ${r.con}` : ''} · toca para compartirla` : ' · libre'}
               </div>
             </button>
           ))}
@@ -2026,7 +2042,7 @@ function Ruta({ sesion, reparto, onVolver, onCaducada }: { sesion: Sesion; repar
       )}
       {error && <div style={{ background: '#fdecea', borderRadius: 12, padding: '8px 12px', color: V.rojo }}>{error}</div>}
 
-      {caja && <CajaRepartidor lineas={ls} />}
+      {caja && <CajaRepartidor lineas={ls.filter((l) => !l.marcado_por || l.marcado_por === sesion.repartidor)} />}
 
       {!caja && modo === 'comprobar' && (
         <div style={{ color: '#fff', fontSize: 13, textShadow: '0 1px 2px rgba(0,0,0,.6)', padding: '0 4px' }}>

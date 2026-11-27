@@ -34,6 +34,10 @@ export interface RepartoApp {
   ruta: string | null
   ruta_nombre: string | null
   mio?: boolean
+  /** Ruta de un compañero (para compartirla): su nombre. */
+  de?: string | null
+  /** Quienes comparten la ruta con el dueño: «Juan + Fran». */
+  con?: string | null
   manana?: boolean
   pedidos?: number
   pendientes?: number
@@ -74,6 +78,9 @@ export interface LineaApp {
   intento2: string | null
   entregado_en: string | null
   comprobado: boolean
+  /** Repartidor que marcó el pedido (ruta compartida: cada uno liquida lo suyo). */
+  marcado_por?: string | null
+  marcado_por_nombre?: string | null
   /** El repartidor ha puesto otro teléfono para esta entrega (telefono_original es el que venía). */
   telefono_cambiado?: boolean
   /** El teléfono no es de esta entrega: se guardó para este cliente en una entrega anterior. */
@@ -140,6 +147,9 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   }
   return res.data as T
 }
+
+/** Unirse a la ruta de un compañero: los dos la llevan (Rober, 27/11/2026). */
+export const compartir = (token: string, tienda: string, numero: number) => rpc<{ ok: boolean }>('fn_app_rep_compartir', { p_token: token, p_tienda: tienda, p_numero: numero })
 
 export const repartidores = () => rpc<{ codigo: string; nombre: string }[]>('fn_app_rep_repartidores', {})
 
