@@ -5,6 +5,7 @@
 //
 //   POST { ping: true }                              → comprueba la clave y dice qué tablas admite
 //   POST { tabla: 'ARTICULO', filas: [{c, d}, …] }   → guarda las filas que han cambiado (carga_dbf)
+//   POST { tabla: 'PEDIDLIN', borrar: [claves] }       → borra de la copia lo que ya no existe en GeminisWin
 //   POST { procesar: 'ARTICULO' }                    → las pasa a las tablas del ERP (fn_carga_gw_*)
 //                                                      por tandas; si responde «quedan: true», se vuelve a llamar
 //
@@ -57,6 +58,13 @@ Deno.serve(async (req) => {
       if (ultimo.quedan !== true || Date.now() - inicio > 25_000) break
     }
     return responder(200, { ...ultimo, filas })
+  }
+  // Registros que ya no existen en GeminisWin (nota 179 de Cowork, 27/11/2026): al acabar una lectura completa de
+  // una tabla, el espejo manda las claves que ya no aparecen ({ tabla, borrar: ['42|95604|3|00180', …] }).
+  if (typeof cuerpo.tabla === 'string' && Array.isArray(cuerpo.borrar)) {
+    const { data, error } = await admin.rpc('fn_espejo_gw_borrar', { p_tabla: cuerpo.tabla, p_claves: cuerpo.borrar, p_equipo: equipo })
+    if (error) return responder(500, { ok: false, error: error.message })
+    return responder(200, data as Record<string, unknown>)
   }
   if (typeof cuerpo.tabla === 'string' && Array.isArray(cuerpo.filas)) {
     const { data, error } = await admin.rpc('fn_espejo_gw_recibir', { p_tabla: cuerpo.tabla, p_filas: cuerpo.filas, p_equipo: equipo })
