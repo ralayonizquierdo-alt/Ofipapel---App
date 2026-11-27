@@ -129,6 +129,11 @@ POR_DEFECTO = {
                             'PEDIDETA': 4000000, 'FACTURAS': 2000000, 'PAGOS': 2000000, 'CLIENART': 12000000},
 }
 CFG_VERSION = 3   # al subirla, la configuración del PC recupera los valores de por defecto de CFG_REPONER
+# Tablas que, tras leerse ENTERAS y sin fallo, se reconcilian por clave: lo que se envió antes y ya no aparece
+# (líneas borradas en GeminisWin, p. ej. al editar un pedido) se manda al ERP como «borrar» (nota 179 de Cowork,
+# 27/11/2026; el ERP ya lo acepta en espejo-gw-ingesta para PEDIDLIN).
+RECONCILIAR = {'PEDIDLIN'}
+
 CFG_REPONER = ['saltar', 'ventana_dias', 'grandes', 'vivo_dias', 'repaso_horas', 'repaso_domingo', 'repaso_cada_horas',
                'vigentes', 'solo_en_repaso', 'max_registros_tabla']
 
@@ -539,11 +544,13 @@ def pasada(cfg, clave, todo=False, solo=None):
             except ValueError as e:
                 resumen.append(f'{tabla}: {e}')
                 continue
+            leidas = set()
             for reg in lector:
                 if dentro is not None and not dentro(reg):
                     continue
                 vistos += 1
                 k = clave_de(reg, campos_clave)
+                leidas.add(k)
                 texto = json.dumps(reg, sort_keys=True, ensure_ascii=False)
                 h = hashlib.md5(texto.encode('utf-8')).hexdigest()
                 if huella_de(k) == h:
@@ -581,6 +588,25 @@ def pasada(cfg, clave, todo=False, solo=None):
                 continue
             if enviados:
                 resumen.append(f'{tabla}: {vistos} registros, {enviados} nuevos o cambiados')
+            # Reconciliar: solo si esta pasada leyó la tabla ENTERA (sin filtro de fecha ni ventana de pedidos).
+            if tabla in RECONCILIAR and filtro is None and desde_reg == 0 and dentro is None:
+                enviadas = [r[0] for r in con.execute('select clave from registro where tabla = ?', (tabla,))]
+                faltan = [c for c in enviadas if c not in leidas]
+                # Seguridad: si no se leyó nada o faltaría más de la mitad, algo raro pasa: no se borra nada.
+                if faltan and leidas and len(faltan) <= len(enviadas) // 2:
+                    borradas = 0
+                    for i in range(0, len(faltan), 5000):
+                        trozo = faltan[i:i + 5000]
+                        r = llamar(cfg, clave, {'tabla': tabla, 'borrar': trozo, 'equipo': equipo})
+                        if not r.get('ok'):
+                            resumen.append(f'{tabla}: no se pudo borrar lo que ya no existe ({corto(r.get("error", ""))})')
+                            break
+                        con.executemany('delete from registro where tabla = ? and clave = ?', [(tabla, c) for c in trozo])
+                        con.commit()
+                        borradas += int(r.get('borradas', 0) or 0)
+                    resumen.append(f'{tabla}: {len(faltan)} que ya no existen en GeminisWin; {borradas} borradas de la copia')
+                elif faltan:
+                    resumen.append(f'{tabla}: faltarían {len(faltan)} de {len(enviadas)}; no se borra nada por seguridad')
             con.execute('insert or replace into fichero (tabla, tamano, fecha) values (?, ?, ?)', (tabla, d.tamano, d.fecha))
             con.commit()
         finally:

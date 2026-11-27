@@ -4,6 +4,16 @@
 **Programa:** `erp-propio/scripts/geminiswin/espejo_geminiswin.py` (rama `erp` del repositorio), el que copia GeminisWin al ERP desde el PC de Mónica.
 **Solo se lee GeminisWin. No se cambia nada en GeminisWin.**
 
+## ACTUALIZACIÓN: el cambio ya está hecho en el repositorio
+
+Claude Code ya ha hecho el cambio en `espejo_geminiswin.py` (rama `erp`, commit «espejo: reconciliar PEDIDLIN»).
+**Al Cowork del PC de Mónica le queda solo esto:**
+1. Traer la versión nueva de `erp-propio/scripts/geminiswin/espejo_geminiswin.py` de la rama `erp` y ponerla en el sitio de la que usa ahora en el PC de Mónica, después de hacer una copia de la actual.
+2. Reiniciar el espejo como se haga normalmente (tarea programada o programa abierto).
+3. Comprobar la primera pasada (ver «Cómo comprobar que funciona», abajo) y dejar la nota con el resultado.
+
+Lo de abajo explica el cambio por si quiere revisarlo.
+
 ## Qué pasa
 
 Al editar un pedido a proveedor, GeminisWin marca como **borradas** las líneas viejas de `PEDIDLIN` y añade las nuevas al final.
