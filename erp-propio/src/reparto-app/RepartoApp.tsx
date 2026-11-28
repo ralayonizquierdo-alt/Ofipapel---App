@@ -850,7 +850,11 @@ function Caja({ token, cobros, hora, error, quien, onRecargar }: { token: string
     cargarHist()
   }, [cargarHist, cobros])
 
-  const enMano = (cobros ?? []).filter((c) => !c.abono && c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro && !c.incidencia)
+  // Solo lo que el repartidor marcó como entregado EN LA APP (tiene hora de entrega). Lo que se dio por entregado desde
+  // GeminisWin o la oficina no lo ha declarado cobrado nadie: no es dinero que tenga el repartidor (Rober, 28/11/2026:
+  // salían facturas de David del 17 y 18/11, Fran del 23 y Mª Luz del 24 sin que ellos dijeran haberlas cobrado).
+  // Esas siguen en las incidencias, como «Contado · entregada, sin liquidar todavía».
+  const enMano = (cobros ?? []).filter((c) => !c.abono && !!c.hora && c.contado !== false && tipoPago(c.forma_pago) === 'mano' && !c.no_cobro && !c.incidencia)
   // Ruta compartida: cada repartidor liquida lo que cobró él (c.repartidor = quien marcó la factura).
   const clave = (c: PorCobrar) => `${c.ruta ?? ''}|${c.fecha}|${c.repartidor ?? ''}`
   const rutas = [...new Set(enMano.map(clave))].map((k) => ({ k, filas: enMano.filter((c) => clave(c) === k) }))
