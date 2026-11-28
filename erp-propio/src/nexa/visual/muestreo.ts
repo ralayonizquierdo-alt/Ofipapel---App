@@ -28,8 +28,6 @@ export interface Nube {
 export async function cargarMapaDensidad(url: string): Promise<MapaDensidad> {
   const img = new Image()
   img.decoding = 'async'
-  // El hub de Ofipapel la carga desde el ERP (otro dominio): sin esto no se puede leer el lienzo.
-  img.crossOrigin = 'anonymous'
   img.src = url
   await img.decode()
   return { img, puntos: detectarPuntos(img) }

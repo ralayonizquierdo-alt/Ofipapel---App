@@ -116,7 +116,6 @@ import { FichajeApp } from './reparto-app/FichajeApp'
 import { LiquidacionPage } from './pages/facturacion/LiquidacionPage'
 import { RepartoApp } from './reparto-app/RepartoApp'
 import { RepartoTv } from './reparto-app/RepartoTv'
-import { NexaVentana } from './nexa/NexaAsistente'
 
 function ProtectedArea() {
   const { session, loading } = useAuth()
@@ -141,24 +140,8 @@ function ProtectedArea() {
 function PublicOnly({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
   if (loading) return null
-  // «?volver=/nexa-ventana»: tras entrar, de vuelta a donde se venía (solo rutas de este sitio).
-  const volver = new URLSearchParams(window.location.search).get('volver')
-  if (session) return <Navigate to={volver && /^\/[a-z0-9-]+$/i.test(volver) ? volver : '/'} replace />
+  if (session) return <Navigate to="/" replace />
   return <>{children}</>
-}
-
-/** NEXA en ventana, abierta desde el hub (inicio.html): con la cuenta del ERP, sus permisos y la misma doble verificación. */
-function NexaVentanaArea() {
-  const { session, loading } = useAuth()
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Cargando…</div>
-  if (!session) return <Navigate to="/login?volver=/nexa-ventana" replace />
-  return (
-    <PuertaSeguridad key={session.user.id}>
-      <PermisosProvider>
-        <NexaVentana />
-      </PermisosProvider>
-    </PuertaSeguridad>
-  )
 }
 
 function App() {
@@ -177,8 +160,6 @@ function App() {
           <Route path="/reparto-pantalla" element={<RepartoTv interna />} />
           {/* Pantalla de fichar: pública (nombre + PIN), sin cuenta del ERP — la gestión está en Archivo → Fichaje */}
           <Route path="/fichaje" element={<FichajeApp />} />
-          {/* NEXA sola, en ventana: la abre el botón NEXA del hub de Ofipapel */}
-          <Route path="/nexa-ventana" element={<NexaVentanaArea />} />
           <Route element={<ProtectedArea />}>
             <Route path="/" element={null} />
             <Route path="/resumen" element={<PanelControlPage />} />

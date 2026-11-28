@@ -156,12 +156,7 @@ const TEXTO_ESTADO: Record<EstadoNexa, string> = {
   alert: 'Algo no ha ido bien',
 }
 
-/** NEXA en ventana propia (Rober, 28/11/2026): la abre el hub de Ofipapel. Es el mismo panel del ERP, a pantalla completa. */
-export function NexaVentana() {
-  return <NexaPanel ventana />
-}
-
-function NexaPanel({ ventana = false }: { ventana?: boolean }) {
+function NexaPanel() {
   const conv = useConversacion()
   const estado = useEstadoNexa()
   const navigate = useNavigate()
@@ -266,7 +261,6 @@ function NexaPanel({ ventana = false }: { ventana?: boolean }) {
   function cerrar() {
     dictado?.parar()
     cerrarPanel({ callar: true })
-    if (ventana) window.close()
   }
 
   // «Vacía» = sin preguntas del usuario (el saludo de NEXA no cuenta): siguen saliendo las sugerencias.
@@ -280,17 +274,13 @@ function NexaPanel({ ventana = false }: { ventana?: boolean }) {
       aria-label="NEXA, asistente inteligente"
       data-nexa="panel"
       onKeyDown={(e) => {
-        if (e.key === 'Escape' && !ventana) {
+        if (e.key === 'Escape') {
           e.stopPropagation()
           cerrarPanel()
         }
       }}
-      className={
-        ventana
-          ? 'nexa-panel fixed inset-0 z-40 flex flex-col overflow-hidden bg-[rgba(236,241,248,0.96)]'
-          : 'nexa-panel absolute bottom-1 right-1 top-[27px] z-40 flex flex-col overflow-hidden rounded-md border border-white/60 bg-[rgba(236,241,248,0.80)] shadow-[0_8px_28px_rgba(15,30,60,0.35)] backdrop-blur-xl'
-      }
-      style={ventana ? undefined : { width: ancho, maxWidth: 'calc(100% - 8px)' }}
+      className="nexa-panel absolute bottom-1 right-1 top-[27px] z-40 flex flex-col overflow-hidden rounded-md border border-white/60 bg-[rgba(236,241,248,0.80)] shadow-[0_8px_28px_rgba(15,30,60,0.35)] backdrop-blur-xl"
+      style={{ width: ancho, maxWidth: 'calc(100% - 8px)' }}
     >
       {/* Barra superior */}
       <div className="relative z-10 flex h-[30px] flex-none items-center gap-1 border-b border-white/50 bg-white/40 pl-2.5 pr-1">
@@ -309,16 +299,12 @@ function NexaPanel({ ventana = false }: { ventana?: boolean }) {
         <BotonBarra titulo="Nueva conversación" onClick={nuevaConversacion} deshabilitado={vacia || conv.pensando}>
           <RotateCcw size={13} />
         </BotonBarra>
-        {!ventana && (
-          <>
-            <BotonBarra titulo="Minimizar (Esc)" onClick={() => cerrarPanel()}>
-              <Minus size={14} />
-            </BotonBarra>
-            <BotonBarra titulo={conv.ampliado ? 'Reducir' : 'Ampliar (para tablas grandes)'} onClick={() => setAmpliado(!conv.ampliado)}>
-              {conv.ampliado ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-            </BotonBarra>
-          </>
-        )}
+        <BotonBarra titulo="Minimizar (Esc)" onClick={() => cerrarPanel()}>
+          <Minus size={14} />
+        </BotonBarra>
+        <BotonBarra titulo={conv.ampliado ? 'Reducir' : 'Ampliar (para tablas grandes)'} onClick={() => setAmpliado(!conv.ampliado)}>
+          {conv.ampliado ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        </BotonBarra>
         <BotonBarra titulo={`Cerrar (${ATAJO_NEXA})`} onClick={cerrar} peligro>
           <X size={15} />
         </BotonBarra>
@@ -340,8 +326,6 @@ function NexaPanel({ ventana = false }: { ventana?: boolean }) {
               <Mensaje
                 m={m}
                 onAbrir={(ruta) => {
-                  // En la ventana del hub, la pantalla del ERP se abre en una pestaña aparte (la ventana es solo NEXA).
-                  if (ventana) return void window.open(ruta, '_blank', 'noopener')
                   if (getConversacion().ampliado) setAmpliado(false)
                   navigate(ruta)
                 }}

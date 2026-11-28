@@ -23,12 +23,6 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(self), microphone=(self), camera=(), payment=(), usb=(), interest-cohort=()"
 
-# Imagen de referencia de NEXA: el hub de Ofipapel (otro dominio) la lee para dibujar el mismo símbolo.
-[[headers]]
-  for = "/nexa/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-
 # version.json siempre fresco: la app lo consulta para avisar de que hay una versión nueva.
 [[headers]]
   for = "/version.json"
