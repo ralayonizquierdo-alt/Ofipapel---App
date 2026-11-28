@@ -30,13 +30,19 @@ export const ORDEN_POR_COBRAR = [
  * Solo FACTURAS (Rober, 17/11/2026): los albaranes a crédito (transferencia o remesa a 30, 60 días…) todavía no se han
  * facturado y se cobran a su vencimiento; con ellos la lista sería interminable. Lo de contado que había que cobrar en
  * mano sí sale siempre, tenga o no número de factura. Bizum es que ya está pagada. Los abonos recogidos sin validar en
- * almacén (19/11/2026) salen siempre, en su apartado.
+ * almacén (19/11/2026) salen siempre, en su apartado. Por banco, solo remesa y transferencia INMEDIATA (28/11/2026).
  */
 export function listaPorCobrar(cobros: PorCobrar[]): PorCobrar[] {
   const conFactura = (c: PorCobrar) => c.factura != null && String(c.factura).trim() !== ''
   const enMano = (c: PorCobrar) => c.contado !== false && tipoPago(c.forma_pago) === 'mano'
-  return cobros.filter((c) => c.abono || c.nulo || (tipoPago(c.forma_pago) !== 'pagada' && (conFactura(c) || enMano(c))))
+  // Por banco, solo lo INMEDIATO (Rober, 28/11/2026): remesa y transferencia inmediata. Confirming, pagarés, crédito y
+  // las remesas o transferencias a 30, 60, 75… días se cobran a su vencimiento: no son incidencias del reparto.
+  const bancoInmediato = (c: PorCobrar) => tipoPago(c.forma_pago) === 'banco' && esInmediata(c.forma_pago)
+  return cobros.filter((c) => c.abono || c.nulo || (conFactura(c) && bancoInmediato(c)) || (tipoPago(c.forma_pago) === 'mano' && (conFactura(c) || enMano(c))))
 }
+
+/** «Remesa Bancaria INMEDIATA», «Transferencia INMEDIATA»: las únicas por banco que salen en las incidencias. */
+export const esInmediata = (forma?: string | null) => /inmediat/i.test(forma ?? '') && /remesa|transfer/i.test(forma ?? '')
 
 export function grupoPorCobrar(c: PorCobrar): string {
   if (c.nulo) return GRUPO_NULOS
