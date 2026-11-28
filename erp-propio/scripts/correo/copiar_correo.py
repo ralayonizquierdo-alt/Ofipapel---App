@@ -1,7 +1,7 @@
 """Copia a las carpetas de la oficina lo que E-milio ha cogido del correo (Rober, 28/11/2026).
 
-Hoy: las TARIFAS de los proveedores, a la carpeta de tarifas de Rober y a la carpeta de tarifas en red.
-La nube no llega a esas carpetas: este programa corre en un PC de la oficina (tarea programada de Windows, cada 15 min)
+Hoy: las TARIFAS de los proveedores, a la carpeta de red «Tarifas proveedores».
+La nube no llega a la red de la oficina: este programa corre en un PC de la oficina (tarea programada de Windows, cada 15 min)
 y llama a la función «correo-copias» del ERP.
 
 Configuración: copiar_correo.json, junto a este fichero (NO se sube al repositorio):
@@ -10,7 +10,7 @@ Configuración: copiar_correo.json, junto a este fichero (NO se sube al reposito
       "url": "https://sufxvpiwcncnyltrvoun.supabase.co/functions/v1/correo-copias",
       "clave": "…la clave de este PC…",
       "carpetas": {
-        "tarifa": ["C:\\\\Users\\\\…\\\\Tarifas de proveedor", "\\\\\\\\SERVIDOR\\\\…\\\\Tarifas de proveedor"]
+        "tarifa": ["\\\\\\\\SERVIDOR\\\\Archivos Ofipapel\\\\Tarifas proveedores"]
       }
     }
 

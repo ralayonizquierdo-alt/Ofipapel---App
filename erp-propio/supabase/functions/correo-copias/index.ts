@@ -1,5 +1,5 @@
 // Edge Function «correo-copias» (Rober, 28/11/2026): lo que E-milio ha cogido del correo y hay que dejar en las carpetas de
-// la oficina (hoy, las tarifas: la carpeta de tarifas de Rober y la de red). La nube no llega a esas carpetas, así que las
+// la oficina (hoy, las tarifas: la carpeta de red «Tarifas proveedores»). La nube no llega a esas carpetas, así que las
 // copia el programa del PC scripts/correo/copiar_correo.py, que llama aquí:
 //
 //   POST { pendientes: true }                 → [{ id, tipo, nombre, url }] (url firmada, 15 min) de los tipos de
