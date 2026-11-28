@@ -30,8 +30,8 @@ const DIAS_PRIMERA_VEZ = 15
 const GENERICOS = new Set(['gmail.com', 'hotmail.com', 'hotmail.es', 'outlook.com', 'outlook.es', 'yahoo.com', 'yahoo.es', 'live.com', 'icloud.com', 'msn.com'])
 
 const Lectura = z.object({
-  tipo: z.enum(['propuesta', 'factura', 'albaran', 'otro']).describe(
-    'propuesta = proforma, oferta, presupuesto o confirmación de pedido del proveedor; factura = factura o abono; albaran = albarán o nota de entrega; otro = cualquier otra cosa (catálogo, tarifa, publicidad, certificado…)',
+  tipo: z.enum(['propuesta', 'factura', 'albaran', 'tarifa', 'otro']).describe(
+    'propuesta = proforma, oferta, presupuesto o confirmación de pedido del proveedor; factura = factura o abono; albaran = albarán o nota de entrega; tarifa = tarifa o lista de precios del proveedor (muchos artículos con su precio, sin ser un pedido concreto); otro = cualquier otra cosa (catálogo sin precios, publicidad, certificado…)',
   ),
   documento_numero: z.string().nullable().describe('Número del documento del proveedor'),
   documento_fecha: z.string().nullable().describe('AAAA-MM-DD'),
@@ -281,6 +281,21 @@ async function comprobar(apiKey: string, modelo: string, nifPropio: string, pdf:
   return { comprobacion: { faltan, menos, mas, precio, anadidos, lineas_pedido: pedido.length, lineas_documento: doc.length, tolerancia: tol }, diferencias: total }
 }
 
+const esPdf = (a: { name: string; contentType?: string }) => /pdf/i.test(a.contentType ?? '') || /\.pdf$/i.test(a.name)
+const esHoja = (nombre: string) => /\.(xlsx|xlsm|xls|csv|ods)$/i.test(nombre)
+const extension = (nombre: string) => (nombre.match(/\.([A-Za-z0-9]{2,5})$/)?.[1] ?? 'bin').toLowerCase()
+const tipoMime = (ext: string) =>
+  ({
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xlsm: 'application/vnd.ms-excel.sheet.macroEnabled.12',
+    xls: 'application/vnd.ms-excel',
+    ods: 'application/vnd.oasis.opendocument.spreadsheet',
+    csv: 'text/csv',
+  })[ext] ?? 'application/octet-stream'
+// Una hoja de cálculo de un proveedor es una tarifa si lo dice el asunto o el nombre del fichero; si no, queda como «otro»
+// y en el ERP se puede marcar a mano como tarifa. No se lee con IA: la lectura de precios va aparte, por proveedor.
+const PARECE_TARIFA = /tarif|precio|pvp|lista|listado|price|preis|listino|cat[aá]logo|neto|oferta/i
+
 const limpio = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60)
 
 interface Meta {
@@ -354,6 +369,20 @@ async function analizar(bytes: Uint8Array, meta: Meta, apiKey: string, modelo: s
   return fila
 }
 
+/** Excel o CSV de un proveedor: proveedor por el remitente y, si el asunto o el nombre lo dicen, tarifa. */
+async function analizarHoja(meta: Meta, nifPropio: string): Promise<Record<string, unknown>> {
+  const fila: Record<string, unknown> = {}
+  const tarifa = PARECE_TARIFA.test(meta.asunto) || PARECE_TARIFA.test(meta.adjunto)
+  fila.tipo = tarifa ? 'tarifa' : 'otro'
+  fila.lectura = { resumen: tarifa ? `Tarifa de precios en hoja de cálculo (${meta.adjunto})` : `Hoja de cálculo: ${meta.adjunto}. Si es una tarifa, márcala como tarifa.` }
+  const prov = await buscarProveedor(meta.remitente, null, nifPropio)
+  if (prov) {
+    fila.proveedor_codigo = prov.codigo
+    fila.proveedor_por = prov.por
+  }
+  return fila
+}
+
 Deno.serve(async (req) => {
   let cuerpo: { orden?: number } = {}
   try {
@@ -390,6 +419,7 @@ Deno.serve(async (req) => {
       const id = Number((o.parametros as { documento?: number })?.documento)
       const { data: d } = await sb.from('correo_proveedor_documento').select('*').eq('id', id).maybeSingle()
       if (!d?.archivo) throw new Error(`No encuentro el documento ${id} o no tiene PDF guardado.`)
+      if (!/\.pdf$/i.test(d.archivo)) throw new Error(`El documento ${id} es una hoja de cálculo: no se relee con IA.`)
       const { data: f, error: e } = await sb.storage.from('correo_proveedores').download(d.archivo)
       if (e || !f) throw new Error('No se ha podido leer el PDF guardado.')
       const fila = await analizar(new Uint8Array(await f.arrayBuffer()), { remitente: d.remitente ?? '', remitenteNombre: d.remitente_nombre, asunto: d.asunto ?? '', adjunto: d.adjunto_nombre, recibido: d.recibido_en ?? '' }, apiKey, modelo, nifPropio)
@@ -449,11 +479,10 @@ Deno.serve(async (req) => {
         ultimo = m.receivedDateTime
         continue
       }
-      // Primero la lista (sin el contenido); luego solo se descargan los PDF.
+      // Primero la lista (sin el contenido); luego solo se descargan los PDF y las hojas de cálculo.
       const adj = await graph<{ value: Adjunto[] }>(token, `/users/${encodeURIComponent(buzon)}/messages/${m.id}/attachments?$select=id,name,contentType,size`)
-      const pdfs = (adj.value ?? []).filter(
-        (a) => a['@odata.type'] === '#microsoft.graph.fileAttachment' && (/pdf/i.test(a.contentType ?? '') || /\.pdf$/i.test(a.name)),
-      )
+      // PDF (se leen con IA) y hojas de cálculo (Excel/CSV: las tarifas de los proveedores, 28/11/2026).
+      const pdfs = (adj.value ?? []).filter((a) => a['@odata.type'] === '#microsoft.graph.fileAttachment' && (esPdf(a) || esHoja(a.name)))
       let completoMensaje = true
       for (const a of pdfs) {
         const { data: ya } = await sb.from('correo_proveedor_documento').select('id').eq('mensaje_id', idMensaje).eq('adjunto_nombre', a.name).maybeSingle()
@@ -475,16 +504,18 @@ Deno.serve(async (req) => {
           tamano: a.size ?? null,
         }
         try {
-          if ((a.size ?? 0) > MAX_PDF_BYTES * 1.4) throw new Error('El PDF pesa más de 12 MB: míralo a mano.')
+          const pdf = esPdf(a)
+          if ((a.size ?? 0) > MAX_PDF_BYTES * 1.4) throw new Error('El fichero pesa más de 12 MB: míralo a mano.')
           const completo = await graph<Adjunto>(token, `/users/${encodeURIComponent(buzon)}/messages/${m.id}/attachments/${a.id}`)
-          if (!completo.contentBytes) throw new Error('Microsoft no ha dado el contenido del PDF.')
+          if (!completo.contentBytes) throw new Error('Microsoft no ha dado el contenido del fichero.')
           const bytes = Uint8Array.from(atob(completo.contentBytes), (c) => c.charCodeAt(0))
-          if (bytes.length > MAX_PDF_BYTES) throw new Error('El PDF pesa más de 12 MB: míralo a mano.')
-          const ruta = `${m.receivedDateTime.slice(0, 7)}/${crypto.randomUUID()}.pdf`
-          const sube = await sb.storage.from('correo_proveedores').upload(ruta, bytes, { contentType: 'application/pdf' })
-          if (sube.error) throw new Error(`No se ha podido guardar el PDF: ${sube.error.message}`)
+          if (bytes.length > MAX_PDF_BYTES) throw new Error('El fichero pesa más de 12 MB: míralo a mano.')
+          const ext = pdf ? 'pdf' : extension(a.name)
+          const ruta = `${m.receivedDateTime.slice(0, 7)}/${crypto.randomUUID()}.${ext}`
+          const sube = await sb.storage.from('correo_proveedores').upload(ruta, bytes, { contentType: pdf ? 'application/pdf' : tipoMime(ext) })
+          if (sube.error) throw new Error(`No se ha podido guardar el fichero: ${sube.error.message}`)
           fila.archivo = ruta
-          fila = { ...fila, ...(await analizar(bytes, meta, apiKey, modelo, nifPropio)) }
+          fila = { ...fila, ...(pdf ? await analizar(bytes, meta, apiKey, modelo, nifPropio) : await analizarHoja(meta, nifPropio)) }
           tipos[String(fila.tipo ?? 'sin_clasificar')] = (tipos[String(fila.tipo ?? 'sin_clasificar')] ?? 0) + 1
           if (Number(fila.diferencias ?? 0) > 0) conDiferencias++
         } catch (e) {
@@ -493,7 +524,7 @@ Deno.serve(async (req) => {
         }
         await sb.from('correo_proveedor_documento').insert(fila)
       }
-      // Todos sus PDF ya están en el ERP: se marca en Outlook (una vez; si ya lo tiene, no se toca).
+      // Todos sus adjuntos ya están en el ERP: se marca en Outlook (una vez; si ya lo tiene, no se toca).
       if (completoMensaje && pdfs.length && !avisoMarcar) {
         avisoMarcar = await marcarProcesado(token, buzon, m.id, m.categories ?? [], categoria)
       }
@@ -504,7 +535,7 @@ Deno.serve(async (req) => {
   }
   const { count } = await sb.from('correo_proveedor_documento').select('id', { count: 'exact', head: true }).eq('buzon', buzon)
   await apunta({ ultimo_recibido: ultimo, ultimo_error: error, documentos_total: count ?? 0 })
-  const nombres: Record<string, string> = { propuesta: 'propuestas', factura: 'facturas', albaran: 'albaranes', otro: 'otros', sin_clasificar: 'sin clasificar' }
+  const nombres: Record<string, string> = { propuesta: 'propuestas', factura: 'facturas', albaran: 'albaranes', tarifa: 'tarifas', otro: 'otros', sin_clasificar: 'sin clasificar' }
   const resumen = procesados
     ? `${procesados} documentos nuevos (${Object.entries(tipos).map(([k, v]) => `${v} ${nombres[k] ?? k}`).join(', ')})${conDiferencias ? `; ${conDiferencias} con diferencias con su pedido` : ''}.`
     : 'Sin documentos nuevos.'
