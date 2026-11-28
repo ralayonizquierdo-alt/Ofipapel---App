@@ -753,7 +753,7 @@ test('proveedor de netos con margen: se compara en precio de venta, al cliente l
   assert.equal(A.estado, 'ok', '7 de coste con 30 % de beneficio = 10, lo que apuntó el comercial');
   assert.equal(A.ventaPropuesta, 10);
   assert.equal(B.ventaPropuesta, 5.71);
-  assert.match(B.motivos.find((m) => m.tipo === 'precio').texto, /Precio de venta 5,00 → 5,71 .*coste del proveedor 4,00 con 30 % de beneficio/);
+  assert.match(B.motivos.find((m) => m.tipo === 'precio').texto, /Precio de venta: nuestro pedido 5,00 € · proveedor 5,71 € → 0,71 € más caro .*coste del proveedor 4,00 € con 30 % de beneficio/);
   const dec = { B: { accion: 'aceptar' }, C: { accion: 'mantener' } };
   const r = CP.aplicarDecisiones(filas, dec, { comercial: true });
   const l = (ref) => r.lineas.find((x) => x.ref === ref);
@@ -1211,4 +1211,35 @@ test('«Precio por 12 PCA»: a Géminis va el precio por unidad, sin descuento i
   assert.equal(g.precio, 0.76583);
   assert.ok(Math.abs(g.dto) < 1, 'sin descuento del 91 %');
   assert.equal(CP.sinDudaPorPaquete({ ref: 'A', cant: 12, precio: 9.19, importe: 9.19, duda: 'Precio por 12 PCA · el importe 9,19 no sale de precio × cantidad − descuentos (110,28)' }).duda, '');
+});
+
+test('bloques con la referencia del proveedor («Su pedido: XX-509»): uno de un pedido y otro de varios', () => {
+  const L = (ref, cant) => ({ ref, cant, importe: 10 * cant });
+  const pedidos = [
+    { id: 'a', numero: '1', cliente: 'UNO', lineas: [L('111', 1), L('112', 1)] },
+    { id: 'b', numero: '2', cliente: 'DOS', lineas: [L('221', 1), L('222', 2)] },
+    { id: 'c', numero: '5', cliente: 'TIENDA', lineas: [L('501', 2), L('502', 1), L('503', 1)] },
+  ];
+  const doc = [
+    { ...L('501', 2), bloque: 'Su pedido: XX-509' }, { ...L('502', 1), bloque: 'Su pedido: XX-509' }, { ...L('503', 1), bloque: 'Su pedido: XX-509' },
+    { ...L('111', 1), bloque: 'Su pedido: XX-516' }, { ...L('112', 1), bloque: 'Su pedido: XX-516' },
+    { ...L('221', 1), bloque: 'Su pedido: XX-516' }, { ...L('222', 2), bloque: 'Su pedido: XX-516' }, { ...L('999', 1), bloque: 'Su pedido: XX-516' },
+  ];
+  const r = CP.repartirPorReferencias(doc, pedidos);
+  assert.equal(r.porPedido.get('c').length, 3);
+  assert.equal(r.porPedido.get('a').length, 2);
+  assert.equal(r.porPedido.get('b').length, 2);
+  assert.deepEqual(r.sobrantes.map((l) => l.ref), ['999']);
+  assert.equal(r.bloquesSinDueno.length, 0);
+  // Un nº que sí es de un pedido de la campaña sigue mandando el bloque entero
+  assert.equal(CP.bloqueDeVarios('Pedido 2_ B2F', doc.slice(3), pedidos), false);
+});
+
+test('reposición: a Géminis solo va lo que manda el proveedor (Michel 95524)', () => {
+  const pedido = [{ ref: '00140403', cant: 20, precio: 1.12 }, { ref: '00140403', cant: 20, precio: 1.12 }, { ref: '05529229', cant: 10, precio: 14.25 }, { ref: '02390229', cant: 2, precio: 9.94 }];
+  const prop = [{ ref: '00140403', cant: 20, precio: 1.16, importe: 23.2 }, { ref: '02390229', cant: 2, precio: 9.942, importe: 19.88 }];
+  const filas = CP.compararPedido(pedido, prop, { tipo: 'reposicion' }).filas || CP.compararPedido(pedido, prop, { tipo: 'reposicion' });
+  const r = CP.aplicarDecisiones(filas, { '00140403': { accion: 'excluir' }, '05529229': { accion: 'mantener' }, '02390229': { accion: 'aceptar' } }, { comercial: false });
+  const refs = r.lineas.map((l) => l.ref + 'x' + l.cant).sort();
+  assert.deepEqual(refs, ['00140403x20', '02390229x2']);
 });

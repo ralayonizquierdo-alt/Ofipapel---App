@@ -16,7 +16,7 @@
 <!-- La versión en la URL obliga a bajar la lógica nueva junto con el HTML (que
      nunca se cachea). Sin ella, un móvil cargó el HTML nuevo con la lógica
      vieja y la app se quedó trabada (2026-10-07). Cámbiala al tocar la lógica. -->
-<script src="control-pedidos-logica.js?v=2026-11-13-3"></script>
+<script src="control-pedidos-logica.js?v=2026-11-25-1"></script>
 <!--
   Control de pedidos del comercial: compara lo que el comercial apuntó a mano
   con la propuesta que manda el proveedor, obliga a decidir cada discordancia,
@@ -703,7 +703,7 @@ function bloquePasos(g) {
   // Comercial: las entregas del proveedor en una tabla, siempre a la vista.
   const entregas = repo ? '' : tablaEntregas(g, por);
   if (por.has('geminis')) filas.push(fila('③', 'Subir a Géminis', '',
-    `<button class="btn peque" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel Géminis</button>` +
+    `<button class="btn peque" onclick="exportarSeleccionados(this.closest('details.grupo'))">📥 Excel Géminis</button>` +
     (por.get('geminis') || []).map(({ p }) => `<button class="btn peque" onclick="subidoAGeminis('${p.id}')">☐ Subido a Géminis${p.numero ? ' · nº ' + h(p.numero) : ''}</button>`).join('')));
   // Lo facturado que no acaba en ningún cliente también es algo por resolver.
   const cu = repo ? { difs: [] } : cuadreCampana(g.pedidos);
@@ -953,7 +953,7 @@ function vistaGrupo(g, i) {
         <input type="file" accept="image/*" multiple class="oculto" onchange="subirFotosCampana(this.files, ${js(ej.proveedor)}, ${js(ej.campana || '')}); this.value=''"></label>
       <button class="btn" onclick="otroPedidoCampana(${js(ej.proveedor)}, ${js(ej.campana || '')})">✍️ Añadir pedido a mano a esta campaña</button>
       <button class="btn primario" onclick="avisarCompras(${js(g.clave)})">📣 Avisar a compras: pedidos listos</button>
-      ${esComercial() ? '' : `<button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details'))">📧 Enviar pedidos al proveedor</button>
+      ${esComercial() ? '' : `<button class="btn primario" onclick="prepararEnvio(${js(g.clave)}, this.closest('details.grupo'))">📧 Enviar pedidos al proveedor</button>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">📄 Cargar propuestas del proveedor de esta campaña
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="Para el proveedor que lo factura todo junto, sin separar por cliente: cada línea va al pedido que pidió esa referencia">🧩 Factura de todo junto: repartirla por referencias
@@ -962,7 +962,7 @@ function vistaGrupo(g, i) {
       <button class="btn peque" onclick="renombrarCampana(${js(g.clave)})">✏️ ${ej.campana ? 'Renombrar' : 'Poner nombre a'} la campaña</button>`}
       ${esComercial() ? '' : `${esRepo(ej) ? `<label class="btn primario" style="flex-direction:row;align-items:center;justify-content:center;gap:6px;color:#fff">📄 Subir propuesta o factura del proveedor (PDF o Excel)
         <input type="file" multiple class="oculto" onchange="cargarPropuestasVarias(this.files, ${js(g.clave)}); this.value=''"></label>` : ''}
-      <button class="btn" onclick="exportarSeleccionados(this.closest('details'))">📥 Excel de la compra al proveedor (Géminis)</button>
+      <button class="btn" onclick="exportarSeleccionados(this.closest('details.grupo'))">📥 Excel de la compra al proveedor (Géminis)</button>
       ${esRepo(ej) ? '' : `<label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px" title="La «Propuesta de Pedido» de Géminis (PDF) de esta campaña: sus Cod.Venta salen en la guía de facturación">🏷️ Subir nuestra liquidación de Géminis (códigos internos)
         <input type="file" multiple class="oculto" onchange="cargarCodigosCampana(this.files, ${js(g.clave)}); this.value=''"></label>`}
       <label class="btn" style="flex-direction:row;align-items:center;justify-content:center;gap:6px">🔎 Último control: subir facturas finales${esRepo(ej) ? ' (opcional)' : ''}
@@ -1968,6 +1968,7 @@ function vistaComparacion(p, filas) {
             <select onchange="decide(${js(f.ref)},'accion',this.value)">
               <option value="">— decidir —</option>
               ${acciones.map((a) => `<option value="${a}" ${d.accion === a ? 'selected' : ''}>${a === 'aceptar' && f.cantPropuesta > f.cantPedida ? (esRepo(p) ? 'Aceptar: nos lo quedamos' : '➕ Sumarlo al pedido del cliente') : nombres[a]}</option>`).join('')}
+              ${f.estado === 'extra' ? E.pedidos.filter((q) => q.id !== p.id && claveGrupo(q) === claveGrupo(p) && !q.sobrantes && !q.archivado).sort((a, b) => String(a.numero).localeCompare(String(b.numero), 'es', { numeric: true })).map((q) => `<option value="pasar:${h(q.id)}">📦 Pasar al pedido ${h(nPed(q.numero))}${q.cliente ? ' (' + h(q.cliente) + ')' : ''}</option>`).join('') : ''}
               ${f.estado === 'falta' ? filas.filter((x) => x.estado === 'extra').map((x) => `<option value="eq:${h(x.ref)}">🔗 Es la «${h(x.ref)}» del proveedor (${h(String(x.desc || '').slice(0, 30))})</option>`).join('') : ''}
             </select>
             ${d.accion === 'manual' ? `<div class="fila" style="margin-top:4px"><input class="cant" placeholder="Cant." value="${h(d.cant)}" onchange="decide(${js(f.ref)},'cant',this.value)"><input class="precio" placeholder="${esRepo(p) ? 'Neto' : 'Precio'}" value="${h(d.precio)}" onchange="decide(${js(f.ref)},'precio',this.value)"></div>` : ''}
@@ -2617,6 +2618,18 @@ function decidirEnBloque(accion) {
 function decide(ref, campo, valor) {
   const p = pedidoActual();
   if (campo === 'accion' && String(valor).startsWith('eq:')) { emparejar(String(valor).slice(3), ref); return; }
+  // 24/11/2026, propietario: pasar a mano lo que viene sin pedir (o en «SIN CLIENTE») a un pedido de la campaña.
+  // Un solo paso (propietario, 24/11/2026): queda sumada al cliente y los dos pedidos se revalidan solos si no les queda nada por decidir.
+  if (campo === 'accion' && String(valor).startsWith('pasar:')) {
+    const q = pedidoPorId(String(valor).slice(6));
+    if (!pasarAOtroPedido(ref, q.id, true)) return;
+    q.decisiones[ref] = { accion: 'aceptar' };
+    const okQ = validarPedido(q, true);
+    validarPedido(p, true);
+    guardar(); pintar();
+    alert(`«${ref}» sumada al pedido ${nPed(q.numero)}${q.cliente ? ' (' + q.cliente + ')' : ''}${okQ ? ' y validado.' : '. A ese pedido le quedan otras diferencias por decidir.'}`);
+    return;
+  }
   p.decisiones[ref] = Object.assign({}, p.decisiones[ref], { [campo]: valor });
   // La nota para el proveedor solo cambia el texto de la reclamación: no hay que revalidar.
   if (campo !== 'motivo') invalidar(p);
@@ -3604,11 +3617,11 @@ async function cargarFacturasVarias(files, clave) {
 }
 
 // ── Validar: restos y notas ──────────────────────────────────────────────────
-function validarPedido() {
-  const p = pedidoActual();
+function validarPedido(otro, silencioso) {
+  const p = otro || pedidoActual();
   let r;
   try { r = CP.aplicarDecisiones(comparar(p), p.decisiones, { comercial: !esRepo(p) }); }
-  catch (err) { alert(err.message); return; }
+  catch (err) { if (silencioso) return false; alert(err.message); return; }
 
   // Los restos de este pedido que ya tienen llegadas registradas no se tocan;
   // el resto se regenera desde las decisiones actuales. (Una reposición no
@@ -3637,6 +3650,7 @@ function validarPedido() {
     }
   }
   guardar(); pintar();
+  if (silencioso) return true;
   alert(esRepo(p)
     ? `Reposición validada: ${r.lineas.length} líneas, ${r.notas.length} notas. Precios netos guardados para la próxima comparación.`
     : `Pedido validado: ${r.lineas.length} líneas, ${r.restos.length} a restos, ${r.notas.length} notas de facturación.`);

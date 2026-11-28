@@ -322,9 +322,9 @@
           fila.estado = 'cambio';
           fila.motivos.push({
             tipo: 'precio',
-            texto: `${fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? 'Precio de tarifa' : 'Precio de venta') : neto ? 'Precio neto' : 'Precio'} ${fmt(antes)} → ${fmt(ahora)} (${dif > 0 ? '+' : ''}${fmt(dif)})` +
-              (fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? ` · neto del proveedor ${fmt(b.neto)}` : ` · coste del proveedor ${fmt(b.neto)} con ${textoAjuste(ajuste)}`) : '') +
-              (fila.precioDeHistorial ? ' respecto al último precio aceptado' : ''),
+            // 24/11/2026, propietario: «21,75 → 15,23 (-6,52)» no se entendía.
+            texto: `${fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? 'Precio de tarifa' : 'Precio de venta') : neto ? 'Precio neto' : 'Precio'}: ${fila.precioDeHistorial ? 'último aceptado' : 'nuestro pedido'} ${fmt(antes)} € · proveedor ${fmt(ahora)} € → ${fmt(Math.abs(dif))} € ${dif > 0 ? 'más caro' : 'más barato'}` +
+              (fila.ventaPropuesta != null ? (ajuste.modo === 'tarifa' ? ` · neto del proveedor ${fmt(b.neto)} €` : ` · coste del proveedor ${fmt(b.neto)} € con ${textoAjuste(ajuste)}`) : ''),
             revisar: fuera,
             informativo: !fuera,
           });
@@ -810,6 +810,10 @@
       switch (d.accion) {
         case 'excluir':
         case 'anular':
+          // Reposición (24/11/2026, Michel 95524): a Géminis va lo que factura el
+          // proveedor. Si de una línea pedida viene parte (40 → 20), «excluir»
+          // quita lo que no viene, no lo que sí llega.
+          if (!comercial && d.accion === 'excluir' && f.cantPedida > 0 && f.cantPropuesta > 0) lineas.push(propuesta(Math.min(f.cantPropuesta, f.cantPedida)));
           break;
         case 'resto':
           if (f.cantPropuesta > 0) lineas.push(propuesta(f.cantPropuesta));
@@ -824,7 +828,8 @@
           break;
         }
         case 'mantener':
-          if (f.cantPedida > 0) lineas.push(pedido(f.cantPedida));
+          // Reposición: lo que el proveedor no manda no se compra, aunque se mantenga en nuestro pedido.
+          if (f.cantPedida > 0 && (comercial || f.cantPropuesta > 0)) lineas.push(pedido(f.cantPedida));
           break;
         case 'manual': {
           const cant = parseNum(d.cant);
@@ -1232,12 +1237,33 @@
       }
       const mias = palabrasEtiqueta(bloque);
       const p = (pedidos || []).find((q) => numero(q.numero) === n);
-      if (!p) return null;
+      // Un nº que no es de ningún pedido de la campaña («Su pedido: iPadFG-509»,
+      // Joumma, 24/11/2026) es la referencia del proveedor: se mira el contenido.
+      if (p) {
       if (conocidas.size && mias.size) return [...mias].some((w) => conocidas.has(w)) ? p : null;
       return comun(p) * 3 >= refs.length ? p : null;
+      }
     }
     const v = (pedidos || []).map((p) => [p, comun(p)]).filter(([, c]) => refs.length && c * 2 >= refs.length).sort((a, b) => b[1] - a[1]);
     return v.length && (v.length === 1 || v[0][1] > v[1][1]) ? v[0][0] : null;
+  }
+
+  /**
+   * Un bloque sin dueño que es la suma de varios pedidos de la campaña (Joumma,
+   * 24/11/2026: «Su pedido: iPadFG-516» traía juntos los pedidos 1 a 4): si su
+   * nº no es de ningún pedido y al menos el 80 % de sus referencias las pide
+   * algún pedido, se reparte por referencias como una factura sin bloques. Un
+   * nº que sí es de un pedido («Pedido 5_ B2F» de otra campaña) nunca entra aquí.
+   */
+  function bloqueDeVarios(bloque, lineasBloque, pedidos) {
+    const m = String(bloque || '').match(/\d+/);
+    const n = m ? Number(m[0]) : null;
+    if (n != null && (pedidos || []).some((q) => { const k = String(q.numero || '').match(/\d+/); return k && Number(k[0]) === n; })) return false;
+    const refs = [...new Set((lineasBloque || []).map((l) => claveRef(l.ref)).filter(Boolean))];
+    if (refs.length < 2) return false;
+    const pedidas = new Set();
+    for (const p of pedidos || []) for (const l of p.lineas || []) if ((parseNum(l.cant) || 0) > 0) pedidas.add(claveRef(l.ref));
+    return refs.filter((r) => pedidas.has(r)).length * 5 >= refs.length * 4;
   }
 
   function repartirPorReferencias(lineasDoc, pedidos, opciones) {
@@ -1256,13 +1282,15 @@
     const bloques = new Map();
     for (const l of lineasDoc || []) if (l && l.bloque) { if (!bloques.has(l.bloque)) bloques.set(l.bloque, []); bloques.get(l.bloque).push(l); }
     const dueno = new Map();
+    const deVarios = new Set();
     for (const [b, ls] of bloques) {
       const d = duenoDeBloque(b, ls, o.todos || lista);
       dueno.set(b, d ? d.id : null);
-      if (!d) bloquesSinDueno.push(b);
+      if (!d && bloqueDeVarios(b, ls, o.todos || lista)) deVarios.add(b);
+      else if (!d) bloquesSinDueno.push(b);
     }
     for (const l of lineasDoc || []) {
-      if (l && l.bloque) {
+      if (l && l.bloque && !deVarios.has(l.bloque)) {
         const id = dueno.get(l.bloque);
         if (id && falta.has(id)) { dar(id, l); const f = falta.get(id); const k = claveRef(l.ref); if (f.has(k)) f.set(k, f.get(k) - (parseNum(l.cant) || 0)); }
         // Su dueño no admite reparto (ya validado) o no tiene dueño: aparte, sin tocar a otros pedidos.
@@ -2031,7 +2059,7 @@
     TOLERANCIA, PLANTILLA_GEMINIS,
     leerPedidoGeminis, pedidosParaProveedor, firma, documentosDe, aplicarDocumento, cambiosPendientes, integrarSubida, integrarBajada,
     normRef, parseNum, red2, fmt, agrupar,
-    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, precioPorPaquete, sinDudaPorPaquete, separarPorPedido, leerFacturaApli, repartirPorReferencias, duenoDeBloque, fotosRepetidas, firmaLineas,
+    facturaDeLinea, parseDtos, precioNeto, claveRef, marcarAlta, codigosAlta, aliasAltas, fusionarAltas, REF_ALTA, compararPedido, faltasYSobras, faltasPendientes, controlFactura, restosDeFactura, hojasDelPedido, ordenarComoPropuesta, parecidoLineas, repartirPorContenido, textoReclamacion, aReclamar, leerTarifa, precioVenta, precioCoste, filasGeminisLuis, sugerenciasCatalogo, accionesPara, sinDecidir, decisionesQueSiguen, aplicarDecisiones, lineasParaGeminis, lineasDeDocumento, precioPorPaquete, sinDudaPorPaquete, separarPorPedido, leerFacturaApli, repartirPorReferencias, duenoDeBloque, bloqueDeVarios, fotosRepetidas, firmaLineas,
     sugerirAsignacion, restosQueLlegan, codigosInternos, refParaGeminis, emparejarReferencias, explicarDiferencias, cuadreArticulos, descuentoEquivalente, leerPropuesta, filasGeminis,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
